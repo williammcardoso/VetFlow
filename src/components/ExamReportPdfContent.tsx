@@ -218,7 +218,13 @@ const styles = StyleSheet.create({
     fontSize: 9,
     fontWeight: "bold",
     textAlign: "right",
-    // lineHeight: 1.2, // Removido
+    width: '45%', // Largura para o valor relativo
+  },
+  leukocyteResultTextAbsolute: {
+    fontSize: 9,
+    fontWeight: "bold",
+    textAlign: "right",
+    width: '55%', // Largura para o valor absoluto
   },
 
   paramReferenceContainer: {
@@ -231,13 +237,19 @@ const styles = StyleSheet.create({
     fontSize: 7,
     color: "#666",
     textAlign: "right",
-    // lineHeight: 1.2, // Removido
+    width: '50%', // Largura para a referência relativa
+  },
+  paramReferenceTextAbsolute: {
+    fontSize: 7,
+    color: "#666",
+    textAlign: "right",
+    width: '50%', // Largura para a referência absoluta
   },
   indicatorColumn: {
     width: 130, // Ocupa o espaço restante
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'flex-start', // Alinhado à esquerda
   },
   indicatorBarBackground: {
     width: '100%', // Preenche a largura total da coluna
@@ -483,11 +495,11 @@ export const ExamReportPdfContent = ({
         <Text style={styles.paramName}>{label}</Text>
         <View style={styles.leukocyteResultContainer}>
           <Text style={[styles.leukocyteResultText, relResultStyle]}>{relativeValue}%</Text>
-          <Text style={[styles.leukocyteResultText, absResultStyle, { marginLeft: 5 }]}>{absoluteValue}/µL</Text>
+          <Text style={[styles.leukocyteResultTextAbsolute, absResultStyle]}>{absoluteValue}/µL</Text>
         </View>
         <View style={styles.paramReferenceContainer}>
           <Text style={styles.paramReferenceText}>{relRef?.relative || 'N/A'}</Text>
-          <Text style={[styles.paramReferenceText, { marginLeft: 5 }]}>{absRef?.absolute || 'N/A'}</Text>
+          <Text style={styles.paramReferenceTextAbsolute}>{absRef?.absolute || 'N/A'}</Text>
         </View>
         <View style={styles.indicatorColumn}>
           {indicatorMin !== undefined && indicatorMax !== undefined && !isNaN(normalizeNumber(indicatorValue)) ? (
