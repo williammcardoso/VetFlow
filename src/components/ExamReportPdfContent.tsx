@@ -503,7 +503,8 @@ const parseLeukocyteReference = (refString: string | undefined) => {
 // Helper function to parse min/max from a reference string like "3.000 - 11.500 /µL"
 const parseMinMaxFromReferenceString = (refString: string | undefined): { min: number; max: number } | undefined => {
   if (!refString) return undefined;
-  const match = refString.match(/^(\S+)\s*-\s*(\S+)/); // Matches "VALUE1 - VALUE2"
+  const trimmedRefString = refString.trim(); // Adicionado .trim()
+  const match = trimmedRefString.match(/^(\S+)\s*-\s*(\S+)/); // Matches "VALUE1 - VALUE2"
   if (match) {
     const min = normalizeNumber(match[1]);
     const max = normalizeNumber(match[2]);
@@ -512,7 +513,7 @@ const parseMinMaxFromReferenceString = (refString: string | undefined): { min: n
     }
   }
   // Handle single value cases like "0" or "0 %" if min/max are not explicitly a range
-  const singleValue = normalizeNumber(refString);
+  const singleValue = normalizeNumber(trimmedRefString); // Adicionado .trim()
   if (!isNaN(singleValue)) {
     return { min: singleValue, max: singleValue };
   }
@@ -533,7 +534,7 @@ export const ExamReportPdfContent = ({
 
   const getValueStatus = (value: string | undefined, ref: { min: number | undefined; max: number | undefined } | undefined): 'normal' | 'high' | 'low' | 'invalid' => {
     if (!value || !ref || ref.min === undefined || ref.max === undefined) return 'invalid';
-    const numValue = normalizeNumber(value);
+    const numValue = normalizeNumber(value.trim()); // Adicionado .trim()
     if (isNaN(numValue)) return 'invalid';
 
     const min = ref.min;
