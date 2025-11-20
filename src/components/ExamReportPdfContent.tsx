@@ -27,8 +27,17 @@ const formatDateToPortuguese = (date: Date) => {
 // Normalizador de números (remove separador de milhar e troca vírgula por ponto)
 const normalizeNumber = (raw: string | undefined) => {
   if (!raw) return NaN;
-  // Remove todos os pontos (separadores de milhar) e substitui a vírgula (separador decimal) por ponto.
-  return parseFloat(raw.replace(/\./g, '').replace(/,/g, '.'));
+  let cleaned = raw.trim();
+
+  // Remove todas as vírgulas (assumindo que são separadores de milhares)
+  cleaned = cleaned.replace(/,/g, '');
+
+  // Remove todos os pontos, EXCETO o último (assumindo que o último ponto é o separador decimal)
+  // Se não houver pontos, ou apenas um, ele será mantido.
+  // Se houver múltiplos pontos, todos, exceto o último, serão removidos.
+  cleaned = cleaned.replace(/\.(?=[^.]*$)/g, '');
+
+  return parseFloat(cleaned);
 };
 
 // Nova função para formatar números para exibição (com separador de milhar e decimal correto)
@@ -534,7 +543,7 @@ export const ExamReportPdfContent = ({
 
   const getValueStatus = (value: string | undefined, ref: { min: number | undefined; max: number | undefined } | undefined): 'normal' | 'high' | 'low' | 'invalid' => {
     if (!value || !ref || ref.min === undefined || ref.max === undefined) return 'invalid';
-    const numValue = normalizeNumber(value.trim()); // Adicionado .trim()
+    const numValue = normalizeNumber(value);
     if (isNaN(numValue)) return 'invalid';
 
     const min = ref.min;
@@ -736,7 +745,7 @@ export const ExamReportPdfContent = ({
             <Text style={styles.sectionTitle}>LEUCOGRAMA</Text>
             {/* Custom header for Leukogram */}
             <View style={styles.leukogramHeader}>
-              <Text style={styles.leukogramHeaderName}>NOME DO PARÂMETRO</Text>
+              <Text style={[styles.leukogramHeaderName]}>NOME DO PARÂMETRO</Text>
               <View style={styles.leukogramHeaderResults}>
                 <Text style={styles.leukogramHeaderSub}>Relativo:</Text>
                 <Text style={styles.leukogramHeaderSub}>Absoluto:</Text>
