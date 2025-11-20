@@ -176,7 +176,7 @@ const styles = StyleSheet.create({
     width: 120, // NOME DO PARÂMETRO
   },
   headerCellResult: {
-    width: 100, // RESULTADO
+    width: 150, // RESULTADO - AUMENTADO
     textAlign: "right",
   },
   headerCellReference: {
@@ -206,7 +206,7 @@ const styles = StyleSheet.create({
     paddingLeft: 5,
   },
   leukogramHeaderResults: {
-    width: 100, // Combined width for relative and absolute results
+    width: 150, // Combined width for relative and absolute results - AUMENTADO
     flexDirection: 'column', // Changed to column
     alignItems: 'flex-end', // Align sub-headers to the right
     justifyContent: 'center',
@@ -246,7 +246,7 @@ const styles = StyleSheet.create({
   },
   // For single-value results (Eritrograma, Plaquetas)
   paramResultContainer: {
-    width: 100,
+    width: 150, // AUMENTADO
     flexDirection: 'column', // Changed to column to allow multiple lines if needed
     alignItems: 'flex-end',
     justifyContent: 'center',
@@ -258,7 +258,7 @@ const styles = StyleSheet.create({
   },
   // For multi-value results (Leukogram)
   leukocyteResultContainer: {
-    width: 100,
+    width: 150, // AUMENTADO
     flexDirection: 'row', // Alterado para row
     alignItems: 'center', // Centraliza verticalmente
     justifyContent: 'flex-end', // Alinha à direita
