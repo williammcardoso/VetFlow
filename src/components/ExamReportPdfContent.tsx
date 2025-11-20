@@ -245,7 +245,7 @@ const styles = StyleSheet.create({
   // Column 2: Relative Separator
   refSep: {
     width: 8, 
-    textAlign: 'center',
+    textAlign: 'right', // Alterado para 'right'
   },
   // Column 3: Relative Value 2
   refVal2: {
@@ -269,7 +269,7 @@ const styles = StyleSheet.create({
   // Column 7: Absolute Separator
   refSepAbs: { // Specific style for absolute separator if needed, or reuse refSep
     width: 8, 
-    textAlign: 'center',
+    textAlign: 'right', // Alterado para 'right'
   },
   // Column 8: Absolute Value 2
   refVal2Abs: {
