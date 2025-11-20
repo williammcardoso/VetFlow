@@ -236,29 +236,28 @@ const styles = StyleSheet.create({
   referencePartWrapper: { // Wrapper para cada parte (relativo/absoluto)
     flexDirection: 'row',
     alignItems: 'center',
-    width: '45%', // Cada parte (relativo/absoluto) ocupa 45% do espaço
-    // justifyContent: 'flex-end', // Alinha o conteúdo à direita dentro do seu espaço
+    width: 50, // Fixed width for each part (e.g., 50px)
   },
   referenceValueText: {
     fontSize: 7,
     color: "#666",
-    width: '35%', // Largura ajustada para valores
+    width: 18, // Fixed width for values
     textAlign: "right",
   },
   referenceSeparatorText: {
     fontSize: 7,
     color: "#666",
-    width: '15%', // Largura ajustada para separador
+    width: 8, // Fixed width for separator
     textAlign: "center",
   },
   referenceUnitText: {
     fontSize: 7,
     color: "#666",
-    width: '25%', // Largura ajustada para unidade
+    width: 6, // Fixed width for unit
     textAlign: "left",
   },
   referenceSpacer: {
-    width: '10%', // Espaçador maior entre as partes relativa e absoluta
+    width: 20, // Fixed width for spacer between relative and absolute parts
   },
   indicatorColumn: {
     width: 130, // Fixed width for the column
