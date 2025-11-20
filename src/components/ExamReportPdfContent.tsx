@@ -333,11 +333,14 @@ const styles = StyleSheet.create({
     // Background color will be set dynamically
     top: 0, // Centered vertically within the 8px bar
   },
-  // REMOVED OLD STYLES:
-  // indicatorBarBackground: { ... },
-  // indicatorBarNormalRange: { ... },
-  // indicatorMarker: { ... },
-  // indicatorRefText: { ... },
+  // NEW: Styles for fixed indicators at 15% and 85%
+  fixedIndicator: {
+    position: 'absolute',
+    width: 1, // Thin vertical line
+    height: '100%', // Full height of the bar
+    backgroundColor: '#999999', // Grey color
+    top: 0,
+  },
 
   resultNormal: {
     color: "#000000", // Black for normal
@@ -413,7 +416,8 @@ const IndicatorBar: React.FC<IndicatorBarProps> = ({ value, minRef, maxRef, valu
   if (isNaN(numValue)) {
     return (
       <View style={styles.fixedBackgroundBar}>
-        {/* No ball rendered */}
+        <View style={[styles.fixedIndicator, { left: ACTIVE_RANGE_START_PERCENT * BAR_WIDTH }]} />
+        <View style={[styles.fixedIndicator, { left: ACTIVE_RANGE_END_PERCENT * BAR_WIDTH }]} />
       </View>
     );
   }
@@ -452,6 +456,8 @@ const IndicatorBar: React.FC<IndicatorBarProps> = ({ value, minRef, maxRef, valu
 
   return (
     <View style={styles.fixedBackgroundBar}>
+      <View style={[styles.fixedIndicator, { left: ACTIVE_RANGE_START_PERCENT * BAR_WIDTH }]} />
+      <View style={[styles.fixedIndicator, { left: ACTIVE_RANGE_END_PERCENT * BAR_WIDTH }]} />
       <View style={[styles.ballMarker, { left: ballLeftPosition, backgroundColor: ballColor }]} />
     </View>
   );
@@ -663,7 +669,7 @@ export const ExamReportPdfContent = ({
           <View style={styles.clinicAddressPhone}>
             <Text>{mockCompanySettings.address}</Text>
             <Text>{mockCompanySettings.city} - CEP: {mockCompanySettings.zipCode}</Text>
-            <Text>Telefone: {mockCompanySettings.phone}</Text>
+            <Text>Telefone: (19) 99363-1981</Text>
           </View>
         </View>
 
