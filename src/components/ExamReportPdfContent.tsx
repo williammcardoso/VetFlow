@@ -273,12 +273,12 @@ const styles = StyleSheet.create({
   },
   // Column 8: Absolute Value 2
   refVal2Abs: {
-    width: 19, 
+    width: 21, // Aumentado de 19 para 21
     textAlign: 'right',
   },
   // Column 9: Absolute Unit
   refUnitAbs: {
-    width: 18, 
+    width: 16, // Diminuído de 18 para 16
     textAlign: 'left',
   },
   indicatorColumn: {

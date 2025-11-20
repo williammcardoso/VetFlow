@@ -14,12 +14,12 @@ export const hemogramReferences: Record<string, HemogramReference> = {
 
   leucocitosTotais: { dog: { full: "6.0 - 17.0 mil/µL", min: 6.0, max: 17.0 }, cat: { full: "5.5 - 19.5 mil/µL", min: 5.5, max: 19.5 } },
   mielocitos: {
-    dog: { relative: "0 %", absolute: "0 /µL", min: 0, max: 0 },
-    cat: { relative: "0 %", absolute: "0 /µL", min: 0, max: 0 }
+    dog: { relative: "0 - 0 %", absolute: "0 - 0 /µL", min: 0, max: 0 },
+    cat: { relative: "0 - 0 %", absolute: "0 - 0 /µL", min: 0, max: 0 }
   },
   metamielocitos: {
-    dog: { relative: "0 %", absolute: "0 /µL", min: 0, max: 0 },
-    cat: { relative: "0 %", absolute: "0 /µL", min: 0, max: 0 }
+    dog: { relative: "0 - 0 %", absolute: "0 - 0 /µL", min: 0, max: 0 },
+    cat: { relative: "0 - 0 %", absolute: "0 - 0 /µL", min: 0, max: 0 }
   },
   bastonetes: {
     dog: { relative: "0 - 3 %", absolute: "0 - 300 /µL", min: 0, max: 3 },
@@ -34,8 +34,8 @@ export const hemogramReferences: Record<string, HemogramReference> = {
     cat: { relative: "2 - 12 %", absolute: "100 - 1.500 /µL", min: 2, max: 12 }
   },
   basofilos: {
-    dog: { relative: "/ raros", absolute: "/ raros", min: 0, max: 0.5 },
-    cat: { relative: "/ raros", absolute: "/ raros", min: 0, max: 0.5 }
+    dog: { relative: "0 - 0 %", absolute: "0 - 0 /µL", min: 0, max: 0 },
+    cat: { relative: "0 - 0 %", absolute: "0 - 0 /µL", min: 0, max: 0 }
   },
   linfocitos: {
     dog: { relative: "12 - 30 %", absolute: "1.000 - 4.800 /µL", min: 12, max: 30 },
