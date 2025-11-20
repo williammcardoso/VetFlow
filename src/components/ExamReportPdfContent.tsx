@@ -25,8 +25,17 @@ const formatDateToPortuguese = (date: Date) => {
 // Normalizador de números (remove separador de milhar e troca vírgula por ponto)
 const normalizeNumber = (raw: string | undefined) => {
   if (!raw) return NaN;
-  // Substitui vírgula por ponto para parseFloat e remove pontos de milhar
-  return parseFloat(raw.replace(/\./g, '').replace(',', '.'));
+  
+  const lastCommaIndex = raw.lastIndexOf(',');
+  const lastDotIndex = raw.lastIndexOf('.');
+
+  if (lastCommaIndex > lastDotIndex) { // Last separator is a comma, assume Portuguese format
+    return parseFloat(raw.replace(/\./g, '').replace(/,/g, '.'));
+  } else if (lastDotIndex > lastCommaIndex) { // Last separator is a dot, assume English format
+    return parseFloat(raw.replace(/,/g, '')); // Remove thousands commas
+  } else { // No separators, or only one of them (e.g., "9", "9.5", "9,5")
+    return parseFloat(raw.replace(/,/g, '.')); // Just replace comma if it exists
+  }
 };
 
 const styles = StyleSheet.create({
@@ -309,6 +318,12 @@ const styles = StyleSheet.create({
     width: 8,
     textAlign: 'center',
   },
+  indicatorRefText: {
+    fontSize: 7, // Smaller font size
+    color: "#666",
+    position: 'absolute',
+    top: 10, // Position below the bar
+  },
   resultNormal: {
     color: "#000000",
   },
@@ -419,13 +434,28 @@ const IndicatorBar: React.FC<IndicatorBarProps> = ({ value, minRef, maxRef, valu
   markerPosition = Math.max(0, Math.min(effectiveBarWidth, markerPosition));
 
   return (
-    <View style={styles.indicatorBarBackground}>
-      {greenBarWidth > 0 && (
-        <View style={[styles.indicatorBarNormalRange, { left: greenBarLeft, width: greenBarWidth }]} />
-      )}
-      {!isNaN(numValue) && (
-        <Text style={[styles.indicatorMarker, { left: markerPosition - (styles.indicatorMarker.fontSize as number / 2), color: markerColor }]}>●</Text>
-      )}
+    <View>
+      <View style={styles.indicatorBarBackground}>
+        {greenBarWidth > 0 && (
+          <View style={[styles.indicatorBarNormalRange, { left: greenBarLeft, width: greenBarWidth }]} />
+        )}
+        {!isNaN(numValue) && (
+          <Text style={[styles.indicatorMarker, { left: markerPosition - (styles.indicatorMarker.fontSize as number / 2), color: markerColor }]}>●</Text>
+        )}
+      </View>
+      {/* New: Display min/max reference values */}
+      <View style={{ position: 'relative', width: BAR_WIDTH, height: 15, marginTop: 2 }}> {/* Container for texts */}
+        {greenBarWidth > 0 && ( // Only show if green bar exists
+          <>
+            <Text style={[styles.indicatorRefText, { left: greenBarLeft }]}>
+              {minRef.toFixed(3).replace('.', ',')}
+            </Text>
+            <Text style={[styles.indicatorRefText, { left: greenBarLeft + greenBarWidth - (String(maxRef.toFixed(3)).length * 4) }]}>
+              {maxRef.toFixed(3).replace('.', ',')}
+            </Text>
+          </>
+        )}
+      </View>
     </View>
   );
 };
@@ -514,9 +544,6 @@ export const ExamReportPdfContent = ({
         <Text style={styles.paramName}>{label}</Text>
         <View style={styles.paramResultContainer}>
           <Text style={[styles.paramResultText, resultStyle]}>{value} {unit}</Text>
-        </View>
-        <View style={styles.referenceContainer}> {/* Usando o novo container de referência */}
-          <Text style={styles.refCell}>{ref?.full || 'N/A'}</Text>
         </View>
         <View style={styles.indicatorColumn}>
           {ref && ref.min !== undefined && ref.max !== undefined && !isNaN(normalizeNumber(value)) ? (
@@ -695,7 +722,7 @@ export const ExamReportPdfContent = ({
             {exam.segmentadosRelativo && renderLeukocyteParam("Segmentados", exam.segmentadosRelativo, exam.segmentadosAbsoluto, "segmentados")}
             {exam.eosinofilosRelativo && renderLeukocyteParam("Eosinófilos", exam.eosinofilosRelativo, exam.eosinofilosAbsoluto, "eosinofilos")}
             {exam.basofilosRelativo && renderLeukocyteParam("Basófilos", exam.basofilosRelativo, exam.basofilosAbsoluto, "basofilos")}
-            {exam.linfocitosRelativo && renderLeukocyteParam("Linfócitos", exam.linfocitosRelativo, exam.linfocitosAbsoluto, "linfocitos")}
+            {exam.linfocitosRelativo && renderLeFukocyteParam("Linfócitos", exam.linfocitosRelativo, exam.linfocitosAbsoluto, "linfocitos")}
             {exam.monocitosRelativo && renderLeukocyteParam("Monócitos", exam.monocitosRelativo, exam.monocitosAbsoluto, "monocitos")}
             {exam.observacoesSerieBranca && (
               <View style={{ marginTop: 10 }}>
