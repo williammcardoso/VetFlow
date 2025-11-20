@@ -43,7 +43,8 @@ import { mockClients, updateAnimalDetails } from "@/mockData/clients"; // Import
 import { Client, Animal, WeightEntry } from "@/types/client"; // Importar as interfaces Client, Animal e WeightEntry
 import { mockAppointments } from "@/pages/AddAppointmentPage"; // Importar mockAppointments do AddAppointmentPage
 import { ExamEntry, ExamReportData, HemogramReference, HemogramReferenceValue } from "@/types/exam"; // Importar a interface ExamEntry e ExamReportData, e as interfaces de referência
-import { mockExams, hemogramReferences } from "@/mockData/exams"; // Importar mockExams e hemogramReferences
+import { mockExams } from "@/mockData/exams";
+import { hemogramReferences } from "@/constants/examReferences";
 
 // Mock data para tipos de exame e veterinários
 const mockExamTypes = [
