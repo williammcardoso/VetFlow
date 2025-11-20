@@ -176,7 +176,7 @@ const styles = StyleSheet.create({
     lineHeight: 1.2, // Adjust line height for better spacing
   },
   leukogramHeaderIndicator: {
-    width: 130,
+    flexGrow: 1, // INDICADOR
     fontSize: 9,
     fontWeight: "bold",
     color: "#333",
@@ -210,37 +210,37 @@ const styles = StyleSheet.create({
   // For multi-value results (Leukogram)
   leukocyteResultContainer: {
     width: 100,
-    flexDirection: 'column', // Alterado para column
-    alignItems: 'flex-end', // Centraliza verticalmente
-    justifyContent: 'center', // Alinha à direita
+    flexDirection: 'row', // Alterado para row
+    alignItems: 'center', // Centraliza verticalmente
+    justifyContent: 'flex-end', // Alinha à direita
   },
   leukocyteResultText: {
     fontSize: 9,
     fontWeight: "bold",
     textAlign: "right",
-    lineHeight: 1.2, // Removido
+    // lineHeight: 1.2, // Removido
   },
 
   paramReferenceContainer: {
     width: 120,
-    flexDirection: 'column', // Alterado para column
-    alignItems: 'flex-end', // Centraliza verticalmente
-    justifyContent: 'center', // Alinha à direita
+    flexDirection: 'row', // Alterado para row
+    alignItems: 'center', // Centraliza verticalmente
+    justifyContent: 'flex-end', // Alinha à direita
   },
   paramReferenceText: {
     fontSize: 7,
     color: "#666",
     textAlign: "right",
-    lineHeight: 1.2, // Removido
+    // lineHeight: 1.2, // Removido
   },
   indicatorColumn: {
-    width: 130,
+    flexGrow: 1, // Ocupa o espaço restante
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
   },
   indicatorBarBackground: {
-    width: 120,
+    width: '100%', // Preenche a largura total da coluna
     height: 8,
     backgroundColor: '#ffe0e0',
     borderRadius: 2,
@@ -319,7 +319,7 @@ interface IndicatorBarProps {
 }
 
 const IndicatorBar: React.FC<IndicatorBarProps> = ({ value, minRef, maxRef, valueStatus }) => {
-  const BAR_WIDTH = 120;
+  const BAR_WIDTH = 120; // This will be overridden by '100%' in style, but kept for calculations
   const BAR_HEIGHT = 8;
 
   const numValue = normalizeNumber(value);
@@ -350,20 +350,24 @@ const IndicatorBar: React.FC<IndicatorBarProps> = ({ value, minRef, maxRef, valu
   let greenBarWidth = 0;
   let markerPosition = 0;
 
+  // Use a dynamic width for calculations based on the parent's actual width
+  // For PDF, we can assume BAR_WIDTH is the effective width of the container
+  const effectiveBarWidth = BAR_WIDTH; // Placeholder, actual width will be '100%'
+
   if (totalEffectiveRange > 0) {
-    greenBarLeft = ((minRef - effectiveVisualMin) / totalEffectiveRange) * BAR_WIDTH;
-    greenBarWidth = ((maxRef - minRef) / totalEffectiveRange) * BAR_WIDTH;
-    markerPosition = ((numValue - effectiveVisualMin) / totalEffectiveRange) * BAR_WIDTH;
+    greenBarLeft = ((minRef - effectiveVisualMin) / totalEffectiveRange) * effectiveBarWidth;
+    greenBarWidth = ((maxRef - minRef) / totalEffectiveRange) * effectiveBarWidth;
+    markerPosition = ((numValue - effectiveVisualMin) / totalEffectiveRange) * effectiveBarWidth;
   } else { // Fallback para ranges inválidos ou zero, centraliza tudo
-    greenBarLeft = BAR_WIDTH / 2 - 5; // Pequeno segmento central
+    greenBarLeft = effectiveBarWidth / 2 - 5; // Pequeno segmento central
     greenBarWidth = 10;
-    markerPosition = BAR_WIDTH / 2;
+    markerPosition = effectiveBarWidth / 2;
   }
 
   // Clampar posições para garantir que estejam dentro dos limites da barra
-  greenBarLeft = Math.max(0, Math.min(BAR_WIDTH - greenBarWidth, greenBarLeft));
+  greenBarLeft = Math.max(0, Math.min(effectiveBarWidth - greenBarWidth, greenBarLeft));
   greenBarWidth = Math.max(0, greenBarWidth);
-  markerPosition = Math.max(0, Math.min(BAR_WIDTH, markerPosition));
+  markerPosition = Math.max(0, Math.min(effectiveBarWidth, markerPosition));
 
   return (
     <View style={styles.indicatorBarBackground}>
@@ -479,11 +483,11 @@ export const ExamReportPdfContent = ({
         <Text style={styles.paramName}>{label}</Text>
         <View style={styles.leukocyteResultContainer}>
           <Text style={[styles.leukocyteResultText, relResultStyle]}>{relativeValue}%</Text>
-          <Text style={[styles.leukocyteResultText, absResultStyle]}>{absoluteValue}/µL</Text>
+          <Text style={[styles.leukocyteResultText, absResultStyle, { marginLeft: 5 }]}>{absoluteValue}/µL</Text>
         </View>
         <View style={styles.paramReferenceContainer}>
           <Text style={styles.paramReferenceText}>{relRef?.relative || 'N/A'}</Text>
-          <Text style={styles.paramReferenceText}>{absRef?.absolute || 'N/A'}</Text>
+          <Text style={[styles.paramReferenceText, { marginLeft: 5 }]}>{absRef?.absolute || 'N/A'}</Text>
         </View>
         <View style={styles.indicatorColumn}>
           {indicatorMin !== undefined && indicatorMax !== undefined && !isNaN(normalizeNumber(indicatorValue)) ? (
