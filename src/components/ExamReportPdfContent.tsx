@@ -327,11 +327,11 @@ const styles = StyleSheet.create({
   // NEW: Style for the ball marker
   ballMarker: {
     position: 'absolute',
-    width: 12, // Size of the ball
-    height: 12,
-    borderRadius: 6, // Half of width/height for a perfect circle
+    width: 8, // Smaller size for the ball
+    height: 8,
+    borderRadius: 4, // Half of width/height for a perfect circle
     // Background color will be set dynamically
-    top: -2, // Adjust to center the 12px ball vertically within the 8px bar
+    top: 0, // Centered vertically within the 8px bar
   },
   // REMOVED OLD STYLES:
   // indicatorBarBackground: { ... },
@@ -399,55 +399,60 @@ interface IndicatorBarProps {
 
 const IndicatorBar: React.FC<IndicatorBarProps> = ({ value, minRef, maxRef, valueStatus }) => {
   const BAR_WIDTH = 100;
-  const BALL_SIZE = 12; // Matches ballMarker width/height
+  const BALL_SIZE = 8; // Smaller ball size
+  const ACTIVE_RANGE_START_PERCENT = 0.15; // 15% from left
+  const ACTIVE_RANGE_END_PERCENT = 0.85;   // 15% from right (100% - 85% = 15%)
 
   const numValue = normalizeNumber(value);
 
-  let ballColor = styles.resultNormal.color; // Default to black
-  if (valueStatus === 'high') ballColor = styles.resultHigh.color; // Red
-  if (valueStatus === 'low') ballColor = styles.resultLow.color;   // Blue
+  let ballColor = styles.resultNormal.color;
+  if (valueStatus === 'high') ballColor = styles.resultHigh.color;
+  if (valueStatus === 'low') ballColor = styles.resultLow.color;
 
-  // Determine the overall visual range for positioning the marker
-  // This range should encompass minRef, maxRef, and numValue, plus a buffer.
-  let visualMin = Math.min(minRef, maxRef, isNaN(numValue) ? minRef : numValue);
-  let visualMax = Math.max(minRef, maxRef, isNaN(numValue) ? maxRef : numValue);
-
-  // If reference range is a single point (e.g., 0-0), ensure a minimum visual span for the bar
-  if (visualMin === visualMax) {
-    const minVisualSpan = Math.max(1, Math.abs(minRef) * 0.5); // At least 1, or 50% of absolute value
-    visualMin = minRef - minVisualSpan;
-    visualMax = maxRef + minVisualSpan;
+  // Only render ball if value is a valid number
+  if (isNaN(numValue)) {
+    return (
+      <View style={styles.fixedBackgroundBar}>
+        {/* No ball rendered */}
+      </View>
+    );
   }
 
-  // Apply a consistent buffer to the overall visual range
-  const bufferFactor = 0.2; // 20% buffer on each side relative to the current visual span
-  const currentRangeSpan = visualMax - visualMin;
-  const bufferAmount = currentRangeSpan * bufferFactor;
-  
-  const effectiveVisualMin = visualMin - bufferAmount;
-  const effectiveVisualMax = visualMax + bufferAmount;
+  // Calculate the pixel range for the active movement of the ball
+  const activeStartPx = ACTIVE_RANGE_START_PERCENT * BAR_WIDTH;
+  const activeEndPx = ACTIVE_RANGE_END_PERCENT * BAR_WIDTH;
+  const activeRangeWidthPx = activeEndPx - activeStartPx;
 
-  const totalEffectiveRange = effectiveVisualMax - effectiveVisualMin;
+  let ballLeftPosition: number;
 
-  let ballLeftPosition = 0;
-  if (totalEffectiveRange > 0 && !isNaN(numValue)) {
-    ballLeftPosition = ((numValue - effectiveVisualMin) / totalEffectiveRange) * BAR_WIDTH;
-  } else if (isNaN(numValue)) {
-    // If value is invalid, center the ball as a fallback
-    ballLeftPosition = BAR_WIDTH / 2;
+  if (minRef === maxRef) {
+    // Special case for single-point reference (e.g., 0-0)
+    if (numValue < minRef) {
+      ballLeftPosition = activeStartPx; // Value is below, place at start of active range
+    } else if (numValue > maxRef) {
+      ballLeftPosition = activeEndPx; // Value is above, place at end of active range
+    } else { // numValue === minRef === maxRef
+      ballLeftPosition = activeStartPx + (activeRangeWidthPx / 2); // Center within active range
+    }
+  } else {
+    // Standard case for a range reference
+    const rangeSpan = maxRef - minRef;
+    // Calculate the proportional position of numValue within the minRef-maxRef range (0 to 1)
+    const proportionalPosition = (numValue - minRef) / rangeSpan;
+
+    // Map this proportional position to the active pixel range (activeStartPx to activeEndPx)
+    ballLeftPosition = activeStartPx + (proportionalPosition * activeRangeWidthPx);
   }
 
-  // Adjust position to center the ball
-  ballLeftPosition = ballLeftPosition - (BALL_SIZE / 2);
+  // Adjust position to center the ball marker
+  ballLeftPosition -= (BALL_SIZE / 2);
 
-  // Clamp ball position to ensure it stays within the bar boundaries
+  // Clamp ball position to ensure it stays within the overall bar boundaries (0 to BAR_WIDTH - BALL_SIZE)
   ballLeftPosition = Math.max(0, Math.min(BAR_WIDTH - BALL_SIZE, ballLeftPosition));
 
   return (
     <View style={styles.fixedBackgroundBar}>
-      {!isNaN(numValue) && (
-        <View style={[styles.ballMarker, { left: ballLeftPosition, backgroundColor: ballColor }]} />
-      )}
+      <View style={[styles.ballMarker, { left: ballLeftPosition, backgroundColor: ballColor }]} />
     </View>
   );
 };
