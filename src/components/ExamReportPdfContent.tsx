@@ -1,3 +1,5 @@
+"use client";
+
 import React from "react";
 import { Document, Page, View, Text, StyleSheet, Font } from "@react-pdf/renderer";
 import { mockCompanySettings } from "@/mockData/settings";
@@ -723,7 +725,7 @@ export const ExamReportPdfContent = ({
           <Text style={[styles.infoText, { width: '50%' }]}>Data do Exame: {exam.date}</Text>
           <Text style={[styles.infoText, { width: '50%' }]}>Tipo de Exame: {exam.type}</Text>
           <Text style={[styles.infoText, { width: '50%' }]}>Veterinário Solicitante: {exam.vet}</Text>
-          {exam.material && <Text style{[styles.infoText, { width: '50%' }]}>Material: {exam.material}</Text>}
+          {exam.material && <Text style={[styles.infoText, { width: '50%' }]}>Material: {exam.material}</Text>}
           {exam.equipamento && <Text style={[styles.infoText, { width: '50%' }]}>Equipamento: {exam.equipamento}</Text>}
           {exam.laboratory && <Text style={[styles.infoText, { width: '50%' }]}>Laboratório: {exam.laboratory}</Text>}
           {exam.laboratoryDate && <Text style={[styles.infoText, { width: '50%' }]}>Data do Resultado: {exam.laboratoryDate}</Text>}
