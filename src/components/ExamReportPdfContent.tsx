@@ -29,6 +29,31 @@ const normalizeNumber = (raw: string | undefined) => {
   return parseFloat(raw.replace(/\./g, '').replace(/,/g, '.'));
 };
 
+// Nova função para formatar números para exibição (com separador de milhar e decimal correto)
+const formatNumberForDisplay = (num: number) => {
+  if (isNaN(num)) return 'N/A';
+  
+  // Use Intl.NumberFormat para formatação precisa em pt-BR
+  const formatter = new Intl.NumberFormat('pt-BR', {
+    minimumFractionDigits: 0, // Começa com 0 casas decimais
+    maximumFractionDigits: 3, // Permite até 3 casas decimais
+    useGrouping: true, // Habilita o separador de milhar
+  });
+
+  // Verifica se o número tem casas decimais significativas
+  if (num % 1 !== 0) {
+    // Se tiver decimais, formata com as casas decimais necessárias (até 3)
+    return formatter.format(num);
+  } else {
+    // Se for um número inteiro, formata sem casas decimais
+    return new Intl.NumberFormat('pt-BR', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+      useGrouping: true,
+    }).format(num);
+  }
+};
+
 const styles = StyleSheet.create({
   page: {
     padding: 30,
@@ -313,7 +338,7 @@ const styles = StyleSheet.create({
     fontSize: 7, // Smaller font size
     color: "#666",
     position: 'absolute',
-    top: 10, // Position below the bar
+    top: 0, // Ajustado para alinhar melhor com a barra
   },
   resultNormal: {
     color: "#000000",
@@ -439,10 +464,10 @@ const IndicatorBar: React.FC<IndicatorBarProps> = ({ value, minRef, maxRef, valu
         {greenBarWidth > 0 && ( // Only show if green bar exists
           <>
             <Text style={[styles.indicatorRefText, { left: greenBarLeft }]}>
-              {minRef.toFixed(3).replace('.', ',')}
+              {formatNumberForDisplay(minRef)}
             </Text>
-            <Text style={[styles.indicatorRefText, { left: greenBarLeft + greenBarWidth - (String(maxRef.toFixed(3)).length * 4) }]}>
-              {maxRef.toFixed(3).replace('.', ',')}
+            <Text style={[styles.indicatorRefText, { left: greenBarLeft + greenBarWidth - (String(formatNumberForDisplay(maxRef)).length * 4) }]}>
+              {formatNumberForDisplay(maxRef)}
             </Text>
           </>
         )}
