@@ -335,8 +335,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   indicatorRefText: {
-    fontSize: 7, // Smaller font size
-    color: "#666",
+    fontSize: 6, // Smaller font size
+    color: "#000", // Black color
     position: 'absolute',
     top: 0, // Ajustado para alinhar melhor com a barra
   },
@@ -409,45 +409,59 @@ const IndicatorBar: React.FC<IndicatorBarProps> = ({ value, minRef, maxRef, valu
   if (valueStatus === 'high') markerColor = styles.resultHigh.color;
   if (valueStatus === 'low') markerColor = styles.resultLow.color;
 
-  // --- Cálculo das posições para a faixa verde e o marcador ---
-  let visualMin = minRef;
-  let visualMax = maxRef;
-
-  // Ajuste para casos onde minRef === maxRef para evitar divisão por zero e ter uma visualização mínima
-  if (visualMax === visualMin) {
-    const delta = Math.max(1, Math.abs(visualMin) * 0.1 || 1);
-    visualMin = visualMin - delta;
-    visualMax = visualMax + delta;
-  }
-
-  // Expandir o range visual para acomodar valores fora da referência
-  const rangeBuffer = (visualMax - visualMin) * 0.2; // 20% de buffer em cada lado
-  const effectiveVisualMin = visualMin - rangeBuffer;
-  const effectiveVisualMax = visualMax + rangeBuffer;
-  const totalEffectiveRange = effectiveVisualMax - effectiveVisualMin;
-
   let greenBarLeft = 0;
   let greenBarWidth = 0;
   let markerPosition = 0;
 
-  // Use a dynamic width for calculations based on the parent's actual width
-  // For PDF, we can assume BAR_WIDTH is the effective width of the container
-  const effectiveBarWidth = BAR_WIDTH; // Placeholder, actual width will be '100%'
+  if (minRef === maxRef) {
+    // Special case for single-point reference ranges (e.g., 0-0)
+    greenBarLeft = 0;
+    greenBarWidth = BAR_WIDTH; // Full width green bar
 
-  if (totalEffectiveRange > 0) {
-    greenBarLeft = ((minRef - effectiveVisualMin) / totalEffectiveRange) * effectiveBarWidth;
-    greenBarWidth = ((maxRef - minRef) / totalEffectiveRange) * effectiveBarWidth;
-    markerPosition = ((numValue - effectiveVisualMin) / totalEffectiveRange) * effectiveBarWidth;
-  } else { // Fallback para ranges inválidos ou zero, centraliza tudo
-    greenBarLeft = effectiveBarWidth / 2 - 5; // Pequeno segmento central
-    greenBarWidth = 10;
-    markerPosition = effectiveBarWidth / 2;
+    // Position marker based on value relative to the single reference point
+    if (numValue === minRef) {
+      markerPosition = BAR_WIDTH / 2; // Center if value is exactly the reference
+    } else if (numValue < minRef) {
+      markerPosition = 0; // Left edge if value is below reference
+    } else { // numValue > minRef
+      markerPosition = BAR_WIDTH; // Right edge if value is above reference
+    }
+  } else {
+    // Original logic for range reference values (minRef < maxRef)
+    let visualMin = minRef;
+    let visualMax = maxRef;
+
+    // Expandir o range visual para acomodar valores fora da referência
+    const rangeBuffer = (visualMax - visualMin) * 0.2; // 20% de buffer em cada lado
+    const effectiveVisualMin = visualMin - rangeBuffer;
+    const effectiveVisualMax = visualMax + rangeBuffer;
+    const totalEffectiveRange = effectiveVisualMax - effectiveVisualMin;
+
+    if (totalEffectiveRange > 0) {
+      greenBarLeft = ((minRef - effectiveVisualMin) / totalEffectiveRange) * BAR_WIDTH;
+      greenBarWidth = ((maxRef - minRef) / totalEffectiveRange) * BAR_WIDTH;
+      markerPosition = ((numValue - effectiveVisualMin) / totalEffectiveRange) * BAR_WIDTH;
+    } else {
+      // Fallback for truly invalid ranges (should be rare with the above adjustment)
+      greenBarLeft = BAR_WIDTH / 2 - 5;
+      greenBarWidth = 10;
+      markerPosition = BAR_WIDTH / 2;
+    }
   }
 
-  // Clampar posições para garantir que estejam dentro dos limites da barra
-  greenBarLeft = Math.max(0, Math.min(effectiveBarWidth - greenBarWidth, greenBarLeft));
+  // Clamp positions (still necessary for the general case and to prevent marker going off-screen)
+  greenBarLeft = Math.max(0, Math.min(BAR_WIDTH - greenBarWidth, greenBarLeft));
   greenBarWidth = Math.max(0, greenBarWidth);
-  markerPosition = Math.max(0, Math.min(effectiveBarWidth, markerPosition));
+  markerPosition = Math.max(0, Math.min(BAR_WIDTH, markerPosition));
+
+  // Visual tweak for marker if it's exactly at the edge of the green bar
+  // This might not be needed with the new single-point logic, but keep for robustness.
+  if (greenBarWidth > 0 && numValue === minRef && markerPosition === greenBarLeft) {
+    markerPosition += 1;
+  }
+  if (greenBarWidth > 0 && numValue === maxRef && markerPosition === greenBarLeft + greenBarWidth) {
+    markerPosition -= 1;
+  }
 
   return (
     <View>
@@ -709,7 +723,7 @@ export const ExamReportPdfContent = ({
           <Text style={[styles.infoText, { width: '50%' }]}>Data do Exame: {exam.date}</Text>
           <Text style={[styles.infoText, { width: '50%' }]}>Tipo de Exame: {exam.type}</Text>
           <Text style={[styles.infoText, { width: '50%' }]}>Veterinário Solicitante: {exam.vet}</Text>
-          {exam.material && <Text style={[styles.infoText, { width: '50%' }]}>Material: {exam.material}</Text>}
+          {exam.material && <Text style{[styles.infoText, { width: '50%' }]}>Material: {exam.material}</Text>}
           {exam.equipamento && <Text style={[styles.infoText, { width: '50%' }]}>Equipamento: {exam.equipamento}</Text>}
           {exam.laboratory && <Text style={[styles.infoText, { width: '50%' }]}>Laboratório: {exam.laboratory}</Text>}
           {exam.laboratoryDate && <Text style={[styles.infoText, { width: '50%' }]}>Data do Resultado: {exam.laboratoryDate}</Text>}
