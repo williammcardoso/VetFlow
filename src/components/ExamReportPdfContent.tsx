@@ -210,28 +210,28 @@ const styles = StyleSheet.create({
   // For multi-value results (Leukogram)
   leukocyteResultContainer: {
     width: 100,
-    flexDirection: 'column',
-    alignItems: 'flex-end',
-    justifyContent: 'center',
+    flexDirection: 'row', // Alterado para row
+    alignItems: 'center', // Centraliza verticalmente
+    justifyContent: 'flex-end', // Alinha à direita
   },
   leukocyteResultText: {
     fontSize: 9,
     fontWeight: "bold",
     textAlign: "right",
-    lineHeight: 1.2, // Adjust line height for better spacing
+    // lineHeight: 1.2, // Removido
   },
 
   paramReferenceContainer: {
     width: 120,
-    flexDirection: 'column',
-    alignItems: 'flex-end',
-    justifyContent: 'center',
+    flexDirection: 'row', // Alterado para row
+    alignItems: 'center', // Centraliza verticalmente
+    justifyContent: 'flex-end', // Alinha à direita
   },
   paramReferenceText: {
     fontSize: 7,
     color: "#666",
     textAlign: "right",
-    lineHeight: 1.2, // Adjust line height for better spacing
+    // lineHeight: 1.2, // Removido
   },
   indicatorColumn: {
     width: 130,
@@ -479,11 +479,11 @@ export const ExamReportPdfContent = ({
         <Text style={styles.paramName}>{label}</Text>
         <View style={styles.leukocyteResultContainer}>
           <Text style={[styles.leukocyteResultText, relResultStyle]}>{relativeValue}%</Text>
-          <Text style={[styles.leukocyteResultText, absResultStyle]}>{absoluteValue}/µL</Text>
+          <Text style={[styles.leukocyteResultText, absResultStyle, { marginLeft: 5 }]}>{absoluteValue}/µL</Text>
         </View>
         <View style={styles.paramReferenceContainer}>
           <Text style={styles.paramReferenceText}>{relRef?.relative || 'N/A'}</Text>
-          <Text style={styles.paramReferenceText}>{absRef?.absolute || 'N/A'}</Text>
+          <Text style={[styles.paramReferenceText, { marginLeft: 5 }]}>{absRef?.absolute || 'N/A'}</Text>
         </View>
         <View style={styles.indicatorColumn}>
           {indicatorMin !== undefined && indicatorMax !== undefined && !isNaN(normalizeNumber(indicatorValue)) ? (
