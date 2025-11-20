@@ -539,12 +539,8 @@ export const ExamReportPdfContent = ({
     const min = ref.min;
     const max = ref.max;
 
-    // Use a small epsilon for floating point comparisons to avoid edge case issues
-    // This helps to ensure that values exactly at the boundary or very close are correctly classified.
-    const epsilon = 1e-9; 
-
-    if (numValue < min - epsilon) return 'low';
-    if (numValue > max + epsilon) return 'high';
+    if (numValue < min) return 'low';
+    if (numValue > max) return 'high';
     return 'normal';
   };
 
