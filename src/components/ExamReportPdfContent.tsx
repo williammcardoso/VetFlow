@@ -401,66 +401,67 @@ interface IndicatorBarProps {
 }
 
 const IndicatorBar: React.FC<IndicatorBarProps> = ({ value, minRef, maxRef, valueStatus }) => {
-  const BAR_WIDTH = 100; // Matches the width of indicatorBarBackground
+  const BAR_WIDTH = 100;
   const BAR_HEIGHT = 8;
+  const SINGLE_POINT_GREEN_WIDTH_PERCENT = 0.2; // 20% of BAR_WIDTH for single-point green bar
+  const SINGLE_POINT_VISUAL_EXPANSION_FACTOR = 0.5; // How much to expand the visual range around a single point (e.g., 0 -> visual range -0.5 to +0.5)
 
   const numValue = normalizeNumber(value);
 
-  // Determine marker color based on valueStatus
   let markerColor = styles.resultNormal.color;
   if (valueStatus === 'high') markerColor = styles.resultHigh.color;
   if (valueStatus === 'low') markerColor = styles.resultLow.color;
 
-  let greenBarLeft = 0;
-  let greenBarWidth = 0;
-  let markerPosition = 0;
+  let effectiveVisualMin: number;
+  let effectiveVisualMax: number;
+  let greenBarLeft: number;
+  let greenBarWidth: number;
+  let markerPosition: number;
 
-  let visualMin = minRef;
-  let visualMax = maxRef;
-
-  // Adjust for single-point ranges to give them a visual width
-  if (visualMax === visualMin) {
-    const delta = Math.max(1, Math.abs(visualMin) * 0.1 || 1); // Ensure delta is at least 1
-    visualMin = visualMin - delta; // Create a small range around the single point
-    visualMax = visualMax + delta;
+  // Determine the full visual range (red background)
+  if (minRef === maxRef) {
+    // For single-point references (e.g., 0-0), create a synthetic range around the point
+    const centerRef = minRef;
+    // Ensure a minimum expansion, even if centerRef is 0, to create visible red areas
+    const visualRangeHalf = Math.max(1, Math.abs(centerRef) * SINGLE_POINT_VISUAL_EXPANSION_FACTOR);
+    effectiveVisualMin = centerRef - visualRangeHalf;
+    effectiveVisualMax = centerRef + visualRangeHalf;
+  } else {
+    // For range references (minRef < maxRef), use a buffer
+    const rangeBuffer = (maxRef - minRef) * 0.2; // 20% buffer on each side
+    effectiveVisualMin = minRef - rangeBuffer;
+    effectiveVisualMax = maxRef + rangeBuffer;
   }
 
-  // Expand the visual range to accommodate values outside the reference
-  const rangeBuffer = (visualMax - visualMin) * 0.2; // 20% buffer on each side
-  const effectiveVisualMin = visualMin - rangeBuffer;
-  const effectiveVisualMax = visualMax + rangeBuffer;
+  // Calculate green bar position and width within the effective visual range
   const totalEffectiveRange = effectiveVisualMax - effectiveVisualMin;
-
   if (totalEffectiveRange > 0) {
-    // Calculate green bar position and width
-    greenBarLeft = ((minRef - effectiveVisualMin) / totalEffectiveRange) * BAR_WIDTH;
-    greenBarWidth = ((maxRef - minRef) / totalEffectiveRange) * BAR_WIDTH;
-
-    // Ensure greenBarWidth has a minimum visible size if it's a single point (minRef === maxRef)
-    // This is the crucial part for the "0-0" case to show a green segment.
-    if (minRef === maxRef && greenBarWidth < 10) { // If it's a single point and width is too small
-      const minVisibleWidth = 10; // Minimum width for the green bar
-      const centerPosition = greenBarLeft + (greenBarWidth / 2); // Center of the original (possibly zero-width) green bar
-      greenBarLeft = centerPosition - (minVisibleWidth / 2); // Recalculate left to center the new width
-      greenBarWidth = minVisibleWidth;
+    if (minRef === maxRef) {
+      // For single-point references, the green bar has a fixed, smaller width, centered
+      greenBarWidth = BAR_WIDTH * SINGLE_POINT_GREEN_WIDTH_PERCENT;
+      const centerPositionInBar = ((minRef - effectiveVisualMin) / totalEffectiveRange) * BAR_WIDTH;
+      greenBarLeft = centerPositionInBar - (greenBarWidth / 2);
+    } else {
+      // For range references, calculate based on the actual range
+      greenBarLeft = ((minRef - effectiveVisualMin) / totalEffectiveRange) * BAR_WIDTH;
+      greenBarWidth = ((maxRef - minRef) / totalEffectiveRange) * BAR_WIDTH;
     }
-
-    // Calculate marker position
+    // Calculate marker position within the determined effective visual range
     markerPosition = ((numValue - effectiveVisualMin) / totalEffectiveRange) * BAR_WIDTH;
   } else {
-    // Fallback for truly invalid ranges (should be rare with the above adjustment)
-    greenBarLeft = BAR_WIDTH / 2 - 5;
-    greenBarWidth = 10;
+    // Fallback for edge cases where effectiveVisualMin/Max might still be problematic
+    greenBarLeft = BAR_WIDTH / 2 - (BAR_WIDTH * SINGLE_POINT_GREEN_WIDTH_PERCENT / 2);
+    greenBarWidth = BAR_WIDTH * SINGLE_POINT_GREEN_WIDTH_PERCENT;
     markerPosition = BAR_WIDTH / 2;
   }
 
-  // Clamp positions (still necessary for the general case and to prevent marker going off-screen)
+  // Clamp positions to ensure they stay within the bar boundaries
   greenBarLeft = Math.max(0, Math.min(BAR_WIDTH - greenBarWidth, greenBarLeft));
   greenBarWidth = Math.max(0, greenBarWidth);
   markerPosition = Math.max(0, Math.min(BAR_WIDTH, markerPosition));
 
   // Visual tweak for marker if it's exactly at the edge of the green bar
-  // This might not be needed with the new single-point logic, but keep for robustness.
+  // This is a visual tweak to make the marker more visible when it aligns perfectly.
   if (greenBarWidth > 0 && numValue === minRef && markerPosition === greenBarLeft) {
     markerPosition += 1;
   }
