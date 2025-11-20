@@ -536,9 +536,16 @@ export const ExamReportPdfContent = ({
     const numValue = normalizeNumber(value);
     if (isNaN(numValue)) return 'invalid';
 
-    if (numValue < ref.min) return 'low';
-    if (numValue > ref.max) return 'high';
-    return 'normal'; // If not low and not high, it's normal
+    const min = ref.min;
+    const max = ref.max;
+
+    // Use a small epsilon for floating point comparisons to avoid edge case issues
+    // This helps to ensure that values exactly at the boundary or very close are correctly classified.
+    const epsilon = 1e-9; 
+
+    if (numValue < min - epsilon) return 'low';
+    if (numValue > max + epsilon) return 'high';
+    return 'normal';
   };
 
   // Renderiza um parâmetro de hemograma de valor único
@@ -669,7 +676,7 @@ export const ExamReportPdfContent = ({
           <View style={styles.clinicAddressPhone}>
             <Text>{mockCompanySettings.address}</Text>
             <Text>{mockCompanySettings.city} - CEP: {mockCompanySettings.zipCode}</Text>
-            <Text>Telefone: (19) 99363-1981</Text>
+            <Text>Telefone: {mockCompanySettings.phone}</Text>
           </View>
         </View>
 
