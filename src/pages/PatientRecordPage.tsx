@@ -43,7 +43,7 @@ import { mockClients, updateAnimalDetails } from "@/mockData/clients"; // Import
 import { Client, Animal, WeightEntry } from "@/types/client"; // Importar as interfaces Client, Animal e WeightEntry
 import { mockAppointments } from "@/pages/AddAppointmentPage"; // Importar mockAppointments do AddAppointmentPage
 import { ExamEntry, ExamReportData } from "@/types/exam"; // Importar a interface ExamEntry e ExamReportData
-import { mockExams } from "@/mockData/exams"; // Importar mockExams
+import { mockExams, hemogramReferences } from "@/mockData/exams"; // Importar mockExams e hemogramReferences
 
 // Mock data para tipos de exame e veterinários
 const mockExamTypes = [
@@ -75,54 +75,6 @@ interface TimelineEvent {
   link?: string; // Opcional, para navegar para detalhes
   badgeColor?: string; // Opcional, para customizar a cor do badge
 }
-
-// Dados de referência para Hemograma (cão e gato) - Duplicado aqui para o PDF, idealmente viria de um lugar centralizado
-const hemogramReferences: Record<string, { dog: any; cat: any }> = {
-  eritrocitos: { dog: { full: "5.5 - 8.5 milhões/mm3", min: 5.5, max: 8.5 }, cat: { full: "6.5 - 10.0 milhões/mm3", min: 6.5, max: 10.0 } },
-  hemoglobina: { dog: { full: "12.0 - 18.0 g/dL", min: 12.0, max: 18.0 }, cat: { full: "9.0 - 15.0 g/dL", min: 9.0, max: 15.0 } },
-  hematocrito: { dog: { full: "37 - 55 %", min: 37, max: 55 }, cat: { full: "30 - 45 %", min: 30, max: 45 } },
-  vcm: { dog: { full: "60.0 - 77.0 fL", min: 60.0, max: 77.0 }, cat: { full: "39.0 - 55.0 fL", min: 39.0, max: 55.0 } },
-  hcm: { dog: { full: "19.5 - 24.5 pg", min: 19.5, max: 24.5 }, cat: { full: "13.0 - 17.0 pg", min: 13.0, max: 17.0 } },
-  chcm: { dog: { full: "31 - 35 %", min: 31, max: 35 }, cat: { full: "30 - 36 %", min: 30, max: 36 } },
-  proteinaTotal: { dog: { full: "6.0 - 8.0 g/dL", min: 6.0, max: 8.0 }, cat: { full: "5.7 - 8.9 g/dL", min: 5.7, max: 8.9 } },
-  hemaciasNucleadas: { dog: { full: "0", min: 0, max: 0 }, cat: { full: "0", min: 0, max: 0 } },
-
-  leucocitosTotais: { dog: { full: "6.0 - 17.0 mil/µL", min: 6.0, max: 17.0 }, cat: { full: "5.5 - 19.5 mil/µL", min: 5.5, max: 19.5 } },
-  mielocitos: {
-    dog: { relative: "0 %", absolute: "0 /µL", min: 0, max: 0 },
-    cat: { relative: "0 %", absolute: "0 /µL", min: 0, max: 0 }
-  },
-  metamielocitos: {
-    dog: { relative: "0 %", absolute: "0 /µL", min: 0, max: 0 },
-    cat: { relative: "0 %", absolute: "0 /µL", min: 0, max: 0 }
-  },
-  bastonetes: {
-    dog: { relative: "0 - 3 %", absolute: "0 - 300 /µL", min: 0, max: 3 },
-    cat: { relative: "0 - 3 %", absolute: "0 - 300 /µL", min: 0, max: 3 }
-  },
-  segmentados: {
-    dog: { relative: "60 - 77 %", absolute: "3.000 - 11.500 /µL", min: 60, max: 77 },
-    cat: { relative: "35 - 75 %", absolute: "2.500 - 12.500 /µL", min: 35, max: 75 }
-  },
-  eosinofilos: {
-    dog: { relative: "2 - 10 %", absolute: "100 - 1.250 /µL", min: 2, max: 10 },
-    cat: { relative: "2 - 12 %", absolute: "100 - 1.500 /µL", min: 2, max: 12 }
-  },
-  basofilos: {
-    dog: { relative: "/ raros", absolute: "/ raros", min: 0, max: 0 }, // Assuming 0 for rare
-    cat: { relative: "/ raros", absolute: "/ raros", min: 0, max: 0 }
-  },
-  linfocitos: {
-    dog: { relative: "12 - 30 %", absolute: "1.000 - 4.800 /µL", min: 12, max: 30 },
-    cat: { relative: "20 - 55 %", absolute: "1.500 - 7.000 /µL", min: 20, max: 55 }
-  },
-  monocitos: {
-    dog: { relative: "3 - 10 %", absolute: "150 - 1.350 /µL", min: 3, max: 10 },
-    cat: { relative: "1 - 4 %", absolute: "50 - 500 /µL", min: 1, max: 4 }
-  },
-  contagemPlaquetaria: { dog: { full: "166.000 - 575.000 /µL", min: 166000, max: 575000 }, cat: { full: "150.000 - 600.000 /µL", min: 150000, max: 600000 } },
-};
-
 
 // Helper function to calculate age
 const calculateAge = (birthday: string) => {
@@ -937,7 +889,7 @@ const PatientRecordPage = () => {
                     onChange={(e) => setNewWeight(e.target.value)}
                     className="w-full sm:w-[120px] bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200"
                   />
-                  <Button size="sm" onClick={handleAddWeight} className="w-full sm:w-auto rounded-md bg-primary text-primary-foreground hover:bg-primary/90 font-semibold transition-all duration-200 shadow-md hover:shadow-lg">
+                  <Button size="sm" onClick={handleAddWeight} disabled={!newWeight.trim()} className="w-full sm:w-auto rounded-md bg-primary text-primary-foreground hover:bg-primary/90 font-semibold transition-all duration-200 shadow-md hover:shadow-lg">
                     <FaPlus className="h-4 w-4 mr-2" /> Adicionar Peso
                   </Button>
                 </div>
