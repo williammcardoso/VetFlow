@@ -29,13 +29,26 @@ const normalizeNumber = (raw: string | undefined) => {
   if (!raw) return NaN;
   let cleaned = raw.trim();
 
-  // Remove todas as vírgulas (assumindo que são separadores de milhares)
-  cleaned = cleaned.replace(/,/g, '');
+  // Remove todos os caracteres que não são dígitos, pontos ou vírgulas
+  cleaned = cleaned.replace(/[^0-9.,]/g, '');
 
-  // Remove todos os pontos, EXCETO o último (assumindo que o último ponto é o separador decimal)
-  // Se não houver pontos, ou apenas um, ele será mantido.
-  // Se houver múltiplos pontos, todos, exceto o último, serão removidos.
-  cleaned = cleaned.replace(/\.(?=[^.]*$)/g, '');
+  // Encontra a última ocorrência de um ponto e de uma vírgula
+  const lastDotIndex = cleaned.lastIndexOf('.');
+  const lastCommaIndex = cleaned.lastIndexOf(',');
+
+  // Se a vírgula for o último separador (formato brasileiro: 1.234,56)
+  if (lastCommaIndex > lastDotIndex) {
+    cleaned = cleaned.replace(/\./g, ''); // Remove todos os pontos (separadores de milhares)
+    cleaned = cleaned.replace(/,/g, '.'); // Substitui a vírgula por ponto (separador decimal)
+  } else {
+    // Caso contrário, assume que o ponto é o separador decimal (formato inglês: 1,234.56 ou 14.5)
+    // Ou que não há separador decimal (inteiro: 280000)
+    cleaned = cleaned.replace(/,/g, ''); // Remove todas as vírgulas (separadores de milhares)
+    // Remove todos os pontos, EXCETO o último (se houver mais de um)
+    // Ex: "280.000" -> "280000." (o parseFloat lida com o ponto final)
+    // Ex: "14.5" -> "14.5"
+    cleaned = cleaned.replace(/\.(?=[^.]*\.)/g, ''); 
+  }
 
   return parseFloat(cleaned);
 };
