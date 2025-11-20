@@ -1,8 +1,8 @@
 import React from "react";
 import { Document, Page, View, Text, StyleSheet, Font } from "@react-pdf/renderer";
-import { mockCompanySettings } from "@/mockData/settings"; // Importar mockCompanySettings
+import { mockCompanySettings } from "@/mockData/settings";
 import { ExamEntry, HemogramReference, HemogramReferenceValue, ExamReportData } from "@/types/exam";
-import { hemogramReferences } from "@/constants/examReferences"; // Importar hemogramReferences do novo arquivo
+import { hemogramReferences } from "@/constants/examReferences";
 
 // Registrando a fonte Exo com pesos regular, bold, italic e bold-italic
 Font.register({
@@ -107,6 +107,7 @@ const styles = StyleSheet.create({
     marginBottom: 5,
   },
   // --- Layout de colunas para o corpo do laudo ---
+  // General table header for Eritrograma and Plaquetas
   tableHeader: {
     flexDirection: "row",
     borderBottomWidth: 1,
@@ -129,19 +130,64 @@ const styles = StyleSheet.create({
     width: 100, // RESULTADO
     textAlign: "right",
   },
-  headerCellIndicator: { // Swapped order
-    width: 130, // INDICADOR (120px para barra + 10px padding)
-    textAlign: "center",
-  },
-  headerCellReference: { // Swapped order
+  headerCellReference: {
     width: 120, // REFERÊNCIA
     textAlign: "right",
   },
+  headerCellIndicator: {
+    width: 130, // INDICADOR
+    textAlign: "center",
+  },
+
+  // Custom header for Leukogram to match image
+  leukogramHeader: {
+    flexDirection: "row",
+    borderBottomWidth: 1,
+    borderBottomColor: "#000",
+    paddingBottom: 5,
+    marginBottom: 5,
+    backgroundColor: "#f5f5f5",
+  },
+  leukogramHeaderName: {
+    width: 120,
+    fontSize: 9,
+    fontWeight: "bold",
+    color: "#333",
+    textAlign: "left",
+    paddingLeft: 5,
+  },
+  leukogramHeaderResults: {
+    width: 100, // Combined width for relative and absolute results
+    flexDirection: 'column', // Changed to column
+    alignItems: 'flex-end', // Align sub-headers to the right
+    justifyContent: 'center',
+  },
+  leukogramHeaderReferences: {
+    width: 120, // Combined width for relative and absolute references
+    flexDirection: 'column', // Changed to column
+    alignItems: 'flex-end', // Align sub-headers to the right
+    justifyContent: 'center',
+  },
+  leukogramHeaderSub: {
+    fontSize: 8,
+    fontWeight: "bold",
+    color: "#333",
+    textAlign: 'right',
+    lineHeight: 1.2, // Adjust line height for better spacing
+  },
+  leukogramHeaderIndicator: {
+    width: 130,
+    fontSize: 9,
+    fontWeight: "bold",
+    color: "#333",
+    textAlign: "center",
+  },
+
   paramRow: {
     flexDirection: "row",
     alignItems: "center",
     marginBottom: 3,
-    minHeight: 18, // Altura mínima para cada linha
+    minHeight: 18,
   },
   paramName: {
     width: 120,
@@ -149,9 +195,10 @@ const styles = StyleSheet.create({
     color: "#333",
     paddingLeft: 5,
   },
+  // For single-value results (Eritrograma, Plaquetas)
   paramResultContainer: {
     width: 100,
-    flexDirection: 'column',
+    flexDirection: 'column', // Changed to column to allow multiple lines if needed
     alignItems: 'flex-end',
     justifyContent: 'center',
   },
@@ -160,8 +207,21 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     textAlign: "right",
   },
-  // REMOVED: paramUnitText
-  paramReferenceContainer: { // Swapped order
+  // For multi-value results (Leukogram)
+  leukocyteResultContainer: {
+    width: 100,
+    flexDirection: 'column',
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+  },
+  leukocyteResultText: {
+    fontSize: 9,
+    fontWeight: "bold",
+    textAlign: "right",
+    lineHeight: 1.2, // Adjust line height for better spacing
+  },
+
+  paramReferenceContainer: {
     width: 120,
     flexDirection: 'column',
     alignItems: 'flex-end',
@@ -171,18 +231,18 @@ const styles = StyleSheet.create({
     fontSize: 7,
     color: "#666",
     textAlign: "right",
+    lineHeight: 1.2, // Adjust line height for better spacing
   },
-  indicatorColumn: { // Swapped order
-    width: 130, // Largura para o indicador
+  indicatorColumn: {
+    width: 130,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  // --- Estilos para o Indicador (Barra) ---
   indicatorBarBackground: {
-    width: 120, // Largura fixa da barra
+    width: 120,
     height: 8,
-    backgroundColor: '#ffe0e0', // Fundo vermelho claro
+    backgroundColor: '#ffe0e0',
     borderRadius: 2,
     position: 'relative',
     overflow: 'hidden',
@@ -190,25 +250,24 @@ const styles = StyleSheet.create({
   indicatorBarNormalRange: {
     position: 'absolute',
     height: '100%',
-    backgroundColor: '#ccffcc', // Faixa verde para o intervalo normal
+    backgroundColor: '#ccffcc',
     borderRadius: 2,
   },
   indicatorMarker: {
     position: 'absolute',
-    fontSize: 12, // Tamanho do ponto "●"
-    top: -2, // Ajuste vertical para centralizar o ponto
-    width: 8, // Largura do ponto para centralização
+    fontSize: 12,
+    top: -2,
+    width: 8,
     textAlign: 'center',
   },
-  // --- Cores para Resultados e Marcadores ---
   resultNormal: {
-    color: "#000000", // Preto
+    color: "#000000",
   },
   resultHigh: {
-    color: "#dc3545", // Vermelho
+    color: "#dc3545",
   },
   resultLow: {
-    color: "#007bff", // Azul
+    color: "#007bff",
   },
   observationText: {
     fontSize: 10,
@@ -364,15 +423,15 @@ export const ExamReportPdfContent = ({
       <View style={styles.paramRow}>
         <Text style={styles.paramName}>{label}</Text>
         <View style={styles.paramResultContainer}>
-          <Text style={[styles.paramResultText, resultStyle]}>{value} {unit}</Text> {/* Combined value and unit */}
+          <Text style={[styles.paramResultText, resultStyle]}>{value} {unit}</Text>
         </View>
-        <View style={styles.indicatorColumn}> {/* Swapped order */}
+        <View style={styles.paramReferenceContainer}>
+          <Text style={styles.paramReferenceText}>{ref?.full || 'N/A'}</Text>
+        </View>
+        <View style={styles.indicatorColumn}>
           {ref && ref.min !== undefined && ref.max !== undefined && !isNaN(normalizeNumber(value)) ? (
             <IndicatorBar value={value} minRef={ref.min} maxRef={ref.max} valueStatus={valueStatus} />
           ) : null}
-        </View>
-        <View style={styles.paramReferenceContainer}> {/* Swapped order */}
-          <Text style={styles.paramReferenceText}>{ref?.full || 'N/A'}</Text>
         </View>
       </View>
     );
@@ -383,13 +442,13 @@ export const ExamReportPdfContent = ({
     label: string,
     relativeValue: string | undefined,
     absoluteValue: string | undefined,
-    relativeReferenceKey: string,
-    absoluteReferenceKey: string,
+    referenceKey: string, // Use a single key for both relative and absolute references
   ) => {
     if (!relativeValue && !absoluteValue) return null;
 
-    const relRef = getReferenceRange(relativeReferenceKey);
-    const absRef = getReferenceRange(absoluteReferenceKey);
+    const ref = getReferenceRange(referenceKey); // Get the full reference object
+    const relRef = ref; // For relative values
+    const absRef = ref; // For absolute values
 
     const relValueStatus = getValueStatus(relativeValue, relRef);
     const absValueStatus = getValueStatus(absoluteValue, absRef);
@@ -410,7 +469,6 @@ export const ExamReportPdfContent = ({
       default: absResultStyle = styles.resultNormal;
     }
 
-    // O indicador usará o valor absoluto para posicionamento e cor
     const indicatorValue = absoluteValue;
     const indicatorMin = absRef?.min;
     const indicatorMax = absRef?.max;
@@ -419,18 +477,18 @@ export const ExamReportPdfContent = ({
     return (
       <View style={styles.paramRow}>
         <Text style={styles.paramName}>{label}</Text>
-        <View style={styles.paramResultContainer}>
-          <Text style={[styles.paramResultText, relResultStyle]}>{relativeValue}%</Text>
-          <Text style={[styles.paramResultText, absResultStyle]}>{absoluteValue}/µL</Text>
+        <View style={styles.leukocyteResultContainer}>
+          <Text style={[styles.leukocyteResultText, relResultStyle]}>{relativeValue}%</Text>
+          <Text style={[styles.leukocyteResultText, absResultStyle]}>{absoluteValue}/µL</Text>
         </View>
-        <View style={styles.indicatorColumn}> {/* Swapped order */}
+        <View style={styles.paramReferenceContainer}>
+          <Text style={styles.paramReferenceText}>{relRef?.relative || 'N/A'}</Text>
+          <Text style={styles.paramReferenceText}>{absRef?.absolute || 'N/A'}</Text>
+        </View>
+        <View style={styles.indicatorColumn}>
           {indicatorMin !== undefined && indicatorMax !== undefined && !isNaN(normalizeNumber(indicatorValue)) ? (
             <IndicatorBar value={indicatorValue} minRef={indicatorMin} maxRef={indicatorMax} valueStatus={indicatorValueStatus} />
           ) : null}
-        </View>
-        <View style={styles.paramReferenceContainer}> {/* Swapped order */}
-          <Text style={styles.paramReferenceText}>{relRef?.relative || 'N/A'}</Text>
-          <Text style={styles.paramReferenceText}>{absRef?.absolute || 'N/A'}</Text>
         </View>
       </View>
     );
@@ -487,23 +545,21 @@ export const ExamReportPdfContent = ({
 
         {exam.type === "Hemograma Completo" ? (
           <>
-            {/* Tabela de Cabeçalho para os parâmetros (inverted) */}
+            {/* Tabela de Cabeçalho para Eritrograma e Plaquetas */}
+            <Text style={styles.sectionTitle}>ERITROGRAMA</Text>
             <View style={styles.tableHeader}>
               <Text style={[styles.headerCell, styles.headerCellName]}>NOME DO PARÂMETRO</Text>
               <Text style={[styles.headerCell, styles.headerCellResult]}>RESULTADO</Text>
-              <Text style={[styles.headerCell, styles.headerCellIndicator]}>INDICADOR</Text> {/* Swapped */}
-              <Text style={[styles.headerCell, styles.headerCellReference]}>REFERÊNCIA</Text> {/* Swapped */}
+              <Text style={[styles.headerCell, styles.headerCellReference]}>REFERÊNCIA</Text>
+              <Text style={[styles.headerCell, styles.headerCellIndicator]}>INDICADOR</Text>
             </View>
-
-            {/* Série Vermelha */}
-            <Text style={styles.sectionTitle}>ERITROGRAMA</Text>
             {renderHemogramParam("Eritrócitos", exam.eritrocitos, "M/mm3", "eritrocitos")}
             {renderHemogramParam("Hemoglobina", exam.hemoglobina, "g/dL", "hemoglobina")}
             {renderHemogramParam("Hematócrito", exam.hematocrito, "%", "hematocrito")}
             {renderHemogramParam("VCM", exam.vcm, "fL", "vcm")}
             {renderHemogramParam("HCM", exam.hcm, "pg", "hcm")}
             {renderHemogramParam("CHCM", exam.chcm, "g/dL", "chcm")}
-            {renderHemogramParam("RDW", exam.rdw, "%", "rdw")}
+            {/* RDW não está no mock, mas se estivesse, seria aqui */}
             {exam.proteinaTotal && renderHemogramParam("Proteína total", exam.proteinaTotal, "g/dL", "proteinaTotal")}
             {exam.hemaciasNucleadas && renderHemogramParam("Hemácias nucleadas", exam.hemaciasNucleadas, "", "hemaciasNucleadas")}
             {exam.observacoesSerieVermelha && (
@@ -513,17 +569,31 @@ export const ExamReportPdfContent = ({
               </View>
             )}
 
-            {/* Série Branca */}
+            {/* Leucograma */}
             <Text style={styles.sectionTitle}>LEUCOGRAMA</Text>
+            {/* Custom header for Leukogram */}
+            <View style={styles.leukogramHeader}>
+              <Text style={styles.leukogramHeaderName}>NOME DO PARÂMETRO</Text>
+              <View style={styles.leukogramHeaderResults}>
+                <Text style={styles.leukogramHeaderSub}>Relativo:</Text>
+                <Text style={styles.leukogramHeaderSub}>Absoluto:</Text>
+              </View>
+              <View style={styles.leukogramHeaderReferences}>
+                <Text style={styles.leukogramHeaderSub}>Relativo:</Text>
+                <Text style={styles.leukogramHeaderSub}>Absoluto:</Text>
+              </View>
+              <Text style={styles.leukogramHeaderIndicator}>Indicador:</Text>
+            </View>
+
             {renderHemogramParam("Leucócitos totais", exam.leucocitosTotais, "mil/µL", "leucocitosTotais")}
-            {exam.mielocitosRelativo && renderLeukocyteParam("Mielócitos", exam.mielocitosRelativo, exam.mielocitosAbsoluto, "mielocitos", "mielocitos")}
-            {exam.metamielocitosRelativo && renderLeukocyteParam("Metamielócitos", exam.metamielocitosRelativo, exam.metamielocitosAbsoluto, "metamielocitos", "metamielocitos")}
-            {exam.bastonetesRelativo && renderLeukocyteParam("Bastonetes", exam.bastonetesRelativo, exam.bastonetesAbsoluto, "bastonetes", "bastonetes")}
-            {exam.segmentadosRelativo && renderLeukocyteParam("Segmentados", exam.segmentadosRelativo, exam.segmentadosAbsoluto, "segmentados", "segmentados")}
-            {exam.eosinofilosRelativo && renderLeukocyteParam("Eosinófilos", exam.eosinofilosRelativo, exam.eosinofilosAbsoluto, "eosinofilos", "eosinofilos")}
-            {exam.basofilosRelativo && renderLeukocyteParam("Basófilos", exam.basofilosRelativo, exam.basofilosAbsoluto, "basofilos", "basofilos")}
-            {exam.linfocitosRelativo && renderLeukocyteParam("Linfócitos", exam.linfocitosRelativo, exam.linfocitosAbsoluto, "linfocitos", "linfocitos")}
-            {exam.monocitosRelativo && renderLeukocyteParam("Monócitos", exam.monocitosRelativo, exam.monocitosAbsoluto, "monocitos", "monocitos")}
+            {exam.mielocitosRelativo && renderLeukocyteParam("Mielócitos", exam.mielocitosRelativo, exam.mielocitosAbsoluto, "mielocitos")}
+            {exam.metamielocitosRelativo && renderLeukocyteParam("Metamielócitos", exam.metamielocitosRelativo, exam.metamielocitosAbsoluto, "metamielocitos")}
+            {exam.bastonetesRelativo && renderLeukocyteParam("Bastonetes", exam.bastonetesRelativo, exam.bastonetesAbsoluto, "bastonetes")}
+            {exam.segmentadosRelativo && renderLeukocyteParam("Segmentados", exam.segmentadosRelativo, exam.segmentadosAbsoluto, "segmentados")}
+            {exam.eosinofilosRelativo && renderLeukocyteParam("Eosinófilos", exam.eosinofilosRelativo, exam.eosinofilosAbsoluto, "eosinofilos")}
+            {exam.basofilosRelativo && renderLeukocyteParam("Basófilos", exam.basofilosRelativo, exam.basofilosAbsoluto, "basofilos")}
+            {exam.linfocitosRelativo && renderLeukocyteParam("Linfócitos", exam.linfocitosRelativo, exam.linfocitosAbsoluto, "linfocitos")}
+            {exam.monocitosRelativo && renderLeukocyteParam("Monócitos", exam.monocitosRelativo, exam.monocitosAbsoluto, "monocitos")}
             {exam.observacoesSerieBranca && (
               <View style={{ marginTop: 10 }}>
                 <Text style={styles.subsectionTitle}>Observações da Série Branca:</Text>
@@ -531,8 +601,14 @@ export const ExamReportPdfContent = ({
               </View>
             )}
 
-            {/* Série Plaquetária */}
+            {/* Plaquetas */}
             <Text style={styles.sectionTitle}>PLAQUETOGRAMA</Text>
+            <View style={styles.tableHeader}>
+              <Text style={[styles.headerCell, styles.headerCellName]}>NOME DO PARÂMETRO</Text>
+              <Text style={[styles.headerCell, styles.headerCellResult]}>RESULTADO</Text>
+              <Text style={[styles.headerCell, styles.headerCellReference]}>REFERÊNCIA</Text>
+              <Text style={[styles.headerCell, styles.headerCellIndicator]}>INDICADOR</Text>
+            </View>
             {renderHemogramParam("Plaquetas totais", exam.contagemPlaquetaria, "/µL", "contagemPlaquetaria")}
             {exam.avaliacaoPlaquetaria && (
               <View style={{ marginTop: 10 }}>
@@ -550,7 +626,6 @@ export const ExamReportPdfContent = ({
             )}
           </>
         ) : (
-          // Resultado para exames não-hemograma
           exam.result && (
             <View style={{ marginTop: 15 }}>
               <Text style={styles.sectionTitle}>Resultado</Text>
@@ -559,7 +634,6 @@ export const ExamReportPdfContent = ({
           )
         )}
 
-        {/* Observações Gerais do Exame */}
         {exam.observacoesGeraisExame && (
           <View style={{ marginTop: 15 }}>
             <Text style={styles.sectionTitle}>Observações Gerais do Exame</Text>
