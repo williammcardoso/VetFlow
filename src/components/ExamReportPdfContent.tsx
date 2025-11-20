@@ -176,7 +176,7 @@ const styles = StyleSheet.create({
     lineHeight: 1.2, // Adjust line height for better spacing
   },
   leukogramHeaderIndicator: {
-    flexGrow: 1, // INDICADOR
+    width: 130, // INDICADOR
     fontSize: 9,
     fontWeight: "bold",
     color: "#333",
@@ -234,7 +234,7 @@ const styles = StyleSheet.create({
     // lineHeight: 1.2, // Removido
   },
   indicatorColumn: {
-    flexGrow: 1, // Ocupa o espaço restante
+    width: 130, // Ocupa o espaço restante
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
