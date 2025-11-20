@@ -180,7 +180,7 @@ const styles = StyleSheet.create({
     fontSize: 9,
     fontWeight: "bold",
     color: "#333",
-    textAlign: "center",
+    textAlign: "right", // Alinhado à direita
   },
 
   paramRow: {
@@ -229,27 +229,39 @@ const styles = StyleSheet.create({
 
   paramReferenceContainer: {
     width: 120,
-    flexDirection: 'row', // Alterado para row
-    alignItems: 'center', // Centraliza verticalmente
-    justifyContent: 'flex-end', // Alinha à direita
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between', // Distribui o espaço entre os dois blocos (relativo e absoluto)
   },
-  paramReferenceText: {
+  referencePartContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '49%', // Cada parte (relativo/absoluto) ocupa quase metade do espaço
+    // justifyContent: 'flex-end', // Alinha o conteúdo à direita dentro do seu espaço
+  },
+  referenceValueText: {
     fontSize: 7,
     color: "#666",
+    width: 16, // Largura ajustada para valores
     textAlign: "right",
-    width: '50%', // Largura para a referência relativa
   },
-  paramReferenceTextAbsolute: {
+  referenceSeparatorText: {
     fontSize: 7,
     color: "#666",
-    textAlign: "right",
-    width: '50%', // Largura para a referência absoluta
+    width: 6, // Largura ajustada para separador
+    textAlign: "center",
+  },
+  referenceUnitText: {
+    fontSize: 7,
+    color: "#666",
+    width: 16, // Largura ajustada para unidade
+    textAlign: "left",
   },
   indicatorColumn: {
     width: 130, // Ocupa o espaço restante
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'flex-start', // Alinhado à esquerda
+    justifyContent: 'flex-end', // Alinhado à direita
   },
   indicatorBarBackground: {
     width: '100%', // Preenche a largura total da coluna
@@ -393,6 +405,43 @@ const IndicatorBar: React.FC<IndicatorBarProps> = ({ value, minRef, maxRef, valu
   );
 };
 
+// Helper function to parse leukocyte reference strings
+const parseLeukocyteReference = (refString: string | undefined) => {
+  if (!refString || refString === 'N/A') {
+    return { val1: '', sep: '', val2: '', unit: '' };
+  }
+
+  // Case 1: "VALUE1 - VALUE2 UNIT" (e.g., "60 - 77 %", "3.000 - 11.500 /µL")
+  const rangeWithUnitMatch = refString.match(/^(\S+)\s*-\s*(\S+)\s*(\S*)$/);
+  if (rangeWithUnitMatch) {
+    return {
+      val1: rangeWithUnitMatch[1],
+      sep: '-',
+      val2: rangeWithUnitMatch[2],
+      unit: rangeWithUnitMatch[3] || ''
+    };
+  }
+
+  // Case 2: "VALUE UNIT" (e.g., "0 %")
+  const valueWithUnitMatch = refString.match(/^(\S+)\s*(\S*)$/);
+  if (valueWithUnitMatch) {
+    return {
+      val1: valueWithUnitMatch[1],
+      sep: '',
+      val2: '',
+      unit: valueWithUnitMatch[2] || ''
+    };
+  }
+
+  // Case 3: "/ raros"
+  if (refString.includes('/ raros')) {
+    return { val1: '', sep: '/', val2: 'raros', unit: '' };
+  }
+
+  // Fallback: just the string as val1
+  return { val1: refString, sep: '', val2: '', unit: '' };
+};
+
 
 export const ExamReportPdfContent = ({
   animalName, animalId, animalSpecies, tutorName, tutorAddress, exam,
@@ -490,6 +539,9 @@ export const ExamReportPdfContent = ({
     const indicatorMax = absRef?.max;
     const indicatorValueStatus = absValueStatus;
 
+    const parsedRelRef = parseLeukocyteReference(relRef?.relative);
+    const parsedAbsRef = parseLeukocyteReference(absRef?.absolute);
+
     return (
       <View style={styles.paramRow}>
         <Text style={styles.paramName}>{label}</Text>
@@ -498,8 +550,20 @@ export const ExamReportPdfContent = ({
           <Text style={[styles.leukocyteResultTextAbsolute, absResultStyle]}>{absoluteValue}/µL</Text>
         </View>
         <View style={styles.paramReferenceContainer}>
-          <Text style={styles.paramReferenceText}>{relRef?.relative || 'N/A'}</Text>
-          <Text style={styles.paramReferenceTextAbsolute}>{absRef?.absolute || 'N/A'}</Text>
+          <View style={styles.referencePartContainer}>
+            <Text style={styles.referenceValueText}>{parsedRelRef.val1}</Text>
+            <Text style={styles.referenceSeparatorText}>{parsedRelRef.sep}</Text>
+            <Text style={styles.referenceValueText}>{parsedRelRef.val2}</Text>
+            <Text style={styles.referenceUnitText}>{parsedRelRef.unit}</Text>
+          </View>
+          {/* Pequeno espaçador entre as partes relativa e absoluta */}
+          <View style={{ width: '2%' }} /> 
+          <View style={styles.referencePartContainer}>
+            <Text style={styles.referenceValueText}>{parsedAbsRef.val1}</Text>
+            <Text style={styles.referenceSeparatorText}>{parsedAbsRef.sep}</Text>
+            <Text style={styles.referenceValueText}>{parsedAbsRef.val2}</Text>
+            <Text style={styles.referenceUnitText}>{parsedAbsRef.unit}</Text>
+          </View>
         </View>
         <View style={styles.indicatorColumn}>
           {indicatorMin !== undefined && indicatorMax !== undefined && !isNaN(normalizeNumber(indicatorValue)) ? (
