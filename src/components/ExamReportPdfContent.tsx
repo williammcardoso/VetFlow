@@ -231,40 +231,38 @@ const styles = StyleSheet.create({
     width: 120,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between', // Distribui o espaço entre os dois blocos (relativo e absoluto)
+    justifyContent: 'flex-end', // Push content to the right
   },
-  referencePartContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    width: '49%', // Cada parte (relativo/absoluto) ocupa quase metade do espaço
-    // justifyContent: 'flex-end', // Alinha o conteúdo à direita dentro do seu espaço
-  },
-  referenceValueText: {
+  // New styles for sub-columns within reference
+  referenceValueTextRight: {
     fontSize: 7,
     color: "#666",
-    width: 16, // Largura ajustada para valores
+    width: '15%', // 15% of 120px = 18px
     textAlign: "right",
   },
-  referenceSeparatorText: {
+  referenceSeparatorTextCenter: {
     fontSize: 7,
     color: "#666",
-    width: 6, // Largura ajustada para separador
+    width: '5%', // 5% of 120px = 6px
     textAlign: "center",
   },
-  referenceUnitText: {
+  referenceUnitTextLeft: {
     fontSize: 7,
     color: "#666",
-    width: 16, // Largura ajustada para unidade
+    width: '10%', // 10% of 120px = 12px
     textAlign: "left",
   },
+  referenceSpacer: {
+    width: '5%', // 5% of 120px = 6px
+  },
   indicatorColumn: {
-    width: 130, // Ocupa o espaço restante
+    width: 130, // Fixed width for the column
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'flex-end', // Alinhado à direita
+    justifyContent: 'flex-end', // Align the bar to the right within this column
   },
   indicatorBarBackground: {
-    width: '100%', // Preenche a largura total da coluna
+    width: 100, // Fixed width for the bar itself (e.g., 100px, less than 130px)
     height: 8,
     backgroundColor: '#ffe0e0',
     borderRadius: 2,
@@ -343,7 +341,7 @@ interface IndicatorBarProps {
 }
 
 const IndicatorBar: React.FC<IndicatorBarProps> = ({ value, minRef, maxRef, valueStatus }) => {
-  const BAR_WIDTH = 120; // This will be overridden by '100%' in style, but kept for calculations
+  const BAR_WIDTH = 100; // Matches the width of indicatorBarBackground
   const BAR_HEIGHT = 8;
 
   const numValue = normalizeNumber(value);
@@ -550,20 +548,18 @@ export const ExamReportPdfContent = ({
           <Text style={[styles.leukocyteResultTextAbsolute, absResultStyle]}>{absoluteValue}/µL</Text>
         </View>
         <View style={styles.paramReferenceContainer}>
-          <View style={styles.referencePartContainer}>
-            <Text style={styles.referenceValueText}>{parsedRelRef.val1}</Text>
-            <Text style={styles.referenceSeparatorText}>{parsedRelRef.sep}</Text>
-            <Text style={styles.referenceValueText}>{parsedRelRef.val2}</Text>
-            <Text style={styles.referenceUnitText}>{parsedRelRef.unit}</Text>
-          </View>
-          {/* Pequeno espaçador entre as partes relativa e absoluta */}
-          <View style={{ width: '2%' }} /> 
-          <View style={styles.referencePartContainer}>
-            <Text style={styles.referenceValueText}>{parsedAbsRef.val1}</Text>
-            <Text style={styles.referenceSeparatorText}>{parsedAbsRef.sep}</Text>
-            <Text style={styles.referenceValueText}>{parsedAbsRef.val2}</Text>
-            <Text style={styles.referenceUnitText}>{parsedAbsRef.unit}</Text>
-          </View>
+          {/* Relative Part */}
+          <Text style={styles.referenceValueTextRight}>{parsedRelRef.val1}</Text>
+          <Text style={styles.referenceSeparatorTextCenter}>{parsedRelRef.sep}</Text>
+          <Text style={styles.referenceValueTextRight}>{parsedRelRef.val2}</Text>
+          <Text style={styles.referenceUnitTextLeft}>{parsedRelRef.unit}</Text>
+          {/* Spacer between relative and absolute parts */}
+          <View style={styles.referenceSpacer} />
+          {/* Absolute Part */}
+          <Text style={styles.referenceValueTextRight}>{parsedAbsRef.val1}</Text>
+          <Text style={styles.referenceSeparatorTextCenter}>{parsedAbsRef.sep}</Text>
+          <Text style={styles.referenceValueTextRight}>{parsedAbsRef.val2}</Text>
+          <Text style={styles.referenceUnitTextLeft}>{parsedAbsRef.unit}</Text>
         </View>
         <View style={styles.indicatorColumn}>
           {indicatorMin !== undefined && indicatorMax !== undefined && !isNaN(normalizeNumber(indicatorValue)) ? (
