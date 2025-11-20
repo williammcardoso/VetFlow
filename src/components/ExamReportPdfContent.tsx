@@ -239,27 +239,27 @@ const styles = StyleSheet.create({
   },
   // Column 1: Relative Value 1
   refVal1: {
-    width: 14, 
+    width: 19, // Aumentado para acomodar valores maiores
     textAlign: 'right',
   },
   // Column 2: Relative Separator
   refSep: {
     width: 8, 
-    textAlign: 'right', // Alterado para 'right'
+    textAlign: 'center', // Centralizado
   },
   // Column 3: Relative Value 2
   refVal2: {
-    width: 14, 
+    width: 19, // Aumentado para acomodar valores maiores
     textAlign: 'right',
   },
   // Column 4: Relative Unit
   refUnit: {
-    width: 12, 
+    width: 14, // Ajustado
     textAlign: 'left',
   },
   // Column 5: Spacer between relative and absolute
   refSpacer: {
-    width: 8, 
+    width: 4, // Ajustado
   },
   // Column 6: Absolute Value 1
   refVal1Abs: {
@@ -269,16 +269,16 @@ const styles = StyleSheet.create({
   // Column 7: Absolute Separator
   refSepAbs: { // Specific style for absolute separator if needed, or reuse refSep
     width: 8, 
-    textAlign: 'right', // Alterado para 'right'
+    textAlign: 'center', // Centralizado
   },
   // Column 8: Absolute Value 2
   refVal2Abs: {
-    width: 21, // Aumentado de 19 para 21
+    width: 21, 
     textAlign: 'right',
   },
   // Column 9: Absolute Unit
   refUnitAbs: {
-    width: 16, // Diminuído de 18 para 16
+    width: 16, 
     textAlign: 'left',
   },
   indicatorColumn: {
@@ -488,6 +488,25 @@ const parseLeukocyteReference = (refString: string | undefined) => {
   return { val1: refString, sep: '', val2: '', unit: '' };
 };
 
+// Helper function to parse min/max from a reference string like "3.000 - 11.500 /µL"
+const parseMinMaxFromReferenceString = (refString: string | undefined): { min: number; max: number } | undefined => {
+  if (!refString) return undefined;
+  const match = refString.match(/^(\S+)\s*-\s*(\S+)/); // Matches "VALUE1 - VALUE2"
+  if (match) {
+    const min = normalizeNumber(match[1]);
+    const max = normalizeNumber(match[2]);
+    if (!isNaN(min) && !isNaN(max)) {
+      return { min, max };
+    }
+  }
+  // Handle single value cases like "0" or "0 %" if min/max are not explicitly a range
+  const singleValue = normalizeNumber(refString);
+  if (!isNaN(singleValue)) {
+    return { min: singleValue, max: singleValue };
+  }
+  return undefined;
+};
+
 
 export const ExamReportPdfContent = ({
   animalName, animalId, animalSpecies, tutorName, tutorAddress, exam, hemogramReferences, // hemogramReferences agora vem via props
@@ -500,7 +519,7 @@ export const ExamReportPdfContent = ({
     return hemogramReferences[param][speciesKey];
   };
 
-  const getValueStatus = (value: string | undefined, ref: HemogramReferenceValue | undefined): 'normal' | 'high' | 'low' | 'invalid' => {
+  const getValueStatus = (value: string | undefined, ref: { min: number | undefined; max: number | undefined } | undefined): 'normal' | 'high' | 'low' | 'invalid' => {
     if (!value || !ref || ref.min === undefined || ref.max === undefined) return 'invalid';
     const numValue = normalizeNumber(value);
     if (isNaN(numValue)) return 'invalid';
@@ -536,6 +555,9 @@ export const ExamReportPdfContent = ({
         <View style={styles.paramResultContainer}>
           <Text style={[styles.paramResultText, resultStyle]}>{value} {unit}</Text>
         </View>
+        <View style={styles.referenceContainer}> {/* Usando o novo container de referência */}
+          <Text style={styles.refCell}>{ref?.full || 'N/A'}</Text>
+        </View>
         <View style={styles.indicatorColumn}>
           {ref && ref.min !== undefined && ref.max !== undefined && !isNaN(normalizeNumber(value)) ? (
             <IndicatorBar value={value} minRef={ref.min} maxRef={ref.max} valueStatus={valueStatus} />
@@ -558,8 +580,12 @@ export const ExamReportPdfContent = ({
     const relRef = ref; // For relative values
     const absRef = ref; // For absolute values
 
+    // Para o status do valor relativo, usamos os min/max do objeto de referência
     const relValueStatus = getValueStatus(relativeValue, relRef);
-    const absValueStatus = getValueStatus(absoluteValue, absRef);
+    // Para o status do valor absoluto, precisamos parsear min/max da string 'absolute'
+    const absRangeParsed = parseMinMaxFromReferenceString(absRef?.absolute);
+    const absValueStatus = getValueStatus(absoluteValue, absRangeParsed);
+
 
     let relResultStyle;
     switch (relValueStatus) {
@@ -578,8 +604,8 @@ export const ExamReportPdfContent = ({
     }
 
     const indicatorValue = absoluteValue;
-    const indicatorMin = absRef?.min;
-    const indicatorMax = absRef?.max;
+    const indicatorMin = absRangeParsed?.min; // Usar min/max parseados da string absoluta
+    const indicatorMax = absRangeParsed?.max; // Usar min/max parseados da string absoluta
     const indicatorValueStatus = absValueStatus;
 
     const parsedRelRef = parseLeukocyteReference(relRef?.relative);
