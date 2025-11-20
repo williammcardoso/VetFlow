@@ -315,41 +315,38 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end', // Align the bar to the right within this column
     flexGrow: 1, // Make it grow to fill remaining space
   },
-  indicatorBarBackground: {
-    width: 100, // Fixed width for the bar itself (e.g., 100px, less than 130px)
+  // NEW: Fixed background bar style
+  fixedBackgroundBar: {
+    width: 100, // Fixed width for the bar itself
     height: 8,
-    backgroundColor: '#ffe0e0',
-    borderRadius: 2,
+    backgroundColor: '#ccffcc', // Light green as requested
+    borderRadius: 4, // Slightly rounded corners
     position: 'relative',
-    overflow: 'hidden',
+    justifyContent: 'center', // To center the marker vertically
   },
-  indicatorBarNormalRange: {
+  // NEW: Style for the ball marker
+  ballMarker: {
     position: 'absolute',
-    height: '100%',
-    backgroundColor: '#ccffcc',
-    borderRadius: 2,
+    width: 12, // Size of the ball
+    height: 12,
+    borderRadius: 6, // Half of width/height for a perfect circle
+    // Background color will be set dynamically
+    top: -2, // Adjust to center the 12px ball vertically within the 8px bar
   },
-  indicatorMarker: {
-    position: 'absolute',
-    fontSize: 12,
-    top: -2,
-    width: 8,
-    textAlign: 'center',
-  },
-  indicatorRefText: {
-    fontSize: 6, // Smaller font size
-    color: "#000", // Black color
-    position: 'absolute',
-    top: 0, // Ajustado para alinhar melhor com a barra
-  },
+  // REMOVED OLD STYLES:
+  // indicatorBarBackground: { ... },
+  // indicatorBarNormalRange: { ... },
+  // indicatorMarker: { ... },
+  // indicatorRefText: { ... },
+
   resultNormal: {
-    color: "#000000",
+    color: "#000000", // Black for normal
   },
   resultHigh: {
-    color: "#dc3545",
+    color: "#dc3545", // Red for high
   },
   resultLow: {
-    color: "#007bff",
+    color: "#007bff", // Blue for low
   },
   observationText: {
     fontSize: 10,
@@ -402,94 +399,55 @@ interface IndicatorBarProps {
 
 const IndicatorBar: React.FC<IndicatorBarProps> = ({ value, minRef, maxRef, valueStatus }) => {
   const BAR_WIDTH = 100;
+  const BALL_SIZE = 12; // Matches ballMarker width/height
+
   const numValue = normalizeNumber(value);
 
-  let markerColor = styles.resultNormal.color;
-  if (valueStatus === 'high') markerColor = styles.resultHigh.color;
-  if (valueStatus === 'low') markerColor = styles.resultLow.color;
+  let ballColor = styles.resultNormal.color; // Default to black
+  if (valueStatus === 'high') ballColor = styles.resultHigh.color; // Red
+  if (valueStatus === 'low') ballColor = styles.resultLow.color;   // Blue
 
-  // Determine the overall range that needs to be displayed (including the value)
-  let currentMin = Math.min(minRef, isNaN(numValue) ? minRef : numValue);
-  let currentMax = Math.max(maxRef, isNaN(numValue) ? maxRef : numValue);
+  // Determine the overall visual range for positioning the marker
+  // This range should encompass minRef, maxRef, and numValue, plus a buffer.
+  let visualMin = Math.min(minRef, maxRef, isNaN(numValue) ? minRef : numValue);
+  let visualMax = Math.max(minRef, maxRef, isNaN(numValue) ? maxRef : numValue);
 
-  // If currentMin and currentMax are still the same (e.g., 0-0 and value is 0),
-  // expand them slightly to create a visible range for the red background.
-  if (currentMin === currentMax) {
-    const buffer = Math.max(1, Math.abs(currentMin) * 0.1); // Ensure a minimum buffer, at least 1
-    currentMin -= buffer;
-    currentMax += buffer;
+  // If reference range is a single point (e.g., 0-0), ensure a minimum visual span for the bar
+  if (visualMin === visualMax) {
+    const minVisualSpan = Math.max(1, Math.abs(minRef) * 0.5); // At least 1, or 50% of absolute value
+    visualMin = minRef - minVisualSpan;
+    visualMax = maxRef + minVisualSpan;
   }
 
-  // Add a consistent buffer to the overall range for the red background
-  const bufferPercentage = 0.2; // 20% buffer on each side
-  const rangeSpan = currentMax - currentMin;
-  const effectiveVisualMin = currentMin - (rangeSpan * bufferPercentage);
-  const effectiveVisualMax = currentMax + (rangeSpan * bufferPercentage);
+  // Apply a consistent buffer to the overall visual range
+  const bufferFactor = 0.2; // 20% buffer on each side relative to the current visual span
+  const currentRangeSpan = visualMax - visualMin;
+  const bufferAmount = currentRangeSpan * bufferFactor;
+  
+  const effectiveVisualMin = visualMin - bufferAmount;
+  const effectiveVisualMax = visualMax + bufferAmount;
+
   const totalEffectiveRange = effectiveVisualMax - effectiveVisualMin;
 
-  let greenBarLeft: number;
-  let greenBarWidth: number;
-  let markerPosition: number;
-
-  if (totalEffectiveRange <= 0) { // Fallback for extreme edge cases
-    greenBarLeft = BAR_WIDTH / 2 - 5;
-    greenBarWidth = 10;
-    markerPosition = BAR_WIDTH / 2;
-  } else {
-    // Calculate green bar properties
-    if (minRef === maxRef) {
-      // For single-point references, use a fixed visual width for the green bar
-      const fixedGreenWidthInPixels = BAR_WIDTH * 0.2; // e.g., 20% of total bar width
-      const centerOfRef = ((minRef - effectiveVisualMin) / totalEffectiveRange) * BAR_WIDTH;
-      greenBarLeft = centerOfRef - (fixedGreenWidthInPixels / 2);
-      greenBarWidth = fixedGreenWidthInPixels;
-    } else {
-      // For range references, scale the green bar width proportionally
-      greenBarLeft = ((minRef - effectiveVisualMin) / totalEffectiveRange) * BAR_WIDTH;
-      greenBarWidth = ((maxRef - minRef) / totalEffectiveRange) * BAR_WIDTH;
-    }
-
-    // Calculate marker position
-    markerPosition = ((numValue - effectiveVisualMin) / totalEffectiveRange) * BAR_WIDTH;
+  let ballLeftPosition = 0;
+  if (totalEffectiveRange > 0 && !isNaN(numValue)) {
+    ballLeftPosition = ((numValue - effectiveVisualMin) / totalEffectiveRange) * BAR_WIDTH;
+  } else if (isNaN(numValue)) {
+    // If value is invalid, center the ball as a fallback
+    ballLeftPosition = BAR_WIDTH / 2;
   }
 
-  // Clamp all values to ensure they stay within the bar boundaries
-  greenBarLeft = Math.max(0, Math.min(BAR_WIDTH - greenBarWidth, greenBarLeft));
-  greenBarWidth = Math.max(0, greenBarWidth);
-  markerPosition = Math.max(0, Math.min(BAR_WIDTH, markerPosition));
+  // Adjust position to center the ball
+  ballLeftPosition = ballLeftPosition - (BALL_SIZE / 2);
 
-  // Adjust marker position slightly if it's exactly at the edge of the green bar
-  // to make it more visible.
-  if (greenBarWidth > 0 && numValue === minRef && Math.abs(markerPosition - greenBarLeft) < 1) {
-    markerPosition = greenBarLeft + 1;
-  }
-  if (greenBarWidth > 0 && numValue === maxRef && Math.abs(markerPosition - (greenBarLeft + greenBarWidth)) < 1) {
-    markerPosition = greenBarLeft + greenBarWidth - 1;
-  }
+  // Clamp ball position to ensure it stays within the bar boundaries
+  ballLeftPosition = Math.max(0, Math.min(BAR_WIDTH - BALL_SIZE, ballLeftPosition));
 
   return (
-    <View>
-      <View style={styles.indicatorBarBackground}>
-        {greenBarWidth > 0 && (
-          <View style={[styles.indicatorBarNormalRange, { left: greenBarLeft, width: greenBarWidth }]} />
-        )}
-        {!isNaN(numValue) && (
-          <Text style={[styles.indicatorMarker, { left: markerPosition - (styles.indicatorMarker.fontSize as number / 2), color: markerColor }]}>●</Text>
-        )}
-      </View>
-      {/* Display min/max reference values */}
-      <View style={{ position: 'relative', width: BAR_WIDTH, height: 15, marginTop: 2 }}>
-        {greenBarWidth > 0 && ( // Only show if green bar exists
-          <>
-            <Text style={[styles.indicatorRefText, { left: greenBarLeft }]}>
-              {formatNumberForDisplay(minRef)}
-            </Text>
-            <Text style={[styles.indicatorRefText, { left: greenBarLeft + greenBarWidth - (String(formatNumberForDisplay(maxRef)).length * 4) }]}>
-              {formatNumberForDisplay(maxRef)}
-            </Text>
-          </>
-        )}
-      </View>
+    <View style={styles.fixedBackgroundBar}>
+      {!isNaN(numValue) && (
+        <View style={[styles.ballMarker, { left: ballLeftPosition, backgroundColor: ballColor }]} />
+      )}
     </View>
   );
 };
