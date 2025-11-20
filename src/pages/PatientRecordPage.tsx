@@ -33,7 +33,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"; // Importar DropdownMenu
-import { pdf } => "@react-pdf/renderer"; // Importar pdf para impressão
+import { pdf } from "@react-pdf/renderer"; // Importar pdf para impressão
 import { PrescriptionPdfContent } from "@/components/PrescriptionPdfContent"; // Importar o componente de conteúdo do PDF
 // ADDED: Import do conteúdo de PDF do exame
 import { ExamReportPdfContent } from "@/components/ExamReportPdfContent";
