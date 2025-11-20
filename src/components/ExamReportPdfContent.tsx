@@ -236,34 +236,35 @@ const styles = StyleSheet.create({
   referencePartWrapper: { // Wrapper para cada parte (relativo/absoluto)
     flexDirection: 'row',
     alignItems: 'center',
-    width: 50, // Fixed width for each part (e.g., 50px)
+    width: 54, // Fixed width for each part (45% of 120px)
   },
   referenceValueText: {
     fontSize: 7,
     color: "#666",
-    width: 18, // Fixed width for values
+    width: 19, // Adjusted width for values (approx 35% of 54px)
     textAlign: "right",
   },
   referenceSeparatorText: {
     fontSize: 7,
     color: "#666",
-    width: 8, // Fixed width for separator
+    width: 8, // Adjusted width for separator (approx 15% of 54px)
     textAlign: "center",
   },
   referenceUnitText: {
     fontSize: 7,
     color: "#666",
-    width: 6, // Fixed width for unit
+    width: 14, // Adjusted width for unit (approx 25% of 54px, to fit /µL)
     textAlign: "left",
   },
   referenceSpacer: {
-    width: 20, // Fixed width for spacer between relative and absolute parts
+    width: 12, // Fixed width for spacer between relative and absolute parts (10% of 120px)
   },
   indicatorColumn: {
     width: 130, // Fixed width for the column
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-end', // Align the bar to the right within this column
+    flexGrow: 1, // Make it grow to fill remaining space
   },
   indicatorBarBackground: {
     width: 100, // Fixed width for the bar itself (e.g., 100px, less than 130px)
