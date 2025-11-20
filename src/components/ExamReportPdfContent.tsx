@@ -402,71 +402,69 @@ interface IndicatorBarProps {
 
 const IndicatorBar: React.FC<IndicatorBarProps> = ({ value, minRef, maxRef, valueStatus }) => {
   const BAR_WIDTH = 100;
-  const BAR_HEIGHT = 8;
-  const SINGLE_POINT_GREEN_WIDTH_PERCENT = 0.2; // 20% of BAR_WIDTH for single-point green bar
-  const SINGLE_POINT_VISUAL_EXPANSION_FACTOR = 0.5; // How much to expand the visual range around a single point (e.g., 0 -> visual range -0.5 to +0.5)
-
   const numValue = normalizeNumber(value);
 
   let markerColor = styles.resultNormal.color;
   if (valueStatus === 'high') markerColor = styles.resultHigh.color;
   if (valueStatus === 'low') markerColor = styles.resultLow.color;
 
-  let effectiveVisualMin: number;
-  let effectiveVisualMax: number;
+  // Determine the overall range that needs to be displayed (including the value)
+  let currentMin = Math.min(minRef, isNaN(numValue) ? minRef : numValue);
+  let currentMax = Math.max(maxRef, isNaN(numValue) ? maxRef : numValue);
+
+  // If currentMin and currentMax are still the same (e.g., 0-0 and value is 0),
+  // expand them slightly to create a visible range for the red background.
+  if (currentMin === currentMax) {
+    const buffer = Math.max(1, Math.abs(currentMin) * 0.1); // Ensure a minimum buffer, at least 1
+    currentMin -= buffer;
+    currentMax += buffer;
+  }
+
+  // Add a consistent buffer to the overall range for the red background
+  const bufferPercentage = 0.2; // 20% buffer on each side
+  const rangeSpan = currentMax - currentMin;
+  const effectiveVisualMin = currentMin - (rangeSpan * bufferPercentage);
+  const effectiveVisualMax = currentMax + (rangeSpan * bufferPercentage);
+  const totalEffectiveRange = effectiveVisualMax - effectiveVisualMin;
+
   let greenBarLeft: number;
   let greenBarWidth: number;
   let markerPosition: number;
 
-  // Determine the full visual range (red background)
-  if (minRef === maxRef) {
-    // For single-point references (e.g., 0-0), create a synthetic range around the point
-    const centerRef = minRef;
-    // Ensure a minimum expansion, even if centerRef is 0, to create visible red areas
-    const visualRangeHalf = Math.max(1, Math.abs(centerRef) * SINGLE_POINT_VISUAL_EXPANSION_FACTOR);
-    effectiveVisualMin = centerRef - visualRangeHalf;
-    effectiveVisualMax = centerRef + visualRangeHalf;
+  if (totalEffectiveRange <= 0) { // Fallback for extreme edge cases
+    greenBarLeft = BAR_WIDTH / 2 - 5;
+    greenBarWidth = 10;
+    markerPosition = BAR_WIDTH / 2;
   } else {
-    // For range references (minRef < maxRef), use a buffer
-    const rangeBuffer = (maxRef - minRef) * 0.2; // 20% buffer on each side
-    effectiveVisualMin = minRef - rangeBuffer;
-    effectiveVisualMax = maxRef + rangeBuffer;
-  }
-
-  // Calculate green bar position and width within the effective visual range
-  const totalEffectiveRange = effectiveVisualMax - effectiveVisualMin;
-  if (totalEffectiveRange > 0) {
+    // Calculate green bar properties
     if (minRef === maxRef) {
-      // For single-point references, the green bar has a fixed, smaller width, centered
-      greenBarWidth = BAR_WIDTH * SINGLE_POINT_GREEN_WIDTH_PERCENT;
-      const centerPositionInBar = ((minRef - effectiveVisualMin) / totalEffectiveRange) * BAR_WIDTH;
-      greenBarLeft = centerPositionInBar - (greenBarWidth / 2);
+      // For single-point references, use a fixed visual width for the green bar
+      const fixedGreenWidthInPixels = BAR_WIDTH * 0.2; // e.g., 20% of total bar width
+      const centerOfRef = ((minRef - effectiveVisualMin) / totalEffectiveRange) * BAR_WIDTH;
+      greenBarLeft = centerOfRef - (fixedGreenWidthInPixels / 2);
+      greenBarWidth = fixedGreenWidthInPixels;
     } else {
-      // For range references, calculate based on the actual range
+      // For range references, scale the green bar width proportionally
       greenBarLeft = ((minRef - effectiveVisualMin) / totalEffectiveRange) * BAR_WIDTH;
       greenBarWidth = ((maxRef - minRef) / totalEffectiveRange) * BAR_WIDTH;
     }
-    // Calculate marker position within the determined effective visual range
+
+    // Calculate marker position
     markerPosition = ((numValue - effectiveVisualMin) / totalEffectiveRange) * BAR_WIDTH;
-  } else {
-    // Fallback for edge cases where effectiveVisualMin/Max might still be problematic
-    greenBarLeft = BAR_WIDTH / 2 - (BAR_WIDTH * SINGLE_POINT_GREEN_WIDTH_PERCENT / 2);
-    greenBarWidth = BAR_WIDTH * SINGLE_POINT_GREEN_WIDTH_PERCENT;
-    markerPosition = BAR_WIDTH / 2;
   }
 
-  // Clamp positions to ensure they stay within the bar boundaries
+  // Clamp all values to ensure they stay within the bar boundaries
   greenBarLeft = Math.max(0, Math.min(BAR_WIDTH - greenBarWidth, greenBarLeft));
   greenBarWidth = Math.max(0, greenBarWidth);
   markerPosition = Math.max(0, Math.min(BAR_WIDTH, markerPosition));
 
-  // Visual tweak for marker if it's exactly at the edge of the green bar
-  // This is a visual tweak to make the marker more visible when it aligns perfectly.
-  if (greenBarWidth > 0 && numValue === minRef && markerPosition === greenBarLeft) {
-    markerPosition += 1;
+  // Adjust marker position slightly if it's exactly at the edge of the green bar
+  // to make it more visible.
+  if (greenBarWidth > 0 && numValue === minRef && Math.abs(markerPosition - greenBarLeft) < 1) {
+    markerPosition = greenBarLeft + 1;
   }
-  if (greenBarWidth > 0 && numValue === maxRef && markerPosition === greenBarLeft + greenBarWidth) {
-    markerPosition -= 1;
+  if (greenBarWidth > 0 && numValue === maxRef && Math.abs(markerPosition - (greenBarLeft + greenBarWidth)) < 1) {
+    markerPosition = greenBarLeft + greenBarWidth - 1;
   }
 
   return (
@@ -479,8 +477,8 @@ const IndicatorBar: React.FC<IndicatorBarProps> = ({ value, minRef, maxRef, valu
           <Text style={[styles.indicatorMarker, { left: markerPosition - (styles.indicatorMarker.fontSize as number / 2), color: markerColor }]}>●</Text>
         )}
       </View>
-      {/* New: Display min/max reference values */}
-      <View style={{ position: 'relative', width: BAR_WIDTH, height: 15, marginTop: 2 }}> {/* Container for texts */}
+      {/* Display min/max reference values */}
+      <View style={{ position: 'relative', width: BAR_WIDTH, height: 15, marginTop: 2 }}>
         {greenBarWidth > 0 && ( // Only show if green bar exists
           <>
             <Text style={[styles.indicatorRefText, { left: greenBarLeft }]}>
