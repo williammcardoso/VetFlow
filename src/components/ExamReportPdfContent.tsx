@@ -2,7 +2,7 @@ import React from "react";
 import { Document, Page, View, Text, StyleSheet, Font } from "@react-pdf/renderer";
 import { mockCompanySettings } from "@/mockData/settings";
 import { ExamEntry, HemogramReference, HemogramReferenceValue, ExamReportData } from "@/types/exam";
-import { hemogramReferences } from "@/constants/examReferences";
+// import { hemogramReferences } from "@/constants/examReferences"; // Removido: agora vem via props
 
 // Registrando a fonte Exo com pesos regular, bold, italic e bold-italic
 Font.register({
@@ -25,17 +25,8 @@ const formatDateToPortuguese = (date: Date) => {
 // Normalizador de números (remove separador de milhar e troca vírgula por ponto)
 const normalizeNumber = (raw: string | undefined) => {
   if (!raw) return NaN;
-  
-  const lastCommaIndex = raw.lastIndexOf(',');
-  const lastDotIndex = raw.lastIndexOf('.');
-
-  if (lastCommaIndex > lastDotIndex) { // Last separator is a comma, assume Portuguese format
-    return parseFloat(raw.replace(/\./g, '').replace(/,/g, '.'));
-  } else if (lastDotIndex > lastCommaIndex) { // Last separator is a dot, assume English format
-    return parseFloat(raw.replace(/,/g, '')); // Remove thousands commas
-  } else { // No separators, or only one of them (e.g., "9", "9.5", "9,5")
-    return parseFloat(raw.replace(/,/g, '.')); // Just replace comma if it exists
-  }
+  // Remove todos os pontos (separadores de milhar) e substitui a vírgula (separador decimal) por ponto.
+  return parseFloat(raw.replace(/\./g, '').replace(/,/g, '.'));
 };
 
 const styles = StyleSheet.create({
@@ -499,7 +490,7 @@ const parseLeukocyteReference = (refString: string | undefined) => {
 
 
 export const ExamReportPdfContent = ({
-  animalName, animalId, animalSpecies, tutorName, tutorAddress, exam,
+  animalName, animalId, animalSpecies, tutorName, tutorAddress, exam, hemogramReferences, // hemogramReferences agora vem via props
 }: ExamReportData) => {
   const currentDate = new Date();
   const speciesKey = animalSpecies === "Canino" ? "dog" : animalSpecies === "Felino" ? "cat" : undefined;
@@ -722,7 +713,7 @@ export const ExamReportPdfContent = ({
             {exam.segmentadosRelativo && renderLeukocyteParam("Segmentados", exam.segmentadosRelativo, exam.segmentadosAbsoluto, "segmentados")}
             {exam.eosinofilosRelativo && renderLeukocyteParam("Eosinófilos", exam.eosinofilosRelativo, exam.eosinofilosAbsoluto, "eosinofilos")}
             {exam.basofilosRelativo && renderLeukocyteParam("Basófilos", exam.basofilosRelativo, exam.basofilosAbsoluto, "basofilos")}
-            {exam.linfocitosRelativo && renderLeFukocyteParam("Linfócitos", exam.linfocitosRelativo, exam.linfocitosAbsoluto, "linfocitos")}
+            {exam.linfocitosRelativo && renderLeukocyteParam("Linfócitos", exam.linfocitosRelativo, exam.linfocitosAbsoluto, "linfocitos")}
             {exam.monocitosRelativo && renderLeukocyteParam("Monócitos", exam.monocitosRelativo, exam.monocitosAbsoluto, "monocitos")}
             {exam.observacoesSerieBranca && (
               <View style={{ marginTop: 10 }}>
