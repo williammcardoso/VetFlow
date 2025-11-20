@@ -227,47 +227,58 @@ const styles = StyleSheet.create({
     width: '55%', // Largura para o valor absoluto
   },
 
-  // New styles for granular reference columns
+  // New styles for granular reference columns (9 columns)
   referenceContainer: {
     width: 120,
     flexDirection: 'row',
     alignItems: 'center',
-    // No justifyContent here, individual widths will control spacing
   },
   refCell: {
     fontSize: 7,
     color: "#666",
-    // Default styles, overridden by specific cells
   },
+  // Column 1: Relative Value 1
   refVal1: {
-    width: 15, // e.g., "60"
+    width: 14, 
     textAlign: 'right',
   },
+  // Column 2: Relative Separator
   refSep: {
-    width: 8, // e.g., "-"
+    width: 8, 
     textAlign: 'center',
   },
+  // Column 3: Relative Value 2
   refVal2: {
-    width: 15, // e.g., "77"
+    width: 14, 
     textAlign: 'right',
   },
+  // Column 4: Relative Unit
   refUnit: {
-    width: 10, // e.g., "%"
+    width: 12, 
     textAlign: 'left',
   },
+  // Column 5: Spacer between relative and absolute
   refSpacer: {
-    width: 10, // Larger gap between relative and absolute parts
+    width: 8, 
   },
+  // Column 6: Absolute Value 1
   refVal1Abs: {
-    width: 20, // e.g., "3.000"
+    width: 19, 
     textAlign: 'right',
   },
+  // Column 7: Absolute Separator
+  refSepAbs: { // Specific style for absolute separator if needed, or reuse refSep
+    width: 8, 
+    textAlign: 'center',
+  },
+  // Column 8: Absolute Value 2
   refVal2Abs: {
-    width: 20, // e.g., "11.500"
+    width: 19, 
     textAlign: 'right',
   },
+  // Column 9: Absolute Unit
   refUnitAbs: {
-    width: 14, // e.g., "/µL"
+    width: 18, 
     textAlign: 'left',
   },
   indicatorColumn: {
@@ -568,14 +579,14 @@ export const ExamReportPdfContent = ({
           <Text style={[styles.refCell, styles.refVal1]}>{parsedRelRef.val1}</Text>
           <Text style={[styles.refCell, styles.refSep]}>{parsedRelRef.sep}</Text>
           <Text style={[styles.refCell, styles.refVal2]}>{parsedRelRef.val2}</Text>
-          <Text style={[styles.refCell, styles.refUnit]}>{parsedRelRef.unit}</Text>
+          <Text style={[styles.refCell, styles.refUnit]}> {parsedRelRef.unit}</Text> {/* Added space */}
           {/* Spacer - 1 column */}
           <Text style={styles.refSpacer}></Text> 
           {/* Absolute Part - 4 columns */}
           <Text style={[styles.refCell, styles.refVal1Abs]}>{parsedAbsRef.val1}</Text>
-          <Text style={[styles.refCell, styles.refSep]}>{parsedAbsRef.sep}</Text>
+          <Text style={[styles.refCell, styles.refSepAbs]}>{parsedAbsRef.sep}</Text> {/* Using refSepAbs for clarity */}
           <Text style={[styles.refCell, styles.refVal2Abs]}>{parsedAbsRef.val2}</Text>
-          <Text style={[styles.refCell, styles.refUnitAbs]}>{parsedAbsRef.unit}</Text>
+          <Text style={[styles.refCell, styles.refUnitAbs]}> {parsedAbsRef.unit}</Text> {/* Added space */}
         </View>
         <View style={styles.indicatorColumn}>
           {indicatorMin !== undefined && indicatorMax !== undefined && !isNaN(normalizeNumber(indicatorValue)) ? (
