@@ -233,27 +233,32 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'flex-end', // Push content to the right
   },
-  // New styles for sub-columns within reference
-  referenceValueTextRight: {
+  referencePartWrapper: { // Wrapper para cada parte (relativo/absoluto)
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '45%', // Cada parte (relativo/absoluto) ocupa 45% do espaço
+    // justifyContent: 'flex-end', // Alinha o conteúdo à direita dentro do seu espaço
+  },
+  referenceValueText: {
     fontSize: 7,
     color: "#666",
-    width: '15%', // 15% of 120px = 18px
+    width: '35%', // Largura ajustada para valores
     textAlign: "right",
   },
-  referenceSeparatorTextCenter: {
+  referenceSeparatorText: {
     fontSize: 7,
     color: "#666",
-    width: '5%', // 5% of 120px = 6px
+    width: '15%', // Largura ajustada para separador
     textAlign: "center",
   },
-  referenceUnitTextLeft: {
+  referenceUnitText: {
     fontSize: 7,
     color: "#666",
-    width: '10%', // 10% of 120px = 12px
+    width: '25%', // Largura ajustada para unidade
     textAlign: "left",
   },
   referenceSpacer: {
-    width: '5%', // 5% of 120px = 6px
+    width: '10%', // Espaçador maior entre as partes relativa e absoluta
   },
   indicatorColumn: {
     width: 130, // Fixed width for the column
@@ -549,17 +554,21 @@ export const ExamReportPdfContent = ({
         </View>
         <View style={styles.paramReferenceContainer}>
           {/* Relative Part */}
-          <Text style={styles.referenceValueTextRight}>{parsedRelRef.val1}</Text>
-          <Text style={styles.referenceSeparatorTextCenter}>{parsedRelRef.sep}</Text>
-          <Text style={styles.referenceValueTextRight}>{parsedRelRef.val2}</Text>
-          <Text style={styles.referenceUnitTextLeft}>{parsedRelRef.unit}</Text>
-          {/* Spacer between relative and absolute parts */}
-          <View style={styles.referenceSpacer} />
+          <View style={styles.referencePartWrapper}>
+            <Text style={styles.referenceValueText}>{parsedRelRef.val1}</Text>
+            <Text style={styles.referenceSeparatorText}>{parsedRelRef.sep}</Text>
+            <Text style={styles.referenceValueText}>{parsedRelRef.val2}</Text>
+            <Text style={styles.referenceUnitText}>{parsedRelRef.unit}</Text>
+          </View>
+          {/* Pequeno espaçador entre as partes relativa e absoluta */}
+          <View style={styles.referenceSpacer} /> 
           {/* Absolute Part */}
-          <Text style={styles.referenceValueTextRight}>{parsedAbsRef.val1}</Text>
-          <Text style={styles.referenceSeparatorTextCenter}>{parsedAbsRef.sep}</Text>
-          <Text style={styles.referenceValueTextRight}>{parsedAbsRef.val2}</Text>
-          <Text style={styles.referenceUnitTextLeft}>{parsedAbsRef.unit}</Text>
+          <View style={styles.referencePartWrapper}>
+            <Text style={styles.referenceValueText}>{parsedAbsRef.val1}</Text>
+            <Text style={styles.referenceSeparatorText}>{parsedAbsRef.sep}</Text>
+            <Text style={styles.referenceValueText}>{parsedAbsRef.val2}</Text>
+            <Text style={styles.referenceUnitText}>{parsedAbsRef.unit}</Text>
+          </View>
         </View>
         <View style={styles.indicatorColumn}>
           {indicatorMin !== undefined && indicatorMax !== undefined && !isNaN(normalizeNumber(indicatorValue)) ? (
