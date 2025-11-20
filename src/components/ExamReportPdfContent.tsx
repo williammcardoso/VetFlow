@@ -176,11 +176,11 @@ const styles = StyleSheet.create({
     width: 120, // NOME DO PARÂMETRO
   },
   headerCellResult: {
-    width: 160, // RESULTADO - AUMENTADO
+    width: 170, // RESULTADO - AUMENTADO
     textAlign: "right",
   },
   headerCellReference: {
-    width: 110, // REFERÊNCIA - AJUSTADO
+    width: 100, // REFERÊNCIA - AJUSTADO
     textAlign: "right",
   },
   headerCellIndicator: {
@@ -206,13 +206,13 @@ const styles = StyleSheet.create({
     paddingLeft: 5,
   },
   leukogramHeaderResults: {
-    width: 160, // Combined width for relative and absolute results - AUMENTADO
+    width: 170, // Combined width for relative and absolute results - AUMENTADO
     flexDirection: 'column', // Changed to column
     alignItems: 'flex-end', // Align sub-headers to the right
     justifyContent: 'center',
   },
   leukogramHeaderReferences: {
-    width: 110, // Combined width for relative and absolute references - AJUSTADO
+    width: 100, // Combined width for relative and absolute references - AJUSTADO
     flexDirection: 'column', // Changed to column
     alignItems: 'flex-end', // Align sub-headers to the right
     justifyContent: 'center',
@@ -246,7 +246,7 @@ const styles = StyleSheet.create({
   },
   // For single-value results (Eritrograma, Plaquetas)
   paramResultContainer: {
-    width: 160, // AUMENTADO
+    width: 170, // AUMENTADO
     flexDirection: 'column', // Changed to column to allow multiple lines if needed
     alignItems: 'flex-end',
     justifyContent: 'center',
@@ -258,7 +258,7 @@ const styles = StyleSheet.create({
   },
   // For multi-value results (Leukogram)
   leukocyteResultContainer: {
-    width: 160, // AUMENTADO
+    width: 170, // AUMENTADO
     flexDirection: 'row', // Alterado para row
     alignItems: 'center', // Centraliza verticalmente
     justifyContent: 'flex-end', // Alinha à direita
@@ -278,7 +278,7 @@ const styles = StyleSheet.create({
 
   // New styles for granular reference columns (9 columns)
   referenceContainer: {
-    width: 110, // AJUSTADO
+    width: 100, // AJUSTADO
     flexDirection: 'row',
     alignItems: 'center',
   },
@@ -425,8 +425,8 @@ interface IndicatorBarProps {
 const IndicatorBar: React.FC<IndicatorBarProps> = ({ value, minRef, maxRef, valueStatus }) => {
   const BAR_WIDTH = 100;
   const BALL_SIZE = 8; // Smaller ball size
-  const ACTIVE_RANGE_START_PERCENT = 0.20; // 20% from left (updated)
-  const ACTIVE_RANGE_END_PERCENT = 0.80;   // 20% from right (updated)
+  const ACTIVE_RANGE_START_PERCENT = 0.15; // Revertido para 15%
+  const ACTIVE_RANGE_END_PERCENT = 0.85;   // Revertido para 85%
 
   const numValue = normalizeNumber(value);
 
