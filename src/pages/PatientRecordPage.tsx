@@ -33,7 +33,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"; // Importar DropdownMenu
-import { pdf } from "@react-pdf/renderer"; // Importar pdf para impressão
+import { pdf } => "@react-pdf/renderer"; // Importar pdf para impressão
 import { PrescriptionPdfContent } from "@/components/PrescriptionPdfContent"; // Importar o componente de conteúdo do PDF
 // ADDED: Import do conteúdo de PDF do exame
 import { ExamReportPdfContent } from "@/components/ExamReportPdfContent";
@@ -42,7 +42,7 @@ import { AppointmentEntry, BaseAppointmentDetails, ConsultationDetails } from "@
 import { mockClients, updateAnimalDetails } from "@/mockData/clients"; // Importar o mock de clientes centralizado e updateAnimalDetails
 import { Client, Animal, WeightEntry } from "@/types/client"; // Importar as interfaces Client, Animal e WeightEntry
 import { mockAppointments } from "@/pages/AddAppointmentPage"; // Importar mockAppointments do AddAppointmentPage
-import { ExamEntry, ExamReportData } from "@/types/exam"; // Importar a interface ExamEntry e ExamReportData
+import { ExamEntry, ExamReportData, HemogramReference, HemogramReferenceValue } from "@/types/exam"; // Importar a interface ExamEntry e ExamReportData, e as interfaces de referência
 import { mockExams, hemogramReferences } from "@/mockData/exams"; // Importar mockExams e hemogramReferences
 
 // Mock data para tipos de exame e veterinários

@@ -9,9 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { showSuccess, showError } from "@/utils/toast"; // Importar funções de toast
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"; // Importar Card para envolver o formulário
 import { mockClients } from "@/mockData/clients"; // Importar mockClients para obter a espécie do animal
-import { ExamEntry } from "@/types/exam"; // Importar a interface ExamEntry
-import { addMockExam, updateMockExam, mockExams } from "@/mockData/exams"; // Importar funções de mock de exames
-import { hemogramReferences } from "@/constants/examReferences"; // Importar hemogramReferences do novo arquivo
+import { ExamEntry, HemogramReference, HemogramReferenceValue } from "@/types/exam"; // Importar a interface ExamEntry e as interfaces de referência
+import { addMockExam, updateMockExam, mockExams, hemogramReferences } from "@/mockData/exams"; // Importar funções de mock de exames e hemogramReferences
 
 // Mock data para tipos de exame e veterinários (duplicado por enquanto, idealmente viria de um contexto ou API)
 const mockExamTypes = [
@@ -26,20 +25,6 @@ const mockVets = [
   { id: "2", name: "Dra. Costa" },
   { id: "3", "name": "Dr. Souza" },
 ];
-
-// Interface para os valores de referência do hemograma
-interface HemogramReferenceValue {
-  relative?: string;
-  absolute?: string;
-  full?: string; // For non-leukocyte fields
-  min?: number;
-  max?: number;
-}
-
-interface HemogramReference {
-  dog: HemogramReferenceValue;
-  cat: HemogramReferenceValue;
-}
 
 // Componente auxiliar para renderizar uma linha de campo com referência
 interface ExamFieldWithReferenceProps {
@@ -137,7 +122,7 @@ const AddExamPage = () => {
   const isEditing = !!examId; // Determinar se está em modo de edição
 
   const currentClient = mockClients.find(c => c.id === clientId);
-  const currentAnimal = currentClient?.animals.find(a => a.id === animalId); // CORRIGIDO: a => a.id === animalId
+  const currentAnimal = currentClient?.animals.find(a => a.id === animalId);
   const animalSpecies = currentAnimal?.species === "Canino" ? "dog" : currentAnimal?.species === "Felino" ? "cat" : undefined;
 
   // Estado do formulário
@@ -157,7 +142,6 @@ const AddExamPage = () => {
   const [vcm, setVcm] = useState<string>("");
   const [hcm, setHcm] = useState<string>("");
   const [chcm, setChcm] = useState<string>("");
-  const [rdw, setRdw] = useState<string>(""); // Adicionado RDW
   const [proteinaTotal, setProteinaTotal] = useState<string>("");
   const [hemaciasNucleadas, setHemaciasNucleadas] = useState<string>("");
   const [observacoesSerieVermelha, setObservacoesSerieVermelha] = useState<string>("");
@@ -209,7 +193,6 @@ const AddExamPage = () => {
         setVcm(examToEdit.vcm || "");
         setHcm(examToEdit.hcm || "");
         setChcm(examToEdit.chcm || "");
-        setRdw(examToEdit.rdw || ""); // Carregar RDW
         setProteinaTotal(examToEdit.proteinaTotal || "");
         setHemaciasNucleadas(examToEdit.hemaciasNucleadas || "");
         setObservacoesSerieVermelha(examToEdit.observacoesSerieVermelha || "");
@@ -285,7 +268,6 @@ const AddExamPage = () => {
       vcm: vcm.trim() || undefined,
       hcm: hcm.trim() || undefined,
       chcm: chcm.trim() || undefined,
-      rdw: rdw.trim() || undefined, // Salvar RDW
       proteinaTotal: proteinaTotal.trim() || undefined,
       hemaciasNucleadas: hemaciasNucleadas.trim() || undefined,
       observacoesSerieVermelha: observacoesSerieVermelha.trim() || undefined,
@@ -429,7 +411,6 @@ const AddExamPage = () => {
                       <ExamFieldWithReference getReference={getReference} id="vcm" label="V.C.M." value={vcm} onChange={(e) => setVcm(e.target.value)} referenceKey="vcm" unit="fL" />
                       <ExamFieldWithReference getReference={getReference} id="hcm" label="H.C.M." value={hcm} onChange={(e) => setHcm(e.target.value)} referenceKey="hcm" unit="pg" />
                       <ExamFieldWithReference getReference={getReference} id="chcm" label="C.H.C.M." value={chcm} onChange={(e) => setChcm(e.target.value)} referenceKey="chcm" unit="%" />
-                      <ExamFieldWithReference getReference={getReference} id="rdw" label="R.D.W." value={rdw} onChange={(e) => setRdw(e.target.value)} referenceKey="rdw" unit="%" /> {/* Adicionado RDW */}
                       <ExamFieldWithReference getReference={getReference} id="proteinaTotal" label="Proteína total" value={proteinaTotal} onChange={(e) => setProteinaTotal(e.target.value)} referenceKey="proteinaTotal" unit="g/dL" />
                       <ExamFieldWithReference getReference={getReference} id="hemaciasNucleadas" label="Hemácias nucleadas" value={hemaciasNucleadas} onChange={(e) => setHemaciasNucleadas(e.target.value)} referenceKey="hemaciasNucleadas" unit="" />
 
@@ -471,7 +452,7 @@ const AddExamPage = () => {
                 <Card className="bg-muted/50 shadow-sm border border-border rounded-md p-4 mt-6">
                   <CardHeader className="pb-3">
                     <CardTitle className="flex items-center gap-2 text-lg font-semibold text-foreground">
-                        <FaFlask className="h-5 w-5 text-primary" /> Plaquetas
+                      <FaFlask className="h-5 w-5 text-primary" /> Plaquetas
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-0 px-2"> {/* Ajustado padding horizontal */}
