@@ -173,24 +173,24 @@ const styles = StyleSheet.create({
     paddingLeft: 5,
   },
   headerCellName: {
-    width: 100, // NOME DO PARÂMETRO - AJUSTADO
+    width: 100, // NOME DO PARÂMETRO
     borderRightWidth: 1,
     borderRightColor: '#ccc',
   },
   headerCellResult: {
-    width: 170, // RESULTADO
+    width: 100, // RESULTADO - AJUSTADO
     textAlign: "right",
     borderRightWidth: 1,
     borderRightColor: '#ccc',
   },
   headerCellReference: {
-    width: 100, // REFERÊNCIA
+    width: 230, // REFERÊNCIA - AJUSTADO
     textAlign: "right",
     borderRightWidth: 1,
     borderRightColor: '#ccc',
   },
   headerCellIndicator: {
-    width: 130, // INDICADOR
+    width: 105, // INDICADOR - AJUSTADO
     textAlign: "center",
     borderRightWidth: 1, // Adicionado para consistência
     borderRightColor: '#ccc',
@@ -216,7 +216,7 @@ const styles = StyleSheet.create({
     borderRightColor: '#ccc',
   },
   leukogramHeaderResults: {
-    width: 170, // Combined width for relative and absolute results
+    width: 100, // Combined width for relative and absolute results - AJUSTADO
     flexDirection: 'column', // Changed to column
     alignItems: 'flex-end', // Align sub-headers to the right
     justifyContent: 'center',
@@ -224,7 +224,7 @@ const styles = StyleSheet.create({
     borderRightColor: '#ccc',
   },
   leukogramHeaderReferences: {
-    width: 100, // Combined width for relative and absolute references
+    width: 230, // Combined width for relative and absolute references - AJUSTADO
     flexDirection: 'column', // Changed to column
     alignItems: 'flex-end', // Align sub-headers to the right
     justifyContent: 'center',
@@ -239,7 +239,7 @@ const styles = StyleSheet.create({
     lineHeight: 1.2, // Adjust line height for better spacing
   },
   leukogramHeaderIndicator: {
-    width: 130, // INDICADOR
+    width: 105, // INDICADOR - AJUSTADO
     fontSize: 9,
     fontWeight: "bold",
     color: "#333",
@@ -266,7 +266,7 @@ const styles = StyleSheet.create({
   },
   // For single-value results (Eritrograma, Plaquetas)
   paramResultContainer: {
-    width: 170, // MANTIDO
+    width: 100, // AJUSTADO
     flexDirection: 'column', // Changed to column to allow multiple lines if needed
     alignItems: 'flex-end',
     justifyContent: 'center',
@@ -280,7 +280,7 @@ const styles = StyleSheet.create({
   },
   // For multi-value results (Leukogram)
   leukocyteResultContainer: {
-    width: 170, // MANTIDO
+    width: 100, // AJUSTADO
     flexDirection: 'row', // Alterado para row
     alignItems: 'center', // Centraliza verticalmente
     justifyContent: 'flex-end', // Alinha à direita
@@ -302,7 +302,7 @@ const styles = StyleSheet.create({
 
   // New styles for granular reference columns (9 columns)
   referenceContainer: {
-    width: 100, // AJUSTADO
+    width: 230, // AJUSTADO
     flexDirection: 'row',
     alignItems: 'center',
     borderRightWidth: 1, // Adicionado borda direita
@@ -314,50 +314,50 @@ const styles = StyleSheet.create({
   },
   // Column 1: Relative Value 1
   refVal1: {
-    width: 19, // Aumentado para acomodar valores maiores
+    width: 34, // AJUSTADO
     textAlign: 'right',
   },
   // Column 2: Relative Separator
   refSep: {
-    width: 8, 
+    width: 14, // AJUSTADO
     textAlign: 'center', // Centralizado
   },
   // Column 3: Relative Value 2
   refVal2: {
-    width: 19, // Aumentado para acomodar valores maiores
+    width: 34, // AJUSTADO
     textAlign: 'right',
   },
   // Column 4: Relative Unit
   refUnit: {
-    width: 14, // Ajustado
+    width: 25, // AJUSTADO
     textAlign: 'left',
   },
   // Column 5: Spacer between relative and absolute
   refSpacer: {
-    width: 4, // Ajustado
+    width: 7, // AJUSTADO
   },
   // Column 6: Absolute Value 1
   refVal1Abs: {
-    width: 19, 
+    width: 34, // AJUSTADO
     textAlign: 'right',
   },
   // Column 7: Absolute Separator
   refSepAbs: { // Specific style for absolute separator if needed, or reuse refSep
-    width: 8, 
+    width: 14, // AJUSTADO
     textAlign: 'center', // Centralizado
   },
   // Column 8: Absolute Value 2
   refVal2Abs: {
-    width: 21, 
+    width: 38, // AJUSTADO
     textAlign: 'right',
   },
   // Column 9: Absolute Unit
   refUnitAbs: {
-    width: 16, 
+    width: 30, // AJUSTADO
     textAlign: 'left',
   },
   indicatorColumn: {
-    width: 130, // Fixed width for the column
+    width: 105, // Fixed width for the column - AJUSTADO
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-end', // Align the bar to the right within this column
