@@ -173,19 +173,27 @@ const styles = StyleSheet.create({
     paddingLeft: 5,
   },
   headerCellName: {
-    width: 120, // NOME DO PARÂMETRO
+    width: 100, // NOME DO PARÂMETRO - AJUSTADO
+    borderRightWidth: 1,
+    borderRightColor: '#ccc',
   },
   headerCellResult: {
-    width: 170, // RESULTADO - AUMENTADO
+    width: 170, // RESULTADO
     textAlign: "right",
+    borderRightWidth: 1,
+    borderRightColor: '#ccc',
   },
   headerCellReference: {
-    width: 100, // REFERÊNCIA - AJUSTADO
+    width: 100, // REFERÊNCIA
     textAlign: "right",
+    borderRightWidth: 1,
+    borderRightColor: '#ccc',
   },
   headerCellIndicator: {
     width: 130, // INDICADOR
     textAlign: "center",
+    borderRightWidth: 1, // Adicionado para consistência
+    borderRightColor: '#ccc',
   },
 
   // Custom header for Leukogram to match image
@@ -198,24 +206,30 @@ const styles = StyleSheet.create({
     backgroundColor: "#f5f5f5",
   },
   leukogramHeaderName: {
-    width: 120,
+    width: 100, // AJUSTADO
     fontSize: 9,
     fontWeight: "bold",
     color: "#333",
     textAlign: "left",
     paddingLeft: 5,
+    borderRightWidth: 1,
+    borderRightColor: '#ccc',
   },
   leukogramHeaderResults: {
-    width: 170, // Combined width for relative and absolute results - AUMENTADO
+    width: 170, // Combined width for relative and absolute results
     flexDirection: 'column', // Changed to column
     alignItems: 'flex-end', // Align sub-headers to the right
     justifyContent: 'center',
+    borderRightWidth: 1,
+    borderRightColor: '#ccc',
   },
   leukogramHeaderReferences: {
-    width: 100, // Combined width for relative and absolute references - AJUSTADO
+    width: 100, // Combined width for relative and absolute references
     flexDirection: 'column', // Changed to column
     alignItems: 'flex-end', // Align sub-headers to the right
     justifyContent: 'center',
+    borderRightWidth: 1,
+    borderRightColor: '#ccc',
   },
   leukogramHeaderSub: {
     fontSize: 8,
@@ -230,26 +244,34 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: "#333",
     textAlign: "right", // Alinhado à direita
+    borderRightWidth: 1, // Adicionado para consistência
+    borderRightColor: '#ccc',
   },
 
   paramRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 3,
+    marginBottom: 0, // Removido margin-bottom para bordas contínuas
     minHeight: 18,
+    borderBottomWidth: 1, // Adicionado borda inferior para cada linha
+    borderBottomColor: '#eee',
   },
   paramName: {
-    width: 120,
+    width: 100, // AJUSTADO
     fontSize: 9,
     color: "#333",
     paddingLeft: 5,
+    borderRightWidth: 1, // Adicionado borda direita
+    borderRightColor: '#eee',
   },
   // For single-value results (Eritrograma, Plaquetas)
   paramResultContainer: {
-    width: 170, // AUMENTADO
+    width: 170, // MANTIDO
     flexDirection: 'column', // Changed to column to allow multiple lines if needed
     alignItems: 'flex-end',
     justifyContent: 'center',
+    borderRightWidth: 1, // Adicionado borda direita
+    borderRightColor: '#eee',
   },
   paramResultText: {
     fontSize: 9,
@@ -258,10 +280,12 @@ const styles = StyleSheet.create({
   },
   // For multi-value results (Leukogram)
   leukocyteResultContainer: {
-    width: 170, // AUMENTADO
+    width: 170, // MANTIDO
     flexDirection: 'row', // Alterado para row
     alignItems: 'center', // Centraliza verticalmente
     justifyContent: 'flex-end', // Alinha à direita
+    borderRightWidth: 1, // Adicionado borda direita
+    borderRightColor: '#eee',
   },
   leukocyteResultText: {
     fontSize: 9,
@@ -281,6 +305,8 @@ const styles = StyleSheet.create({
     width: 100, // AJUSTADO
     flexDirection: 'row',
     alignItems: 'center',
+    borderRightWidth: 1, // Adicionado borda direita
+    borderRightColor: '#eee',
   },
   refCell: {
     fontSize: 7,
@@ -336,6 +362,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'flex-end', // Align the bar to the right within this column
     flexGrow: 1, // Make it grow to fill remaining space
+    borderRightWidth: 1, // Adicionado borda direita
+    borderRightColor: '#eee',
   },
   // NEW: Fixed background bar style
   fixedBackgroundBar: {
@@ -654,7 +682,7 @@ export const ExamReportPdfContent = ({
         <Text style={styles.paramName}>{label}</Text>
         <View style={styles.leukocyteResultContainer}>
           <Text style={[styles.leukocyteResultText, relResultStyle]}>{relativeValue}%</Text>
-          <Text style={[styles.leukocyteResultTextAbsolute, absResultStyle]}>{absoluteValue}/µL</Text>
+          <Text style={[styles.leukocyteResultTextAbsolute, absResultStyle]}>{absoluteValue}/µL}</Text>
         </View>
         <View style={styles.referenceContainer}>
           {/* Relative Part - 4 columns */}
