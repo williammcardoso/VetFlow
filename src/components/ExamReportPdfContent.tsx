@@ -729,7 +729,8 @@ export const ExamReportPdfContent = ({
 
         <Text style={styles.mainTitle}>LAUDO DE EXAME</Text>
 
-        {/* Informações do Animal e Tutor (Restored) */}
+        {/* Informações do Animal e Tutor (Comentado para testes) */}
+        {/*
         <View style={styles.infoSectionContainer}>
           <View style={styles.infoCard}>
             <Text style={styles.infoTitle}>Animal</Text>
@@ -743,8 +744,10 @@ export const ExamReportPdfContent = ({
             <Text style={styles.infoText}>Endereço: {tutorAddress || "Não informado"}</Text>
           </View>
         </View>
+        */}
 
-        {/* General Exam Info (Restored) */}
+        {/* General Exam Info (Comentado para testes) */}
+        {/*
         <Text style={styles.sectionTitle}>INFORMAÇÕES GERAIS DO EXAME</Text>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 10 }}>
           <Text style={[styles.infoText, { width: '50%' }]}>Data do Exame: {exam.date}</Text>
@@ -755,6 +758,7 @@ export const ExamReportPdfContent = ({
           {exam.laboratory && <Text style={[styles.infoText, { width: '50%' }]}>Laboratório: {exam.laboratory}</Text>}
           {exam.laboratoryDate && <Text style={[styles.infoText, { width: '50%' }]}>Data do Resultado: {exam.laboratoryDate}</Text>}
         </View>
+        */}
 
         {exam.type === "Hemograma Completo" ? (
           <>
