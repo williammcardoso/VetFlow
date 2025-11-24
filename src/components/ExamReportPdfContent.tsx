@@ -318,18 +318,12 @@ const styles = StyleSheet.create({
     width: 115, // 230px / 2
     flexDirection: 'row',
     alignItems: 'center',
-    // justifyContent: 'flex-end', // Removido: agora o Text interno tem flexGrow: 1 e textAlign: 'right'
   },
-  refPartText: { // Novo estilo base para textos de referência
+  refPartText: { // Base style for reference texts
     fontSize: 9,
     color: "#666",
-    height: 12, // Altura fixa para alinhamento vertical
-    lineHeight: 1.2, // Altura da linha fixa
-  },
-  refPartView: { // Estilo base para os Views de cada parte
-    flexDirection: 'row',
-    alignItems: 'center',
-    height: 12, // Garante altura consistente
+    height: 12, // Fixed height for vertical alignment
+    lineHeight: 1.2, // Fixed line height
   },
   refPartVal1Text: {
     width: 35,
