@@ -364,7 +364,7 @@ const styles = StyleSheet.create({
   refVal1Wrapper: {
     width: 40,
     flexDirection: 'row',
-    justifyContent: 'flex-start', // ALTERADO para alinhar à esquerda
+    justifyContent: 'flex-end', // Revertido para alinhar à direita
     // borderWidth: 1, // DEBUG
     // borderColor: 'blue', // DEBUG
   },
