@@ -632,8 +632,7 @@ export const ExamReportPdfContent = ({
         <Text style={styles.paramName}>{label}</Text>
         <View style={styles.paramResultContainer}>
           <Text style={[styles.paramResultValue, resultStyle]}>{value}</Text>
-          <Text style={styles.paramResultUnit}>{\u00A0}{\u00A0}</Text>
-          <Text style={styles.paramResultUnit}>{unit}</Text>
+          <Text style={styles.paramResultUnit}>{\u00A0}{\u00A0}{unit}</Text> {/* Combinado aqui */}
         </View>
         <View style={styles.referenceContainer}> {/* Usando o novo container de referência */}
           <Text style={styles.refCell}>{ref?.full || 'N/A'}</Text>
@@ -700,14 +699,12 @@ export const ExamReportPdfContent = ({
           {/* Relative Result */}
           <View style={styles.leukocyteResultSubContainer}>
             <Text style={[styles.leukocyteResultValue, relResultStyle]}>{relativeValue}</Text>
-            <Text style={styles.leukocyteResultUnit}>{\u00A0}{\u00A0}</Text>
-            <Text style={styles.leukocyteResultUnit}>%</Text>
+            <Text style={styles.leukocyteResultUnit}>{\u00A0}{\u00A0}%</Text> {/* Combinado aqui */}
           </View>
           {/* Absolute Result */}
           <View style={styles.leukocyteResultSubContainer}>
             <Text style={[styles.leukocyteResultValue, absResultStyle]}>{absoluteValue}</Text>
-            <Text style={styles.leukocyteResultUnit}>{\u00A0}{\u00A0}</Text>
-            <Text style={styles.leukocyteResultUnit}>/µL</Text>
+            <Text style={styles.leukocyteResultUnit}>{\u00A0}{\u00A0}/µL</Text> {/* Combinado aqui */}
           </View>
         </View>
 
@@ -718,16 +715,14 @@ export const ExamReportPdfContent = ({
             <Text style={[styles.refCell, styles.refVal1]}>{parsedRelRef.val1}</Text>
             <Text style={[styles.refCell, styles.refSep]}>{parsedRelRef.sep}</Text>
             <Text style={[styles.refCell, styles.refVal2]}>{parsedRelRef.val2}</Text>
-            <Text style={[styles.refCell, styles.refUnit]}>{\u00A0}{\u00A0}</Text>
-            <Text style={[styles.refCell, styles.refUnit]}>{parsedRelRef.unit}</Text>
+            <Text style={[styles.refCell, styles.refUnit]}>{\u00A0}{\u00A0}{parsedRelRef.unit}</Text> {/* Combinado aqui */}
           </View>
           {/* Absolute Reference */}
           <View style={styles.leukocyteReferenceSubContainer}>
             <Text style={[styles.refCell, styles.refVal1Abs]}>{parsedAbsRef.val1}</Text>
             <Text style={[styles.refCell, styles.refSepAbs]}>{parsedAbsRef.sep}</Text> {/* Using refSepAbs for clarity */}
             <Text style={[styles.refCell, styles.refVal2Abs]}>{parsedAbsRef.val2}</Text>
-            <Text style={[styles.refCell, styles.refUnitAbs]}>{\u00A0}{\u00A0}</Text>
-            <Text style={[styles.refCell, styles.refUnitAbs]}>{parsedAbsRef.unit}</Text>
+            <Text style={[styles.refCell, styles.refUnitAbs]}>{\u00A0}{\u00A0}{parsedAbsRef.unit}</Text> {/* Combinado aqui */}
           </View>
         </View>
 
