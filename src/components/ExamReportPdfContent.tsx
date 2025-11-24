@@ -362,7 +362,7 @@ const styles = StyleSheet.create({
     // borderColor: 'red', // DEBUG
   },
   refVal1Wrapper: {
-    width: 40,
+    width: 20, // ALTERADO para 20px
     flexDirection: 'row',
     justifyContent: 'flex-end', // ALTERADO para alinhar à direita
     // borderWidth: 1, // DEBUG
@@ -373,7 +373,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   refVal2Wrapper: {
-    width: 30,
+    width: 30, // ALTERADO para alinhar à direita
     flexDirection: 'row',
     justifyContent: 'flex-end', // ALTERADO para alinhar à direita
     // borderWidth: 1, // DEBUG
