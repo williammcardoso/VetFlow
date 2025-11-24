@@ -318,7 +318,7 @@ const styles = StyleSheet.create({
     width: 115, // 230px / 2
     flexDirection: 'row',
     alignItems: 'center',
-    // justifyContent: 'flex-end', // Removido: agora o Text interno tem flexGrow: 1 e textAlign: 'right'
+    justifyContent: 'flex-end', // Adicionado para alinhar o bloco à direita
   },
   refPartText: { // Novo estilo base para textos de referência
     fontSize: 9,
@@ -338,17 +338,19 @@ const styles = StyleSheet.create({
     justifyContent: 'center', // Center separator
     alignItems: 'center',
   },
-  refPartVal2View: {
-    width: 35,
+  refVal2UnitCombinedView: { // Novo estilo para o View que combina val2 e unit
+    width: 70, // 35 + 35
     flexDirection: 'row',
-    justifyContent: 'flex-end', // Align text to right
     alignItems: 'center',
+    justifyContent: 'flex-end', // Pushes the combined text to the right
   },
-  refPartUnitView: {
-    width: 35,
-    flexDirection: 'row',
-    justifyContent: 'flex-start', // Align text to left
-    alignItems: 'center',
+  refVal2UnitText: { // Novo estilo para o Text que combina val2 e unit
+    fontSize: 9,
+    color: "#666",
+    height: 12,
+    lineHeight: 1.2,
+    textAlign: 'right', // Align the text content to the right
+    flexGrow: 1, // Make it take all available space in refVal2UnitCombinedView
   },
   indicatorColumn: {
     width: 105, // Fixed width for the column - AJUSTADO
@@ -702,11 +704,14 @@ export const ExamReportPdfContent = ({
             <View style={styles.refPartSepView}>
               {parsedRelRef.sep && <Text style={styles.refPartText}>{parsedRelRef.sep}</Text>}
             </View>
-            <View style={styles.refPartVal2View}>
-              {parsedRelRef.val2 && <Text style={styles.refPartText}>{parsedRelRef.val2}</Text>}
-            </View>
-            <View style={styles.refPartUnitView}>
-              {parsedRelRef.unit && <Text style={styles.refPartText}>{parsedRelRef.unit}</Text>}
+            <View style={styles.refVal2UnitCombinedView}>
+              {(parsedRelRef.val2 || parsedRelRef.unit) && (
+                <Text style={styles.refVal2UnitText}>
+                  {parsedRelRef.val2}
+                  {parsedRelRef.val2 && parsedRelRef.unit ? ' ' : ''}
+                  {parsedRelRef.unit}
+                </Text>
+              )}
             </View>
           </View>
           {/* Absolute Reference */}
@@ -717,11 +722,14 @@ export const ExamReportPdfContent = ({
             <View style={styles.refPartSepView}>
               {parsedAbsRef.sep && <Text style={styles.refPartText}>{parsedAbsRef.sep}</Text>}
             </View>
-            <View style={styles.refPartVal2View}>
-              {parsedAbsRef.val2 && <Text style={styles.refPartText}>{parsedAbsRef.val2}</Text>}
-            </View>
-            <View style={styles.refPartUnitView}>
-              {parsedAbsRef.unit && <Text style={styles.refPartText}>{parsedAbsRef.unit}</Text>}
+            <View style={styles.refVal2UnitCombinedView}>
+              {(parsedAbsRef.val2 || parsedAbsRef.unit) && (
+                <Text style={styles.refVal2UnitText}>
+                  {parsedAbsRef.val2}
+                  {parsedAbsRef.val2 && parsedAbsRef.unit ? ' ' : ''}
+                  {parsedAbsRef.unit}
+                </Text>
+              )}
             </View>
           </View>
         </View>
