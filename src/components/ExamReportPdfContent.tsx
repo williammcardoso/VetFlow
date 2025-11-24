@@ -207,19 +207,12 @@ const styles = StyleSheet.create({
     backgroundColor: "#f5f5f5", // Background color for the entire header line
   },
   leukogramHeaderTitle: {
-    width: 100, // Same width as paramName
+    width: 200, // NOME DO PARÂMETRO (100) + RESULTADO (100)
     fontSize: 13, // Larger font for the main title
     fontWeight: "bold",
     color: "#333",
     textTransform: "uppercase",
     paddingLeft: 5,
-    // No borderRightWidth, as per image
-  },
-  leukogramHeaderResultLabels: {
-    width: 100, // Same width as leukocyteResultContainer
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'flex-end', // Align sub-labels to the bottom
     // No borderRightWidth, as per image
   },
   leukogramHeaderReferenceLabels: {
@@ -807,12 +800,8 @@ export const ExamReportPdfContent = ({
             )}
 
             {/* Leucograma */}
-            <View style={styles.sectionTitle}>
+            <View style={styles.leukogramHeaderLine}>
               <Text style={styles.leukogramHeaderTitle}>LEUCOGRAMA</Text>
-              <View style={styles.leukogramHeaderResultLabels}>
-                <Text style={styles.leukogramHeaderLabelText}>Relativo:</Text>
-                <Text style={styles.leukogramHeaderLabelText}>Absoluto:</Text>
-              </View>
               <View style={styles.leukogramHeaderReferenceLabels}>
                 <Text style={styles.leukogramHeaderLabelText}>Relativo:</Text>
                 <Text style={styles.leukogramHeaderLabelText}>Absoluto:</Text>
