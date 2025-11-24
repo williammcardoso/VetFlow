@@ -362,27 +362,27 @@ const styles = StyleSheet.create({
     // borderColor: 'red', // DEBUG
   },
   refVal1Wrapper: {
-    width: 30, // ALTERADO para 30px
+    width: 30, // MANTIDO em 30px
     flexDirection: 'row',
     justifyContent: 'flex-end', // ALTERADO para alinhar à direita
     borderWidth: 1, // DEBUG
     borderColor: 'blue', // DEBUG
   },
   refPartSepText: {
-    width: 10, // ALTERADO para 10px
-    textAlign: 'center',
+    width: 15, // ALTERADO para 15px
+    textAlign: 'center', // ALTERADO para centralizar
     borderWidth: 1, // DEBUG
     borderColor: 'green', // DEBUG
   },
   refVal2Wrapper: {
-    width: 20, // ALTERADO para 20px
+    width: 15, // ALTERADO para 15px (base para o relativo)
     flexDirection: 'row',
     justifyContent: 'flex-end', // ALTERADO para alinhar à direita
     borderWidth: 1, // DEBUG
     borderColor: 'orange', // DEBUG
   },
   refUnitWrapper: {
-    width: 20, // ALTERADO para 20px
+    width: 20, // MANTIDO em 20px
     flexDirection: 'row',
     justifyContent: 'flex-end', // ALTERADO para alinhar à direita
     borderWidth: 1, // DEBUG
@@ -759,7 +759,7 @@ export const ExamReportPdfContent = ({
               <Text style={styles.refPartText}>{parsedAbsRef.val1}</Text>
             </View>
             {parsedAbsRef.sep && <Text style={[styles.refPartText, styles.refPartSepText]}>{parsedAbsRef.sep}</Text>}
-            <View style={styles.refVal2Wrapper}>
+            <View style={[styles.refVal2Wrapper, { width: 30 }]}> {/* Override width for absolute part */}
               {parsedAbsRef.val2 && <Text style={styles.refPartText}>{parsedAbsRef.val2}</Text>}
             </View>
             <View style={styles.refUnitWrapper}>
