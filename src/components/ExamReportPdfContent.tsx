@@ -218,19 +218,26 @@ const styles = StyleSheet.create({
   leukogramHeaderReferenceLabels: {
     width: 230, // Same width as referenceContainer
     flexDirection: 'row',
-    justifyContent: 'space-around',
     alignItems: 'flex-end', // Align sub-labels to the bottom
-    // No borderRightWidth, as per image
   },
-  leukogramHeaderLabelText: {
-    fontSize: 8, // Smaller font for sub-labels (9 -> 8)
+  leukogramSubLabelWrapper: {
+    width: '50%', // Each sub-label takes half the width of the parent
+  },
+  leukogramHeaderLabelTextCentered: {
+    fontSize: 8, // Smaller font for sub-labels
     fontWeight: "bold",
     color: "#333",
-    textAlign: 'center', // Centered
+    textAlign: 'center',
+  },
+  leukogramHeaderLabelTextLeft: {
+    fontSize: 8, // Smaller font for sub-labels
+    fontWeight: "bold",
+    color: "#333",
+    textAlign: 'left',
   },
   leukogramHeaderIndicatorLabel: {
     width: 105, // Same width as indicatorColumn
-    fontSize: 8, // Smaller font (9 -> 8)
+    fontSize: 8, // Smaller font
     fontWeight: "bold",
     color: "#333",
     textAlign: "left", // Aligned left
@@ -804,10 +811,14 @@ export const ExamReportPdfContent = ({
             <View style={styles.leukogramHeaderLine}>
               <Text style={styles.leukogramHeaderTitle}>LEUCOGRAMA</Text>
               <View style={styles.leukogramHeaderReferenceLabels}>
-                <Text style={styles.leukogramHeaderLabelText}>Relativo:</Text>
-                <Text style={styles.leukogramHeaderLabelText}>Absoluto:</Text>
+                <View style={styles.leukogramSubLabelWrapper}>
+                  <Text style={styles.leukogramHeaderLabelTextCentered}>Relativo:</Text>
+                </View>
+                <View style={styles.leukogramSubLabelWrapper}>
+                  <Text style={styles.leukogramHeaderLabelTextLeft}>Absoluto:</Text>
+                </View>
               </View>
-              <Text style={styles.leukogramHeaderIndicatorLabel}>Indicador</Text>
+              <Text style={styles.leukogramHeaderIndicatorLabel}>Indicador:</Text>
             </View>
 
             {/* Alterado para renderizar Leucócitos totais com renderLeukocyteParam */}
