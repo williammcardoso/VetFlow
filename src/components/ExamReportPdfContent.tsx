@@ -858,15 +858,15 @@ export const ExamReportPdfContent = ({
 
             {/* Leucograma */}
             <Text style={styles.sectionTitle}>LEUCOGRAMA</Text>
-            {/* Custom header for Leukogram */}
-            <View style={styles.leukogramHeader}>
+            {/* REMOVIDO: Custom header for Leukogram */}
+            {/* <View style={styles.leukogramHeader}>
               <Text style={[styles.leukogramHeaderName]}>NOME DO PARÂMETRO</Text>
               <Text style={[styles.leukogramHeaderResultSub, { textAlign: 'right' }]}>Relativo:</Text>
               <Text style={[styles.leukogramHeaderResultSub, { textAlign: 'right' }]}>Absoluto:</Text>
               <Text style={[styles.leukogramHeaderReferenceSub, { textAlign: 'right' }]}>Relativo:</Text>
               <Text style={[styles.leukogramHeaderReferenceSub, { textAlign: 'right' }]}>Absoluto:</Text>
               <Text style={styles.leukogramHeaderIndicator}>Indicador:</Text>
-            </View>
+            </View> */}
 
             {/* Alterado para renderizar Leucócitos totais com renderLeukocyteParam */}
             {renderLeukocyteParam("Leucócitos totais", "100", exam.leucocitosTotais, "leucocitosTotais")}
