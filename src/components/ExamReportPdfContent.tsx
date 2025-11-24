@@ -215,28 +215,25 @@ const styles = StyleSheet.create({
     borderRightWidth: 1,
     borderRightColor: '#ccc',
   },
-  leukogramHeaderResults: {
-    width: 100, // Combined width for relative and absolute results - AJUSTADO
-    flexDirection: 'column', // Changed to column
-    alignItems: 'flex-end', // Align sub-headers to the right
-    justifyContent: 'center',
-    borderRightWidth: 1,
-    borderRightColor: '#ccc',
-  },
-  leukogramHeaderReferences: {
-    width: 230, // Combined width for relative and absolute references - AJUSTADO
-    flexDirection: 'column', // Changed to column
-    alignItems: 'flex-end', // Align sub-headers to the right
-    justifyContent: 'center',
-    borderRightWidth: 1,
-    borderRightColor: '#ccc',
-  },
-  leukogramHeaderSub: {
+  leukogramHeaderResultSub: { // New style for sub-headers in results
+    width: 50, // 100px / 2
     fontSize: 8,
     fontWeight: "bold",
     color: "#333",
     textAlign: 'right',
-    lineHeight: 1.2, // Adjust line height for better spacing
+    lineHeight: 1.2,
+    borderRightWidth: 1,
+    borderRightColor: '#ccc',
+  },
+  leukogramHeaderReferenceSub: { // New style for sub-headers in references
+    width: 115, // 230px / 2
+    fontSize: 8,
+    fontWeight: "bold",
+    color: "#333",
+    textAlign: 'right',
+    lineHeight: 1.2,
+    borderRightWidth: 1,
+    borderRightColor: '#ccc',
   },
   leukogramHeaderIndicator: {
     width: 105, // INDICADOR - AJUSTADO
@@ -267,37 +264,45 @@ const styles = StyleSheet.create({
   // For single-value results (Eritrograma, Plaquetas)
   paramResultContainer: {
     width: 100, // AJUSTADO
-    flexDirection: 'column', // Changed to column to allow multiple lines if needed
-    alignItems: 'flex-end',
-    justifyContent: 'center',
-    borderRightWidth: 1, // Adicionado borda direita
-    borderRightColor: '#eee',
-  },
-  paramResultText: {
-    fontSize: 9,
-    fontWeight: "bold",
-    textAlign: "right",
-  },
-  // For multi-value results (Leukogram)
-  leukocyteResultContainer: {
-    width: 100, // AJUSTADO
-    flexDirection: 'row', // Alterado para row
-    alignItems: 'center', // Centraliza verticalmente
+    flexDirection: 'row', // Alterado para row para alinhar valor e unidade
+    alignItems: 'center',
     justifyContent: 'flex-end', // Alinha à direita
     borderRightWidth: 1, // Adicionado borda direita
     borderRightColor: '#eee',
   },
-  leukocyteResultText: {
+  paramResultValue: { // Novo estilo para o valor em negrito
     fontSize: 9,
     fontWeight: "bold",
     textAlign: "right",
-    width: '45%', // Largura para o valor relativo
   },
-  leukocyteResultTextAbsolute: {
+  paramResultUnit: { // Novo estilo para a unidade não negrito
+    fontSize: 9,
+    color: "#666", // Cor mais suave para a unidade
+    marginLeft: 2, // Pequeno espaçamento entre valor e unidade
+  },
+  // For multi-value results (Leukogram)
+  leukocyteResultContainer: { // Container principal para os 4 sub-campos de resultado
+    width: 100, // AJUSTADO
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRightWidth: 1,
+    borderRightColor: '#eee',
+  },
+  leukocyteResultSubContainer: { // Container para cada par (valor + unidade)
+    width: 50, // 100px / 2
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+  },
+  leukocyteResultValue: { // Valor em negrito
     fontSize: 9,
     fontWeight: "bold",
     textAlign: "right",
-    width: '55%', // Largura para o valor absoluto
+  },
+  leukocyteResultUnit: { // Unidade não negrito
+    fontSize: 9,
+    color: "#666",
+    marginLeft: 2,
   },
 
   // New styles for granular reference columns (9 columns)
@@ -308,52 +313,58 @@ const styles = StyleSheet.create({
     borderRightWidth: 1, // Adicionado borda direita
     borderRightColor: '#eee',
   },
+  leukocyteReferenceSubContainer: { // Container para cada bloco de referência (Relativo ou Absoluto)
+    width: 115, // 230px / 2
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end', // Alinha o conteúdo à direita
+  },
   refCell: {
-    fontSize: 7,
+    fontSize: 9, // Aumentado para 9 para melhor legibilidade
     color: "#666",
   },
-  // Column 1: Relative Value 1
+  // Column 1: Value 1
   refVal1: {
-    width: 34, // AJUSTADO
+    width: 30, // AJUSTADO
     textAlign: 'right',
   },
-  // Column 2: Relative Separator
+  // Column 2: Separator
   refSep: {
-    width: 14, // AJUSTADO
+    width: 10, // AJUSTADO
     textAlign: 'center', // Centralizado
   },
-  // Column 3: Relative Value 2
+  // Column 3: Value 2
   refVal2: {
-    width: 34, // AJUSTADO
+    width: 30, // AJUSTADO
     textAlign: 'right',
   },
-  // Column 4: Relative Unit
+  // Column 4: Unit
   refUnit: {
-    width: 25, // AJUSTADO
+    width: 45, // AJUSTADO
     textAlign: 'left',
   },
-  // Column 5: Spacer between relative and absolute
-  refSpacer: {
-    width: 7, // AJUSTADO
-  },
+  // No need for refSpacer anymore as sub-containers handle spacing
+  // refSpacer: {
+  //   width: 7, // AJUSTADO
+  // },
   // Column 6: Absolute Value 1
   refVal1Abs: {
-    width: 34, // AJUSTADO
+    width: 30, // AJUSTADO
     textAlign: 'right',
   },
   // Column 7: Absolute Separator
   refSepAbs: { // Specific style for absolute separator if needed, or reuse refSep
-    width: 14, // AJUSTADO
+    width: 10, // AJUSTADO
     textAlign: 'center', // Centralizado
   },
   // Column 8: Absolute Value 2
   refVal2Abs: {
-    width: 38, // AJUSTADO
+    width: 30, // AJUSTADO
     textAlign: 'right',
   },
   // Column 9: Absolute Unit
   refUnitAbs: {
-    width: 30, // AJUSTADO
+    width: 45, // AJUSTADO
     textAlign: 'left',
   },
   indicatorColumn: {
@@ -514,13 +525,15 @@ const IndicatorBar: React.FC<IndicatorBarProps> = ({ value, minRef, maxRef, valu
 };
 
 // Helper function to parse leukocyte reference strings
-const parseLeukocyteReference = (refString: string | undefined) => {
-  if (!refString || refString === 'N/A') {
+const parseLeukocyteReferenceParts = (refString: string | undefined) => {
+  if (!refString || refString === 'N/A' || refString.trim() === '') {
     return { val1: '', sep: '', val2: '', unit: '' };
   }
 
+  const trimmedRefString = refString.trim();
+
   // Case 1: "VALUE1 - VALUE2 UNIT" (e.g., "60 - 77 %", "3.000 - 11.500 /µL")
-  const rangeWithUnitMatch = refString.match(/^(\S+)\s*-\s*(\S+)\s*(\S*)$/);
+  const rangeWithUnitMatch = trimmedRefString.match(/^(\S+)\s*-\s*(\S+)\s*(\S*)$/);
   if (rangeWithUnitMatch) {
     return {
       val1: rangeWithUnitMatch[1],
@@ -531,7 +544,7 @@ const parseLeukocyteReference = (refString: string | undefined) => {
   }
 
   // Case 2: "VALUE UNIT" (e.g., "0 %")
-  const valueWithUnitMatch = refString.match(/^(\S+)\s*(\S*)$/);
+  const valueWithUnitMatch = trimmedRefString.match(/^(\S+)\s*(\S*)$/);
   if (valueWithUnitMatch) {
     return {
       val1: valueWithUnitMatch[1],
@@ -542,12 +555,12 @@ const parseLeukocyteReference = (refString: string | undefined) => {
   }
 
   // Case 3: "/ raros"
-  if (refString.includes('/ raros')) {
+  if (trimmedRefString.includes('/ raros')) {
     return { val1: '', sep: '/', val2: 'raros', unit: '' };
   }
 
   // Fallback: just the string as val1
-  return { val1: refString, sep: '', val2: '', unit: '' };
+  return { val1: trimmedRefString, sep: '', val2: '', unit: '' };
 };
 
 // Helper function to parse min/max from a reference string like "3.000 - 11.500 /µL"
@@ -619,7 +632,8 @@ export const ExamReportPdfContent = ({
       <View style={styles.paramRow}>
         <Text style={styles.paramName}>{label}</Text>
         <View style={styles.paramResultContainer}>
-          <Text style={[styles.paramResultText, resultStyle]}>{value} {unit}</Text>
+          <Text style={[styles.paramResultValue, resultStyle]}>{value}</Text>
+          <Text style={styles.paramResultUnit}>{unit}</Text>
         </View>
         <View style={styles.referenceContainer}> {/* Usando o novo container de referência */}
           <Text style={styles.refCell}>{ref?.full || 'N/A'}</Text>
@@ -674,30 +688,50 @@ export const ExamReportPdfContent = ({
     const indicatorMax = absRangeParsed?.max; // Usar min/max parseados da string absoluta
     const indicatorValueStatus = absValueStatus;
 
-    const parsedRelRef = parseLeukocyteReference(relRef?.relative);
-    const parsedAbsRef = parseLeukocyteReference(absRef?.absolute);
+    const parsedRelRef = parseLeukocyteReferenceParts(relRef?.relative);
+    const parsedAbsRef = parseLeukocyteReferenceParts(absRef?.absolute);
+
+    // Split value and unit for results
+    const [relVal, relUnit] = relativeValue ? relativeValue.split(/(%)/).filter(Boolean) : ['', ''];
+    const [absVal, absUnit] = absoluteValue ? absoluteValue.split(/(\/µL|M\/µL)/).filter(Boolean) : ['', ''];
+
 
     return (
       <View style={styles.paramRow}>
         <Text style={styles.paramName}>{label}</Text>
+        
+        {/* Results Section */}
         <View style={styles.leukocyteResultContainer}>
-          <Text style={[styles.leukocyteResultText, relResultStyle]}>{relativeValue}%</Text>
-          <Text style={[styles.leukocyteResultTextAbsolute, absResultStyle]}>{absoluteValue}/µL}</Text>
+          {/* Relative Result */}
+          <View style={styles.leukocyteResultSubContainer}>
+            <Text style={[styles.leukocyteResultValue, relResultStyle]}>{relVal}</Text>
+            <Text style={styles.leukocyteResultUnit}>{relUnit}</Text>
+          </View>
+          {/* Absolute Result */}
+          <View style={styles.leukocyteResultSubContainer}>
+            <Text style={[styles.leukocyteResultValue, absResultStyle]}>{absVal}</Text>
+            <Text style={styles.leukocyteResultUnit}>{absUnit}</Text>
+          </View>
         </View>
+
+        {/* References Section */}
         <View style={styles.referenceContainer}>
-          {/* Relative Part - 4 columns */}
-          <Text style={[styles.refCell, styles.refVal1]}>{parsedRelRef.val1}</Text>
-          <Text style={[styles.refCell, styles.refSep]}>{parsedRelRef.sep}</Text>
-          <Text style={[styles.refCell, styles.refVal2]}>{parsedRelRef.val2}</Text>
-          <Text style={[styles.refCell, styles.refUnit]}> {parsedRelRef.unit}</Text> {/* Added space */}
-          {/* Spacer - 1 column */}
-          <Text style={styles.refSpacer}></Text> 
-          {/* Absolute Part - 4 columns */}
-          <Text style={[styles.refCell, styles.refVal1Abs]}>{parsedAbsRef.val1}</Text>
-          <Text style={[styles.refCell, styles.refSepAbs]}>{parsedAbsRef.sep}</Text> {/* Using refSepAbs for clarity */}
-          <Text style={[styles.refCell, styles.refVal2Abs]}>{parsedAbsRef.val2}</Text>
-          <Text style={[styles.refCell, styles.refUnitAbs]}> {parsedAbsRef.unit}</Text> {/* Added space */}
+          {/* Relative Reference */}
+          <View style={styles.leukocyteReferenceSubContainer}>
+            <Text style={[styles.refCell, styles.refVal1]}>{parsedRelRef.val1}</Text>
+            <Text style={[styles.refCell, styles.refSep]}>{parsedRelRef.sep}</Text>
+            <Text style={[styles.refCell, styles.refVal2]}>{parsedRelRef.val2}</Text>
+            <Text style={[styles.refCell, styles.refUnit]}>{parsedRelRef.unit}</Text>
+          </View>
+          {/* Absolute Reference */}
+          <View style={styles.leukocyteReferenceSubContainer}>
+            <Text style={[styles.refCell, styles.refVal1Abs]}>{parsedAbsRef.val1}</Text>
+            <Text style={[styles.refCell, styles.refSepAbs]}>{parsedAbsRef.sep}</Text>
+            <Text style={[styles.refCell, styles.refVal2Abs]}>{parsedAbsRef.val2}</Text>
+            <Text style={[styles.refCell, styles.refUnitAbs]}>{parsedAbsRef.unit}</Text>
+          </View>
         </View>
+
         <View style={styles.indicatorColumn}>
           {indicatorMin !== undefined && indicatorMax !== undefined && !isNaN(normalizeNumber(indicatorValue)) ? (
             <IndicatorBar value={indicatorValue} minRef={indicatorMin} maxRef={indicatorMax} valueStatus={indicatorValueStatus} />
@@ -791,14 +825,10 @@ export const ExamReportPdfContent = ({
             {/* Custom header for Leukogram */}
             <View style={styles.leukogramHeader}>
               <Text style={[styles.leukogramHeaderName]}>NOME DO PARÂMETRO</Text>
-              <View style={styles.leukogramHeaderResults}>
-                <Text style={styles.leukogramHeaderSub}>Relativo:</Text>
-                <Text style={styles.leukogramHeaderSub}>Absoluto:</Text>
-              </View>
-              <View style={styles.leukogramHeaderReferences}>
-                <Text style={styles.leukogramHeaderSub}>Relativo:</Text>
-                <Text style={styles.leukogramHeaderSub}>Absoluto:</Text>
-              </View>
+              <Text style={[styles.leukogramHeaderResultSub, { textAlign: 'right' }]}>Relativo:</Text>
+              <Text style={[styles.leukogramHeaderResultSub, { textAlign: 'right' }]}>Absoluto:</Text>
+              <Text style={[styles.leukogramHeaderReferenceSub, { textAlign: 'right' }]}>Relativo:</Text>
+              <Text style={[styles.leukogramHeaderReferenceSub, { textAlign: 'right' }]}>Absoluto:</Text>
               <Text style={styles.leukogramHeaderIndicator}>Indicador:</Text>
             </View>
 
