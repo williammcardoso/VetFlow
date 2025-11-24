@@ -204,7 +204,7 @@ const styles = StyleSheet.create({
     paddingBottom: 5,
     borderBottomWidth: 1,
     borderBottomColor: "#000",
-    backgroundColor: "#f5f5f5", // Background color for the entire header line
+    // Removed backgroundColor: "#f5f5f5",
   },
   leukogramHeaderTitle: {
     width: 200, // NOME DO PARÂMETRO (100) + RESULTADO (100)
@@ -223,16 +223,17 @@ const styles = StyleSheet.create({
     // No borderRightWidth, as per image
   },
   leukogramHeaderLabelText: {
-    fontSize: 9, // Smaller font for sub-labels
+    fontSize: 8, // Smaller font for sub-labels (9 -> 8)
     fontWeight: "bold",
     color: "#333",
+    textAlign: 'center', // Centered
   },
   leukogramHeaderIndicatorLabel: {
     width: 105, // Same width as indicatorColumn
-    fontSize: 9,
+    fontSize: 8, // Smaller font (9 -> 8)
     fontWeight: "bold",
     color: "#333",
-    textAlign: "right", // Align to right as per image
+    textAlign: "left", // Aligned left
     paddingRight: 5, // Add some padding
     // No borderRightWidth, as per image
   },
@@ -806,7 +807,7 @@ export const ExamReportPdfContent = ({
                 <Text style={styles.leukogramHeaderLabelText}>Relativo:</Text>
                 <Text style={styles.leukogramHeaderLabelText}>Absoluto:</Text>
               </View>
-              <Text style={styles.leukogramHeaderIndicatorLabel}>INDICADOR</Text>
+              <Text style={styles.leukogramHeaderIndicatorLabel}>Indicador</Text>
             </View>
 
             {/* Alterado para renderizar Leucócitos totais com renderLeukocyteParam */}
