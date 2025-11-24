@@ -382,7 +382,7 @@ const styles = StyleSheet.create({
     borderColor: 'orange', // DEBUG
   },
   refUnitWrapper: {
-    width: 20, // MANTIDO em 20px
+    width: 20, // ALTERADO para 20px (default)
     flexDirection: 'row',
     justifyContent: 'flex-end', // ALTERADO para alinhar à direita
     borderWidth: 1, // DEBUG
@@ -749,7 +749,7 @@ export const ExamReportPdfContent = ({
             <View style={styles.refVal2Wrapper}>
               {parsedRelRef.val2 && <Text style={styles.refPartText}>{parsedRelRef.val2}</Text>}
             </View>
-            <View style={styles.refUnitWrapper}>
+            <View style={[styles.refUnitWrapper, { width: 20 }]}> {/* Override for relative unit */}
               {parsedRelRef.unit && <Text style={styles.refPartText}>{parsedRelRef.unit}</Text>}
             </View>
           </View>
@@ -762,7 +762,7 @@ export const ExamReportPdfContent = ({
             <View style={[styles.refVal2Wrapper, { width: 30 }]}> {/* Override width for absolute part */}
               {parsedAbsRef.val2 && <Text style={styles.refPartText}>{parsedAbsRef.val2}</Text>}
             </View>
-            <View style={styles.refUnitWrapper}>
+            <View style={[styles.refUnitWrapper, { width: 30 }]}> {/* Override for absolute unit */}
               {parsedAbsRef.unit && <Text style={styles.refPartText}>{parsedAbsRef.unit}</Text>}
             </View>
           </View>
