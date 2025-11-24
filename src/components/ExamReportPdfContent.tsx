@@ -318,13 +318,14 @@ const styles = StyleSheet.create({
     width: 115, // 230px / 2
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'flex-end', // Alinha o bloco à direita
+    // justifyContent: 'flex-end', // Removido: agora o Text interno tem flexGrow: 1 e textAlign: 'right'
   },
   refPartText: { // Novo estilo base para textos de referência
     fontSize: 9,
     color: "#666",
     height: 12, // Altura fixa para alinhamento vertical
     lineHeight: 1.2, // Altura da linha fixa
+    // This style will be overridden for specific parts
   },
   refPartView: { // Estilo base para os Views de cada parte
     flexDirection: 'row',
@@ -346,6 +347,19 @@ const styles = StyleSheet.create({
   refPartUnitView: {
     width: 35,
     justifyContent: 'flex-start', // Alinha texto à esquerda
+  },
+  // Novos estilos para alinhamento de texto dentro dos Views de referência
+  refTextRight: {
+    textAlign: 'right',
+    flexGrow: 1, // Permite que o texto preencha o espaço disponível
+  },
+  refTextCenter: {
+    textAlign: 'center',
+    flexGrow: 1,
+  },
+  refTextLeft: {
+    textAlign: 'left',
+    flexGrow: 1,
   },
   indicatorColumn: {
     width: 105, // Fixed width for the column - AJUSTADO
@@ -694,31 +708,31 @@ export const ExamReportPdfContent = ({
           {/* Relative Reference */}
           <View style={styles.leukocyteReferenceSubContainer}>
             <View style={[styles.refPartView, styles.refPartVal1View]}>
-              {parsedRelRef.val1 && <Text style={styles.refPartText}>{parsedRelRef.val1}</Text>}
+              {parsedRelRef.val1 && <Text style={[styles.refPartText, styles.refTextRight]}>{parsedRelRef.val1}</Text>}
             </View>
             <View style={[styles.refPartView, styles.refPartSepView]}>
-              {parsedRelRef.sep && <Text style={styles.refPartText}>{parsedRelRef.sep}</Text>}
+              {parsedRelRef.sep && <Text style={[styles.refPartText, styles.refTextCenter]}>{parsedRelRef.sep}</Text>}
             </View>
             <View style={[styles.refPartView, styles.refPartVal2View]}>
-              {parsedRelRef.val2 && <Text style={styles.refPartText}>{parsedRelRef.val2}</Text>}
+              {parsedRelRef.val2 && <Text style={[styles.refPartText, styles.refTextRight]}>{parsedRelRef.val2}</Text>}
             </View>
             <View style={[styles.refPartView, styles.refPartUnitView]}>
-              {parsedRelRef.unit && <Text style={styles.refPartText}>{parsedRelRef.unit}</Text>}
+              {parsedRelRef.unit && <Text style={[styles.refPartText, styles.refTextLeft]}>{parsedRelRef.unit}</Text>}
             </View>
           </View>
           {/* Absolute Reference */}
           <View style={styles.leukocyteReferenceSubContainer}>
             <View style={[styles.refPartView, styles.refPartVal1View]}>
-              {parsedAbsRef.val1 && <Text style={styles.refPartText}>{parsedAbsRef.val1}</Text>}
+              {parsedAbsRef.val1 && <Text style={[styles.refPartText, styles.refTextRight]}>{parsedAbsRef.val1}</Text>}
             </View>
             <View style={[styles.refPartView, styles.refPartSepView]}>
-              {parsedAbsRef.sep && <Text style={styles.refPartText}>{parsedAbsRef.sep}</Text>}
+              {parsedAbsRef.sep && <Text style={[styles.refPartText, styles.refTextCenter]}>{parsedAbsRef.sep}</Text>}
             </View>
             <View style={[styles.refPartView, styles.refPartVal2View]}>
-              {parsedAbsRef.val2 && <Text style={styles.refPartText}>{parsedAbsRef.val2}</Text>}
+              {parsedAbsRef.val2 && <Text style={[styles.refPartText, styles.refTextRight]}>{parsedAbsRef.val2}</Text>}
             </View>
             <View style={[styles.refPartView, styles.refPartUnitView]}>
-              {parsedAbsRef.unit && <Text style={styles.refPartText}>{parsedAbsRef.unit}</Text>}
+              {parsedAbsRef.unit && <Text style={[styles.refPartText, styles.refTextLeft]}>{parsedAbsRef.unit}</Text>}
             </View>
           </View>
         </View>
