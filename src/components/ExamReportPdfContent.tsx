@@ -369,13 +369,13 @@ const styles = StyleSheet.create({
     borderColor: 'blue', // DEBUG
   },
   refPartSepText: {
-    width: 20, // ALTERADO para 20px
+    width: 10, // ALTERADO para 10px
     textAlign: 'center',
     borderWidth: 1, // DEBUG
     borderColor: 'green', // DEBUG
   },
   refVal2Wrapper: {
-    width: 30, // MANTIDO em 30px
+    width: 20, // ALTERADO para 20px
     flexDirection: 'row',
     justifyContent: 'flex-end', // ALTERADO para alinhar à direita
     borderWidth: 1, // DEBUG
