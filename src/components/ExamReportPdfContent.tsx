@@ -628,7 +628,7 @@ export const ExamReportPdfContent = ({
           <Text style={styles.paramResultUnit}>{unit}</Text>
         </View>
         <View style={styles.referenceContainer}> {/* Usando o novo container de referência */}
-          <Text style={styles.refCell}>{ref?.full || 'N/A'}</Text>
+          <Text style={styles.refTextBase}>{ref?.full || 'N/A'}</Text>
         </View>
         <View style={styles.indicatorColumn}>
           {ref && ref.min !== undefined && ref.max !== undefined && !isNaN(normalizeNumber(value)) ? (
@@ -683,6 +683,12 @@ export const ExamReportPdfContent = ({
     const parsedRelRef = parseLeukocyteReferenceParts(relRef?.relative);
     const parsedAbsRef = parseLeukocyteReferenceParts(absRef?.absolute);
 
+    // Construir a string completa para a referência relativa
+    const formattedRelRefString = `${parsedRelRef.val1}${parsedRelRef.sep ? ` ${parsedRelRef.sep}` : ''}${parsedRelRef.val2 ? ` ${parsedRelRef.val2}` : ''}${parsedRelRef.unit ? ` ${parsedRelRef.unit}` : ''}`.trim();
+    // Construir a string completa para a referência absoluta
+    const formattedAbsRefString = `${parsedAbsRef.val1}${parsedAbsRef.sep ? ` ${parsedAbsRef.sep}` : ''}${parsedAbsRef.val2 ? ` ${parsedAbsRef.val2}` : ''}${parsedAbsRef.unit ? ` ${parsedAbsRef.unit}` : ''}`.trim();
+
+
     return (
       <View style={styles.paramRow}>
         <Text style={styles.paramName}>{label}</Text>
@@ -705,23 +711,11 @@ export const ExamReportPdfContent = ({
         <View style={styles.referenceContainer}>
           {/* Relative Reference */}
           <View style={styles.leukocyteReferenceSubContainer}>
-            {parsedRelRef.val1 && <Text style={[styles.refTextBase, styles.refVal1]}>{parsedRelRef.val1}</Text>}
-            {parsedRelRef.val1 && (parsedRelRef.sep || parsedRelRef.val2) && <View style={{ width: 1 }} />}
-            {parsedRelRef.sep && <Text style={[styles.refTextBase, styles.refSep]}>{parsedRelRef.sep}</Text>}
-            {parsedRelRef.sep && parsedRelRef.val2 && <View style={{ width: 1 }} />}
-            {parsedRelRef.val2 && <Text style={[styles.refTextBase, styles.refVal2]}>{parsedRelRef.val2}</Text>}
-            {(parsedRelRef.val1 || parsedRelRef.val2 || parsedRelRef.sep) && parsedRelRef.unit && <View style={{ width: 3 }} />}
-            {parsedRelRef.unit && <Text style={[styles.refTextBase, styles.refUnit]}>{parsedRelRef.unit}</Text>}
+            <Text style={styles.refTextBase}>{formattedRelRefString}</Text>
           </View>
           {/* Absolute Reference */}
           <View style={styles.leukocyteReferenceSubContainer}>
-            {parsedAbsRef.val1 && <Text style={[styles.refTextBase, styles.refVal1Abs]}>{parsedAbsRef.val1}</Text>}
-            {parsedAbsRef.val1 && (parsedAbsRef.sep || parsedAbsRef.val2) && <View style={{ width: 1 }} />}
-            {parsedAbsRef.sep && <Text style={[styles.refTextBase, styles.refSepAbs]}>{parsedAbsRef.sep}</Text>}
-            {parsedAbsRef.sep && parsedAbsRef.val2 && <View style={{ width: 1 }} />}
-            {parsedAbsRef.val2 && <Text style={[styles.refTextBase, styles.refVal2Abs]}>{parsedAbsRef.val2}</Text>}
-            {(parsedAbsRef.val1 || parsedAbsRef.val2 || parsedAbsRef.sep) && parsedAbsRef.unit && <View style={{ width: 3 }} />}
-            {parsedAbsRef.unit && <Text style={[styles.refTextBase, styles.refUnitAbs]}>{parsedAbsRef.unit}</Text>}
+            <Text style={styles.refTextBase}>{formattedAbsRefString}</Text>
           </View>
         </View>
 
