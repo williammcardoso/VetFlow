@@ -171,8 +171,6 @@ const styles = StyleSheet.create({
     color: "#333",
     textAlign: "left",
     paddingLeft: 5,
-    // borderWidth: 1, // DEBUG
-    // borderColor: 'red', // DEBUG
   },
   headerCellName: {
     width: 100, // NOME DO PARÂMETRO
@@ -198,8 +196,8 @@ const styles = StyleSheet.create({
     borderRightColor: '#ccc',
   },
 
-  // Custom header for Leukogram to match image
-  leukogramHeader: {
+  // NEW: Combined Leukogram Header
+  leukogramCombinedHeader: {
     flexDirection: "row",
     borderBottomWidth: 1,
     borderBottomColor: "#000",
@@ -208,7 +206,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#f5f5f5",
   },
   leukogramHeaderName: {
-    width: 100, // AJUSTADO
+    width: 100,
     fontSize: 9,
     fontWeight: "bold",
     color: "#333",
@@ -216,220 +214,169 @@ const styles = StyleSheet.create({
     paddingLeft: 5,
     borderRightWidth: 1,
     borderRightColor: '#ccc',
-    // borderWidth: 1, // DEBUG
-    // borderColor: 'red', // DEBUG
   },
-  leukogramHeaderResultSub: { // New style for sub-headers in results
-    width: 50, // 100px / 2
-    fontSize: 8,
-    fontWeight: "bold",
-    color: "#333",
-    textAlign: 'right',
-    lineHeight: 1.2,
-    borderRightWidth: 1,
-    borderRightColor: '#ccc',
-    // borderWidth: 1, // DEBUG
-    // borderColor: 'red', // DEBUG
-  },
-  leukogramHeaderReferenceSub: { // New style for sub-headers in references
-    width: 115, // 230px / 2
-    fontSize: 8,
-    fontWeight: "bold",
-    color: "#333",
-    textAlign: 'right',
-    lineHeight: 1.2,
-    borderRightWidth: 1,
-    borderRightColor: '#ccc',
-    // borderWidth: 1, // DEBUG
-    // borderColor: 'red', // DEBUG
-  },
-  leukogramHeaderIndicator: {
-    width: 105, // INDICADOR - AJUSTADO
+  leukogramHeaderResultCombined: {
+    width: 100,
     fontSize: 9,
     fontWeight: "bold",
     color: "#333",
-    textAlign: "right", // Alinhado à direita
-    borderRightWidth: 1, // Adicionado para consistência
+    textAlign: "center", // Centralizado para "Resultado (Relativo / Absoluto)"
+    borderRightWidth: 1,
     borderRightColor: '#ccc',
-    // borderWidth: 1, // DEBUG
-    // borderColor: 'red', // DEBUG
+  },
+  leukogramHeaderReferenceCombined: {
+    width: 230,
+    fontSize: 9,
+    fontWeight: "bold",
+    color: "#333",
+    textAlign: "center", // Centralizado para "Referência (Relativo / Absoluto)"
+    borderRightWidth: 1,
+    borderRightColor: '#ccc',
+  },
+  leukogramHeaderIndicator: {
+    width: 105,
+    fontSize: 9,
+    fontWeight: "bold",
+    color: "#333",
+    textAlign: "center",
+    borderRightWidth: 1,
+    borderRightColor: '#ccc',
   },
 
   paramRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 0, // Removido margin-bottom para bordas contínuas
+    marginBottom: 0,
     minHeight: 18,
-    borderBottomWidth: 1, // Adicionado borda inferior para cada linha
-    borderBottomColor: '#eee',
-    // borderWidth: 1, // DEBUG
-    // borderColor: 'red', // DEBUG
+    // REMOVIDO: borderBottomWidth: 1,
+    // REMOVIDO: borderBottomColor: '#eee',
   },
   paramName: {
-    width: 100, // AJUSTADO
+    width: 100,
     fontSize: 9,
     color: "#333",
     paddingLeft: 5,
-    borderRightWidth: 1, // Adicionado borda direita
-    borderRightColor: '#eee',
-    // borderWidth: 1, // DEBUG
-    // borderColor: 'red', // DEBUG
+    // REMOVIDO: borderRightWidth: 1,
+    // REMOVIDO: borderRightColor: '#eee',
   },
   // For single-value results (Eritrograma, Plaquetas)
   paramResultContainer: {
-    width: 100, // AJUSTADO
-    flexDirection: 'row', // Alterado para row para alinhar valor e unidade
-    alignItems: 'center',
-    justifyContent: 'flex-end', // Alinha à direita
-    borderRightWidth: 1, // Adicionado borda direita
-    borderRightColor: '#eee',
-    // borderWidth: 1, // DEBUG
-    // borderColor: 'red', // DEBUG
-  },
-  paramResultValue: { // Novo estilo para o valor em negrito
-    fontSize: 9,
-    fontWeight: "bold",
-    textAlign: "right",
-    marginRight: 5, // Adicionado marginRight aqui
-    // borderWidth: 1, // DEBUG
-    // borderColor: 'red', // DEBUG
-  },
-  paramResultUnit: { // Novo estilo para a unidade não negrito
-    fontSize: 9,
-    color: "#666", // Cor mais suave para a unidade
-    // borderWidth: 1, // DEBUG
-    // borderColor: 'red', // DEBUG
-  },
-  // For multi-value results (Leukogram)
-  leukocyteResultContainer: { // Container principal para os 4 sub-campos de resultado
-    width: 100, // AJUSTADO
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRightWidth: 1,
-    borderRightColor: '#eee',
-    // borderWidth: 1, // DEBUG
-    // borderColor: 'red', // DEBUG
-  },
-  leukocyteResultSubContainer: { // Container para cada par (valor + unidade)
-    width: 50, // 100px / 2
+    width: 100,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-end',
-    // borderWidth: 1, // DEBUG
-    // borderColor: 'red', // DEBUG
+    // REMOVIDO: borderRightWidth: 1,
+    // REMOVIDO: borderRightColor: '#eee',
   },
-  leukocyteResultValue: { // Valor em negrito
+  paramResultValue: {
     fontSize: 9,
     fontWeight: "bold",
     textAlign: "right",
-    marginRight: 5, // Adicionado marginRight aqui
-    // borderWidth: 1, // DEBUG
-    // borderColor: 'red', // DEBUG
+    marginRight: 5,
   },
-  leukocyteResultUnit: { // Unidade não negrito
+  paramResultUnit: {
+    fontSize: 9,
+    color: "#666",
+  },
+  // For multi-value results (Leukogram)
+  leukocyteResultContainer: {
+    width: 100,
+    flexDirection: 'row',
+    alignItems: 'center',
+    // REMOVIDO: borderRightWidth: 1,
+    // REMOVIDO: borderRightColor: '#eee',
+  },
+  leukocyteResultSubContainer: {
+    width: 50,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+  },
+  leukocyteResultValue: {
+    fontSize: 9,
+    fontWeight: "bold",
+    textAlign: "right",
+    marginRight: 5,
+  },
+  leukocyteResultUnit: {
     fontSize: 9,
     color: "#666",
     textAlign: 'left',
-    // borderWidth: 1, // DEBUG
-    // borderColor: 'red', // DEBUG
   },
 
   // New styles for granular reference columns (9 columns)
   referenceContainer: {
-    width: 230, // AJUSTADO
+    width: 230,
     flexDirection: 'row',
     alignItems: 'center',
-    borderRightWidth: 1, // Adicionado borda direita
-    borderRightColor: '#eee',
-    // borderWidth: 1, // DEBUG
-    // borderColor: 'red', // DEBUG
+    // REMOVIDO: borderRightWidth: 1,
+    // REMOVIDO: borderRightColor: '#eee',
   },
-  leukocyteReferenceSubContainer: { // Container para cada bloco de referência (Relativo ou Absoluto)
-    width: 115, // 230px / 2
+  leukocyteReferenceSubContainer: {
+    width: 115,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'flex-end', // ALTERADO para alinhar à direita
-    // borderWidth: 1, // DEBUG
-    // borderColor: 'red', // DEBUG
+    justifyContent: 'flex-end',
   },
-  refPartText: { // Base style for reference texts
+  refPartText: {
     fontSize: 9,
     color: "#666",
-    lineHeight: 1.2, // Fixed line height
-    flexShrink: 0, // Prevent shrinking
-    flexGrow: 0,   // Prevent growing
-    // borderWidth: 1, // DEBUG
-    // borderColor: 'red', // DEBUG
+    lineHeight: 1.2,
+    flexShrink: 0,
+    flexGrow: 0,
   },
   refVal1Wrapper: {
-    width: 30, // MANTIDO em 30px
+    width: 30,
     flexDirection: 'row',
-    justifyContent: 'flex-end', // ALTERADO para alinhar à direita
-    borderWidth: 1, // DEBUG
-    borderColor: 'blue', // DEBUG
+    justifyContent: 'flex-end',
   },
   refPartSepText: {
-    width: 15, // MANTIDO em 15px
-    textAlign: 'center', // MANTIDO em centralizar
-    borderWidth: 1, // DEBUG
-    borderColor: 'green', // DEBUG
+    width: 15,
+    textAlign: 'center',
   },
   refVal2Wrapper: {
     width: 15, // MANTIDO em 15px (base para o relativo)
     flexDirection: 'row',
-    justifyContent: 'flex-end', // ALTERADO para alinhar à direita
-    borderWidth: 1, // DEBUG
-    borderColor: 'orange', // DEBUG
+    justifyContent: 'flex-end',
   },
   refUnitWrapper: {
     width: 20, // ALTERADO para 20px (default)
     flexDirection: 'row',
-    justifyContent: 'flex-end', // ALTERADO para alinhar à direita
-    borderWidth: 1, // DEBUG
-    borderColor: 'purple', // DEBUG
+    justifyContent: 'flex-end',
   },
   indicatorColumn: {
-    width: 105, // Fixed width for the column - AJUSTADO
+    width: 105,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'flex-end', // Align the bar to the right within this column
-    flexGrow: 1, // Make it grow to fill remaining space
-    borderRightWidth: 1, // Adicionado borda direita
-    borderRightColor: '#eee',
-    // borderWidth: 1, // DEBUG
-    // borderColor: 'red', // DEBUG
+    justifyContent: 'flex-end',
+    flexGrow: 1,
+    // REMOVIDO: borderRightWidth: 1,
+    // REMOVIDO: borderRightColor: '#eee',
   },
   // NEW: Fixed background bar style
   fixedBackgroundBar: {
-    width: 100, // Fixed width for the bar itself
+    width: 100,
     height: 8,
-    backgroundColor: '#ccffcc', // Light green as requested
-    borderRadius: 4, // Slightly rounded corners
+    backgroundColor: '#ccffcc',
+    borderRadius: 4,
     position: 'relative',
-    justifyContent: 'center', // To center the marker vertically
-    // borderWidth: 1, // DEBUG
-    // borderColor: 'red', // DEBUG
+    justifyContent: 'center',
   },
   // NEW: Style for the ball marker
   ballMarker: {
     position: 'absolute',
-    width: 8, // Smaller size for the ball
+    width: 8,
     height: 8,
-    borderRadius: 4, // Half of width/height for a perfect circle
-    // Background color will be set dynamically
-    top: 0, // Centered vertically within the 8px bar
-    // borderWidth: 1, // DEBUG
-    // borderColor: 'red', // DEBUG
+    borderRadius: 4,
+    top: 0,
   },
   // NEW: Styles for fixed indicators at 15% and 85%
   fixedIndicator: {
     position: 'absolute',
-    width: 1, // Thin vertical line
-    height: '100%', // Full height of the bar
-    backgroundColor: '#999999', // Grey color
+    width: 1,
+    height: '100%',
+    backgroundColor: '#999999',
     top: 0,
-    // borderWidth: 1, // DEBUG
-    // borderColor: 'red', // DEBUG
   },
 
   resultNormal: {
@@ -690,7 +637,9 @@ export const ExamReportPdfContent = ({
     const absRef = ref; // For absolute values
 
     // Para o status do valor relativo, usamos os min/max do objeto de referência
-    const relValueStatus = getValueStatus(relativeValue, relRef);
+    // EXCEÇÃO: Para 'leucocitosTotais', o valor relativo (100%) é sempre normal.
+    const relValueStatus = (referenceKey === "leucocitosTotais") ? 'normal' : getValueStatus(relativeValue, relRef);
+    
     // Para o status do valor absoluto, precisamos parsear min/max da string 'absolute'
     const absRangeParsed = parseMinMaxFromReferenceString(absRef?.absolute);
     const absValueStatus = getValueStatus(absoluteValue, absRangeParsed);
@@ -858,15 +807,13 @@ export const ExamReportPdfContent = ({
 
             {/* Leucograma */}
             <Text style={styles.sectionTitle}>LEUCOGRAMA</Text>
-            {/* REMOVIDO: Custom header for Leukogram */}
-            {/* <View style={styles.leukogramHeader}>
+            {/* NOVO: Combined Leukogram Header */}
+            <View style={styles.leukogramCombinedHeader}>
               <Text style={[styles.leukogramHeaderName]}>NOME DO PARÂMETRO</Text>
-              <Text style={[styles.leukogramHeaderResultSub, { textAlign: 'right' }]}>Relativo:</Text>
-              <Text style={[styles.leukogramHeaderResultSub, { textAlign: 'right' }]}>Absoluto:</Text>
-              <Text style={[styles.leukogramHeaderReferenceSub, { textAlign: 'right' }]}>Relativo:</Text>
-              <Text style={[styles.leukogramHeaderReferenceSub, { textAlign: 'right' }]}>Absoluto:</Text>
-              <Text style={styles.leukogramHeaderIndicator}>Indicador:</Text>
-            </View> */}
+              <Text style={[styles.leukogramHeaderResultCombined]}>RESULTADO (Relativo / Absoluto)</Text>
+              <Text style={[styles.leukogramHeaderReferenceCombined]}>REFERÊNCIA (Relativo / Absoluto)</Text>
+              <Text style={styles.leukogramHeaderIndicator}>INDICADOR</Text>
+            </View>
 
             {/* Alterado para renderizar Leucócitos totais com renderLeukocyteParam */}
             {renderLeukocyteParam("Leucócitos totais", "100", exam.leucocitosTotais, "leucocitosTotais")}
