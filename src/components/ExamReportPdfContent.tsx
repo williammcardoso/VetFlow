@@ -318,7 +318,7 @@ const styles = StyleSheet.create({
     width: 115, // 230px / 2
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'flex-end', // Alinha o conteúdo à direita
+    // justifyContent: 'flex-end', // Removido: agora o Text interno tem flexGrow: 1 e textAlign: 'right'
   },
   refTextBase: { // Novo estilo base para textos de referência
     fontSize: 9,
@@ -326,38 +326,7 @@ const styles = StyleSheet.create({
     height: 12, // Altura fixa para alinhamento vertical
     lineHeight: 1.2, // Altura da linha fixa
     textAlign: 'right', // Default para alinhar à direita
-  },
-  // Column 1: Value 1 - REMOVIDO WIDTH
-  refVal1: {
-    // textAlign: 'right', // Já no refTextBase
-  },
-  // Column 2: Separator - REMOVIDO WIDTH
-  refSep: {
-    // textAlign: 'center', // Centralizado
-  },
-  // Column 3: Value 2 - REMOVIDO WIDTH
-  refVal2: {
-    // textAlign: 'right', // Já no refTextBase
-  },
-  // Column 4: Unit - REMOVIDO WIDTH
-  refUnit: {
-    textAlign: 'left',
-  },
-  // Column 6: Absolute Value 1 - REMOVIDO WIDTH
-  refVal1Abs: {
-    // textAlign: 'right', // Já no refTextBase
-  },
-  // Column 7: Absolute Separator - REMOVIDO WIDTH
-  refSepAbs: { // Specific style for absolute separator if needed, or reuse refSep
-    // textAlign: 'center', // Centralizado
-  },
-  // Column 8: Absolute Value 2 - REMOVIDO WIDTH
-  refVal2Abs: {
-    // textAlign: 'right', // Já no refTextBase
-  },
-  // Column 9: Absolute Unit - REMOVIDO WIDTH
-  refUnitAbs: {
-    textAlign: 'left',
+    flexGrow: 1, // Adicionado para que o Text ocupe toda a largura disponível
   },
   indicatorColumn: {
     width: 105, // Fixed width for the column - AJUSTADO
