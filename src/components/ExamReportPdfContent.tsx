@@ -171,8 +171,8 @@ const styles = StyleSheet.create({
     color: "#333",
     textAlign: "left",
     paddingLeft: 5,
-    borderWidth: 1, // DEBUG
-    borderColor: 'red', // DEBUG
+    // borderWidth: 1, // DEBUG
+    // borderColor: 'red', // DEBUG
   },
   headerCellName: {
     width: 100, // NOME DO PARÂMETRO
@@ -216,8 +216,8 @@ const styles = StyleSheet.create({
     paddingLeft: 5,
     borderRightWidth: 1,
     borderRightColor: '#ccc',
-    borderWidth: 1, // DEBUG
-    borderColor: 'red', // DEBUG
+    // borderWidth: 1, // DEBUG
+    // borderColor: 'red', // DEBUG
   },
   leukogramHeaderResultSub: { // New style for sub-headers in results
     width: 50, // 100px / 2
@@ -228,8 +228,8 @@ const styles = StyleSheet.create({
     lineHeight: 1.2,
     borderRightWidth: 1,
     borderRightColor: '#ccc',
-    borderWidth: 1, // DEBUG
-    borderColor: 'red', // DEBUG
+    // borderWidth: 1, // DEBUG
+    // borderColor: 'red', // DEBUG
   },
   leukogramHeaderReferenceSub: { // New style for sub-headers in references
     width: 115, // 230px / 2
@@ -240,8 +240,8 @@ const styles = StyleSheet.create({
     lineHeight: 1.2,
     borderRightWidth: 1,
     borderRightColor: '#ccc',
-    borderWidth: 1, // DEBUG
-    borderColor: 'red', // DEBUG
+    // borderWidth: 1, // DEBUG
+    // borderColor: 'red', // DEBUG
   },
   leukogramHeaderIndicator: {
     width: 105, // INDICADOR - AJUSTADO
@@ -251,8 +251,8 @@ const styles = StyleSheet.create({
     textAlign: "right", // Alinhado à direita
     borderRightWidth: 1, // Adicionado para consistência
     borderRightColor: '#ccc',
-    borderWidth: 1, // DEBUG
-    borderColor: 'red', // DEBUG
+    // borderWidth: 1, // DEBUG
+    // borderColor: 'red', // DEBUG
   },
 
   paramRow: {
@@ -262,8 +262,8 @@ const styles = StyleSheet.create({
     minHeight: 18,
     borderBottomWidth: 1, // Adicionado borda inferior para cada linha
     borderBottomColor: '#eee',
-    borderWidth: 1, // DEBUG
-    borderColor: 'red', // DEBUG
+    // borderWidth: 1, // DEBUG
+    // borderColor: 'red', // DEBUG
   },
   paramName: {
     width: 100, // AJUSTADO
@@ -272,8 +272,8 @@ const styles = StyleSheet.create({
     paddingLeft: 5,
     borderRightWidth: 1, // Adicionado borda direita
     borderRightColor: '#eee',
-    borderWidth: 1, // DEBUG
-    borderColor: 'red', // DEBUG
+    // borderWidth: 1, // DEBUG
+    // borderColor: 'red', // DEBUG
   },
   // For single-value results (Eritrograma, Plaquetas)
   paramResultContainer: {
@@ -283,22 +283,22 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end', // Alinha à direita
     borderRightWidth: 1, // Adicionado borda direita
     borderRightColor: '#eee',
-    borderWidth: 1, // DEBUG
-    borderColor: 'red', // DEBUG
+    // borderWidth: 1, // DEBUG
+    // borderColor: 'red', // DEBUG
   },
   paramResultValue: { // Novo estilo para o valor em negrito
     fontSize: 9,
     fontWeight: "bold",
     textAlign: "right",
     marginRight: 5, // Adicionado marginRight aqui
-    borderWidth: 1, // DEBUG
-    borderColor: 'red', // DEBUG
+    // borderWidth: 1, // DEBUG
+    // borderColor: 'red', // DEBUG
   },
   paramResultUnit: { // Novo estilo para a unidade não negrito
     fontSize: 9,
     color: "#666", // Cor mais suave para a unidade
-    borderWidth: 1, // DEBUG
-    borderColor: 'red', // DEBUG
+    // borderWidth: 1, // DEBUG
+    // borderColor: 'red', // DEBUG
   },
   // For multi-value results (Leukogram)
   leukocyteResultContainer: { // Container principal para os 4 sub-campos de resultado
@@ -307,31 +307,31 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderRightWidth: 1,
     borderRightColor: '#eee',
-    borderWidth: 1, // DEBUG
-    borderColor: 'red', // DEBUG
+    // borderWidth: 1, // DEBUG
+    // borderColor: 'red', // DEBUG
   },
   leukocyteResultSubContainer: { // Container para cada par (valor + unidade)
     width: 50, // 100px / 2
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-end',
-    borderWidth: 1, // DEBUG
-    borderColor: 'red', // DEBUG
+    // borderWidth: 1, // DEBUG
+    // borderColor: 'red', // DEBUG
   },
   leukocyteResultValue: { // Valor em negrito
     fontSize: 9,
     fontWeight: "bold",
     textAlign: "right",
     marginRight: 5, // Adicionado marginRight aqui
-    borderWidth: 1, // DEBUG
-    borderColor: 'red', // DEBUG
+    // borderWidth: 1, // DEBUG
+    // borderColor: 'red', // DEBUG
   },
   leukocyteResultUnit: { // Unidade não negrito
     fontSize: 9,
     color: "#666",
     textAlign: 'left',
-    borderWidth: 1, // DEBUG
-    borderColor: 'red', // DEBUG
+    // borderWidth: 1, // DEBUG
+    // borderColor: 'red', // DEBUG
   },
 
   // New styles for granular reference columns (9 columns)
@@ -341,41 +341,50 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderRightWidth: 1, // Adicionado borda direita
     borderRightColor: '#eee',
-    borderWidth: 1, // DEBUG
-    borderColor: 'red', // DEBUG
+    // borderWidth: 1, // DEBUG
+    // borderColor: 'red', // DEBUG
   },
   leukocyteReferenceSubContainer: { // Container para cada bloco de referência (Relativo ou Absoluto)
     width: 115, // 230px / 2
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'flex-start', // ALTERADO para alinhar à esquerda
-    borderWidth: 1, // DEBUG
-    borderColor: 'red', // DEBUG
+    justifyContent: 'flex-start', // Alinha à esquerda
+    // borderWidth: 1, // DEBUG
+    // borderColor: 'red', // DEBUG
   },
   refPartText: { // Base style for reference texts
     fontSize: 9,
     color: "#666",
     lineHeight: 1.2, // Fixed line height
-    borderWidth: 1, // DEBUG
-    borderColor: 'red', // DEBUG
+    flexShrink: 0, // Prevent shrinking
+    flexGrow: 0,   // Prevent growing
+    // borderWidth: 1, // DEBUG
+    // borderColor: 'red', // DEBUG
   },
-  refPartVal1Text: {
-    // width: 35, // REMOVIDO
-    textAlign: 'right',
+  refVal1Wrapper: {
+    width: 40,
+    flexDirection: 'row',
+    justifyContent: 'flex-end', // Align text to the right within this wrapper
+    // borderWidth: 1, // DEBUG
+    // borderColor: 'blue', // DEBUG
   },
   refPartSepText: {
     width: 10, // Largura fixa para o separador
     textAlign: 'center',
   },
-  refPartVal2Text: {
-    // width: 15, // REMOVIDO
-    textAlign: 'right', // Alinhamento à direita
-    // marginRight: 2, // REMOVIDO
+  refVal2Wrapper: {
+    width: 30,
+    flexDirection: 'row',
+    justifyContent: 'flex-start', // Align text to the left within this wrapper
+    // borderWidth: 1, // DEBUG
+    // borderColor: 'green', // DEBUG
   },
-  refPartUnitText: {
-    // width: 20, // REMOVIDO
-    textAlign: 'right', // Alinhamento à direita
-    // marginLeft: 2, // REMOVIDO
+  refUnitWrapper: {
+    width: 35,
+    flexDirection: 'row',
+    justifyContent: 'flex-start', // Align text to the left within this wrapper
+    // borderWidth: 1, // DEBUG
+    // borderColor: 'orange', // DEBUG
   },
   indicatorColumn: {
     width: 105, // Fixed width for the column - AJUSTADO
@@ -385,8 +394,8 @@ const styles = StyleSheet.create({
     flexGrow: 1, // Make it grow to fill remaining space
     borderRightWidth: 1, // Adicionado borda direita
     borderRightColor: '#eee',
-    borderWidth: 1, // DEBUG
-    borderColor: 'red', // DEBUG
+    // borderWidth: 1, // DEBUG
+    // borderColor: 'red', // DEBUG
   },
   // NEW: Fixed background bar style
   fixedBackgroundBar: {
@@ -396,8 +405,8 @@ const styles = StyleSheet.create({
     borderRadius: 4, // Slightly rounded corners
     position: 'relative',
     justifyContent: 'center', // To center the marker vertically
-    borderWidth: 1, // DEBUG
-    borderColor: 'red', // DEBUG
+    // borderWidth: 1, // DEBUG
+    // borderColor: 'red', // DEBUG
   },
   // NEW: Style for the ball marker
   ballMarker: {
@@ -407,8 +416,8 @@ const styles = StyleSheet.create({
     borderRadius: 4, // Half of width/height for a perfect circle
     // Background color will be set dynamically
     top: 0, // Centered vertically within the 8px bar
-    borderWidth: 1, // DEBUG
-    borderColor: 'red', // DEBUG
+    // borderWidth: 1, // DEBUG
+    // borderColor: 'red', // DEBUG
   },
   // NEW: Styles for fixed indicators at 15% and 85%
   fixedIndicator: {
@@ -417,8 +426,8 @@ const styles = StyleSheet.create({
     height: '100%', // Full height of the bar
     backgroundColor: '#999999', // Grey color
     top: 0,
-    borderWidth: 1, // DEBUG
-    borderColor: 'red', // DEBUG
+    // borderWidth: 1, // DEBUG
+    // borderColor: 'red', // DEBUG
   },
 
   resultNormal: {
@@ -731,17 +740,29 @@ export const ExamReportPdfContent = ({
         <View style={styles.referenceContainer}>
           {/* Relative Reference */}
           <View style={styles.leukocyteReferenceSubContainer}>
-            <Text style={[styles.refPartText, styles.refPartVal1Text]}>{parsedRelRef.val1}</Text>
+            <View style={styles.refVal1Wrapper}>
+              <Text style={styles.refPartText}>{parsedRelRef.val1}</Text>
+            </View>
             {parsedRelRef.sep && <Text style={[styles.refPartText, styles.refPartSepText]}>{parsedRelRef.sep}</Text>}
-            {parsedRelRef.val2 && <Text style={[styles.refPartText, styles.refPartVal2Text]}>{parsedRelRef.val2}</Text>}
-            {parsedRelRef.unit && <Text style={[styles.refPartText, styles.refPartUnitText]}>{parsedRelRef.unit}</Text>}
+            <View style={styles.refVal2Wrapper}>
+              {parsedRelRef.val2 && <Text style={styles.refPartText}>{parsedRelRef.val2}</Text>}
+            </View>
+            <View style={styles.refUnitWrapper}>
+              {parsedRelRef.unit && <Text style={styles.refPartText}>{parsedRelRef.unit}</Text>}
+            </View>
           </View>
           {/* Absolute Reference */}
           <View style={styles.leukocyteReferenceSubContainer}>
-            <Text style={[styles.refPartText, styles.refPartVal1Text]}>{parsedAbsRef.val1}</Text>
+            <View style={styles.refVal1Wrapper}>
+              <Text style={styles.refPartText}>{parsedAbsRef.val1}</Text>
+            </View>
             {parsedAbsRef.sep && <Text style={[styles.refPartText, styles.refPartSepText]}>{parsedAbsRef.sep}</Text>}
-            {parsedAbsRef.val2 && <Text style={[styles.refPartText, styles.refPartVal2Text]}>{parsedAbsRef.val2}</Text>}
-            {parsedAbsRef.unit && <Text style={[styles.refPartText, styles.refPartUnitText]}>{parsedAbsRef.unit}</Text>}
+            <View style={styles.refVal2Wrapper}>
+              {parsedAbsRef.val2 && <Text style={styles.refPartText}>{parsedAbsRef.val2}</Text>}
+            </View>
+            <View style={styles.refUnitWrapper}>
+              {parsedAbsRef.unit && <Text style={styles.refPartText}>{parsedAbsRef.unit}</Text>}
+            </View>
           </View>
         </View>
 
