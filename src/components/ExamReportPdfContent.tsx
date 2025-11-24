@@ -298,11 +298,13 @@ const styles = StyleSheet.create({
     fontSize: 9,
     fontWeight: "bold",
     textAlign: "right",
+    width: 30, // Ajustado para o valor
   },
   leukocyteResultUnit: { // Unidade não negrito
     fontSize: 9,
     color: "#666",
-    marginLeft: 2,
+    width: 20, // Ajustado para a unidade
+    textAlign: 'left',
   },
 
   // New styles for granular reference columns (9 columns)
@@ -325,7 +327,7 @@ const styles = StyleSheet.create({
   },
   // Column 1: Value 1
   refVal1: {
-    width: 30, // AJUSTADO
+    width: 28, // AJUSTADO
     textAlign: 'right',
   },
   // Column 2: Separator
@@ -335,12 +337,12 @@ const styles = StyleSheet.create({
   },
   // Column 3: Value 2
   refVal2: {
-    width: 30, // AJUSTADO
+    width: 28, // AJUSTADO
     textAlign: 'right',
   },
   // Column 4: Unit
   refUnit: {
-    width: 45, // AJUSTADO
+    width: 49, // AJUSTADO (30 + 2 espaços)
     textAlign: 'left',
   },
   // No need for refSpacer anymore as sub-containers handle spacing
@@ -349,7 +351,7 @@ const styles = StyleSheet.create({
   // },
   // Column 6: Absolute Value 1
   refVal1Abs: {
-    width: 30, // AJUSTADO
+    width: 28, // AJUSTADO
     textAlign: 'right',
   },
   // Column 7: Absolute Separator
@@ -359,12 +361,12 @@ const styles = StyleSheet.create({
   },
   // Column 8: Absolute Value 2
   refVal2Abs: {
-    width: 30, // AJUSTADO
+    width: 28, // AJUSTADO
     textAlign: 'right',
   },
   // Column 9: Absolute Unit
   refUnitAbs: {
-    width: 45, // AJUSTADO
+    width: 49, // AJUSTADO (30 + 2 espaços)
     textAlign: 'left',
   },
   indicatorColumn: {
@@ -691,11 +693,6 @@ export const ExamReportPdfContent = ({
     const parsedRelRef = parseLeukocyteReferenceParts(relRef?.relative);
     const parsedAbsRef = parseLeukocyteReferenceParts(absRef?.absolute);
 
-    // Split value and unit for results
-    const [relVal, relUnit] = relativeValue ? relativeValue.split(/(%)/).filter(Boolean) : ['', ''];
-    const [absVal, absUnit] = absoluteValue ? absoluteValue.split(/(\/µL|M\/µL)/).filter(Boolean) : ['', ''];
-
-
     return (
       <View style={styles.paramRow}>
         <Text style={styles.paramName}>{label}</Text>
@@ -704,13 +701,13 @@ export const ExamReportPdfContent = ({
         <View style={styles.leukocyteResultContainer}>
           {/* Relative Result */}
           <View style={styles.leukocyteResultSubContainer}>
-            <Text style={[styles.leukocyteResultValue, relResultStyle]}>{relVal}</Text>
-            <Text style={styles.leukocyteResultUnit}>{relUnit}</Text>
+            <Text style={[styles.leukocyteResultValue, relResultStyle]}>{relativeValue}</Text>
+            <Text style={styles.leukocyteResultUnit}>  %</Text> {/* Explicitly add unit with spaces */}
           </View>
           {/* Absolute Result */}
           <View style={styles.leukocyteResultSubContainer}>
-            <Text style={[styles.leukocyteResultValue, absResultStyle]}>{absVal}</Text>
-            <Text style={styles.leukocyteResultUnit}>{absUnit}</Text>
+            <Text style={[styles.leukocyteResultValue, absResultStyle]}>{absoluteValue}</Text>
+            <Text style={styles.leukocyteResultUnit}>  /µL</Text> {/* Explicitly add unit with spaces */}
           </View>
         </View>
 
@@ -721,14 +718,14 @@ export const ExamReportPdfContent = ({
             <Text style={[styles.refCell, styles.refVal1]}>{parsedRelRef.val1}</Text>
             <Text style={[styles.refCell, styles.refSep]}>{parsedRelRef.sep}</Text>
             <Text style={[styles.refCell, styles.refVal2]}>{parsedRelRef.val2}</Text>
-            <Text style={[styles.refCell, styles.refUnit]}>{parsedRelRef.unit}</Text>
+            <Text style={[styles.refCell, styles.refUnit]}>  {parsedRelRef.unit}</Text> {/* Add two spaces */}
           </View>
           {/* Absolute Reference */}
           <View style={styles.leukocyteReferenceSubContainer}>
             <Text style={[styles.refCell, styles.refVal1Abs]}>{parsedAbsRef.val1}</Text>
-            <Text style={[styles.refCell, styles.refSepAbs]}>{parsedAbsRef.sep}</Text>
-            <Text style={[styles.refCell, styles.refVal2Abs]}>{parsedAbsRef.val2}</Text>
-            <Text style={[styles.refCell, styles.refUnitAbs]}>{parsedAbsRef.unit}</Text>
+            <Text style={[styles.refCell, styles.refSepAbs]}>{parsedAbsRef.sep}</Text> {/* Using refSepAbs for clarity */}
+            <Text styleпами style={[styles.refCell, styles.refVal2Abs]}>{parsedAbsRef.val2}</Text>
+            <Text style={[styles.refCell, styles.refUnitAbs]}>  {parsedAbsRef.unit}</Text> {/* Add two spaces */}
           </View>
         </View>
 
@@ -804,15 +801,15 @@ export const ExamReportPdfContent = ({
               <Text style={[styles.headerCell, styles.headerCellReference]}>REFERÊNCIA</Text>
               <Text style={[styles.headerCell, styles.headerCellIndicator]}>INDICADOR</Text>
             </View>
-            {renderHemogramParam("Eritrócitos", exam.eritrocitos, "M/mm3", "eritrocitos")}
-            {renderHemogramParam("Hemoglobina", exam.hemoglobina, "g/dL", "hemoglobina")}
-            {renderHemogramParam("Hematócrito", exam.hematocrito, "%", "hematocrito")}
-            {renderHemogramParam("VCM", exam.vcm, "fL", "vcm")}
-            {renderHemogramParam("HCM", exam.hcm, "pg", "hcm")}
-            {renderHemogramParam("CHCM", exam.chcm, "g/dL", "chcm")}
+            {renderHemogramParam("Eritrócitos", exam.eritrocitos, "  M/mm3", "eritrocitos")}
+            {renderHemogramParam("Hemoglobina", exam.hemoglobina, "  g/dL", "hemoglobina")}
+            {renderHemogramParam("Hematócrito", exam.hematocrito, "  %", "hematocrito")}
+            {renderHemogramParam("VCM", exam.vcm, "  fL", "vcm")}
+            {renderHemogramParam("HCM", exam.hcm, "  pg", "hcm")}
+            {renderHemogramParam("CHCM", exam.chcm, "  g/dL", "chcm")}
             {/* RDW não está no mock, mas se estivesse, seria aqui */}
-            {exam.proteinaTotal && renderHemogramParam("Proteína total", exam.proteinaTotal, "g/dL", "proteinaTotal")}
-            {exam.hemaciasNucleadas && renderHemogramParam("Hemácias nucleadas", exam.hemaciasNucleadas, "", "hemaciasNucleadas")}
+            {exam.proteinaTotal && renderHemogramParam("Proteína total", exam.proteinaTotal, "  g/dL", "proteinaTotal")}
+            {exam.hemaciasNucleadas && renderHemogramParam("Hemácias nucleadas", exam.hemaciasNucleadas, "  ", "hemaciasNucleadas")}
             {exam.observacoesSerieVermelha && (
               <View style={{ marginTop: 10 }}>
                 <Text style={styles.subsectionTitle}>Observações da Série Vermelha:</Text>
@@ -832,7 +829,7 @@ export const ExamReportPdfContent = ({
               <Text style={styles.leukogramHeaderIndicator}>Indicador:</Text>
             </View>
 
-            {renderHemogramParam("Leucócitos totais", exam.leucocitosTotais, "mil/µL", "leucocitosTotais")}
+            {renderHemogramParam("Leucócitos totais", exam.leucocitosTotais, "  mil/µL", "leucocitosTotais")}
             {exam.mielocitosRelativo && renderLeukocyteParam("Mielócitos", exam.mielocitosRelativo, exam.mielocitosAbsoluto, "mielocitos")}
             {exam.metamielocitosRelativo && renderLeukocyteParam("Metamielócitos", exam.metamielocitosRelativo, exam.metamielocitosAbsoluto, "metamielocitos")}
             {exam.bastonetesRelativo && renderLeukocyteParam("Bastonetes", exam.bastonetesRelativo, exam.bastonetesAbsoluto, "bastonetes")}
@@ -856,7 +853,7 @@ export const ExamReportPdfContent = ({
               <Text style={[styles.headerCell, styles.headerCellReference]}>REFERÊNCIA</Text>
               <Text style={[styles.headerCell, styles.headerCellIndicator]}>INDICADOR</Text>
             </View>
-            {renderHemogramParam("Plaquetas totais", exam.contagemPlaquetaria, "/µL", "contagemPlaquetaria")}
+            {renderHemogramParam("Plaquetas totais", exam.contagemPlaquetaria, "  /µL", "contagemPlaquetaria")}
             {exam.avaliacaoPlaquetaria && (
               <View style={{ marginTop: 10 }}>
                 <Text style={styles.subsectionTitle}>Avaliação Plaquetária:</Text>
