@@ -12,7 +12,20 @@ export const hemogramReferences: Record<string, HemogramReference> = {
   proteinaTotal: { dog: { full: "6.0 - 8.0 g/dL", min: 6.0, max: 8.0 }, cat: { full: "5.7 - 8.9 g/dL", min: 5.7, max: 8.9 } },
   hemaciasNucleadas: { dog: { full: "0", min: 0, max: 0 }, cat: { full: "0", min: 0, max: 0 } },
 
-  leucocitosTotais: { dog: { full: "6.0 - 17.0 mil/µL", min: 6.0, max: 17.0 }, cat: { full: "5.5 - 19.5 mil/µL", min: 5.5, max: 19.5 } },
+  leucocitosTotais: { 
+    dog: { 
+      relative: "0 - 100 %", 
+      absolute: "6.0 - 17.0 mil/µL", 
+      min: 6.0, 
+      max: 17.0 
+    }, 
+    cat: { 
+      relative: "0 - 100 %", 
+      absolute: "5.5 - 19.5 mil/µL", 
+      min: 5.5, 
+      max: 19.5 
+    } 
+  },
   mielocitos: {
     dog: { relative: "0 - 0 %", absolute: "0 - 0 /µL", min: 0, max: 0 },
     cat: { relative: "0 - 0 %", absolute: "0 - 0 /µL", min: 0, max: 0 }

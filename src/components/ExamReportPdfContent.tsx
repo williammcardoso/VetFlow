@@ -746,7 +746,7 @@ export const ExamReportPdfContent = ({
               <Text style={styles.refPartText}>{parsedRelRef.val1}</Text>
             </View>
             {parsedRelRef.sep && <Text style={[styles.refPartText, styles.refPartSepText]}>{parsedRelRef.sep}</Text>}
-            <View style={styles.refVal2Wrapper}>
+            <View style={[styles.refVal2Wrapper, { width: 15 }]}> {/* Override width for relative part */}
               {parsedRelRef.val2 && <Text style={styles.refPartText}>{parsedRelRef.val2}</Text>}
             </View>
             <View style={[styles.refUnitWrapper, { width: 15 }]}> {/* Override for relative unit */}
@@ -868,7 +868,8 @@ export const ExamReportPdfContent = ({
               <Text style={styles.leukogramHeaderIndicator}>Indicador:</Text>
             </View>
 
-            {renderHemogramParam("Leucócitos totais", exam.leucocitosTotais, "mil/µL", "leucocitosTotais")}
+            {/* Alterado para renderizar Leucócitos totais com renderLeukocyteParam */}
+            {renderLeukocyteParam("Leucócitos totais", "100", exam.leucocitosTotais, "leucocitosTotais")}
             {exam.mielocitosRelativo && renderLeukocyteParam("Mielócitos", exam.mielocitosRelativo, exam.mielocitosAbsoluto, "mielocitos")}
             {exam.metamielocitosRelativo && renderLeukocyteParam("Metamielócitos", exam.metamielocitosRelativo, exam.metamielocitosAbsoluto, "metamielocitos")}
             {exam.bastonetesRelativo && renderLeukocyteParam("Bastonetes", exam.bastonetesRelativo, exam.bastonetesAbsoluto, "bastonetes")}
