@@ -278,7 +278,7 @@ const styles = StyleSheet.create({
   paramResultUnit: { // Novo estilo para a unidade não negrito
     fontSize: 9,
     color: "#666", // Cor mais suave para a unidade
-    marginLeft: 2, // Pequeno espaçamento entre valor e unidade
+    // marginLeft: 2, // Pequeno espaçamento entre valor e unidade - REMOVIDO
   },
   // For multi-value results (Leukogram)
   leukocyteResultContainer: { // Container principal para os 4 sub-campos de resultado
@@ -298,12 +298,12 @@ const styles = StyleSheet.create({
     fontSize: 9,
     fontWeight: "bold",
     textAlign: "right",
-    width: 30, // Ajustado para o valor
+    // width: 30, // Ajustado para o valor - REMOVIDO
   },
   leukocyteResultUnit: { // Unidade não negrito
     fontSize: 9,
     color: "#666",
-    width: 20, // Ajustado para a unidade
+    // width: 20, // Ajustado para a unidade - REMOVIDO
     textAlign: 'left',
   },
 
@@ -724,7 +724,7 @@ export const ExamReportPdfContent = ({
           <View style={styles.leukocyteReferenceSubContainer}>
             <Text style={[styles.refCell, styles.refVal1Abs]}>{parsedAbsRef.val1}</Text>
             <Text style={[styles.refCell, styles.refSepAbs]}>{parsedAbsRef.sep}</Text> {/* Using refSepAbs for clarity */}
-            <Text styleпами style={[styles.refCell, styles.refVal2Abs]}>{parsedAbsRef.val2}</Text>
+            <Text style={[styles.refCell, styles.refVal2Abs]}>{parsedAbsRef.val2}</Text>
             <Text style={[styles.refCell, styles.refUnitAbs]}>  {parsedAbsRef.unit}</Text> {/* Add two spaces */}
           </View>
         </View>
