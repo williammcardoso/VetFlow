@@ -348,7 +348,7 @@ const styles = StyleSheet.create({
     width: 115, // 230px / 2
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'flex-start', // Empacota à esquerda
+    justifyContent: 'flex-end', // ALTERADO para alinhar à direita
     borderWidth: 1, // DEBUG
     borderColor: 'red', // DEBUG
   },
@@ -360,7 +360,7 @@ const styles = StyleSheet.create({
     borderColor: 'red', // DEBUG
   },
   refPartVal1Text: {
-    width: 35, // Largura fixa
+    // width: 35, // REMOVIDO
     textAlign: 'right',
   },
   refPartSepText: {
@@ -368,14 +368,14 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   refPartVal2Text: {
-    width: 15, // Largura fixa - ALTERADO
-    textAlign: 'right', // Alinhamento à direita - ALTERADO
-    marginRight: 2, // Adicionado - ALTERADO
+    // width: 15, // REMOVIDO
+    textAlign: 'right', // Alinhamento à direita
+    // marginRight: 2, // REMOVIDO
   },
   refPartUnitText: {
-    width: 20, // Largura fixa para a unidade
-    textAlign: 'left',
-    marginLeft: 2, // Adicionado - ALTERADO
+    // width: 20, // REMOVIDO
+    textAlign: 'right', // Alinhamento à direita
+    // marginLeft: 2, // REMOVIDO
   },
   indicatorColumn: {
     width: 105, // Fixed width for the column - AJUSTADO
@@ -789,7 +789,7 @@ export const ExamReportPdfContent = ({
             <Text style={styles.infoTitle}>Tutor</Text>
             <Text style={styles.infoText}>Nome: {tutorName}</Text>
             <Text style={styles.infoText}>Endereço: {tutorAddress || "Não informado"}</Text>
-          </View>
+          </Text>
         </View>
         */}
 
