@@ -274,6 +274,7 @@ const styles = StyleSheet.create({
     fontSize: 9,
     fontWeight: "bold",
     textAlign: "right",
+    marginRight: 5, // Adicionado marginRight aqui
   },
   paramResultUnit: { // Novo estilo para a unidade não negrito
     fontSize: 9,
@@ -297,6 +298,7 @@ const styles = StyleSheet.create({
     fontSize: 9,
     fontWeight: "bold",
     textAlign: "right",
+    marginRight: 5, // Adicionado marginRight aqui
   },
   leukocyteResultUnit: { // Unidade não negrito
     fontSize: 9,
@@ -632,7 +634,7 @@ export const ExamReportPdfContent = ({
         <Text style={styles.paramName}>{label}</Text>
         <View style={styles.paramResultContainer}>
           <Text style={[styles.paramResultValue, resultStyle]}>{value}</Text>
-          <Text style={styles.paramResultUnit}>{\u00A0}{\u00A0}{unit}</Text> {/* Combinado aqui */}
+          <Text style={styles.paramResultUnit}>{unit}</Text> {/* Removido \u00A0\u00A0 */}
         </View>
         <View style={styles.referenceContainer}> {/* Usando o novo container de referência */}
           <Text style={styles.refCell}>{ref?.full || 'N/A'}</Text>
@@ -699,12 +701,12 @@ export const ExamReportPdfContent = ({
           {/* Relative Result */}
           <View style={styles.leukocyteResultSubContainer}>
             <Text style={[styles.leukocyteResultValue, relResultStyle]}>{relativeValue}</Text>
-            <Text style={styles.leukocyteResultUnit}>{\u00A0}{\u00A0}%</Text> {/* Combinado aqui */}
+            <Text style={styles.leukocyteResultUnit}>%</Text> {/* Removido \u00A0\u00A0 */}
           </View>
           {/* Absolute Result */}
           <View style={styles.leukocyteResultSubContainer}>
             <Text style={[styles.leukocyteResultValue, absResultStyle]}>{absoluteValue}</Text>
-            <Text style={styles.leukocyteResultUnit}>{\u00A0}{\u00A0}/µL</Text> {/* Combinado aqui */}
+            <Text style={styles.leukocyteResultUnit}>/µL</Text> {/* Removido \u00A0\u00A0 */}
           </View>
         </View>
 
@@ -712,17 +714,19 @@ export const ExamReportPdfContent = ({
         <View style={styles.referenceContainer}>
           {/* Relative Reference */}
           <View style={styles.leukocyteReferenceSubContainer}>
-            <Text style={[styles.refCell, styles.refVal1]}>{parsedRelRef.val1}</Text>
-            <Text style={[styles.refCell, styles.refSep]}>{parsedRelRef.sep}</Text>
-            <Text style={[styles.refCell, styles.refVal2]}>{parsedRelRef.val2}</Text>
-            <Text style={[styles.refCell, styles.refUnit]}>{\u00A0}{\u00A0}{parsedRelRef.unit}</Text> {/* Combinado aqui */}
+            <Text style={[styles.refCell, styles.refVal1, { marginRight: parsedRelRef.sep ? 2 : 5 }]}>{parsedRelRef.val1}</Text> {/* Conditional marginRight */}
+            {parsedRelRef.sep && <Text style={[styles.refCell, styles.refSep, { marginRight: parsedRelRef.val2 ? 2 : 5 }]}>{parsedRelRef.sep}</Text>} {/* Conditional marginRight */}
+            {parsedRelRef.val2 && <Text style={[styles.refCell, styles.refVal2]}>{parsedRelRef.val2}</Text>}
+            <View style={{ width: 5 }} /> {/* Explicit space View */}
+            <Text style={[styles.refCell, styles.refUnit]}>{parsedRelRef.unit}</Text> {/* Removido \u00A0\u00A0 */}
           </View>
           {/* Absolute Reference */}
           <View style={styles.leukocyteReferenceSubContainer}>
-            <Text style={[styles.refCell, styles.refVal1Abs]}>{parsedAbsRef.val1}</Text>
-            <Text style={[styles.refCell, styles.refSepAbs]}>{parsedAbsRef.sep}</Text> {/* Using refSepAbs for clarity */}
-            <Text style={[styles.refCell, styles.refVal2Abs]}>{parsedAbsRef.val2}</Text>
-            <Text style={[styles.refCell, styles.refUnitAbs]}>{\u00A0}{\u00A0}{parsedAbsRef.unit}</Text> {/* Combinado aqui */}
+            <Text style={[styles.refCell, styles.refVal1Abs, { marginRight: parsedAbsRef.sep ? 2 : 5 }]}>{parsedAbsRef.val1}</Text> {/* Conditional marginRight */}
+            {parsedAbsRef.sep && <Text style={[styles.refCell, styles.refSepAbs, { marginRight: parsedAbsRef.val2 ? 2 : 5 }]}>{parsedAbsRef.sep}</Text>} {/* Conditional marginRight */}
+            {parsedAbsRef.val2 && <Text style={[styles.refCell, styles.refVal2Abs]}>{parsedAbsRef.val2}</Text>}
+            <View style={{ width: 5 }} /> {/* Explicit space View */}
+            <Text style={[styles.refCell, styles.refUnitAbs]}>{parsedAbsRef.unit}</Text> {/* Removido \u00A0\u00A0 */}
           </View>
         </View>
 
