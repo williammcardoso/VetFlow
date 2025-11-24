@@ -348,20 +348,20 @@ const styles = StyleSheet.create({
     width: 115, // 230px / 2
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'flex-start', // Empacota à esquerda
     borderWidth: 1, // DEBUG
     borderColor: 'red', // DEBUG
   },
   refPartText: { // Base style for reference texts
     fontSize: 9,
     color: "#666",
-    height: 12, // Fixed height for vertical alignment
+    // height: 12, // Fixed height for vertical alignment - REMOVIDO
     lineHeight: 1.2, // Fixed line height
     borderWidth: 1, // DEBUG
     borderColor: 'red', // DEBUG
   },
-  // Removido larguras fixas e adicionado flexGrow para val1 e val2
   refPartVal1Text: {
-    flexGrow: 1,
+    width: 35, // Largura fixa
     textAlign: 'right',
   },
   refPartSepText: {
@@ -369,13 +369,13 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   refPartVal2Text: {
-    flexGrow: 1,
+    width: 35, // Largura fixa
     textAlign: 'left',
   },
   refPartUnitText: {
     width: 20, // Largura fixa para a unidade
     textAlign: 'left',
-    marginLeft: 2, // Pequena margem para separar do val2
+    // marginLeft: 2, // Pequena margem para separar do val2 - REMOVIDO
   },
   indicatorColumn: {
     width: 105, // Fixed width for the column - AJUSTADO
@@ -733,14 +733,14 @@ export const ExamReportPdfContent = ({
           <View style={styles.leukocyteReferenceSubContainer}>
             <Text style={[styles.refPartText, styles.refPartVal1Text]}>{parsedRelRef.val1}</Text>
             {parsedRelRef.sep && <Text style={[styles.refPartText, styles.refPartSepText]}>{parsedRelRef.sep}</Text>}
-            <Text style={[styles.refPartText, styles.refPartVal2Text]}>{parsedRelRef.val2}</Text>
+            {parsedRelRef.val2 && <Text style={[styles.refPartText, styles.refPartVal2Text]}>{parsedRelRef.val2}</Text>}
             {parsedRelRef.unit && <Text style={[styles.refPartText, styles.refPartUnitText]}>{parsedRelRef.unit}</Text>}
           </View>
           {/* Absolute Reference */}
           <View style={styles.leukocyteReferenceSubContainer}>
             <Text style={[styles.refPartText, styles.refPartVal1Text]}>{parsedAbsRef.val1}</Text>
             {parsedAbsRef.sep && <Text style={[styles.refPartText, styles.refPartSepText]}>{parsedAbsRef.sep}</Text>}
-            <Text style={[styles.refPartText, styles.refPartVal2Text]}>{parsedAbsRef.val2}</Text>
+            {parsedAbsRef.val2 && <Text style={[styles.refPartText, styles.refPartVal2Text]}>{parsedAbsRef.val2}</Text>}
             {parsedAbsRef.unit && <Text style={[styles.refPartText, styles.refPartUnitText]}>{parsedAbsRef.unit}</Text>}
           </View>
         </View>
