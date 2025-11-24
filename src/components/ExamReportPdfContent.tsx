@@ -196,51 +196,32 @@ const styles = StyleSheet.create({
     borderRightColor: '#ccc',
   },
 
-  // NEW: Combined Leukogram Header
-  leukogramCombinedHeader: {
+  // NEW: Leukogram Sub-Header (as per image)
+  leukogramSubHeader: {
     flexDirection: "row",
-    borderBottomWidth: 1,
-    borderBottomColor: "#000",
-    paddingBottom: 5,
     marginBottom: 5,
-    backgroundColor: "#f5f5f5",
+    paddingBottom: 5,
+    // No background color for this line, as per image
   },
-  leukogramHeaderName: {
+  leukogramSubHeaderSpacer: { // For the 'NOME DO PARÂMETRO' column space
     width: 100,
-    fontSize: 9,
-    fontWeight: "bold",
-    color: "#333",
-    textAlign: "left",
-    paddingLeft: 5,
-    borderRightWidth: 1,
-    borderRightColor: '#ccc',
+    // No borderRightWidth, as per image
   },
-  leukogramHeaderResultCombined: {
-    width: 100,
+  leukogramSubHeaderLabel: {
     fontSize: 9,
     fontWeight: "bold",
     color: "#333",
-    textAlign: "center", // Centralizado para "Resultado (Relativo / Absoluto)"
-    borderRightWidth: 1,
-    borderRightColor: '#ccc',
+    textAlign: "left", // Alinhado à esquerda como no print
+    width: 115, // Metade da largura da coluna de referência (230/2)
+    // No borderRightWidth, as per image
   },
-  leukogramHeaderReferenceCombined: {
-    width: 230,
+  leukogramSubHeaderIndicator: {
+    width: 105, // Mesma largura da coluna de indicador
     fontSize: 9,
     fontWeight: "bold",
     color: "#333",
-    textAlign: "center", // Centralizado para "Referência (Relativo / Absoluto)"
-    borderRightWidth: 1,
-    borderRightColor: '#ccc',
-  },
-  leukogramHeaderIndicator: {
-    width: 105,
-    fontSize: 9,
-    fontWeight: "bold",
-    color: "#333",
-    textAlign: "center",
-    borderRightWidth: 1,
-    borderRightColor: '#ccc',
+    textAlign: "left", // Alinhado à esquerda como no print
+    // No borderRightWidth, as per image
   },
 
   paramRow: {
@@ -331,7 +312,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   refPartSepText: {
-    width: 15,
+    width: 10, // ALTERADO para 10px
     textAlign: 'center',
   },
   refVal2Wrapper: {
@@ -683,7 +664,7 @@ export const ExamReportPdfContent = ({
           {/* Absolute Result */}
           <View style={styles.leukocyteResultSubContainer}>
             <Text style={[styles.leukocyteResultValue, absResultStyle]}>{absoluteValue}</Text>
-            <Text style={styles.leukocyteResultUnit}>/µL</Text>
+            <Text style={styles.leukocyteResultUnit}>/µL</Text> {/* Unidade corrigida para /µL */}
           </View>
         </View>
 
@@ -807,12 +788,12 @@ export const ExamReportPdfContent = ({
 
             {/* Leucograma */}
             <Text style={styles.sectionTitle}>LEUCOGRAMA</Text>
-            {/* NOVO: Combined Leukogram Header */}
-            <View style={styles.leukogramCombinedHeader}>
-              <Text style={[styles.leukogramHeaderName]}>NOME DO PARÂMETRO</Text>
-              <Text style={[styles.leukogramHeaderResultCombined]}>RESULTADO (Relativo / Absoluto)</Text>
-              <Text style={[styles.leukogramHeaderReferenceCombined]}>REFERÊNCIA (Relativo / Absoluto)</Text>
-              <Text style={styles.leukogramHeaderIndicator}>INDICADOR</Text>
+            {/* NOVO: Leukogram Sub-Header (as per image) */}
+            <View style={styles.leukogramSubHeader}>
+              <View style={styles.leukogramSubHeaderSpacer} /> {/* Empty space for 'NOME DO PARÂMETRO' */}
+              <Text style={styles.leukogramSubHeaderLabel}>Relativo:</Text>
+              <Text style={styles.leukogramSubHeaderLabel}>Absoluto:</Text>
+              <Text style={styles.leukogramSubHeaderIndicator}>Indicador:</Text>
             </View>
 
             {/* Alterado para renderizar Leucócitos totais com renderLeukocyteParam */}

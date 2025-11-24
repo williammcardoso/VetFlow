@@ -15,13 +15,13 @@ export const hemogramReferences: Record<string, HemogramReference> = {
   leucocitosTotais: { 
     dog: { 
       relative: "0 - 100 %", 
-      absolute: "6.0 - 17.0 mil/µL", 
+      absolute: "6.0 - 17.0 /µL", // ALTERADO: Removido 'mil'
       min: 6.0, 
       max: 17.0 
     }, 
     cat: { 
       relative: "0 - 100 %", 
-      absolute: "5.5 - 19.5 mil/µL", 
+      absolute: "5.5 - 19.5 /µL", // ALTERADO: Removido 'mil'
       min: 5.5, 
       max: 19.5 
     } 
