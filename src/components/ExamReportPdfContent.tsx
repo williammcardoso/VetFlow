@@ -329,42 +329,34 @@ const styles = StyleSheet.create({
   },
   // Column 1: Value 1 - REMOVIDO WIDTH
   refVal1: {
-    // width: 28, // Removido
     // textAlign: 'right', // Já no refTextBase
   },
   // Column 2: Separator - REMOVIDO WIDTH
   refSep: {
-    // width: 10, // Removido
-    textAlign: 'center', // Centralizado
+    // textAlign: 'center', // Centralizado
   },
   // Column 3: Value 2 - REMOVIDO WIDTH
   refVal2: {
-    // width: 28, // Removido
     // textAlign: 'right', // Já no refTextBase
   },
   // Column 4: Unit - REMOVIDO WIDTH
   refUnit: {
-    // width: 49, // Removido
     textAlign: 'left',
   },
   // Column 6: Absolute Value 1 - REMOVIDO WIDTH
   refVal1Abs: {
-    // width: 28, // Removido
     // textAlign: 'right', // Já no refTextBase
   },
   // Column 7: Absolute Separator - REMOVIDO WIDTH
   refSepAbs: { // Specific style for absolute separator if needed, or reuse refSep
-    // width: 10, // Removido
-    textAlign: 'center', // Centralizado
+    // textAlign: 'center', // Centralizado
   },
   // Column 8: Absolute Value 2 - REMOVIDO WIDTH
   refVal2Abs: {
-    // width: 28, // Removido
     // textAlign: 'right', // Já no refTextBase
   },
   // Column 9: Absolute Unit - REMOVIDO WIDTH
   refUnitAbs: {
-    // width: 49, // Removido
     textAlign: 'left',
   },
   indicatorColumn: {
@@ -713,19 +705,23 @@ export const ExamReportPdfContent = ({
         <View style={styles.referenceContainer}>
           {/* Relative Reference */}
           <View style={styles.leukocyteReferenceSubContainer}>
-            <Text style={[styles.refTextBase, styles.refVal1, { marginRight: parsedRelRef.val1 && (parsedRelRef.sep || parsedRelRef.val2) ? 1 : 0 }]}>{parsedRelRef.val1}</Text>
-            <Text style={[styles.refTextBase, styles.refSep, { marginRight: parsedRelRef.sep && parsedRelRef.val2 ? 1 : 0 }]}>{parsedRelRef.sep}</Text>
-            <Text style={[styles.refTextBase, styles.refVal2]}>{parsedRelRef.val2}</Text>
-            <View style={{ width: 3 }} /> {/* Fixed space before unit */}
-            <Text style={[styles.refTextBase, styles.refUnit]}>{parsedRelRef.unit}</Text>
+            {parsedRelRef.val1 && <Text style={[styles.refTextBase, styles.refVal1]}>{parsedRelRef.val1}</Text>}
+            {parsedRelRef.val1 && (parsedRelRef.sep || parsedRelRef.val2) && <View style={{ width: 1 }} />}
+            {parsedRelRef.sep && <Text style={[styles.refTextBase, styles.refSep]}>{parsedRelRef.sep}</Text>}
+            {parsedRelRef.sep && parsedRelRef.val2 && <View style={{ width: 1 }} />}
+            {parsedRelRef.val2 && <Text style={[styles.refTextBase, styles.refVal2]}>{parsedRelRef.val2}</Text>}
+            {(parsedRelRef.val1 || parsedRelRef.val2 || parsedRelRef.sep) && parsedRelRef.unit && <View style={{ width: 3 }} />}
+            {parsedRelRef.unit && <Text style={[styles.refTextBase, styles.refUnit]}>{parsedRelRef.unit}</Text>}
           </View>
           {/* Absolute Reference */}
           <View style={styles.leukocyteReferenceSubContainer}>
-            <Text style={[styles.refTextBase, styles.refVal1Abs, { marginRight: parsedAbsRef.val1 && (parsedAbsRef.sep || parsedAbsRef.val2) ? 1 : 0 }]}>{parsedAbsRef.val1}</Text>
-            <Text style={[styles.refTextBase, styles.refSepAbs, { marginRight: parsedAbsRef.sep && parsedAbsRef.val2 ? 1 : 0 }]}>{parsedAbsRef.sep}</Text>
-            <Text style={[styles.refTextBase, styles.refVal2Abs]}>{parsedAbsRef.val2}</Text>
-            <View style={{ width: 3 }} /> {/* Fixed space before unit */}
-            <Text style={[styles.refTextBase, styles.refUnitAbs]}>{parsedAbsRef.unit}</Text>
+            {parsedAbsRef.val1 && <Text style={[styles.refTextBase, styles.refVal1Abs]}>{parsedAbsRef.val1}</Text>}
+            {parsedAbsRef.val1 && (parsedAbsRef.sep || parsedAbsRef.val2) && <View style={{ width: 1 }} />}
+            {parsedAbsRef.sep && <Text style={[styles.refTextBase, styles.refSepAbs]}>{parsedAbsRef.sep}</Text>}
+            {parsedAbsRef.sep && parsedAbsRef.val2 && <View style={{ width: 1 }} />}
+            {parsedAbsRef.val2 && <Text style={[styles.refTextBase, styles.refVal2Abs]}>{parsedAbsRef.val2}</Text>}
+            {(parsedAbsRef.val1 || parsedAbsRef.val2 || parsedAbsRef.sep) && parsedAbsRef.unit && <View style={{ width: 3 }} />}
+            {parsedAbsRef.unit && <Text style={[styles.refTextBase, styles.refUnitAbs]}>{parsedAbsRef.unit}</Text>}
           </View>
         </View>
 
