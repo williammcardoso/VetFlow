@@ -364,7 +364,7 @@ const styles = StyleSheet.create({
   refVal1Wrapper: {
     width: 40,
     flexDirection: 'row',
-    justifyContent: 'flex-end', // Revertido para alinhar à direita
+    justifyContent: 'flex-end', // ALTERADO para alinhar à direita
     // borderWidth: 1, // DEBUG
     // borderColor: 'blue', // DEBUG
   },
@@ -375,14 +375,14 @@ const styles = StyleSheet.create({
   refVal2Wrapper: {
     width: 30,
     flexDirection: 'row',
-    justifyContent: 'flex-start', // Alinha à esquerda
+    justifyContent: 'flex-end', // ALTERADO para alinhar à direita
     // borderWidth: 1, // DEBUG
     // borderColor: 'green', // DEBUG
   },
   refUnitWrapper: {
     width: 35,
     flexDirection: 'row',
-    justifyContent: 'flex-start', // Alinha à esquerda
+    justifyContent: 'flex-end', // ALTERADO para alinhar à direita
     // borderWidth: 1, // DEBUG
     // borderColor: 'orange', // DEBUG
   },
