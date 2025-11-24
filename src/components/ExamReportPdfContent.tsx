@@ -278,7 +278,6 @@ const styles = StyleSheet.create({
   paramResultUnit: { // Novo estilo para a unidade não negrito
     fontSize: 9,
     color: "#666", // Cor mais suave para a unidade
-    // marginLeft: 2, // Pequeno espaçamento entre valor e unidade - REMOVIDO
   },
   // For multi-value results (Leukogram)
   leukocyteResultContainer: { // Container principal para os 4 sub-campos de resultado
@@ -298,12 +297,10 @@ const styles = StyleSheet.create({
     fontSize: 9,
     fontWeight: "bold",
     textAlign: "right",
-    // width: 30, // Ajustado para o valor - REMOVIDO
   },
   leukocyteResultUnit: { // Unidade não negrito
     fontSize: 9,
     color: "#666",
-    // width: 20, // Ajustado para a unidade - REMOVIDO
     textAlign: 'left',
   },
 
@@ -635,7 +632,8 @@ export const ExamReportPdfContent = ({
         <Text style={styles.paramName}>{label}</Text>
         <View style={styles.paramResultContainer}>
           <Text style={[styles.paramResultValue, resultStyle]}>{value}</Text>
-          <Text style={styles.paramResultUnit}>{\u00A0\u00A0}{unit}</Text> {/* Adicionado \u00A0\u00A0 aqui */}
+          <Text style={styles.paramResultUnit}>{\u00A0}{\u00A0}</Text>
+          <Text style={styles.paramResultUnit}>{unit}</Text>
         </View>
         <View style={styles.referenceContainer}> {/* Usando o novo container de referência */}
           <Text style={styles.refCell}>{ref?.full || 'N/A'}</Text>
@@ -702,12 +700,14 @@ export const ExamReportPdfContent = ({
           {/* Relative Result */}
           <View style={styles.leukocyteResultSubContainer}>
             <Text style={[styles.leukocyteResultValue, relResultStyle]}>{relativeValue}</Text>
-            <Text style={styles.leukocyteResultUnit}>{\u00A0\u00A0}%</Text> {/* Adicionado \u00A0\u00A0 aqui */}
+            <Text style={styles.leukocyteResultUnit}>{\u00A0}{\u00A0}</Text>
+            <Text style={styles.leukocyteResultUnit}>%</Text>
           </View>
           {/* Absolute Result */}
           <View style={styles.leukocyteResultSubContainer}>
             <Text style={[styles.leukocyteResultValue, absResultStyle]}>{absoluteValue}</Text>
-            <Text style={styles.leukocyteResultUnit}>{\u00A0\u00A0}/µL</Text> {/* Adicionado \u00A0\u00A0 aqui */}
+            <Text style={styles.leukocyteResultUnit}>{\u00A0}{\u00A0}</Text>
+            <Text style={styles.leukocyteResultUnit}>/µL</Text>
           </View>
         </View>
 
@@ -718,14 +718,16 @@ export const ExamReportPdfContent = ({
             <Text style={[styles.refCell, styles.refVal1]}>{parsedRelRef.val1}</Text>
             <Text style={[styles.refCell, styles.refSep]}>{parsedRelRef.sep}</Text>
             <Text style={[styles.refCell, styles.refVal2]}>{parsedRelRef.val2}</Text>
-            <Text style={[styles.refCell, styles.refUnit]}>{\u00A0\u00A0}{parsedRelRef.unit}</Text> {/* Adicionado \u00A0\u00A0 aqui */}
+            <Text style={[styles.refCell, styles.refUnit]}>{\u00A0}{\u00A0}</Text>
+            <Text style={[styles.refCell, styles.refUnit]}>{parsedRelRef.unit}</Text>
           </View>
           {/* Absolute Reference */}
           <View style={styles.leukocyteReferenceSubContainer}>
             <Text style={[styles.refCell, styles.refVal1Abs]}>{parsedAbsRef.val1}</Text>
             <Text style={[styles.refCell, styles.refSepAbs]}>{parsedAbsRef.sep}</Text> {/* Using refSepAbs for clarity */}
             <Text style={[styles.refCell, styles.refVal2Abs]}>{parsedAbsRef.val2}</Text>
-            <Text style={[styles.refCell, styles.refUnitAbs]}>{\u00A0\u00A0}{parsedAbsRef.unit}</Text> {/* Adicionado \u00A0\u00A0 aqui */}
+            <Text style={[styles.refCell, styles.refUnitAbs]}>{\u00A0}{\u00A0}</Text>
+            <Text style={[styles.refCell, styles.refUnitAbs]}>{parsedAbsRef.unit}</Text>
           </View>
         </View>
 
