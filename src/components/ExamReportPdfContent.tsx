@@ -355,7 +355,6 @@ const styles = StyleSheet.create({
   refPartText: { // Base style for reference texts
     fontSize: 9,
     color: "#666",
-    // height: 12, // Fixed height for vertical alignment - REMOVIDO
     lineHeight: 1.2, // Fixed line height
     borderWidth: 1, // DEBUG
     borderColor: 'red', // DEBUG
@@ -369,13 +368,14 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   refPartVal2Text: {
-    width: 35, // Largura fixa
-    textAlign: 'left',
+    width: 15, // Largura fixa - ALTERADO
+    textAlign: 'right', // Alinhamento à direita - ALTERADO
+    marginRight: 2, // Adicionado - ALTERADO
   },
   refPartUnitText: {
     width: 20, // Largura fixa para a unidade
     textAlign: 'left',
-    // marginLeft: 2, // Pequena margem para separar do val2 - REMOVIDO
+    marginLeft: 2, // Adicionado - ALTERADO
   },
   indicatorColumn: {
     width: 105, // Fixed width for the column - AJUSTADO
