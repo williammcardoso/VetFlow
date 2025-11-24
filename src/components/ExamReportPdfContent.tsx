@@ -365,28 +365,28 @@ const styles = StyleSheet.create({
     width: 30, // ALTERADO para 30px
     flexDirection: 'row',
     justifyContent: 'flex-end', // ALTERADO para alinhar à direita
-    // borderWidth: 1, // DEBUG
-    // borderColor: 'blue', // DEBUG
+    borderWidth: 1, // DEBUG
+    borderColor: 'blue', // DEBUG
   },
   refPartSepText: {
     width: 20, // ALTERADO para 20px
     textAlign: 'center',
-    // borderWidth: 1, // DEBUG
-    // borderColor: 'green', // DEBUG
+    borderWidth: 1, // DEBUG
+    borderColor: 'green', // DEBUG
   },
   refVal2Wrapper: {
     width: 30, // MANTIDO em 30px
     flexDirection: 'row',
     justifyContent: 'flex-end', // ALTERADO para alinhar à direita
-    // borderWidth: 1, // DEBUG
-    // borderColor: 'orange', // DEBUG
+    borderWidth: 1, // DEBUG
+    borderColor: 'orange', // DEBUG
   },
   refUnitWrapper: {
     width: 20, // ALTERADO para 20px
     flexDirection: 'row',
     justifyContent: 'flex-end', // ALTERADO para alinhar à direita
-    // borderWidth: 1, // DEBUG
-    // borderColor: 'purple', // DEBUG
+    borderWidth: 1, // DEBUG
+    borderColor: 'purple', // DEBUG
   },
   indicatorColumn: {
     width: 105, // Fixed width for the column - AJUSTADO
