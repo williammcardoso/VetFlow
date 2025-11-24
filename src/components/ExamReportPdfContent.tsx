@@ -348,7 +348,7 @@ const styles = StyleSheet.create({
     width: 115, // 230px / 2
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'flex-end', // ALTERADO para alinhar à direita
+    justifyContent: 'flex-start', // ALTERADO para alinhar à esquerda
     borderWidth: 1, // DEBUG
     borderColor: 'red', // DEBUG
   },
