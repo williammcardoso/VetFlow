@@ -359,21 +359,23 @@ const styles = StyleSheet.create({
     borderWidth: 1, // DEBUG
     borderColor: 'red', // DEBUG
   },
+  // Removido larguras fixas e adicionado flexGrow para val1 e val2
   refPartVal1Text: {
-    width: 35,
+    flexGrow: 1,
     textAlign: 'right',
   },
   refPartSepText: {
-    width: 10,
+    width: 10, // Largura fixa para o separador
     textAlign: 'center',
   },
   refPartVal2Text: {
-    width: 35,
-    textAlign: 'right',
+    flexGrow: 1,
+    textAlign: 'left',
   },
   refPartUnitText: {
-    width: 35,
+    width: 20, // Largura fixa para a unidade
     textAlign: 'left',
+    marginLeft: 2, // Pequena margem para separar do val2
   },
   indicatorColumn: {
     width: 105, // Fixed width for the column - AJUSTADO
@@ -731,14 +733,14 @@ export const ExamReportPdfContent = ({
           <View style={styles.leukocyteReferenceSubContainer}>
             <Text style={[styles.refPartText, styles.refPartVal1Text]}>{parsedRelRef.val1}</Text>
             {parsedRelRef.sep && <Text style={[styles.refPartText, styles.refPartSepText]}>{parsedRelRef.sep}</Text>}
-            {parsedRelRef.val2 && <Text style={[styles.refPartText, styles.refPartVal2Text, { marginRight: 2 }]}>{parsedRelRef.val2}</Text>}
+            <Text style={[styles.refPartText, styles.refPartVal2Text]}>{parsedRelRef.val2}</Text>
             {parsedRelRef.unit && <Text style={[styles.refPartText, styles.refPartUnitText]}>{parsedRelRef.unit}</Text>}
           </View>
           {/* Absolute Reference */}
           <View style={styles.leukocyteReferenceSubContainer}>
             <Text style={[styles.refPartText, styles.refPartVal1Text]}>{parsedAbsRef.val1}</Text>
             {parsedAbsRef.sep && <Text style={[styles.refPartText, styles.refPartSepText]}>{parsedAbsRef.sep}</Text>}
-            {parsedAbsRef.val2 && <Text style={[styles.refPartText, styles.refPartVal2Text, { marginRight: 2 }]}>{parsedAbsRef.val2}</Text>}
+            <Text style={[styles.refPartText, styles.refPartVal2Text]}>{parsedAbsRef.val2}</Text>
             {parsedAbsRef.unit && <Text style={[styles.refPartText, styles.refPartUnitText]}>{parsedAbsRef.unit}</Text>}
           </View>
         </View>
