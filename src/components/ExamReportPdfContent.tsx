@@ -318,39 +318,15 @@ const styles = StyleSheet.create({
     width: 115, // 230px / 2
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'flex-end', // Adicionado para alinhar o bloco à direita
+    // justifyContent: 'flex-end', // Removido: agora o Text interno tem flexGrow: 1 e textAlign: 'right'
   },
-  refPartText: { // Novo estilo base para textos de referência
+  refTextBase: { // Novo estilo base para textos de referência
     fontSize: 9,
     color: "#666",
     height: 12, // Altura fixa para alinhamento vertical
     lineHeight: 1.2, // Altura da linha fixa
-  },
-  refPartVal1View: {
-    width: 35,
-    flexDirection: 'row',
-    justifyContent: 'flex-end', // Align text to right
-    alignItems: 'center',
-  },
-  refPartSepView: {
-    width: 10,
-    flexDirection: 'row',
-    justifyContent: 'center', // Center separator
-    alignItems: 'center',
-  },
-  refVal2UnitCombinedView: { // Novo estilo para o View que combina val2 e unit
-    width: 70, // 35 + 35
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-end', // Pushes the combined text to the right
-  },
-  refVal2UnitText: { // Novo estilo para o Text que combina val2 e unit
-    fontSize: 9,
-    color: "#666",
-    height: 12,
-    lineHeight: 1.2,
-    textAlign: 'right', // Align the text content to the right
-    flexGrow: 1, // Make it take all available space in refVal2UnitCombinedView
+    textAlign: 'right', // Default para alinhar à direita
+    flexGrow: 1, // Adicionado para que o Text ocupe toda a largura disponível
   },
   indicatorColumn: {
     width: 105, // Fixed width for the column - AJUSTADO
@@ -533,8 +509,8 @@ const parseLeukocyteReferenceParts = (refString: string | undefined) => {
   if (valueWithUnitMatch) {
     return {
       val1: valueWithUnitMatch[1],
-      sep: '',
-      val2: '',
+      sep: '', // No separator
+      val2: '', // No second value
       unit: valueWithUnitMatch[2] || ''
     };
   }
@@ -621,7 +597,7 @@ export const ExamReportPdfContent = ({
           <Text style={styles.paramResultUnit}>{unit}</Text>
         </View>
         <View style={styles.referenceContainer}> {/* Usando o novo container de referência */}
-          <Text style={styles.refPartText}>{ref?.full || 'N/A'}</Text>
+          <Text style={styles.refTextBase}>{ref?.full || 'N/A'}</Text>
         </View>
         <View style={styles.indicatorColumn}>
           {ref && ref.min !== undefined && ref.max !== undefined && !isNaN(normalizeNumber(value)) ? (
@@ -630,6 +606,27 @@ export const ExamReportPdfContent = ({
         </View>
       </View>
     );
+  };
+
+  // Helper para construir a string de referência formatada
+  const buildFormattedReferenceString = (parts: { val1: string; sep: string; val2: string; unit: string }) => {
+    let result = '';
+    if (parts.val1) {
+      result += parts.val1;
+    }
+    if (parts.sep === '-') {
+      result += ` - ${parts.val2}`;
+    } else if (parts.sep === '/') {
+      result += ` ${parts.sep} ${parts.val2}`;
+    }
+    if (parts.unit) {
+      // Adiciona um espaço antes da unidade se já houver conteúdo e o último caractere não for um espaço
+      if (result.length > 0 && result[result.length - 1] !== ' ') {
+        result += ' ';
+      }
+      result += parts.unit;
+    }
+    return result.trim();
   };
 
   // Renderiza um parâmetro de leucograma com valores relativo e absoluto
@@ -656,7 +653,7 @@ export const ExamReportPdfContent = ({
     switch (relValueStatus) {
       case 'normal': relResultStyle = styles.resultNormal; break;
       case 'high': relResultStyle = styles.resultHigh; break;
-      case 'low': relResultStyle = styles.resultLow; break;
+      case 'low': resultStyle = styles.resultLow; break;
       default: relResultStyle = styles.resultNormal;
     }
 
@@ -675,6 +672,9 @@ export const ExamReportPdfContent = ({
 
     const parsedRelRef = parseLeukocyteReferenceParts(relRef?.relative);
     const parsedAbsRef = parseLeukocyteReferenceParts(absRef?.absolute);
+
+    const formattedRelRefString = buildFormattedReferenceString(parsedRelRef);
+    const formattedAbsRefString = buildFormattedReferenceString(parsedAbsRef);
 
     return (
       <View style={styles.paramRow}>
@@ -698,39 +698,11 @@ export const ExamReportPdfContent = ({
         <View style={styles.referenceContainer}>
           {/* Relative Reference */}
           <View style={styles.leukocyteReferenceSubContainer}>
-            <View style={styles.refPartVal1View}>
-              {parsedRelRef.val1 && <Text style={styles.refPartText}>{parsedRelRef.val1}</Text>}
-            </View>
-            <View style={styles.refPartSepView}>
-              {parsedRelRef.sep && <Text style={styles.refPartText}>{parsedRelRef.sep}</Text>}
-            </View>
-            <View style={styles.refVal2UnitCombinedView}>
-              {(parsedRelRef.val2 || parsedRelRef.unit) && (
-                <Text style={styles.refVal2UnitText}>
-                  {parsedRelRef.val2}
-                  {parsedRelRef.val2 && parsedRelRef.unit ? ' ' : ''}
-                  {parsedRelRef.unit}
-                </Text>
-              )}
-            </View>
+            <Text style={styles.refTextBase}>{formattedRelRefString}</Text>
           </View>
           {/* Absolute Reference */}
           <View style={styles.leukocyteReferenceSubContainer}>
-            <View style={styles.refPartVal1View}>
-              {parsedAbsRef.val1 && <Text style={styles.refPartText}>{parsedAbsRef.val1}</Text>}
-            </View>
-            <View style={styles.refPartSepView}>
-              {parsedAbsRef.sep && <Text style={styles.refPartText}>{parsedAbsRef.sep}</Text>}
-            </View>
-            <View style={styles.refVal2UnitCombinedView}>
-              {(parsedAbsRef.val2 || parsedAbsRef.unit) && (
-                <Text style={styles.refVal2UnitText}>
-                  {parsedAbsRef.val2}
-                  {parsedAbsRef.val2 && parsedAbsRef.unit ? ' ' : ''}
-                  {parsedAbsRef.unit}
-                </Text>
-              )}
-            </View>
+            <Text style={styles.refTextBase}>{formattedAbsRefString}</Text>
           </View>
         </View>
 
