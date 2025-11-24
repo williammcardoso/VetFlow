@@ -205,8 +205,6 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: "#000",
     // Removed backgroundColor: "#f5f5f5",
-    borderWidth: 1, // DEBUG
-    borderColor: 'red', // DEBUG
   },
   leukogramHeaderTitle: {
     width: 200, // NOME DO PARÂMETRO (100) + RESULTADO (100)
@@ -215,32 +213,28 @@ const styles = StyleSheet.create({
     color: "#333",
     textTransform: "uppercase",
     paddingLeft: 5,
-    borderWidth: 1, // DEBUG
-    borderColor: 'red', // DEBUG
+    // No borderRightWidth, as per image
   },
   leukogramHeaderReferenceLabels: {
     width: 230, // Same width as referenceContainer
     flexDirection: 'row',
     alignItems: 'flex-end', // Align sub-labels to the bottom
-    borderWidth: 1, // DEBUG
-    borderColor: 'red', // DEBUG
   },
   leukogramRefLabelWrapper: { // New wrapper for each label
     width: '50%', // Each takes half the space
-    borderWidth: 1, // DEBUG
-    borderColor: 'blue', // DEBUG
+  },
+  leukogramHeaderLabelTextRightWithPadding: {
+    fontSize: 8, // Smaller font for sub-labels
+    fontWeight: "bold",
+    color: "#333",
+    textAlign: 'right', // Right-aligned
+    paddingRight: 15, // Roughly 4 spaces
   },
   leukogramHeaderLabelTextCentered: {
     fontSize: 8, // Smaller font for sub-labels
     fontWeight: "bold",
     color: "#333",
     textAlign: 'center', // Centered
-  },
-  leukogramHeaderLabelTextLeft: {
-    fontSize: 8, // Smaller font for sub-labels
-    fontWeight: "bold",
-    color: "#333",
-    textAlign: 'left', // Aligned left
   },
   leukogramHeaderIndicatorLabel: {
     width: 105, // Same width as indicatorColumn
@@ -249,8 +243,7 @@ const styles = StyleSheet.create({
     color: "#333",
     textAlign: "left", // Aligned left
     paddingRight: 5, // Add some padding
-    borderWidth: 1, // DEBUG
-    borderColor: 'red', // DEBUG
+    // No borderRightWidth, as per image
   },
 
   paramRow: {
@@ -258,8 +251,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 0,
     minHeight: 18,
-    borderWidth: 1, // DEBUG
-    borderColor: 'green', // DEBUG
     // REMOVIDO: borderBottomWidth: 1,
     // REMOVIDO: borderBottomColor: '#eee',
   },
@@ -268,8 +259,6 @@ const styles = StyleSheet.create({
     fontSize: 9,
     color: "#333",
     paddingLeft: 5,
-    borderWidth: 1, // DEBUG
-    borderColor: 'blue', // DEBUG
     // REMOVIDO: borderRightWidth: 1,
     // REMOVIDO: borderRightColor: '#eee',
   },
@@ -279,8 +268,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-end',
-    borderWidth: 1, // DEBUG
-    borderColor: 'blue', // DEBUG
     // REMOVIDO: borderRightWidth: 1,
     // REMOVIDO: borderRightColor: '#eee',
   },
@@ -299,8 +286,6 @@ const styles = StyleSheet.create({
     width: 100,
     flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 1, // DEBUG
-    borderColor: 'blue', // DEBUG
     // REMOVIDO: borderRightWidth: 1,
     // REMOVIDO: borderRightColor: '#eee',
   },
@@ -309,8 +294,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-end',
-    borderWidth: 1, // DEBUG
-    borderColor: 'purple', // DEBUG
   },
   leukocyteResultValue: {
     fontSize: 9,
@@ -329,8 +312,6 @@ const styles = StyleSheet.create({
     width: 230,
     flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 1, // DEBUG
-    borderColor: 'blue', // DEBUG
     // REMOVIDO: borderRightWidth: 1,
     // REMOVIDO: borderRightColor: '#eee',
   },
@@ -339,8 +320,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-end',
-    borderWidth: 1, // DEBUG
-    borderColor: 'purple', // DEBUG
   },
   refPartText: {
     fontSize: 9,
@@ -374,8 +353,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'flex-end',
     flexGrow: 1,
-    borderWidth: 1, // DEBUG
-    borderColor: 'blue', // DEBUG
     // REMOVIDO: borderRightWidth: 1,
     // REMOVIDO: borderRightColor: '#eee',
   },
@@ -836,10 +813,10 @@ export const ExamReportPdfContent = ({
               <Text style={styles.leukogramHeaderTitle}>LEUCOGRAMA</Text>
               <View style={styles.leukogramHeaderReferenceLabels}>
                 <View style={styles.leukogramRefLabelWrapper}>
-                  <Text style={styles.leukogramHeaderLabelTextCentered}>Relativo:</Text>
+                  <Text style={styles.leukogramHeaderLabelTextRightWithPadding}>Relativo:</Text>
                 </View>
                 <View style={styles.leukogramRefLabelWrapper}>
-                  <Text style={styles.leukogramHeaderLabelTextLeft}>Absoluto:</Text>
+                  <Text style={styles.leukogramHeaderLabelTextCentered}>Absoluto:</Text>
                 </View>
               </View>
               <Text style={styles.leukogramHeaderIndicatorLabel}>Indicador:</Text>
