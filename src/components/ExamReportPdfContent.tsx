@@ -730,16 +730,16 @@ export const ExamReportPdfContent = ({
           {/* Relative Reference */}
           <View style={styles.leukocyteReferenceSubContainer}>
             <Text style={[styles.refPartText, styles.refPartVal1Text]}>{parsedRelRef.val1}</Text>
-            <Text style={[styles.refPartText, styles.refPartSepText]}>{parsedRelRef.sep}</Text>
-            <Text style={[styles.refPartText, styles.refPartVal2Text]}>{parsedRelRef.val2}</Text>
-            <Text style={[styles.refPartText, styles.refPartUnitText]}>{parsedRelRef.unit}</Text>
+            {parsedRelRef.sep && <Text style={[styles.refPartText, styles.refPartSepText]}>{parsedRelRef.sep}</Text>}
+            {parsedRelRef.val2 && <Text style={[styles.refPartText, styles.refPartVal2Text, { marginRight: 2 }]}>{parsedRelRef.val2}</Text>}
+            {parsedRelRef.unit && <Text style={[styles.refPartText, styles.refPartUnitText]}>{parsedRelRef.unit}</Text>}
           </View>
           {/* Absolute Reference */}
           <View style={styles.leukocyteReferenceSubContainer}>
             <Text style={[styles.refPartText, styles.refPartVal1Text]}>{parsedAbsRef.val1}</Text>
-            <Text style={[styles.refPartText, styles.refPartSepText]}>{parsedAbsRef.sep}</Text>
-            <Text style={[styles.refPartText, styles.refPartVal2Text]}>{parsedAbsRef.val2}</Text>
-            <Text style={[styles.refPartText, styles.refPartUnitText]}>{parsedAbsRef.unit}</Text>
+            {parsedAbsRef.sep && <Text style={[styles.refPartText, styles.refPartSepText]}>{parsedAbsRef.sep}</Text>}
+            {parsedAbsRef.val2 && <Text style={[styles.refPartText, styles.refPartVal2Text, { marginRight: 2 }]}>{parsedAbsRef.val2}</Text>}
+            {parsedAbsRef.unit && <Text style={[styles.refPartText, styles.refPartUnitText]}>{parsedAbsRef.unit}</Text>}
           </View>
         </View>
 
