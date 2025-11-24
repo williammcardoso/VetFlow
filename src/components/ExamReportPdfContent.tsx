@@ -348,7 +348,7 @@ const styles = StyleSheet.create({
     width: 115, // 230px / 2
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'flex-start', // Alinha à esquerda
+    justifyContent: 'flex-end', // ALTERADO para alinhar à direita
     // borderWidth: 1, // DEBUG
     // borderColor: 'red', // DEBUG
   },
@@ -369,13 +369,13 @@ const styles = StyleSheet.create({
     borderColor: 'blue', // DEBUG
   },
   refPartSepText: {
-    width: 15, // ALTERADO para 15px
-    textAlign: 'center', // ALTERADO para centralizar
+    width: 15, // MANTIDO em 15px
+    textAlign: 'center', // MANTIDO em centralizar
     borderWidth: 1, // DEBUG
     borderColor: 'green', // DEBUG
   },
   refVal2Wrapper: {
-    width: 15, // ALTERADO para 15px (base para o relativo)
+    width: 15, // MANTIDO em 15px (base para o relativo)
     flexDirection: 'row',
     justifyContent: 'flex-end', // ALTERADO para alinhar à direita
     borderWidth: 1, // DEBUG
@@ -749,7 +749,7 @@ export const ExamReportPdfContent = ({
             <View style={styles.refVal2Wrapper}>
               {parsedRelRef.val2 && <Text style={styles.refPartText}>{parsedRelRef.val2}</Text>}
             </View>
-            <View style={[styles.refUnitWrapper, { width: 20 }]}> {/* Override for relative unit */}
+            <View style={[styles.refUnitWrapper, { width: 15 }]}> {/* Override for relative unit */}
               {parsedRelRef.unit && <Text style={styles.refPartText}>{parsedRelRef.unit}</Text>}
             </View>
           </View>
@@ -762,7 +762,7 @@ export const ExamReportPdfContent = ({
             <View style={[styles.refVal2Wrapper, { width: 30 }]}> {/* Override width for absolute part */}
               {parsedAbsRef.val2 && <Text style={styles.refPartText}>{parsedAbsRef.val2}</Text>}
             </View>
-            <View style={[styles.refUnitWrapper, { width: 30 }]}> {/* Override for absolute unit */}
+            <View style={[styles.refUnitWrapper, { width: 20 }]}> {/* Override for absolute unit */}
               {parsedAbsRef.unit && <Text style={styles.refPartText}>{parsedAbsRef.unit}</Text>}
             </View>
           </View>
