@@ -354,18 +354,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   // Define border colors
-  refBorderValue: {
-    borderColor: '#0000FF', // Blue
-  },
-  refBorderSeparator: {
-    borderColor: '#008000', // Green
-  },
-  refBorderUnit: {
-    borderColor: '#800080', // Purple
-  },
+  // REMOVIDO: refBorderValue, refBorderSeparator, refBorderUnit
   leukocyteRefValCellRelative: { // For val1 and val2 of relative
     width: 20, // Fixed width as requested
     borderWidth: 1,
+    borderColor: '#ddd', // Corrigido para cinza padrão
     justifyContent: 'flex-end',
     paddingRight: 2,
     minHeight: 18,
@@ -373,12 +366,14 @@ const styles = StyleSheet.create({
   leukocyteRefSepCell: { // For separator (used by both relative and absolute)
     width: 10, // Adjusted width
     borderWidth: 1,
+    borderColor: '#ddd', // Corrigido para cinza padrão
     justifyContent: 'center', // Center content
     minHeight: 18, // Ensure consistent height
   },
   leukocyteRefUnitCellRelative: { // For unit of relative
     width: 22.5, // Adjusted width
     borderWidth: 1,
+    borderColor: '#ddd', // Corrigido para cinza padrão
     justifyContent: 'center', // Center content
     paddingLeft: 2, // Keep padding for visual separation from border
     minHeight: 18,
@@ -386,6 +381,7 @@ const styles = StyleSheet.create({
   leukocyteRefValCellAbsolute: { // For val1 and val2 of absolute
     width: 31, // Adjusted width to be 4/5 of 38.75 (77.5 / 2)
     borderWidth: 1,
+    borderColor: '#ddd', // Corrigido para cinza padrão
     justifyContent: 'flex-end',
     paddingRight: 2,
     minHeight: 18,
@@ -393,6 +389,7 @@ const styles = StyleSheet.create({
   leukocyteRefUnitCellAbsolute: { // For unit of absolute
     width: 25, // Adjusted width
     borderWidth: 1,
+    borderColor: '#ddd', // Corrigido para cinza padrão
     justifyContent: 'center',
     paddingLeft: 2,
     minHeight: 18,
@@ -512,6 +509,13 @@ const styles = StyleSheet.create({
   dateText: {
     fontSize: 10,
     color: "#333",
+  },
+  // NEW: Styles for alternating row colors
+  rowEven: {
+    backgroundColor: '#f9f9f9', // Light gray for even rows
+  },
+  rowOdd: {
+    backgroundColor: '#ffffff', // White for odd rows
   },
 });
 
@@ -676,6 +680,7 @@ export const ExamReportPdfContent = ({
     value: string | undefined,
     unit: string, // This unit is now just a fallback/hint, the actual unit comes from parsing ref.full
     referenceKey: string,
+    rowIndex: number = 0, // Adicionado rowIndex para cores alternadas
   ) => {
     if (!value) return null;
 
@@ -693,7 +698,7 @@ export const ExamReportPdfContent = ({
     const parsedFullRefParts = parseLeukocyteReferenceParts(ref?.full);
 
     return (
-      <View style={styles.paramRow}>
+      <View style={[styles.paramRow, rowIndex % 2 === 0 ? styles.rowEven : styles.rowOdd]}>
         <Text style={styles.paramName}>{label}</Text>
         <View style={styles.paramResultContainer}>
           <View style={styles.paramResultValueWrapper}>
@@ -750,6 +755,7 @@ export const ExamReportPdfContent = ({
     relativeValue: string | undefined,
     absoluteValue: string | undefined,
     referenceKey: string, // Use a single key for both relative and absolute references
+    rowIndex: number = 0, // Adicionado rowIndex para cores alternadas
   ) => {
     if (!relativeValue && !absoluteValue) return null;
 
@@ -791,7 +797,7 @@ export const ExamReportPdfContent = ({
     const parsedAbsRef = parseLeukocyteReferenceParts(absRef?.absolute);
 
     return (
-      <View style={styles.paramRow}>
+      <View style={[styles.paramRow, rowIndex % 2 === 0 ? styles.rowEven : styles.rowOdd]}>
         <Text style={styles.paramName}>{label}</Text>
         
         {/* Results Section */}
@@ -816,14 +822,14 @@ export const ExamReportPdfContent = ({
         <View style={styles.referenceContainer}>
           {/* Relative Reference */}
           <View style={[styles.leukocyteReferenceSubContainer, styles.leukocyteReferenceSubContainerRelative]}>
-            <View style={[styles.leukocyteRefValCellRelative, styles.refBorderValue]}>
+            <View style={styles.leukocyteRefValCellRelative}>
               <Text style={[styles.refPartText, styles.refTextRight]}>{parsedRelRef.val1}</Text>
             </View>
-            {parsedRelRef.sep && <View style={[styles.leukocyteRefSepCell, styles.refBorderSeparator]}><Text style={[styles.refPartText, styles.refTextCenter]}>{parsedRelRef.sep}</Text></View>}
-            <View style={[styles.leukocyteRefValCellRelative, styles.refBorderValue]}>
+            {parsedRelRef.sep && <View style={styles.leukocyteRefSepCell}><Text style={[styles.refPartText, styles.refTextCenter]}>{parsedRelRef.sep}</Text></View>}
+            <View style={styles.leukocyteRefValCellRelative}>
               {parsedRelRef.val2 && <Text style={[styles.refPartText, styles.refTextRight]}>{parsedRelRef.val2}</Text>}
             </View>
-            <View style={[styles.leukocyteRefUnitCellRelative, styles.refBorderUnit]}>
+            <View style={styles.leukocyteRefUnitCellRelative}>
               {parsedRelRef.unit && <Text style={[styles.refPartText, styles.refTextCenter]}>{parsedRelRef.unit}</Text>}
             </View>
           </View>
@@ -831,14 +837,14 @@ export const ExamReportPdfContent = ({
           <View style={styles.leukocyteReferenceSeparator} />
           {/* Absolute Reference */}
           <View style={styles.leukocyteReferenceSubContainer}>
-            <View style={[styles.leukocyteRefValCellAbsolute, styles.refBorderValue]}>
+            <View style={styles.leukocyteRefValCellAbsolute}>
               <Text style={[styles.refPartText, styles.refTextRight]}>{parsedAbsRef.val1}</Text>
             </View>
-            {parsedAbsRef.sep && <View style={[styles.leukocyteRefSepCell, styles.refBorderSeparator]}><Text style={[styles.refPartText, styles.refTextCenter]}>{parsedAbsRef.sep}</Text></View>}
-            <View style={[styles.leukocyteRefValCellAbsolute, styles.refBorderValue]}>
+            {parsedAbsRef.sep && <View style={styles.leukocyteRefSepCell}><Text style={[styles.refPartText, styles.refTextCenter]}>{parsedAbsRef.sep}</Text></View>}
+            <View style={styles.leukocyteRefValCellAbsolute}>
               {parsedAbsRef.val2 && <Text style={[styles.refPartText, styles.refTextRight]}>{parsedAbsRef.val2}</Text>}
             </View>
-            <View style={[styles.leukocyteRefUnitCellAbsolute, styles.refBorderUnit]}>
+            <View style={styles.leukocyteRefUnitCellAbsolute}>
               {parsedAbsRef.unit && <Text style={[styles.refPartText, styles.refTextCenter]}>{parsedAbsRef.unit}</Text>}
             </View>
           </View>
@@ -917,15 +923,15 @@ export const ExamReportPdfContent = ({
               <Text style={[styles.headerCell, styles.headerCellSpacer]}></Text> {/* Nova coluna de espaçamento */}
               <Text style={[styles.headerCell, styles.headerCellIndicator]}>INDICADOR</Text>
             </View>
-            {renderHemogramParam("Eritrócitos", exam.eritrocitos, "M/µL", "eritrocitos")}
-            {renderHemogramParam("Hemoglobina", exam.hemoglobina, "g/dL", "hemoglobina")}
-            {renderHemogramParam("Hematócrito", exam.hematocrito, "%", "hematocrito")}
-            {renderHemogramParam("VCM", exam.vcm, "fL", "vcm")}
-            {renderHemogramParam("HCM", exam.hcm, "pg", "hcm")}
-            {renderHemogramParam("CHCM", exam.chcm, "g/dL", "chcm")}
+            {renderHemogramParam("Eritrócitos", exam.eritrocitos, "M/µL", "eritrocitos", 0)}
+            {renderHemogramParam("Hemoglobina", exam.hemoglobina, "g/dL", "hemoglobina", 1)}
+            {renderHemogramParam("Hematócrito", exam.hematocrito, "%", "hematocrito", 2)}
+            {renderHemogramParam("VCM", exam.vcm, "fL", "vcm", 3)}
+            {renderHemogramParam("HCM", exam.hcm, "pg", "hcm", 4)}
+            {renderHemogramParam("CHCM", exam.chcm, "g/dL", "chcm", 5)}
             {/* RDW não está no mock, mas se estivesse, seria aqui */}
-            {exam.proteinaTotal && renderHemogramParam("Proteína total", exam.proteinaTotal, "g/dL", "proteinaTotal")}
-            {exam.hemaciasNucleadas && renderHemogramParam("Hemácias nucleadas", exam.hemaciasNucleadas, "", "hemaciasNucleadas")}
+            {exam.proteinaTotal && renderHemogramParam("Proteína total", exam.proteinaTotal, "g/dL", "proteinaTotal", 6)}
+            {exam.hemaciasNucleadas && renderHemogramParam("Hemácias nucleadas", exam.hemaciasNucleadas, "", "hemaciasNucleadas", 7)}
             {exam.observacoesSerieVermelha && (
               <View style={{ marginTop: 10 }}>
                 <Text style={styles.subsectionTitle}>Observações da Série Vermelha:</Text>
@@ -953,15 +959,15 @@ export const ExamReportPdfContent = ({
             </View>
 
             {/* Alterado para renderizar Leucócitos totais com renderLeukocyteParam */}
-            {renderLeukocyteParam("Leucócitos totais", "100", exam.leucocitosTotais, "leucocitosTotais")}
-            {exam.mielocitosRelativo && renderLeukocyteParam("Mielócitos", exam.mielocitosRelativo, exam.mielocitosAbsoluto, "mielocitos")}
-            {exam.metamielocitosRelativo && renderLeukocyteParam("Metamielócitos", exam.metamielocitosRelativo, exam.metamielocitosAbsoluto, "metamielocitos")}
-            {exam.bastonetesRelativo && renderLeukocyteParam("Bastonetes", exam.bastonetesRelativo, exam.bastonetesAbsoluto, "bastonetes")}
-            {exam.segmentadosRelativo && renderLeukocyteParam("Segmentados", exam.segmentadosRelativo, exam.segmentadosAbsoluto, "segmentados")}
-            {exam.eosinofilosRelativo && renderLeukocyteParam("Eosinófilos", exam.eosinofilosRelativo, exam.eosinofilosAbsoluto, "eosinofilos")}
-            {exam.basofilosRelativo && renderLeukocyteParam("Basófilos", exam.basofilosRelativo, exam.basofilosAbsoluto, "basofilos")}
-            {exam.linfocitosRelativo && renderLeukocyteParam("Linfócitos", exam.linfocitosRelativo, exam.linfocitosAbsoluto, "linfocitos")}
-            {exam.monocitosRelativo && renderLeukocyteParam("Monócitos", exam.monocitosRelativo, exam.monocitosAbsoluto, "monocitos")}
+            {renderLeukocyteParam("Leucócitos totais", "100", exam.leucocitosTotais, "leucocitosTotais", 0)}
+            {exam.mielocitosRelativo && renderLeukocyteParam("Mielócitos", exam.mielocitosRelativo, exam.mielocitosAbsoluto, "mielocitos", 1)}
+            {exam.metamielocitosRelativo && renderLeukocyteParam("Metamielócitos", exam.metamielocitosRelativo, exam.metamielocitosAbsoluto, "metamielocitos", 2)}
+            {exam.bastonetesRelativo && renderLeukocyteParam("Bastonetes", exam.bastonetesRelativo, exam.bastonetesAbsoluto, "bastonetes", 3)}
+            {exam.segmentadosRelativo && renderLeukocyteParam("Segmentados", exam.segmentadosRelativo, exam.segmentadosAbsoluto, "segmentados", 4)}
+            {exam.eosinofilosRelativo && renderLeukocyteParam("Eosinófilos", exam.eosinofilosRelativo, exam.eosinofilosAbsoluto, "eosinofilos", 5)}
+            {exam.basofilosRelativo && renderLeukocyteParam("Basófilos", exam.basofilosRelativo, exam.basofilosAbsoluto, "basofilos", 6)}
+            {exam.linfocitosRelativo && renderLeukocyteParam("Linfócitos", exam.linfocitosRelativo, exam.linfocitosAbsoluto, "linfocitos", 7)}
+            {exam.monocitosRelativo && renderLeukocyteParam("Monócitos", exam.monocitosRelativo, exam.monocitosAbsoluto, "monocitos", 8)}
             {exam.observacoesSerieBranca && (
               <View style={{ marginTop: 10 }}>
                 <Text style={styles.subsectionTitle}>Observações da Série Branca:</Text>
@@ -978,7 +984,7 @@ export const ExamReportPdfContent = ({
               <Text style={[styles.headerCell, styles.headerCellSpacer]}></Text> {/* Nova coluna de espaçamento */}
               <Text style={[styles.headerCell, styles.headerCellIndicator]}>INDICADOR</Text>
             </View>
-            {renderHemogramParam("Plaquetas totais", exam.contagemPlaquetaria, "/µL", "contagemPlaquetaria")}
+            {renderHemogramParam("Plaquetas totais", exam.contagemPlaquetaria, "/µL", "contagemPlaquetaria", 0)}
             {exam.avaliacaoPlaquetaria && (
               <View style={{ marginTop: 10 }}>
                 <Text style={styles.subsectionTitle}>Avaliação Plaquetária:</Text>
