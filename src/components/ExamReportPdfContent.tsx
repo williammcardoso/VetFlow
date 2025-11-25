@@ -491,7 +491,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     width: INDICATOR_WIDTH, // Usar a constante
     height: '100%',
-    backgroundColor: '#666666', // Cinza mais escuro
+    backgroundColor: '#000000', // Cinza mais escuro
     top: 0,
   },
 
@@ -559,11 +559,11 @@ const IndicatorBar: React.FC<IndicatorBarProps> = ({ value, minRef, maxRef, valu
     return (
       <View style={[styles.fixedBackgroundBar]}>
         {/* Red segment (0-25%) */}
-        <View style={[styles.colorSegment, { left: 0, width: '25%', backgroundColor: redSegmentColor }]} />
+        <View style={[styles.colorSegment, { left: 0, width: '25%', backgroundColor: redSegmentColor, borderTopLeftRadius: 4, borderBottomLeftRadius: 4 }]} />
         {/* Green segment (25-75%) */}
         <View style={[styles.colorSegment, { left: '25%', width: '50%', backgroundColor: greenSegmentColor }]} />
         {/* Gold segment (75-100%) */}
-        <View style={[styles.colorSegment, { left: '75%', width: '25%', backgroundColor: goldSegmentColor }]} />
+        <View style={[styles.colorSegment, { left: '75%', width: '25%', backgroundColor: goldSegmentColor, borderTopRightRadius: 4, borderBottomRightRadius: 4 }]} />
 
         <View style={[styles.fixedIndicator, { left: (ACTIVE_RANGE_START_PERCENT * BAR_WIDTH) - (INDICATOR_WIDTH / 2) }]} />
         <View style={[styles.fixedIndicator, { left: (ACTIVE_RANGE_END_PERCENT * BAR_WIDTH) - (INDICATOR_WIDTH / 2) }]} />
@@ -606,11 +606,11 @@ const IndicatorBar: React.FC<IndicatorBarProps> = ({ value, minRef, maxRef, valu
   return (
     <View style={[styles.fixedBackgroundBar]}>
       {/* Red segment (0-25%) */}
-      <View style={[styles.colorSegment, { left: 0, width: '25%', backgroundColor: redSegmentColor }]} />
+      <View style={[styles.colorSegment, { left: 0, width: '25%', backgroundColor: redSegmentColor, borderTopLeftRadius: 4, borderBottomLeftRadius: 4 }]} />
       {/* Green segment (25-75%) */}
       <View style={[styles.colorSegment, { left: '25%', width: '50%', backgroundColor: greenSegmentColor }]} />
       {/* Gold segment (75-100%) */}
-      <View style={[styles.colorSegment, { left: '75%', width: '25%', backgroundColor: goldSegmentColor }]} />
+      <View style={[styles.colorSegment, { left: '75%', width: '25%', backgroundColor: goldSegmentColor, borderTopRightRadius: 4, borderBottomRightRadius: 4 }]} />
 
       <View style={[styles.fixedIndicator, { left: (ACTIVE_RANGE_START_PERCENT * BAR_WIDTH) - (INDICATOR_WIDTH / 2) }]} />
       <View style={[styles.fixedIndicator, { left: (ACTIVE_RANGE_END_PERCENT * BAR_WIDTH) - (INDICATOR_WIDTH / 2) }]} />
