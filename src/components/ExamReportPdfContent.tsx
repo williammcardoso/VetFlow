@@ -254,6 +254,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-end', // Alinhado à direita
+    backgroundColor: '#f0f8ff', // TEMPORARY: Light blue for debugging
   },
   paramResultValueWrapper: {
     width: 70, // Fixed width for value
@@ -305,6 +306,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-end', // Alinhado à direita
+    backgroundColor: '#fff0f5', // TEMPORARY: Light pink for debugging
   },
   leukocyteReferenceSubContainer: {
     width: 115, // Each sub-container for relative/absolute reference
