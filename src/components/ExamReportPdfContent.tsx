@@ -263,15 +263,15 @@ const styles = StyleSheet.create({
     width: 70, // Fixed width for value
     flexDirection: 'row',
     justifyContent: 'flex-end',
-    borderWidth: 1, // Adicionado
-    borderColor: '#007bff', // Adicionado: Azul
+    // borderWidth: 1, // REMOVIDO
+    // borderColor: '#007bff', // REMOVIDO
   },
   paramResultUnitWrapper: {
     width: 30, // Fixed width for unit
     flexDirection: 'row',
     justifyContent: 'flex-start',
-    borderWidth: 1, // Adicionado
-    borderColor: '#800080', // Adicionado: Roxo
+    // borderWidth: 1, // REMOVIDO
+    // borderColor: '#800080', // REMOVIDO
   },
   paramResultValue: {
     fontSize: 9,
@@ -294,6 +294,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-end',
+    borderWidth: 1, // ADICIONADO
+    borderColor: '#ddd', // ADICIONADO
   },
   leukocyteResultValue: {
     fontSize: 9,
@@ -320,6 +322,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-end',
+    borderWidth: 1, // ADICIONADO
+    borderColor: '#ddd', // ADICIONADO
   },
   refPartText: {
     fontSize: 9,
@@ -333,14 +337,14 @@ const styles = StyleSheet.create({
     width: 20, // Fixed width - REDUZIDO EM 75%
     flexDirection: 'row',
     justifyContent: 'flex-end', // Keep right-aligned for values
-    borderWidth: 1,
-    borderColor: '#007bff',
+    // borderWidth: 1, // REMOVIDO
+    // borderColor: '#007bff', // REMOVIDO
   },
   hemogramRefPartSepText: {
     width: 15,
     textAlign: 'center',
-    borderWidth: 1,
-    borderColor: '#28a745',
+    // borderWidth: 1, // REMOVIDO
+    // borderColor: '#28a745', // REMOVIDO
     fontSize: 9,
     color: "#666",
     lineHeight: 1.2,
@@ -349,8 +353,8 @@ const styles = StyleSheet.create({
     width: 20, // Fixed width
     flexDirection: 'row',
     justifyContent: 'flex-start', // ALIGNED LEFT
-    borderWidth: 1,
-    borderColor: '#800080',
+    // borderWidth: 1, // REMOVIDO
+    // borderColor: '#800080', // REMOVIDO
   },
   hemogramRefSpacer: {
     width: 5,
