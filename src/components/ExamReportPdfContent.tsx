@@ -528,6 +528,28 @@ const IndicatorBar: React.FC<IndicatorBarProps> = ({ value, minRef, maxRef, valu
 
   const numValue = normalizeNumber(value);
 
+  // Definir cores fortes e suaves
+  const RED_STRONG = '#FF0000';
+  const RED_SOFT = '#FF9999';
+  const GREEN_STRONG = '#00CC00';
+  const GREEN_SOFT = '#A8E6CF';
+  const GOLD_STRONG = '#FFD700';
+  const GOLD_SOFT = '#FFEB99';
+
+  let redSegmentColor = RED_SOFT;
+  let greenSegmentColor = GREEN_SOFT;
+  let goldSegmentColor = GOLD_SOFT;
+
+  if (!isNaN(numValue)) {
+    if (valueStatus === 'low') {
+      redSegmentColor = RED_STRONG;
+    } else if (valueStatus === 'normal') {
+      greenSegmentColor = GREEN_STRONG;
+    } else if (valueStatus === 'high') {
+      goldSegmentColor = GOLD_STRONG;
+    }
+  }
+
   let ballColor = styles.resultNormal.color;
   if (valueStatus === 'high') ballColor = styles.resultHigh.color;
   if (valueStatus === 'low') ballColor = styles.resultLow.color;
@@ -537,11 +559,11 @@ const IndicatorBar: React.FC<IndicatorBarProps> = ({ value, minRef, maxRef, valu
     return (
       <View style={[styles.fixedBackgroundBar]}>
         {/* Red segment (0-25%) */}
-        <View style={[styles.colorSegment, { left: 0, width: '25%', backgroundColor: '#FF6B6B' }]} />
+        <View style={[styles.colorSegment, { left: 0, width: '25%', backgroundColor: redSegmentColor }]} />
         {/* Green segment (25-75%) */}
-        <View style={[styles.colorSegment, { left: '25%', width: '50%', backgroundColor: '#A8E6CF' }]} />
+        <View style={[styles.colorSegment, { left: '25%', width: '50%', backgroundColor: greenSegmentColor }]} />
         {/* Gold segment (75-100%) */}
-        <View style={[styles.colorSegment, { left: '75%', width: '25%', backgroundColor: '#FFDA79' }]} />
+        <View style={[styles.colorSegment, { left: '75%', width: '25%', backgroundColor: goldSegmentColor }]} />
 
         <View style={[styles.fixedIndicator, { left: (ACTIVE_RANGE_START_PERCENT * BAR_WIDTH) - (INDICATOR_WIDTH / 2) }]} />
         <View style={[styles.fixedIndicator, { left: (ACTIVE_RANGE_END_PERCENT * BAR_WIDTH) - (INDICATOR_WIDTH / 2) }]} />
@@ -584,11 +606,11 @@ const IndicatorBar: React.FC<IndicatorBarProps> = ({ value, minRef, maxRef, valu
   return (
     <View style={[styles.fixedBackgroundBar]}>
       {/* Red segment (0-25%) */}
-      <View style={[styles.colorSegment, { left: 0, width: '25%', backgroundColor: '#FF6B6B' }]} />
+      <View style={[styles.colorSegment, { left: 0, width: '25%', backgroundColor: redSegmentColor }]} />
       {/* Green segment (25-75%) */}
-      <View style={[styles.colorSegment, { left: '25%', width: '50%', backgroundColor: '#A8E6CF' }]} />
+      <View style={[styles.colorSegment, { left: '25%', width: '50%', backgroundColor: greenSegmentColor }]} />
       {/* Gold segment (75-100%) */}
-      <View style={[styles.colorSegment, { left: '75%', width: '25%', backgroundColor: '#FFDA79' }]} />
+      <View style={[styles.colorSegment, { left: '75%', width: '25%', backgroundColor: goldSegmentColor }]} />
 
       <View style={[styles.fixedIndicator, { left: (ACTIVE_RANGE_START_PERCENT * BAR_WIDTH) - (INDICATOR_WIDTH / 2) }]} />
       <View style={[styles.fixedIndicator, { left: (ACTIVE_RANGE_END_PERCENT * BAR_WIDTH) - (INDICATOR_WIDTH / 2) }]} />
