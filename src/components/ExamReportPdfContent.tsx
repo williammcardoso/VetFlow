@@ -254,17 +254,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-end', // Alinhado à direita
-    backgroundColor: '#f0f8ff', // TEMPORARY: Light blue for debugging
+    // backgroundColor: '#f0f8ff', // REMOVIDO: TEMPORARY: Light blue for debugging
   },
   paramResultValueWrapper: {
     width: 70, // Fixed width for value
     flexDirection: 'row',
     justifyContent: 'flex-end',
+    borderWidth: 1, // Adicionado
+    borderColor: '#007bff', // Adicionado: Azul
   },
   paramResultUnitWrapper: {
     width: 30, // Fixed width for unit
     flexDirection: 'row',
     justifyContent: 'flex-start',
+    borderWidth: 1, // Adicionado
+    borderColor: '#800080', // Adicionado: Roxo
   },
   paramResultValue: {
     fontSize: 9,
@@ -306,7 +310,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-end', // Alinhado à direita
-    backgroundColor: '#fff0f5', // TEMPORARY: Light pink for debugging
+    // backgroundColor: '#fff0f5', // REMOVIDO: TEMPORARY: Light pink for debugging
   },
   leukocyteReferenceSubContainer: {
     width: 115, // Each sub-container for relative/absolute reference
@@ -325,15 +329,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'flex-end',
     flexGrow: 1, // Allows it to take available space
+    borderWidth: 1, // Adicionado
+    borderColor: '#007bff', // Adicionado: Azul
   },
   refPartSepText: {
     width: 15, // Fixed width for separator
     textAlign: 'center',
+    borderWidth: 1, // Adicionado
+    borderColor: '#28a745', // Adicionado: Verde
   },
   refUnitWrapper: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
     width: 20, // Fixed width for unit
+    borderWidth: 1, // Adicionado
+    borderColor: '#800080', // Adicionado: Roxo
   },
   indicatorColumn: {
     width: 105,
