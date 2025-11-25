@@ -347,7 +347,6 @@ const styles = StyleSheet.create({
     width: 112.5, // Each sub-container for relative/absolute reference
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'flex-end',
     // borderWidth: 1, // REMOVIDO
     // borderColor: '#ddd', // REMOVIDO
   },
@@ -355,7 +354,7 @@ const styles = StyleSheet.create({
     flex: 1,
     borderWidth: 1,
     borderColor: '#ddd',
-    justifyContent: 'flex-end',
+    justifyContent: 'flex-end', // Align content to the right
     paddingRight: 2,
     minHeight: 18, // Ensure consistent height
   },
@@ -363,15 +362,15 @@ const styles = StyleSheet.create({
     width: 15,
     borderWidth: 1,
     borderColor: '#ddd',
-    justifyContent: 'center',
+    justifyContent: 'center', // Center content
     minHeight: 18, // Ensure consistent height
   },
   leukocyteRefUnitCell: { // NEW: Cell for reference unit
     width: 20, // Fixed width for unit
     borderWidth: 1,
     borderColor: '#ddd',
-    justifyContent: 'flex-start',
-    paddingLeft: 2,
+    justifyContent: 'center', // Center content
+    paddingLeft: 2, // Keep padding for visual separation from border
     minHeight: 18, // Ensure consistent height
   },
   refPartText: {
@@ -380,6 +379,13 @@ const styles = StyleSheet.create({
     lineHeight: 1.2,
     flexShrink: 0,
     flexGrow: 0,
+  },
+  // New specific text alignment styles
+  refTextRight: {
+    textAlign: 'right',
+  },
+  refTextCenter: {
+    textAlign: 'center',
   },
   // Specific styles for Hemogram/Plaquetas reference parts
   hemogramRefValWrapper: {
@@ -793,27 +799,27 @@ export const ExamReportPdfContent = ({
           {/* Relative Reference */}
           <View style={styles.leukocyteReferenceSubContainer}>
             <View style={styles.leukocyteRefValCell}>
-              <Text style={styles.refPartText}>{parsedRelRef.val1}</Text>
+              <Text style={[styles.refPartText, styles.refTextRight]}>{parsedRelRef.val1}</Text>
             </View>
-            {parsedRelRef.sep && <View style={styles.leukocyteRefSepCell}><Text style={styles.refPartText}>{parsedRelRef.sep}</Text></View>}
+            {parsedRelRef.sep && <View style={styles.leukocyteRefSepCell}><Text style={[styles.refPartText, styles.refTextCenter]}>{parsedRelRef.sep}</Text></View>}
             <View style={styles.leukocyteRefValCell}>
-              {parsedRelRef.val2 && <Text style={styles.refPartText}>{parsedRelRef.val2}</Text>}
+              {parsedRelRef.val2 && <Text style={[styles.refPartText, styles.refTextRight]}>{parsedRelRef.val2}</Text>}
             </View>
             <View style={styles.leukocyteRefUnitCell}>
-              {parsedRelRef.unit && <Text style={styles.refPartText}>{parsedRelRef.unit}</Text>}
+              {parsedRelRef.unit && <Text style={[styles.refPartText, styles.refTextCenter]}>{parsedRelRef.unit}</Text>}
             </View>
           </View>
           {/* Absolute Reference */}
           <View style={styles.leukocyteReferenceSubContainer}>
             <View style={styles.leukocyteRefValCell}>
-              <Text style={styles.refPartText}>{parsedAbsRef.val1}</Text>
+              <Text style={[styles.refPartText, styles.refTextRight]}>{parsedAbsRef.val1}</Text>
             </View>
-            {parsedAbsRef.sep && <View style={styles.leukocyteRefSepCell}><Text style={styles.refPartText}>{parsedAbsRef.sep}</Text></View>}
+            {parsedAbsRef.sep && <View style={styles.leukocyteRefSepCell}><Text style={[styles.refPartText, styles.refTextCenter]}>{parsedAbsRef.sep}</Text></View>}
             <View style={styles.leukocyteRefValCell}>
-              {parsedAbsRef.val2 && <Text style={styles.refPartText}>{parsedAbsRef.val2}</Text>}
+              {parsedAbsRef.val2 && <Text style={[styles.refPartText, styles.refTextRight]}>{parsedAbsRef.val2}</Text>}
             </View>
             <View style={styles.leukocyteRefUnitCell}>
-              {parsedAbsRef.unit && <Text style={styles.refPartText}>{parsedAbsRef.unit}</Text>}
+              {parsedAbsRef.unit && <Text style={[styles.refPartText, styles.refTextCenter]}>{parsedAbsRef.unit}</Text>}
             </View>
           </View>
         </View>
