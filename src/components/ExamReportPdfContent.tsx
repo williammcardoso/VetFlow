@@ -249,7 +249,7 @@ const styles = StyleSheet.create({
     textAlign: 'center', // Centered
   },
   leukogramHeaderIndicatorLabel: {
-    width: 95, // Ajustado para acomodar o espaçador
+    width: 90, // Ajustado para acomodar o espaçador
     fontSize: 8, // Smaller font
     fontWeight: "bold",
     color: "#333",
@@ -268,7 +268,7 @@ const styles = StyleSheet.create({
     borderBottomColor: "#000",
   },
   eritrogramPlaquetogramHeaderTitle: {
-    width: 105, // Aumentado para dar mais espaço
+    width: 115, // Aumentado para dar mais espaço
     fontSize: 13,
     fontWeight: "bold",
     color: "#333",
@@ -766,7 +766,7 @@ export const ExamReportPdfContent = ({
                 applyPlaquetogramBorders && { borderWidth: 0 } // Removido borderWidth
               ]}>
                 <Text style={styles.refPartText}>{parsedFullRefParts.val2}</Text>
-              </View>
+            </View>
             )}
             {parsedFullRefParts.val2 && (applyPlaquetogramBorders ? <View style={styles.hemogramRefSpacer} /> : <View style={styles.hemogramRefSpacer} />)} {/* Conditionally re-added spacer */}
             {parsedFullRefParts.unit && ( // Only render unit wrapper if unit exists
