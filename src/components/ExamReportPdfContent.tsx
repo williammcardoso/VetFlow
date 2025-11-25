@@ -514,8 +514,8 @@ interface IndicatorBarProps {
 const IndicatorBar: React.FC<IndicatorBarProps> = ({ value, minRef, maxRef, valueStatus }) => {
   const BAR_WIDTH = 100;
   const BALL_SIZE = 8; // Smaller ball size
-  const ACTIVE_RANGE_START_PERCENT = 0.15; // Revertido para 15%
-  const ACTIVE_RANGE_END_PERCENT = 0.85;   // Revertido para 85%
+  const ACTIVE_RANGE_START_PERCENT = 0.25; // Alterado para 25%
+  const ACTIVE_RANGE_END_PERCENT = 0.75;   // Alterado para 75%
 
   const numValue = normalizeNumber(value);
 
