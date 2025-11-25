@@ -254,7 +254,7 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: "#333",
     textAlign: "left", // Aligned left
-    paddingRight: 5, // Add some padding
+    // Removed paddingRight: 5
   },
 
   // NEW: Combined Header Line for Eritrograma and Plaquetograma
@@ -748,7 +748,7 @@ export const ExamReportPdfContent = ({
             ]}>
               <Text style={styles.refPartText}>{parsedFullRefParts.val1}</Text>
             </View>
-            {applyPlaquetogramBorders ? null : <View style={styles.hemogramRefSpacer} />} {/* Conditionally re-added spacer */}
+            {applyPlaquetogramBorders ? <View style={styles.hemogramRefSpacer} /> : <View style={styles.hemogramRefSpacer} />} {/* Conditionally re-added spacer */}
             {parsedFullRefParts.sep && (
               <>
                 <Text style={[
@@ -756,7 +756,7 @@ export const ExamReportPdfContent = ({
                   styles.hemogramRefPartSepText,
                   applyPlaquetogramBorders && { borderWidth: 0 } // Removido borderWidth
                 ]}>{parsedFullRefParts.sep}</Text>
-                {applyPlaquetogramBorders ? null : <View style={styles.hemogramRefSpacer} />} {/* Conditionally re-added spacer */}
+                {applyPlaquetogramBorders ? <View style={styles.hemogramRefSpacer} /> : <View style={styles.hemogramRefSpacer} />} {/* Conditionally re-added spacer */}
               </>
             )}
             {parsedFullRefParts.val2 && ( // Only render val2 wrapper if val2 exists
@@ -768,7 +768,7 @@ export const ExamReportPdfContent = ({
                 <Text style={styles.refPartText}>{parsedFullRefParts.val2}</Text>
               </View>
             )}
-            {parsedFullRefParts.val2 && (applyPlaquetogramBorders ? null : <View style={styles.hemogramRefSpacer} />)} {/* Conditionally re-added spacer */}
+            {parsedFullRefParts.val2 && (applyPlaquetogramBorders ? <View style={styles.hemogramRefSpacer} /> : <View style={styles.hemogramRefSpacer} />)} {/* Conditionally re-added spacer */}
             {parsedFullRefParts.unit && ( // Only render unit wrapper if unit exists
               <>
                 <View style={[
@@ -962,10 +962,10 @@ export const ExamReportPdfContent = ({
             {/* Eritrograma Header */}
             <View style={styles.eritrogramPlaquetogramHeaderLine}>
               <Text style={styles.eritrogramPlaquetogramHeaderTitle}>ERITROGRAMA</Text>
-              <Text style={styles.eritrogramPlaquetogramHeaderResultLabel}>RESULTADO</Text>
-              <Text style={styles.eritrogramPlaquetogramHeaderReferenceLabel}>REFERÊNCIA</Text>
-              <View style={styles.headerCellSpacer} />
-              <Text style={styles.leukogramHeaderIndicatorLabel}>INDICADOR</Text>
+              <Text style={styles.eritrogramPlaquetogramHeaderResultLabel}>Resultado</Text>
+              <Text style={styles.eritrogramPlaquetogramHeaderReferenceLabel}>Referência</Text>
+              <View style={[styles.headerCellSpacer, { width: 5 }]} /> {/* Ajuste de largura aqui */}
+              <Text style={styles.leukogramHeaderIndicatorLabel}>Indicador</Text>
             </View>
             {renderHemogramParam("Eritrócitos", exam.eritrocitos, "M/µL", "eritrocitos")}
             {renderHemogramParam("Hemoglobina", exam.hemoglobina, "g/dL", "hemoglobina")}
@@ -998,8 +998,8 @@ export const ExamReportPdfContent = ({
                   <Text style={styles.leukogramHeaderLabelTextCentered}>Absoluto:</Text>
                 </View>
               </View>
-              <View style={styles.headerCellSpacer} /> {/* Nova coluna de espaçamento */}
-              <Text style={styles.leukogramHeaderIndicatorLabel}>INDICADOR:</Text>
+              <View style={[styles.headerCellSpacer, { width: 5 }]} /> {/* Ajuste de largura aqui */}
+              <Text style={styles.leukogramHeaderIndicatorLabel}>Indicador:</Text>
             </View>
 
             {/* Alterado para renderizar Leucócitos totais com renderLeukocyteParam */}
@@ -1022,10 +1022,10 @@ export const ExamReportPdfContent = ({
             {/* Plaquetas Header */}
             <View style={styles.eritrogramPlaquetogramHeaderLine}>
               <Text style={styles.eritrogramPlaquetogramHeaderTitle}>PLAQUETOGRAMA</Text>
-              <Text style={styles.eritrogramPlaquetogramHeaderResultLabel}>RESULTADO</Text>
-              <Text style={styles.eritrogramPlaquetogramHeaderReferenceLabel}>REFERÊNCIA</Text>
-              <View style={styles.headerCellSpacer} />
-              <Text style={styles.leukogramHeaderIndicatorLabel}>INDICADOR</Text>
+              <Text style={styles.eritrogramPlaquetogramHeaderResultLabel}>Resultado</Text>
+              <Text style={styles.eritrogramPlaquetogramHeaderReferenceLabel}>Referência</Text>
+              <View style={[styles.headerCellSpacer, { width: 5 }]} /> {/* Ajuste de largura aqui */}
+              <Text style={styles.leukogramHeaderIndicatorLabel}>Indicador</Text>
             </View>
             {renderHemogramParam("Plaquetas totais", exam.contagemPlaquetaria, "/µL", "contagemPlaquetaria", true)}
             {exam.avaliacaoPlaquetaria && (
