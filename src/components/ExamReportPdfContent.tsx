@@ -619,10 +619,11 @@ export const ExamReportPdfContent = ({
           <View style={styles.paramResultValueWrapper}>
             <Text style={[styles.paramResultValue, resultStyle]}>{value}</Text>
           </View>
+          <View style={styles.hemogramRefSpacer} /> {/* NEW: Spacer after value */}
           <View style={styles.paramResultUnitWrapper}>
             <Text style={styles.paramResultUnit}>{unit}</Text>
           </View>
-          <View style={styles.hemogramRefSpacer} /> {/* Adicionado o espaçador aqui */}
+          <View style={styles.hemogramRefSpacer} /> {/* Existing spacer after unit */}
         </View>
         <View style={styles.referenceContainer}>
           {/* Using flexible wrappers for full reference display */}
@@ -630,11 +631,11 @@ export const ExamReportPdfContent = ({
             <View style={styles.hemogramRefValWrapper}>
               <Text style={styles.refPartText}>{parsedFullRefParts.val1}</Text>
             </View>
+            <View style={styles.hemogramRefSpacer} /> {/* NEW: Spacer after val1 */}
             {parsedFullRefParts.sep && (
               <>
-                <View style={styles.hemogramRefSpacer} />
                 <Text style={[styles.refPartText, styles.hemogramRefPartSepText]}>{parsedFullRefParts.sep}</Text>
-                <View style={styles.hemogramRefSpacer} />
+                <View style={styles.hemogramRefSpacer} /> {/* NEW: Spacer after sep */}
               </>
             )}
             {parsedFullRefParts.val2 && ( // Only render val2 wrapper if val2 exists
@@ -642,12 +643,13 @@ export const ExamReportPdfContent = ({
                 <Text style={styles.refPartText}>{parsedFullRefParts.val2}</Text>
               </View>
             )}
+            {parsedFullRefParts.val2 && <View style={styles.hemogramRefSpacer} />} {/* NEW: Spacer after val2 */}
             {parsedFullRefParts.unit && ( // Only render unit wrapper if unit exists
               <>
-                <View style={styles.hemogramRefSpacer} />
                 <View style={styles.hemogramRefUnitWrapper}>
                   <Text style={styles.refPartText}>{parsedFullRefParts.unit}</Text>
                 </View>
+                <View style={styles.hemogramRefSpacer} /> {/* NEW: Spacer after unit */}
               </>
             )}
           </View>
