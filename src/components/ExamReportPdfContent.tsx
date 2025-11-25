@@ -342,6 +342,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
+  leukocyteReferenceSubContainerRelative: { // Specific style for relative part
+    justifyContent: 'flex-end', // Align content to the right
+  },
   // Define border colors
   refBorderValue: {
     borderColor: '#0000FF', // Blue
@@ -804,7 +807,7 @@ export const ExamReportPdfContent = ({
         {/* References Section */}
         <View style={styles.referenceContainer}>
           {/* Relative Reference */}
-          <View style={styles.leukocyteReferenceSubContainer}>
+          <View style={[styles.leukocyteReferenceSubContainer, styles.leukocyteReferenceSubContainerRelative]}>
             <View style={[styles.leukocyteRefValCellRelative, styles.refBorderValue]}>
               <Text style={[styles.refPartText, styles.refTextRight]}>{parsedRelRef.val1}</Text>
             </View>
