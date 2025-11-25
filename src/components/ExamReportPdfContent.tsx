@@ -464,10 +464,18 @@ const styles = StyleSheet.create({
   fixedBackgroundBar: {
     width: 100,
     height: 8,
-    backgroundColor: '#ccffcc',
     borderRadius: 4,
     position: 'relative',
     justifyContent: 'center',
+    borderWidth: 1, // Adicionada borda preta
+    borderColor: '#000000', // Cor da borda preta
+    overflow: 'hidden', // Garante que os segmentos de cor não ultrapassem a borda
+  },
+  // NEW: Style for the color segments
+  colorSegment: {
+    position: 'absolute',
+    height: '100%',
+    top: 0,
   },
   // NEW: Style for the ball marker
   ballMarker: {
@@ -526,7 +534,14 @@ const IndicatorBar: React.FC<IndicatorBarProps> = ({ value, minRef, maxRef, valu
   // Only render ball if value is a valid number
   if (isNaN(numValue)) {
     return (
-      <View style={styles.fixedBackgroundBar}>
+      <View style={[styles.fixedBackgroundBar, { borderWidth: 1, borderColor: '#000000' }]}>
+        {/* Red segment (0-25%) */}
+        <View style={[styles.colorSegment, { left: 0, width: '25%', backgroundColor: '#FF9999' }]} />
+        {/* Green segment (25-75%) */}
+        <View style={[styles.colorSegment, { left: '25%', width: '50%', backgroundColor: '#D4EDDA' }]} />
+        {/* Gold segment (75-100%) */}
+        <View style={[styles.colorSegment, { left: '75%', width: '25%', backgroundColor: '#FFEB99' }]} />
+
         <View style={[styles.fixedIndicator, { left: ACTIVE_RANGE_START_PERCENT * BAR_WIDTH }]} />
         <View style={[styles.fixedIndicator, { left: ACTIVE_RANGE_END_PERCENT * BAR_WIDTH }]} />
       </View>
@@ -566,7 +581,14 @@ const IndicatorBar: React.FC<IndicatorBarProps> = ({ value, minRef, maxRef, valu
   ballLeftPosition = Math.max(0, Math.min(BAR_WIDTH - BALL_SIZE, ballLeftPosition));
 
   return (
-    <View style={styles.fixedBackgroundBar}>
+    <View style={[styles.fixedBackgroundBar, { borderWidth: 1, borderColor: '#000000' }]}>
+      {/* Red segment (0-25%) */}
+      <View style={[styles.colorSegment, { left: 0, width: '25%', backgroundColor: '#FF9999' }]} />
+      {/* Green segment (25-75%) */}
+      <View style={[styles.colorSegment, { left: '25%', width: '50%', backgroundColor: '#D4EDDA' }]} />
+      {/* Gold segment (75-100%) */}
+      <View style={[styles.colorSegment, { left: '75%', width: '25%', backgroundColor: '#FFEB99' }]} />
+
       <View style={[styles.fixedIndicator, { left: ACTIVE_RANGE_START_PERCENT * BAR_WIDTH }]} />
       <View style={[styles.fixedIndicator, { left: ACTIVE_RANGE_END_PERCENT * BAR_WIDTH }]} />
       <View style={[styles.ballMarker, { left: ballLeftPosition, backgroundColor: ballColor }]} />
