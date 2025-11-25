@@ -338,12 +338,20 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end', // Alinhado à direita
   },
   leukocyteReferenceSubContainer: { // This is now a flex container for its cells
-    width: 112.5, // Each sub-container for relative/absolute reference
+    width: 110, // Each sub-container for relative/absolute reference (220 / 2)
     flexDirection: 'row',
     alignItems: 'center',
   },
   leukocyteReferenceSubContainerRelative: { // Specific style for relative part
     justifyContent: 'flex-end', // Align content to the right
+  },
+  leukocyteReferenceSeparator: { // NEW: Separator column
+    width: 5,
+    borderWidth: 1,
+    borderColor: '#999',
+    minHeight: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   // Define border colors
   refBorderValue: {
@@ -819,6 +827,8 @@ export const ExamReportPdfContent = ({
               {parsedRelRef.unit && <Text style={[styles.refPartText, styles.refTextCenter]}>{parsedRelRef.unit}</Text>}
             </View>
           </View>
+          {/* Separator Column */}
+          <View style={styles.leukocyteReferenceSeparator} />
           {/* Absolute Reference */}
           <View style={styles.leukocyteReferenceSubContainer}>
             <View style={[styles.leukocyteRefValCellAbsolute, styles.refBorderValue]}>
