@@ -327,7 +327,7 @@ const styles = StyleSheet.create({
   },
   // Specific styles for Hemogram/Plaquetas reference parts
   hemogramRefValWrapper: {
-    width: 70, // Fixed width
+    width: 17.5, // Fixed width - REDUZIDO EM 75%
     flexDirection: 'row',
     justifyContent: 'flex-end', // Keep right-aligned for values
     borderWidth: 1,
