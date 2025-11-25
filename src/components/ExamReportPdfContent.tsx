@@ -343,8 +343,8 @@ const styles = StyleSheet.create({
   },
   leukocyteReferenceSeparator: { // NEW: Separator column
     width: 5,
-    borderWidth: 1,
-    borderColor: '#999',
+    // REMOVIDO: borderWidth: 1,
+    // REMOVIDO: borderColor: '#999',
     minHeight: 18,
     justifyContent: 'center',
     alignItems: 'center',
@@ -824,9 +824,7 @@ export const ExamReportPdfContent = ({
               {parsedRelRef.unit && <Text style={[styles.refPartText, styles.refTextCenter]}>{parsedRelRef.unit}</Text>}
             </View>
           </View>
-          {/* Separator Column */}
-          <View style={styles.leukocyteReferenceSeparator} />
-          {/* Absolute Reference */}
+          {/* Separator Column - REMOVIDO */}
           <View style={styles.leukocyteReferenceSubContainer}>
             <View style={styles.leukocyteRefValCellAbsolute}>
               <Text style={[styles.refPartText, styles.refTextRight]}>{parsedAbsRef.val1}</Text>
@@ -866,7 +864,7 @@ export const ExamReportPdfContent = ({
           <View style={styles.clinicAddressPhone}>
             <Text>{mockCompanySettings.address}</Text>
             <Text>{mockCompanySettings.city} - CEP: {mockCompanySettings.zipCode}</Text>
-            <Text>Telefone: {mockCompanySettings.phone}</Text>
+            <Text>Telefone: (19) 99363-1981</Text>
           </View>
         </View>
 
