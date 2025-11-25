@@ -83,7 +83,7 @@ const PLAQUETOGRAM_REF_VALUE_BORDER_COLOR = '#007bff'; // Vibrant blue for refer
 const PLAQUETOGRAM_REF_SEP_BORDER_COLOR = '#28a745'; // Green for reference separator
 const PLAQUETOGRAM_REF_UNIT_BORDER_COLOR = '#6f42c1'; // Purple for reference unit
 
-const INDICATOR_WIDTH = 2; // Largura dos separadores fixos
+const INDICATOR_WIDTH = 0.5; // Largura dos separadores fixos (alterado para 0.5)
 
 const styles = StyleSheet.create({
   page: {
@@ -478,12 +478,12 @@ const styles = StyleSheet.create({
     height: '100%',
     top: 0,
   },
-  // NEW: Style for the ball marker
+  // NEW: Style for the ball marker (now a thin vertical line)
   ballMarker: {
     position: 'absolute',
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    width: INDICATOR_WIDTH, // Use the same width as fixed indicators
+    height: '100%', // Span the full height of the bar
+    borderRadius: 0, // No rounded corners for a line
     top: 0,
   },
   // NEW: Styles for fixed indicators at 15% and 85%
@@ -522,7 +522,7 @@ interface IndicatorBarProps {
 
 const IndicatorBar: React.FC<IndicatorBarProps> = ({ value, minRef, maxRef, valueStatus }) => {
   const BAR_WIDTH = 100;
-  const BALL_SIZE = 8; // Smaller ball size
+  // Removed BALL_SIZE constant
   const ACTIVE_RANGE_START_PERCENT = 0.25; // Primeiro separador em 25%
   const ACTIVE_RANGE_END_PERCENT = 0.75;   // Segundo separador em 75%
 
@@ -596,11 +596,11 @@ const IndicatorBar: React.FC<IndicatorBarProps> = ({ value, minRef, maxRef, valu
     ballLeftPosition = activeStartPx + (proportionalPosition * activeRangeWidthPx);
   }
 
-  // Adjust position to center the ball marker
-  ballLeftPosition -= (BALL_SIZE / 2);
+  // Adjust position to center the marker (using INDICATOR_WIDTH for the line marker)
+  ballLeftPosition -= (INDICATOR_WIDTH / 2);
 
-  // Clamp ball position to ensure it stays within the overall bar boundaries (0 to BAR_WIDTH - BALL_SIZE)
-  ballLeftPosition = Math.max(0, Math.min(BAR_WIDTH - BALL_SIZE, ballLeftPosition));
+  // Clamp marker position to ensure it stays within the overall bar boundaries (0 to BAR_WIDTH - INDICATOR_WIDTH)
+  ballLeftPosition = Math.max(0, Math.min(BAR_WIDTH - INDICATOR_WIDTH, ballLeftPosition));
 
   return (
     <View style={[styles.fixedBackgroundBar]}>
