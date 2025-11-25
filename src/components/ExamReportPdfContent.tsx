@@ -257,6 +257,12 @@ const styles = StyleSheet.create({
     marginBottom: 0,
     minHeight: 18,
   },
+  rowEven: {
+    backgroundColor: '#f9f9f9', // Cor para linhas pares
+  },
+  rowOdd: {
+    backgroundColor: '#ffffff', // Cor para linhas ímpares
+  },
   paramName: {
     width: 100,
     fontSize: 9,
@@ -369,7 +375,7 @@ const styles = StyleSheet.create({
     width: 20, // Fixed width for unit
     borderWidth: 1,
     borderColor: '#ddd',
-    justifyContent: 'center', // Center content
+    justifyContent: 'flex-start',
     paddingLeft: 2, // Keep padding for visual separation from border
     minHeight: 18, // Ensure consistent height
   },
@@ -658,6 +664,7 @@ export const ExamReportPdfContent = ({
     value: string | undefined,
     unit: string, // This unit is now just a fallback/hint, the actual unit comes from parsing ref.full
     referenceKey: string,
+    index: number, // Adicionado index
   ) => {
     if (!value) return null;
 
@@ -675,7 +682,7 @@ export const ExamReportPdfContent = ({
     const parsedFullRefParts = parseLeukocyteReferenceParts(ref?.full);
 
     return (
-      <View style={styles.paramRow}>
+      <View style={[styles.paramRow, index % 2 === 0 ? styles.rowEven : styles.rowOdd]}>
         <Text style={styles.paramName}>{label}</Text>
         <View style={styles.paramResultContainer}>
           <View style={styles.paramResultValueWrapper}>
@@ -732,6 +739,7 @@ export const ExamReportPdfContent = ({
     relativeValue: string | undefined,
     absoluteValue: string | undefined,
     referenceKey: string, // Use a single key for both relative and absolute references
+    index: number, // Adicionado index
   ) => {
     if (!relativeValue && !absoluteValue) return null;
 
@@ -773,7 +781,7 @@ export const ExamReportPdfContent = ({
     const parsedAbsRef = parseLeukocyteReferenceParts(absRef?.absolute);
 
     return (
-      <View style={styles.paramRow}>
+      <View style={[styles.paramRow, index % 2 === 0 ? styles.rowEven : styles.rowOdd]}>
         <Text style={styles.paramName}>{label}</Text>
         
         {/* Results Section */}
@@ -897,15 +905,15 @@ export const ExamReportPdfContent = ({
               <Text style={[styles.headerCell, styles.headerCellSpacer]}></Text> {/* Nova coluna de espaçamento */}
               <Text style={[styles.headerCell, styles.headerCellIndicator]}>INDICADOR</Text>
             </View>
-            {renderHemogramParam("Eritrócitos", exam.eritrocitos, "M/µL", "eritrocitos")}
-            {renderHemogramParam("Hemoglobina", exam.hemoglobina, "g/dL", "hemoglobina")}
-            {renderHemogramParam("Hematócrito", exam.hematocrito, "%", "hematocrito")}
-            {renderHemogramParam("VCM", exam.vcm, "fL", "vcm")}
-            {renderHemogramParam("HCM", exam.hcm, "pg", "hcm")}
-            {renderHemogramParam("CHCM", exam.chcm, "g/dL", "chcm")}
+            {renderHemogramParam("Eritrócitos", exam.eritrocitos, "M/µL", "eritrocitos", 0)}
+            {renderHemogramParam("Hemoglobina", exam.hemoglobina, "g/dL", "hemoglobina", 1)}
+            {renderHemogramParam("Hematócrito", exam.hematocrito, "%", "hematocrito", 2)}
+            {renderHemogramParam("VCM", exam.vcm, "fL", "vcm", 3)}
+            {renderHemogramParam("HCM", exam.hcm, "pg", "hcm", 4)}
+            {renderHemogramParam("CHCM", exam.chcm, "g/dL", "chcm", 5)}
             {/* RDW não está no mock, mas se estivesse, seria aqui */}
-            {exam.proteinaTotal && renderHemogramParam("Proteína total", exam.proteinaTotal, "g/dL", "proteinaTotal")}
-            {exam.hemaciasNucleadas && renderHemogramParam("Hemácias nucleadas", exam.hemaciasNucleadas, "", "hemaciasNucleadas")}
+            {exam.proteinaTotal && renderHemogramParam("Proteína total", exam.proteinaTotal, "g/dL", "proteinaTotal", 6)}
+            {exam.hemaciasNucleadas && renderHemogramParam("Hemácias nucleadas", exam.hemaciasNucleadas, "", "hemaciasNucleadas", 7)}
             {exam.observacoesSerieVermelha && (
               <View style={{ marginTop: 10 }}>
                 <Text style={styles.subsectionTitle}>Observações da Série Vermelha:</Text>
@@ -933,15 +941,15 @@ export const ExamReportPdfContent = ({
             </View>
 
             {/* Alterado para renderizar Leucócitos totais com renderLeukocyteParam */}
-            {renderLeukocyteParam("Leucócitos totais", "100", exam.leucocitosTotais, "leucocitosTotais")}
-            {exam.mielocitosRelativo && renderLeukocyteParam("Mielócitos", exam.mielocitosRelativo, exam.mielocitosAbsoluto, "mielocitos")}
-            {exam.metamielocitosRelativo && renderLeukocyteParam("Metamielócitos", exam.metamielocitosRelativo, exam.metamielocitosAbsoluto, "metamielocitos")}
-            {exam.bastonetesRelativo && renderLeukocyteParam("Bastonetes", exam.bastonetesRelativo, exam.bastonetesAbsoluto, "bastonetes")}
-            {exam.segmentadosRelativo && renderLeukocyteParam("Segmentados", exam.segmentadosRelativo, exam.segmentadosAbsoluto, "segmentados")}
-            {exam.eosinofilosRelativo && renderLeukocyteParam("Eosinófilos", exam.eosinofilosRelativo, exam.eosinofilosAbsoluto, "eosinofilos")}
-            {exam.basofilosRelativo && renderLeukocyteParam("Basófilos", exam.basofilosRelativo, exam.basofilosAbsoluto, "basofilos")}
-            {exam.linfocitosRelativo && renderLeukocyteParam("Linfócitos", exam.linfocitosRelativo, exam.linfocitosAbsoluto, "linfocitos")}
-            {exam.monocitosRelativo && renderLeukocyteParam("Monócitos", exam.monocitosRelativo, exam.monocitosAbsoluto, "monocitos")}
+            {renderLeukocyteParam("Leucócitos totais", "100", exam.leucocitosTotais, "leucocitosTotais", 0)}
+            {exam.mielocitosRelativo && renderLeukocyteParam("Mielócitos", exam.mielocitosRelativo, exam.mielocitosAbsoluto, "mielocitos", 1)}
+            {exam.metamielocitosRelativo && renderLeukocyteParam("Metamielócitos", exam.metamielocitosRelativo, exam.metamielocitosAbsoluto, "metamielocitos", 2)}
+            {exam.bastonetesRelativo && renderLeukocyteParam("Bastonetes", exam.bastonetesRelativo, exam.bastonetesAbsoluto, "bastonetes", 3)}
+            {exam.segmentadosRelativo && renderLeukocyteParam("Segmentados", exam.segmentadosRelativo, exam.segmentadosAbsoluto, "segmentados", 4)}
+            {exam.eosinofilosRelativo && renderLeukocyteParam("Eosinófilos", exam.eosinofilosRelativo, exam.eosinofilosAbsoluto, "eosinofilos", 5)}
+            {exam.basofilosRelativo && renderLeukocyteParam("Basófilos", exam.basofilosRelativo, exam.basofilosAbsoluto, "basofilos", 6)}
+            {exam.linfocitosRelativo && renderLeukocyteParam("Linfócitos", exam.linfocitosRelativo, exam.linfocitosAbsoluto, "linfocitos", 7)}
+            {exam.monocitosRelativo && renderLeukocyteParam("Monócitos", exam.monocitosRelativo, exam.monocitosAbsoluto, "monocitos", 8)}
             {exam.observacoesSerieBranca && (
               <View style={{ marginTop: 10 }}>
                 <Text style={styles.subsectionTitle}>Observações da Série Branca:</Text>
@@ -958,7 +966,7 @@ export const ExamReportPdfContent = ({
               <Text style={[styles.headerCell, styles.headerCellSpacer]}></Text> {/* Nova coluna de espaçamento */}
               <Text style={[styles.headerCell, styles.headerCellIndicator]}>INDICADOR</Text>
             </View>
-            {renderHemogramParam("Plaquetas totais", exam.contagemPlaquetaria, "/µL", "contagemPlaquetaria")}
+            {renderHemogramParam("Plaquetas totais", exam.contagemPlaquetaria, "/µL", "contagemPlaquetaria", 0)}
             {exam.avaliacaoPlaquetaria && (
               <View style={{ marginTop: 10 }}>
                 <Text style={styles.subsectionTitle}>Avaliação Plaquetária:</Text>
