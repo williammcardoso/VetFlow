@@ -78,7 +78,11 @@ const formatNumberForDisplay = (num: number) => {
   }
 };
 
-const PLAQUETOGRAM_BORDER_COLOR = '#A0D9FF'; // Light blue for plaquetogram borders
+const PLAQUETOGRAM_BORDER_COLOR = '#A0D9FF'; // Light blue for main table lines
+const PLAQUETOGRAM_REF_VALUE_BORDER_COLOR = '#007bff'; // Vibrant blue for reference values
+const PLAQUETOGRAM_REF_SEP_BORDER_COLOR = '#28a745'; // Green for reference separator
+const PLAQUETOGRAM_REF_UNIT_BORDER_COLOR = '#6f42c1'; // Purple for reference unit
+
 
 const styles = StyleSheet.create({
   page: {
@@ -343,8 +347,6 @@ const styles = StyleSheet.create({
   },
   leukocyteReferenceSeparator: { // NEW: Separator column
     width: 5,
-    // REMOVIDO: borderWidth: 1,
-    // REMOVIDO: borderColor: '#999',
     minHeight: 18,
     justifyContent: 'center',
     alignItems: 'center',
@@ -698,29 +700,42 @@ export const ExamReportPdfContent = ({
         </View>
         <View style={[
           styles.referenceContainer,
-          applyPlaquetogramBorders && { borderRightWidth: 1, borderRightColor: PLAQUETOGRAM_BORDER_COLOR }
+          // REMOVIDO: applyPlaquetogramBorders && { borderRightWidth: 1, borderRightColor: PLAQUETOGRAM_BORDER_COLOR }
         ]}>
           {/* Using flexible wrappers for full reference display */}
           <View style={{ flexDirection: 'row', alignItems: 'center' }}> {/* Removed flexGrow: 1 and justifyContent: 'flex-end' from here */}
-            <View style={styles.hemogramRefValWrapper}>
+            <View style={[
+              styles.hemogramRefValWrapper,
+              applyPlaquetogramBorders && { borderWidth: 1, borderColor: PLAQUETOGRAM_REF_VALUE_BORDER_COLOR }
+            ]}>
               <Text style={styles.refPartText}>{parsedFullRefParts.val1}</Text>
             </View>
             <View style={styles.hemogramRefSpacer} /> {/* NEW: Spacer after val1 */}
             {parsedFullRefParts.sep && (
               <>
-                <Text style={[styles.refPartText, styles.hemogramRefPartSepText]}>{parsedFullRefParts.sep}</Text>
+                <Text style={[
+                  styles.refPartText,
+                  styles.hemogramRefPartSepText,
+                  applyPlaquetogramBorders && { borderWidth: 1, borderColor: PLAQUETOGRAM_REF_SEP_BORDER_COLOR }
+                ]}>{parsedFullRefParts.sep}</Text>
                 <View style={styles.hemogramRefSpacer} /> {/* NEW: Spacer after sep */}
               </>
             )}
             {parsedFullRefParts.val2 && ( // Only render val2 wrapper if val2 exists
-              <View style={styles.hemogramRefValWrapper}>
+              <View style={[
+                styles.hemogramRefValWrapper,
+                applyPlaquetogramBorders && { borderWidth: 1, borderColor: PLAQUETOGRAM_REF_VALUE_BORDER_COLOR }
+              ]}>
                 <Text style={styles.refPartText}>{parsedFullRefParts.val2}</Text>
               </View>
             )}
             {parsedFullRefParts.val2 && <View style={styles.hemogramRefSpacer} />} {/* NEW: Spacer after val2 */}
             {parsedFullRefParts.unit && ( // Only render unit wrapper if unit exists
               <>
-                <View style={styles.hemogramRefUnitWrapper}>
+                <View style={[
+                  styles.hemogramRefUnitWrapper,
+                  applyPlaquetogramBorders && { borderWidth: 1, borderColor: PLAQUETOGRAM_REF_UNIT_BORDER_COLOR }
+                ]}>
                   <Text style={styles.refPartText}>{parsedFullRefParts.unit}</Text>
                 </View>
                 <View style={styles.hemogramRefSpacer} /> {/* NEW: Spacer after unit */}
@@ -824,7 +839,9 @@ export const ExamReportPdfContent = ({
               {parsedRelRef.unit && <Text style={[styles.refPartText, styles.refTextCenter]}>{parsedRelRef.unit}</Text>}
             </View>
           </View>
-          {/* Separator Column - REMOVIDO */}
+          {/* Separator Column */}
+          <View style={styles.leukocyteReferenceSeparator} />
+          {/* Absolute Reference */}
           <View style={styles.leukocyteReferenceSubContainer}>
             <View style={styles.leukocyteRefValCellAbsolute}>
               <Text style={[styles.refPartText, styles.refTextRight]}>{parsedAbsRef.val1}</Text>
@@ -864,7 +881,7 @@ export const ExamReportPdfContent = ({
           <View style={styles.clinicAddressPhone}>
             <Text>{mockCompanySettings.address}</Text>
             <Text>{mockCompanySettings.city} - CEP: {mockCompanySettings.zipCode}</Text>
-            <Text>Telefone: (19) 99363-1981</Text>
+            <Text>Telefone: {mockCompanySettings.phone}</Text>
           </View>
         </View>
 
