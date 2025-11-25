@@ -253,6 +253,7 @@ const styles = StyleSheet.create({
     width: 100,
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'flex-end', // Alinhado à direita
   },
   paramResultValueWrapper: {
     width: 70, // Fixed width for value
@@ -303,6 +304,7 @@ const styles = StyleSheet.create({
     width: 230,
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'flex-end', // Alinhado à direita
   },
   paramReferenceValueWrapper: {
     width: 180, // Fixed width for reference value
@@ -566,7 +568,7 @@ const parseFullReferenceParts = (refString: string | undefined) => {
   }
   const trimmedRefString = refString.trim();
   // Regex to capture common units at the end of the string
-  const unitMatch = trimmedRefString.match(/(\s*(?:%|g\/dL|M\/mm3|fL|pg|\/µL|milhões\/mm3|mil\/µL|raros|un|g|mg|mL|mcg|UFC|UFC\/g|UFC\/kg))$/);
+  const unitMatch = trimmedRefString.match(/(\s*(?:%|g\/dL|M\/mm3|fL|pg|\/µL|milhões\/mm3|mil\/µL|raros|un|g|mg|mL|mcg|UFC|UFC\/g|UFC\/g|UFC\/kg))$/);
 
   if (unitMatch) {
     const unit = unitMatch[1].trim();
@@ -818,7 +820,7 @@ export const ExamReportPdfContent = ({
               <Text style={[styles.headerCell, styles.headerCellReference]}>REFERÊNCIA</Text>
               <Text style={[styles.headerCell, styles.headerCellIndicator]}>INDICADOR</Text>
             </View>
-            {renderHemogramParam("Eritrócitos", exam.eritrocitos, "M/mm3", "eritrocitos")}
+            {renderHemogramParam("Eritrócitos", exam.eritrocitos, "M/µL", "eritrocitos")}
             {renderHemogramParam("Hemoglobina", exam.hemoglobina, "g/dL", "hemoglobina")}
             {renderHemogramParam("Hematócrito", exam.hematocrito, "%", "hematocrito")}
             {renderHemogramParam("VCM", exam.vcm, "fL", "vcm")}

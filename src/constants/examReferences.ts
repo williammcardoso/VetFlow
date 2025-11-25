@@ -2,7 +2,7 @@ import { HemogramReference, HemogramReferenceValue } from "@/types/exam";
 
 // Dados de referência para Hemograma (cão e gato)
 export const hemogramReferences: Record<string, HemogramReference> = {
-  eritrocitos: { dog: { full: "5.5 - 8.5 milhões/mm3", min: 5.5, max: 8.5 }, cat: { full: "6.5 - 10.0 milhões/mm3", min: 6.5, max: 10.0 } },
+  eritrocitos: { dog: { full: "5.5 - 8.5 M/µL", min: 5.5, max: 8.5 }, cat: { full: "6.5 - 10.0 M/µL", min: 6.5, max: 10.0 } },
   hemoglobina: { dog: { full: "12.0 - 18.0 g/dL", min: 12.0, max: 18.0 }, cat: { full: "9.0 - 15.0 g/dL", min: 9.0, max: 15.0 } },
   hematocrito: { dog: { full: "37 - 55 %", min: 37, max: 55 }, cat: { full: "30 - 45 %", min: 30, max: 45 } },
   vcm: { dog: { full: "60.0 - 77.0 fL", min: 60.0, max: 77.0 }, cat: { full: "39.0 - 55.0 fL", min: 39.0, max: 55.0 } },
