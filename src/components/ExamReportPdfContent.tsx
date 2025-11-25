@@ -257,6 +257,40 @@ const styles = StyleSheet.create({
     paddingRight: 5, // Add some padding
   },
 
+  // NEW: Combined Header Line for Eritrograma and Plaquetograma
+  eritrogramPlaquetogramHeaderLine: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    marginTop: 20,
+    marginBottom: 5,
+    paddingBottom: 5,
+    borderBottomWidth: 1,
+    borderBottomColor: "#000",
+  },
+  eritrogramPlaquetogramHeaderTitle: {
+    width: 100,
+    fontSize: 13,
+    fontWeight: "bold",
+    color: "#333",
+    textTransform: "uppercase",
+    paddingLeft: 5,
+  },
+  eritrogramPlaquetogramHeaderResultLabel: {
+    width: 100,
+    fontSize: 8,
+    fontWeight: "bold",
+    color: "#333",
+    textAlign: 'center', // Centered for single result label
+  },
+  eritrogramPlaquetogramHeaderReferenceLabel: {
+    width: 225,
+    fontSize: 8,
+    fontWeight: "bold",
+    color: "#333",
+    textAlign: 'center', // Centered for single reference label
+  },
+
+
   paramRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -925,14 +959,13 @@ export const ExamReportPdfContent = ({
 
         {exam.type === "Hemograma Completo" ? (
           <>
-            {/* Tabela de Cabeçalho para Eritrograma e Plaquetas */}
-            <Text style={styles.sectionTitle}>ERITROGRAMA</Text>
-            <View style={styles.tableHeader}>
-              <Text style={[styles.headerCell, styles.headerCellName]}>NOME DO PARÂMETRO</Text>
-              <Text style={[styles.headerCell, styles.headerCellResult]}>RESULTADO</Text>
-              <Text style={[styles.headerCell, styles.headerCellReference]}>REFERÊNCIA</Text>
-              <Text style={[styles.headerCell, styles.headerCellSpacer]}></Text> {/* Nova coluna de espaçamento */}
-              <Text style={[styles.headerCell, styles.headerCellIndicator]}>INDICADOR</Text>
+            {/* Eritrograma Header */}
+            <View style={styles.eritrogramPlaquetogramHeaderLine}>
+              <Text style={styles.eritrogramPlaquetogramHeaderTitle}>ERITROGRAMA</Text>
+              <Text style={styles.eritrogramPlaquetogramHeaderResultLabel}>RESULTADO</Text>
+              <Text style={styles.eritrogramPlaquetogramHeaderReferenceLabel}>REFERÊNCIA</Text>
+              <View style={styles.headerCellSpacer} />
+              <Text style={styles.leukogramHeaderIndicatorLabel}>INDICADOR</Text>
             </View>
             {renderHemogramParam("Eritrócitos", exam.eritrocitos, "M/µL", "eritrocitos")}
             {renderHemogramParam("Hemoglobina", exam.hemoglobina, "g/dL", "hemoglobina")}
@@ -966,7 +999,7 @@ export const ExamReportPdfContent = ({
                 </View>
               </View>
               <View style={styles.headerCellSpacer} /> {/* Nova coluna de espaçamento */}
-              <Text style={styles.leukogramHeaderIndicatorLabel}>Indicador:</Text>
+              <Text style={styles.leukogramHeaderIndicatorLabel}>INDICADOR:</Text>
             </View>
 
             {/* Alterado para renderizar Leucócitos totais com renderLeukocyteParam */}
@@ -986,14 +1019,13 @@ export const ExamReportPdfContent = ({
               </View>
             )}
 
-            {/* Plaquetas */}
-            <Text style={styles.sectionTitle}>PLAQUETOGRAMA</Text>
-            <View style={styles.tableHeader}>
-              <Text style={[styles.headerCell, styles.headerCellName]}>NOME DO PARÂMETRO</Text>
-              <Text style={[styles.headerCell, styles.headerCellResult]}>RESULTADO</Text>
-              <Text style={[styles.headerCell, styles.headerCellReference]}>REFERÊNCIA</Text>
-              <Text style={[styles.headerCell, styles.headerCellSpacer]}></Text> {/* Nova coluna de espaçamento */}
-              <Text style={[styles.headerCell, styles.headerCellIndicator]}>INDICADOR</Text>
+            {/* Plaquetas Header */}
+            <View style={styles.eritrogramPlaquetogramHeaderLine}>
+              <Text style={styles.eritrogramPlaquetogramHeaderTitle}>PLAQUETOGRAMA</Text>
+              <Text style={styles.eritrogramPlaquetogramHeaderResultLabel}>RESULTADO</Text>
+              <Text style={styles.eritrogramPlaquetogramHeaderReferenceLabel}>REFERÊNCIA</Text>
+              <View style={styles.headerCellSpacer} />
+              <Text style={styles.leukogramHeaderIndicatorLabel}>INDICADOR</Text>
             </View>
             {renderHemogramParam("Plaquetas totais", exam.contagemPlaquetaria, "/µL", "contagemPlaquetaria", true)}
             {exam.avaliacaoPlaquetaria && (
