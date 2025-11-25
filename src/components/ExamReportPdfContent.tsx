@@ -202,12 +202,24 @@ const styles = StyleSheet.create({
     borderBottomColor: "#000",
   },
   leukogramHeaderTitle: {
-    width: 200, // NOME DO PARÂMETRO (100) + RESULTADO (100)
+    width: 100, // NOME DO PARÂMETRO
     fontSize: 13, // Larger font for the main title
     fontWeight: "bold",
     color: "#333",
     textTransform: "uppercase",
     paddingLeft: 5,
+  },
+  leukogramHeaderResultLabels: { // NEW: Header for Result section
+    width: 100,
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+  },
+  leukogramHeaderResultLabelText: {
+    width: '50%',
+    fontSize: 8,
+    fontWeight: "bold",
+    color: "#333",
+    textAlign: 'center',
   },
   leukogramHeaderReferenceLabels: {
     width: 225, // Ajustado para acomodar o espaçador
@@ -257,7 +269,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-end', // Alinhado à direita
-    // backgroundColor: '#f0f8ff', // REMOVIDO: TEMPORARY: Light blue for debugging
+    // borderWidth: 1, // REMOVIDO: TEMPORARY: Light blue for debugging
+    // borderColor: '#007bff', // REMOVIDO
   },
   paramResultValueWrapper: {
     width: 70, // Fixed width for value
@@ -284,46 +297,82 @@ const styles = StyleSheet.create({
     textAlign: 'left',
   },
   // For multi-value results (Leukogram)
-  leukocyteResultContainer: {
+  leukocyteResultContainer: { // This is now a flex container for its cells
     width: 100,
     flexDirection: 'row',
     alignItems: 'center',
   },
-  leukocyteResultSubContainer: {
-    width: 50,
-    flexDirection: 'row',
-    alignItems: 'center',
+  leukocyteResultValueCell: { // NEW: Cell for leukocyte result value
+    flex: 1,
+    borderWidth: 1,
+    borderColor: '#ddd',
     justifyContent: 'flex-end',
-    borderWidth: 1, // ADICIONADO
-    borderColor: '#ddd', // ADICIONADO
+    paddingRight: 2,
+    minHeight: 18, // Ensure consistent height
+  },
+  leukocyteResultUnitCell: { // NEW: Cell for leukocyte result unit
+    width: 15, // Fixed width for unit (e.g., %)
+    borderWidth: 1,
+    borderColor: '#ddd',
+    justifyContent: 'center',
+    minHeight: 18, // Ensure consistent height
+  },
+  leukocyteResultUnitCellAbs: { // NEW: Cell for leukocyte absolute unit (/µL)
+    width: 25, // Fixed width for unit (e.g., /µL)
+    borderWidth: 1,
+    borderColor: '#ddd',
+    justifyContent: 'center',
+    minHeight: 18, // Ensure consistent height
   },
   leukocyteResultValue: {
     fontSize: 9,
     fontWeight: "bold",
     textAlign: "right",
-    marginRight: 5,
   },
   leukocyteResultUnit: {
     fontSize: 9,
     color: "#666",
-    textAlign: 'left',
+    textAlign: 'center',
   },
 
   // New styles for granular reference columns (9 columns)
-  referenceContainer: {
+  referenceContainer: { // This is now a flex container for its cells
     width: 225, // Ajustado para acomodar o espaçador
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-end', // Alinhado à direita
     // backgroundColor: '#fff0f5', // REMOVIDO: TEMPORARY: Light pink for debugging
   },
-  leukocyteReferenceSubContainer: {
-    width: 112.5, // Cada sub-contêiner para referência relativa/absoluta (225 / 2)
+  leukocyteReferenceSubContainer: { // This is now a flex container for its cells
+    width: 112.5, // Each sub-container for relative/absolute reference
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-end',
-    borderWidth: 1, // ADICIONADO
-    borderColor: '#ddd', // ADICIONADO
+    // borderWidth: 1, // REMOVIDO
+    // borderColor: '#ddd', // REMOVIDO
+  },
+  leukocyteRefValCell: { // NEW: Cell for reference value
+    flex: 1,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    justifyContent: 'flex-end',
+    paddingRight: 2,
+    minHeight: 18, // Ensure consistent height
+  },
+  leukocyteRefSepCell: { // NEW: Cell for separator
+    width: 15,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    justifyContent: 'center',
+    minHeight: 18, // Ensure consistent height
+  },
+  leukocyteRefUnitCell: { // NEW: Cell for reference unit
+    width: 20, // Fixed width for unit
+    borderWidth: 1,
+    borderColor: '#ddd',
+    justifyContent: 'flex-start',
+    paddingLeft: 2,
+    minHeight: 18, // Ensure consistent height
   },
   refPartText: {
     fontSize: 9,
@@ -724,13 +773,17 @@ export const ExamReportPdfContent = ({
         {/* Results Section */}
         <View style={styles.leukocyteResultContainer}>
           {/* Relative Result */}
-          <View style={styles.leukocyteResultSubContainer}>
+          <View style={styles.leukocyteResultValueCell}>
             <Text style={[styles.leukocyteResultValue, relResultStyle]}>{relativeValue}</Text>
+          </View>
+          <View style={styles.leukocyteResultUnitCell}>
             <Text style={styles.leukocyteResultUnit}>%</Text>
           </View>
           {/* Absolute Result */}
-          <View style={styles.leukocyteResultSubContainer}>
+          <View style={styles.leukocyteResultValueCell}>
             <Text style={[styles.leukocyteResultValue, absResultStyle]}>{absoluteValue}</Text>
+          </View>
+          <View style={styles.leukocyteResultUnitCellAbs}>
             <Text style={styles.leukocyteResultUnit}>/µL</Text>
           </View>
         </View>
@@ -739,27 +792,27 @@ export const ExamReportPdfContent = ({
         <View style={styles.referenceContainer}>
           {/* Relative Reference */}
           <View style={styles.leukocyteReferenceSubContainer}>
-            <View style={styles.refValWrapper}>
+            <View style={styles.leukocyteRefValCell}>
               <Text style={styles.refPartText}>{parsedRelRef.val1}</Text>
             </View>
-            {parsedRelRef.sep && <Text style={[styles.refPartText, styles.refPartSepText]}>{parsedRelRef.sep}</Text>}
-            <View style={styles.refValWrapper}>
+            {parsedRelRef.sep && <View style={styles.leukocyteRefSepCell}><Text style={styles.refPartText}>{parsedRelRef.sep}</Text></View>}
+            <View style={styles.leukocyteRefValCell}>
               {parsedRelRef.val2 && <Text style={styles.refPartText}>{parsedRelRef.val2}</Text>}
             </View>
-            <View style={styles.refUnitWrapper}>
+            <View style={styles.leukocyteRefUnitCell}>
               {parsedRelRef.unit && <Text style={styles.refPartText}>{parsedRelRef.unit}</Text>}
             </View>
           </View>
           {/* Absolute Reference */}
           <View style={styles.leukocyteReferenceSubContainer}>
-            <View style={styles.refValWrapper}>
+            <View style={styles.leukocyteRefValCell}>
               <Text style={styles.refPartText}>{parsedAbsRef.val1}</Text>
             </View>
-            {parsedAbsRef.sep && <Text style={[styles.refPartText, styles.refPartSepText]}>{parsedAbsRef.sep}</Text>}
-            <View style={styles.refValWrapper}>
+            {parsedAbsRef.sep && <View style={styles.leukocyteRefSepCell}><Text style={styles.refPartText}>{parsedAbsRef.sep}</Text></View>}
+            <View style={styles.leukocyteRefValCell}>
               {parsedAbsRef.val2 && <Text style={styles.refPartText}>{parsedAbsRef.val2}</Text>}
             </View>
-            <View style={styles.refUnitWrapper}>
+            <View style={styles.leukocyteRefUnitCell}>
               {parsedAbsRef.unit && <Text style={styles.refPartText}>{parsedAbsRef.unit}</Text>}
             </View>
           </View>
@@ -857,6 +910,10 @@ export const ExamReportPdfContent = ({
             {/* Leucograma */}
             <View style={styles.leukogramHeaderLine}>
               <Text style={styles.leukogramHeaderTitle}>LEUCOGRAMA</Text>
+              <View style={styles.leukogramHeaderResultLabels}>
+                <Text style={styles.leukogramHeaderResultLabelText}>Relativo</Text>
+                <Text style={styles.leukogramHeaderResultLabelText}>Absoluto</Text>
+              </View>
               <View style={styles.leukogramHeaderReferenceLabels}>
                 <View style={styles.leukogramRefLabelWrapper}>
                   <Text style={styles.leukogramHeaderLabelTextRightWithPadding}>Relativo:    </Text>
