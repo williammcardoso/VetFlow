@@ -529,12 +529,12 @@ const IndicatorBar: React.FC<IndicatorBarProps> = ({ value, minRef, maxRef, valu
   const numValue = normalizeNumber(value);
 
   // Definir cores fortes e suaves
-  const RED_STRONG = '#FF0000';
-  const RED_SOFT = '#FF9999';
-  const GREEN_STRONG = '#00CC00';
-  const GREEN_SOFT = '#A8E6CF';
-  const GOLD_STRONG = '#FFD700';
-  const GOLD_SOFT = '#FFEB99';
+  const RED_STRONG = '#F44336'; // Vermelho mais suave
+  const RED_SOFT = '#FFCDD2';   // Vermelho ainda mais suave
+  const GREEN_STRONG = '#4CAF50'; // Verde mais agradável
+  const GREEN_SOFT = '#C8E6C9';   // Verde mais pálido
+  const GOLD_STRONG = '#FFC107'; // Dourado mais quente
+  const GOLD_SOFT = '#FFECB3';   // Dourado mais claro
 
   let redSegmentColor = RED_SOFT;
   let greenSegmentColor = GREEN_SOFT;
