@@ -376,7 +376,7 @@ const styles = StyleSheet.create({
     minHeight: 18,
   },
   leukocyteRefValCellAbsolute: { // For val1 and val2 of absolute
-    flex: 1, // Let it take remaining space
+    width: 31, // Adjusted width to be 4/5 of 38.75 (77.5 / 2)
     borderWidth: 1,
     justifyContent: 'flex-end',
     paddingRight: 2,
