@@ -490,10 +490,10 @@ const styles = StyleSheet.create({
     color: "#000000", // Black for normal
   },
   resultHigh: {
-    color: "#dc3545", // Red for high
+    color: "#FFC107", // Strong yellow for high
   },
   resultLow: {
-    color: "#007bff", // Blue for low
+    color: "#dc3545", // Red for low
   },
   observationText: {
     fontSize: 10,
