@@ -325,25 +325,32 @@ const styles = StyleSheet.create({
     flexShrink: 0,
     flexGrow: 0,
   },
-  refValWrapper: { // Generic wrapper for value parts, now flexible
+  // Specific styles for Hemogram/Plaquetas reference parts
+  hemogramRefValWrapper: {
+    width: 70, // Fixed width
     flexDirection: 'row',
-    justifyContent: 'flex-end',
-    flexGrow: 1, // Allows it to take available space
-    borderWidth: 1, // Adicionado
-    borderColor: '#007bff', // Adicionado: Azul
+    justifyContent: 'flex-end', // Keep right-aligned for values
+    borderWidth: 1,
+    borderColor: '#007bff',
   },
-  refPartSepText: {
-    width: 15, // Fixed width for separator
+  hemogramRefPartSepText: {
+    width: 15,
     textAlign: 'center',
-    borderWidth: 1, // Adicionado
-    borderColor: '#28a745', // Adicionado: Verde
+    borderWidth: 1,
+    borderColor: '#28a745',
+    fontSize: 9,
+    color: "#666",
+    lineHeight: 1.2,
   },
-  refUnitWrapper: {
+  hemogramRefUnitWrapper: {
+    width: 20, // Fixed width
     flexDirection: 'row',
-    justifyContent: 'flex-end',
-    width: 20, // Fixed width for unit
-    borderWidth: 1, // Adicionado
-    borderColor: '#800080', // Adicionado: Roxo
+    justifyContent: 'flex-start', // ALIGNED LEFT
+    borderWidth: 1,
+    borderColor: '#800080',
+  },
+  hemogramRefSpacer: {
+    width: 5,
   },
   indicatorColumn: {
     width: 105,
@@ -618,17 +625,30 @@ export const ExamReportPdfContent = ({
         </View>
         <View style={styles.referenceContainer}>
           {/* Using flexible wrappers for full reference display */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', flexGrow: 1, justifyContent: 'flex-end' }}>
-            <View style={styles.refValWrapper}>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}> {/* Removed flexGrow: 1 and justifyContent: 'flex-end' from here */}
+            <View style={styles.hemogramRefValWrapper}>
               <Text style={styles.refPartText}>{parsedFullRefParts.val1}</Text>
             </View>
-            {parsedFullRefParts.sep && <Text style={[styles.refPartText, styles.refPartSepText]}>{parsedFullRefParts.sep}</Text>}
-            <View style={styles.refValWrapper}>
-              {parsedFullRefParts.val2 && <Text style={styles.refPartText}>{parsedFullRefParts.val2}</Text>}
-            </View>
-            <View style={styles.refUnitWrapper}>
-              {parsedFullRefParts.unit && <Text style={styles.refPartText}>{parsedFullRefParts.unit}</Text>}
-            </View>
+            {parsedFullRefParts.sep && (
+              <>
+                <View style={styles.hemogramRefSpacer} />
+                <Text style={[styles.refPartText, styles.hemogramRefPartSepText]}>{parsedFullRefParts.sep}</Text>
+                <View style={styles.hemogramRefSpacer} />
+              </>
+            )}
+            {parsedFullRefParts.val2 && ( // Only render val2 wrapper if val2 exists
+              <View style={styles.hemogramRefValWrapper}>
+                <Text style={styles.refPartText}>{parsedFullRefParts.val2}</Text>
+              </View>
+            )}
+            {parsedFullRefParts.unit && ( // Only render unit wrapper if unit exists
+              <>
+                <View style={styles.hemogramRefSpacer} />
+                <View style={styles.hemogramRefUnitWrapper}>
+                  <Text style={styles.refPartText}>{parsedFullRefParts.unit}</Text>
+                </View>
+              </>
+            )}
           </View>
         </View>
         <View style={styles.indicatorColumn}>
