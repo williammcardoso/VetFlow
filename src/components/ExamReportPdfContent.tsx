@@ -173,10 +173,10 @@ const styles = StyleSheet.create({
     paddingLeft: 5,
   },
   headerCellName: {
-    width: 100, // NOME DO PARÂMETRO
+    width: 150, // NOME DO PARÂMETRO - AJUSTADO
   },
   headerCellResult: {
-    width: 100, // RESULTADO - AJUSTADO
+    width: 50, // RESULTADO - AJUSTADO
     textAlign: "right",
   },
   headerCellReference: {
@@ -243,31 +243,23 @@ const styles = StyleSheet.create({
     minHeight: 18,
   },
   paramName: {
-    width: 100,
+    width: 150, // AJUSTADO
     fontSize: 9,
     color: "#333",
     paddingLeft: 5,
   },
   // For single-value results (Eritrograma, Plaquetas)
   paramResultContainer: {
-    width: 100,
+    width: 50, // AJUSTADO
     flexDirection: 'row',
     alignItems: 'center',
-  },
-  paramResultValueWrapper: {
-    width: 70, // Fixed width for value
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-  },
-  paramResultUnitWrapper: {
-    width: 30, // Fixed width for unit
-    flexDirection: 'row',
-    justifyContent: 'flex-start',
+    justifyContent: 'flex-end', // Alinhado à direita
   },
   paramResultValue: {
     fontSize: 9,
     fontWeight: "bold",
     textAlign: "right",
+    marginRight: 5,
   },
   paramResultUnit: {
     fontSize: 9,
@@ -303,16 +295,14 @@ const styles = StyleSheet.create({
     width: 230,
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'flex-end', // Alinhado à direita
   },
-  paramReferenceValueWrapper: {
-    width: 180, // Fixed width for reference value
+  // New style for single value reference content (Eritrograma/Plaquetas)
+  singleValueReferenceContent: {
+    width: '100%', // Takes full width of parent referenceContainer
     flexDirection: 'row',
-    justifyContent: 'flex-end',
-  },
-  paramReferenceUnitWrapper: {
-    width: 50, // Fixed width for reference unit
-    flexDirection: 'row',
-    justifyContent: 'flex-start',
+    alignItems: 'center',
+    justifyContent: 'flex-end', // Align to the right
   },
   leukocyteReferenceSubContainer: {
     width: 115,
@@ -328,23 +318,43 @@ const styles = StyleSheet.create({
     flexGrow: 0,
   },
   refVal1Wrapper: {
-    width: 30,
+    width: 60, // AJUSTADO para Eritrograma/Plaquetas
     flexDirection: 'row',
     justifyContent: 'flex-end',
   },
   refPartSepText: {
-    width: 15, // VOLTOU PARA 15px
+    width: 20, // AJUSTADO para Eritrograma/Plaquetas
     textAlign: 'center',
   },
   refVal2Wrapper: {
-    width: 30, // MANTIDO em 30px (base para o relativo)
+    width: 60, // AJUSTADO para Eritrograma/Plaquetas
     flexDirection: 'row',
     justifyContent: 'flex-end',
   },
   refUnitWrapper: {
-    width: 20, // ALTERADO para 20px (default)
+    width: 40, // AJUSTADO para Eritrograma/Plaquetas
+    flexDirection: 'row',
+    justifyContent: 'flex-start',
+  },
+  // Specific widths for Leukocyte reference parts (inside leukocyteReferenceSubContainer)
+  leukocyteRefVal1Wrapper: {
+    width: 30,
     flexDirection: 'row',
     justifyContent: 'flex-end',
+  },
+  leukocyteRefPartSepText: {
+    width: 15,
+    textAlign: 'center',
+  },
+  leukocyteRefVal2Wrapper: {
+    width: 15,
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+  },
+  leukocyteRefUnitWrapper: {
+    width: 20,
+    flexDirection: 'row',
+    justifyContent: 'flex-start',
   },
   indicatorColumn: {
     width: 105,
@@ -622,25 +632,27 @@ export const ExamReportPdfContent = ({
       default: resultStyle = styles.resultNormal;
     }
 
-    const parsedFullRef = parseFullReferenceParts(ref?.full);
+    const parsedFullRefParts = parseLeukocyteReferenceParts(ref?.full); // Usar parseLeukocyteReferenceParts para a referência completa
 
     return (
       <View style={styles.paramRow}>
         <Text style={styles.paramName}>{label}</Text>
         <View style={styles.paramResultContainer}>
-          <View style={styles.paramResultValueWrapper}>
-            <Text style={[styles.paramResultValue, resultStyle]}>{value}</Text>
-          </View>
-          <View style={styles.paramResultUnitWrapper}>
-            <Text style={styles.paramResultUnit}>{unit}</Text>
-          </View>
+          <Text style={[styles.paramResultValue, resultStyle]}>{value}</Text>
+          <Text style={styles.paramResultUnit}>{unit}</Text>
         </View>
         <View style={styles.referenceContainer}>
-          <View style={styles.paramReferenceValueWrapper}>
-            <Text style={styles.refPartText}>{parsedFullRef.value}</Text>
-          </View>
-          <View style={styles.paramReferenceUnitWrapper}>
-            <Text style={styles.refPartText}>{parsedFullRef.unit}</Text>
+          <View style={styles.singleValueReferenceContent}> {/* Usar o novo estilo para o conteúdo da referência */}
+            <View style={styles.refVal1Wrapper}>
+              <Text style={styles.refPartText}>{parsedFullRefParts.val1}</Text>
+            </View>
+            {parsedFullRefParts.sep && <Text style={[styles.refPartText, styles.refPartSepText]}>{parsedFullRefParts.sep}</Text>}
+            <View style={styles.refVal2Wrapper}>
+              {parsedFullRefParts.val2 && <Text style={styles.refPartText}>{parsedFullRefParts.val2}</Text>}
+            </View>
+            <View style={styles.refUnitWrapper}>
+              {parsedFullRefParts.unit && <Text style={styles.refPartText}>{parsedFullRefParts.unit}</Text>}
+            </View>
           </View>
         </View>
         <View style={styles.indicatorColumn}>
@@ -720,27 +732,27 @@ export const ExamReportPdfContent = ({
         <View style={styles.referenceContainer}>
           {/* Relative Reference */}
           <View style={styles.leukocyteReferenceSubContainer}>
-            <View style={styles.refVal1Wrapper}>
+            <View style={styles.leukocyteRefVal1Wrapper}>
               <Text style={styles.refPartText}>{parsedRelRef.val1}</Text>
             </View>
-            {parsedRelRef.sep && <Text style={[styles.refPartText, styles.refPartSepText]}>{parsedRelRef.sep}</Text>}
-            <View style={[styles.refVal2Wrapper, { width: 30 }]}> {/* Override width for relative part */}
+            {parsedRelRef.sep && <Text style={[styles.refPartText, styles.leukocyteRefPartSepText]}>{parsedRelRef.sep}</Text>}
+            <View style={styles.leukocyteRefVal2Wrapper}>
               {parsedRelRef.val2 && <Text style={styles.refPartText}>{parsedRelRef.val2}</Text>}
             </View>
-            <View style={[styles.refUnitWrapper, { width: 20 }]}> {/* Override for relative unit */}
+            <View style={styles.leukocyteRefUnitWrapper}>
               {parsedRelRef.unit && <Text style={styles.refPartText}>{parsedRelRef.unit}</Text>}
             </View>
           </View>
           {/* Absolute Reference */}
           <View style={styles.leukocyteReferenceSubContainer}>
-            <View style={styles.refVal1Wrapper}>
+            <View style={styles.leukocyteRefVal1Wrapper}>
               <Text style={styles.refPartText}>{parsedAbsRef.val1}</Text>
             </View>
-            {parsedAbsRef.sep && <Text style={[styles.refPartText, styles.refPartSepText]}>{parsedAbsRef.sep}</Text>}
-            <View style={[styles.refVal2Wrapper, { width: 30 }]}> {/* Override width for absolute part */}
+            {parsedAbsRef.sep && <Text style={[styles.refPartText, styles.leukocyteRefPartSepText]}>{parsedAbsRef.sep}</Text>}
+            <View style={styles.leukocyteRefVal2Wrapper}>
               {parsedAbsRef.val2 && <Text style={styles.refPartText}>{parsedAbsRef.val2}</Text>}
             </View>
-            <View style={[styles.refUnitWrapper, { width: 20 }]}> {/* Override for absolute unit */}
+            <View style={styles.leukocyteRefUnitWrapper}>
               {parsedAbsRef.unit && <Text style={styles.refPartText}>{parsedAbsRef.unit}</Text>}
             </View>
           </View>
@@ -818,7 +830,7 @@ export const ExamReportPdfContent = ({
               <Text style={[styles.headerCell, styles.headerCellReference]}>REFERÊNCIA</Text>
               <Text style={[styles.headerCell, styles.headerCellIndicator]}>INDICADOR</Text>
             </View>
-            {renderHemogramParam("Eritrócitos", exam.eritrocitos, "M/mm3", "eritrocitos")}
+            {renderHemogramParam("Eritrócitos", exam.eritrocitos, "M/µL", "eritrocitos")}
             {renderHemogramParam("Hemoglobina", exam.hemoglobina, "g/dL", "hemoglobina")}
             {renderHemogramParam("Hematócrito", exam.hematocrito, "%", "hematocrito")}
             {renderHemogramParam("VCM", exam.vcm, "fL", "vcm")}
