@@ -342,28 +342,49 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  leukocyteRefValCell: { // NEW: Cell for reference value
-    width: 40, // Adjusted width
-    borderWidth: 1,
-    borderColor: '#0000FF', // Blue border
-    justifyContent: 'flex-end', // Align content to the right
-    paddingRight: 2,
-    minHeight: 18, // Ensure consistent height
+  // Define border colors
+  refBorderValue: {
+    borderColor: '#0000FF', // Blue
   },
-  leukocyteRefSepCell: { // NEW: Cell for separator
+  refBorderSeparator: {
+    borderColor: '#008000', // Green
+  },
+  refBorderUnit: {
+    borderColor: '#800080', // Purple
+  },
+  leukocyteRefValCellRelative: { // For val1 and val2 of relative
+    width: 20, // Fixed width as requested
+    borderWidth: 1,
+    justifyContent: 'flex-end',
+    paddingRight: 2,
+    minHeight: 18,
+  },
+  leukocyteRefSepCell: { // For separator (used by both relative and absolute)
     width: 10, // Adjusted width
     borderWidth: 1,
-    borderColor: '#008000', // Green border
     justifyContent: 'center', // Center content
     minHeight: 18, // Ensure consistent height
   },
-  leukocyteRefUnitCell: { // NEW: Cell for reference unit
+  leukocyteRefUnitCellRelative: { // For unit of relative
     width: 22.5, // Adjusted width
     borderWidth: 1,
-    borderColor: '#800080', // Purple border
     justifyContent: 'center', // Center content
     paddingLeft: 2, // Keep padding for visual separation from border
-    minHeight: 18, // Ensure consistent height
+    minHeight: 18,
+  },
+  leukocyteRefValCellAbsolute: { // For val1 and val2 of absolute
+    flex: 1, // Let it take remaining space
+    borderWidth: 1,
+    justifyContent: 'flex-end',
+    paddingRight: 2,
+    minHeight: 18,
+  },
+  leukocyteRefUnitCellAbsolute: { // For unit of absolute
+    width: 25, // Adjusted width
+    borderWidth: 1,
+    justifyContent: 'center',
+    paddingLeft: 2,
+    minHeight: 18,
   },
   refPartText: {
     fontSize: 9,
@@ -784,27 +805,27 @@ export const ExamReportPdfContent = ({
         <View style={styles.referenceContainer}>
           {/* Relative Reference */}
           <View style={styles.leukocyteReferenceSubContainer}>
-            <View style={styles.leukocyteRefValCell}>
+            <View style={[styles.leukocyteRefValCellRelative, styles.refBorderValue]}>
               <Text style={[styles.refPartText, styles.refTextRight]}>{parsedRelRef.val1}</Text>
             </View>
-            {parsedRelRef.sep && <View style={styles.leukocyteRefSepCell}><Text style={[styles.refPartText, styles.refTextCenter]}>{parsedRelRef.sep}</Text></View>}
-            <View style={styles.leukocyteRefValCell}>
+            {parsedRelRef.sep && <View style={[styles.leukocyteRefSepCell, styles.refBorderSeparator]}><Text style={[styles.refPartText, styles.refTextCenter]}>{parsedRelRef.sep}</Text></View>}
+            <View style={[styles.leukocyteRefValCellRelative, styles.refBorderValue]}>
               {parsedRelRef.val2 && <Text style={[styles.refPartText, styles.refTextRight]}>{parsedRelRef.val2}</Text>}
             </View>
-            <View style={styles.leukocyteRefUnitCell}>
+            <View style={[styles.leukocyteRefUnitCellRelative, styles.refBorderUnit]}>
               {parsedRelRef.unit && <Text style={[styles.refPartText, styles.refTextCenter]}>{parsedRelRef.unit}</Text>}
             </View>
           </View>
           {/* Absolute Reference */}
           <View style={styles.leukocyteReferenceSubContainer}>
-            <View style={styles.leukocyteRefValCell}>
+            <View style={[styles.leukocyteRefValCellAbsolute, styles.refBorderValue]}>
               <Text style={[styles.refPartText, styles.refTextRight]}>{parsedAbsRef.val1}</Text>
             </View>
-            {parsedAbsRef.sep && <View style={styles.leukocyteRefSepCell}><Text style={[styles.refPartText, styles.refTextCenter]}>{parsedAbsRef.sep}</Text></View>}
-            <View style={styles.leukocyteRefValCell}>
+            {parsedAbsRef.sep && <View style={[styles.leukocyteRefSepCell, styles.refBorderSeparator]}><Text style={[styles.refPartText, styles.refTextCenter]}>{parsedAbsRef.sep}</Text></View>}
+            <View style={[styles.leukocyteRefValCellAbsolute, styles.refBorderValue]}>
               {parsedAbsRef.val2 && <Text style={[styles.refPartText, styles.refTextRight]}>{parsedAbsRef.val2}</Text>}
             </View>
-            <View style={styles.leukocyteRefUnitCell}>
+            <View style={[styles.leukocyteRefUnitCellAbsolute, styles.refBorderUnit]}>
               {parsedAbsRef.unit && <Text style={[styles.refPartText, styles.refTextCenter]}>{parsedAbsRef.unit}</Text>}
             </View>
           </View>
