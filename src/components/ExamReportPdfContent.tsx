@@ -78,6 +78,8 @@ const formatNumberForDisplay = (num: number) => {
   }
 };
 
+const PLAQUETOGRAM_BORDER_COLOR = '#A0D9FF'; // Light blue for plaquetogram borders
+
 const styles = StyleSheet.create({
   page: {
     padding: 30,
@@ -291,7 +293,7 @@ const styles = StyleSheet.create({
     color: "#666",
     textAlign: 'left',
   },
-  // For multi-value results (Leukogram)
+  // For multi-value results (Leukogram) - REMOVIDAS BORDAS
   leukocyteResultContainer: { // This is now a flex container for its cells
     width: 100,
     flexDirection: 'row',
@@ -299,23 +301,17 @@ const styles = StyleSheet.create({
   },
   leukocyteResultValueCell: { // NEW: Cell for leukocyte result value
     flex: 1,
-    borderWidth: 1,
-    borderColor: '#ddd',
     justifyContent: 'flex-end',
     paddingRight: 2,
     minHeight: 18, // Ensure consistent height
   },
   leukocyteResultUnitCell: { // NEW: Cell for leukocyte result unit
     width: 15, // Fixed width for unit (e.g., %)
-    borderWidth: 1,
-    borderColor: '#ddd',
     justifyContent: 'center',
     minHeight: 18, // Ensure consistent height
   },
   leukocyteResultUnitCellAbs: { // NEW: Cell for leukocyte absolute unit (/µL)
     width: 25, // Fixed width for unit (e.g., /µL)
-    borderWidth: 1,
-    borderColor: '#ddd',
     justifyContent: 'center',
     minHeight: 18, // Ensure consistent height
   },
@@ -330,7 +326,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 
-  // New styles for granular reference columns (9 columns)
+  // New styles for granular reference columns (9 columns) - REMOVIDAS BORDAS
   referenceContainer: { // This is now a flex container for its cells
     width: 225, // Ajustado para acomodar o espaçador
     flexDirection: 'row',
@@ -353,42 +349,31 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  // REMOVIDO: refBorderValue, refBorderSeparator, refBorderUnit
   leukocyteRefValCellRelative: { // For val1 and val2 of relative
     width: 20, // Fixed width as requested
-    borderWidth: 1,
-    borderColor: '#ddd', // Corrigido para cinza padrão
     justifyContent: 'flex-end',
     paddingRight: 2,
     minHeight: 18,
   },
   leukocyteRefSepCell: { // For separator (used by both relative and absolute)
     width: 10, // Adjusted width
-    borderWidth: 1,
-    borderColor: '#ddd', // Corrigido para cinza padrão
     justifyContent: 'center', // Center content
     minHeight: 18, // Ensure consistent height
   },
   leukocyteRefUnitCellRelative: { // For unit of relative
     width: 22.5, // Adjusted width
-    borderWidth: 1,
-    borderColor: '#ddd', // Corrigido para cinza padrão
     justifyContent: 'center', // Center content
     paddingLeft: 2, // Keep padding for visual separation from border
     minHeight: 18,
   },
   leukocyteRefValCellAbsolute: { // For val1 and val2 of absolute
     width: 31, // Adjusted width to be 4/5 of 38.75 (77.5 / 2)
-    borderWidth: 1,
-    borderColor: '#ddd', // Corrigido para cinza padrão
     justifyContent: 'flex-end',
     paddingRight: 2,
     minHeight: 18,
   },
   leukocyteRefUnitCellAbsolute: { // For unit of absolute
     width: 25, // Adjusted width
-    borderWidth: 1,
-    borderColor: '#ddd', // Corrigido para cinza padrão
     justifyContent: 'center',
     paddingLeft: 2,
     minHeight: 18,
@@ -509,7 +494,6 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: "#333",
   },
-  // REMOVIDO: rowEven e rowOdd
 });
 
 // Componente para o Indicador (Barra com faixa verde e marcador de ponto)
@@ -673,7 +657,7 @@ export const ExamReportPdfContent = ({
     value: string | undefined,
     unit: string, // This unit is now just a fallback/hint, the actual unit comes from parsing ref.full
     referenceKey: string,
-    applyBottomBorder: boolean = false, // Nova prop para aplicar borda inferior
+    applyPlaquetogramBorders: boolean = false, // Nova prop
   ) => {
     if (!value) return null;
 
@@ -693,10 +677,16 @@ export const ExamReportPdfContent = ({
     return (
       <View style={[
         styles.paramRow,
-        applyBottomBorder && { borderBottomWidth: 1, borderBottomColor: '#ddd' }
+        applyPlaquetogramBorders && { borderBottomWidth: 1, borderBottomColor: PLAQUETOGRAM_BORDER_COLOR }
       ]}>
-        <Text style={styles.paramName}>{label}</Text>
-        <View style={styles.paramResultContainer}>
+        <Text style={[
+          styles.paramName,
+          applyPlaquetogramBorders && { borderRightWidth: 1, borderRightColor: PLAQUETOGRAM_BORDER_COLOR }
+        ]}>{label}</Text>
+        <View style={[
+          styles.paramResultContainer,
+          applyPlaquetogramBorders && { borderRightWidth: 1, borderRightColor: PLAQUETOGRAM_BORDER_COLOR }
+        ]}>
           <View style={styles.paramResultValueWrapper}>
             <Text style={[styles.paramResultValue, resultStyle]}>{value}</Text>
           </View>
@@ -706,7 +696,10 @@ export const ExamReportPdfContent = ({
           </View>
           <View style={styles.hemogramRefSpacer} /> {/* Existing spacer after unit */}
         </View>
-        <View style={styles.referenceContainer}>
+        <View style={[
+          styles.referenceContainer,
+          applyPlaquetogramBorders && { borderRightWidth: 1, borderRightColor: PLAQUETOGRAM_BORDER_COLOR }
+        ]}>
           {/* Using flexible wrappers for full reference display */}
           <View style={{ flexDirection: 'row', alignItems: 'center' }}> {/* Removed flexGrow: 1 and justifyContent: 'flex-end' from here */}
             <View style={styles.hemogramRefValWrapper}>
@@ -735,7 +728,10 @@ export const ExamReportPdfContent = ({
             )}
           </View>
         </View>
-        <View style={styles.headerCellSpacer} /> {/* Adicionada a nova coluna de espaçamento */}
+        <View style={[
+          styles.headerCellSpacer, // This is the empty spacer column
+          applyPlaquetogramBorders && { borderRightWidth: 1, borderRightColor: PLAQUETOGRAM_BORDER_COLOR }
+        ]} />
         <View style={styles.indicatorColumn}>
           {ref && ref.min !== undefined && ref.max !== undefined && !isNaN(normalizeNumber(value)) ? (
             <IndicatorBar value={value} minRef={ref.min} maxRef={ref.max} valueStatus={valueStatus} />
@@ -751,7 +747,6 @@ export const ExamReportPdfContent = ({
     relativeValue: string | undefined,
     absoluteValue: string | undefined,
     referenceKey: string, // Use a single key for both relative and absolute references
-    applyBottomBorder: boolean = false, // Nova prop para aplicar borda inferior
   ) => {
     if (!relativeValue && !absoluteValue) return null;
 
@@ -793,13 +788,10 @@ export const ExamReportPdfContent = ({
     const parsedAbsRef = parseLeukocyteReferenceParts(absRef?.absolute);
 
     return (
-      <View style={[
-        styles.paramRow,
-        applyBottomBorder && { borderBottomWidth: 1, borderBottomColor: '#ddd' }
-      ]}>
+      <View style={styles.paramRow}>
         <Text style={styles.paramName}>{label}</Text>
         
-        {/* Results Section */}
+        {/* Results Section - SEM BORDAS */}
         <View style={styles.leukocyteResultContainer}>
           {/* Relative Result */}
           <View style={styles.leukocyteResultValueCell}>
@@ -817,7 +809,7 @@ export const ExamReportPdfContent = ({
           </View>
         </View>
 
-        {/* References Section */}
+        {/* References Section - SEM BORDAS */}
         <View style={styles.referenceContainer}>
           {/* Relative Reference */}
           <View style={[styles.leukocyteReferenceSubContainer, styles.leukocyteReferenceSubContainerRelative]}>
