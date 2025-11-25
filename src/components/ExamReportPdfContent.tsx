@@ -83,6 +83,7 @@ const PLAQUETOGRAM_REF_VALUE_BORDER_COLOR = '#007bff'; // Vibrant blue for refer
 const PLAQUETOGRAM_REF_SEP_BORDER_COLOR = '#28a745'; // Green for reference separator
 const PLAQUETOGRAM_REF_UNIT_BORDER_COLOR = '#6f42c1'; // Purple for reference unit
 
+const INDICATOR_WIDTH = 2; // Largura dos separadores fixos
 
 const styles = StyleSheet.create({
   page: {
@@ -488,9 +489,9 @@ const styles = StyleSheet.create({
   // NEW: Styles for fixed indicators at 15% and 85%
   fixedIndicator: {
     position: 'absolute',
-    width: 1,
+    width: INDICATOR_WIDTH, // Usar a constante
     height: '100%',
-    backgroundColor: '#999999',
+    backgroundColor: '#666666', // Cinza mais escuro
     top: 0,
   },
 
@@ -511,7 +512,7 @@ const styles = StyleSheet.create({
   // REMOVED: footerContainer, signatureBlock, signatureLine, signatureLabel, signatureDetails, dateText
 });
 
-// Componente para o Indicador (Barra com faixa verde e marcador de ponto)
+// Componente para o Indicador (Barra com faixas de cor e marcador de ponto)
 interface IndicatorBarProps {
   value: string | undefined;
   minRef: number;
@@ -522,8 +523,8 @@ interface IndicatorBarProps {
 const IndicatorBar: React.FC<IndicatorBarProps> = ({ value, minRef, maxRef, valueStatus }) => {
   const BAR_WIDTH = 100;
   const BALL_SIZE = 8; // Smaller ball size
-  const ACTIVE_RANGE_START_PERCENT = 0.25; // Alterado para 25%
-  const ACTIVE_RANGE_END_PERCENT = 0.75;   // Alterado para 75%
+  const ACTIVE_RANGE_START_PERCENT = 0.25; // Primeiro separador em 25%
+  const ACTIVE_RANGE_END_PERCENT = 0.75;   // Segundo separador em 75%
 
   const numValue = normalizeNumber(value);
 
@@ -534,16 +535,16 @@ const IndicatorBar: React.FC<IndicatorBarProps> = ({ value, minRef, maxRef, valu
   // Only render ball if value is a valid number
   if (isNaN(numValue)) {
     return (
-      <View style={[styles.fixedBackgroundBar, { borderWidth: 1, borderColor: '#000000' }]}>
+      <View style={[styles.fixedBackgroundBar]}>
         {/* Red segment (0-25%) */}
-        <View style={[styles.colorSegment, { left: 0, width: '25%', backgroundColor: '#FF9999' }]} />
+        <View style={[styles.colorSegment, { left: 0, width: '25%', backgroundColor: '#FF6B6B' }]} />
         {/* Green segment (25-75%) */}
-        <View style={[styles.colorSegment, { left: '25%', width: '50%', backgroundColor: '#D4EDDA' }]} />
+        <View style={[styles.colorSegment, { left: '25%', width: '50%', backgroundColor: '#A8E6CF' }]} />
         {/* Gold segment (75-100%) */}
-        <View style={[styles.colorSegment, { left: '75%', width: '25%', backgroundColor: '#FFEB99' }]} />
+        <View style={[styles.colorSegment, { left: '75%', width: '25%', backgroundColor: '#FFDA79' }]} />
 
-        <View style={[styles.fixedIndicator, { left: ACTIVE_RANGE_START_PERCENT * BAR_WIDTH }]} />
-        <View style={[styles.fixedIndicator, { left: ACTIVE_RANGE_END_PERCENT * BAR_WIDTH }]} />
+        <View style={[styles.fixedIndicator, { left: (ACTIVE_RANGE_START_PERCENT * BAR_WIDTH) - (INDICATOR_WIDTH / 2) }]} />
+        <View style={[styles.fixedIndicator, { left: (ACTIVE_RANGE_END_PERCENT * BAR_WIDTH) - (INDICATOR_WIDTH / 2) }]} />
       </View>
     );
   }
@@ -581,16 +582,16 @@ const IndicatorBar: React.FC<IndicatorBarProps> = ({ value, minRef, maxRef, valu
   ballLeftPosition = Math.max(0, Math.min(BAR_WIDTH - BALL_SIZE, ballLeftPosition));
 
   return (
-    <View style={[styles.fixedBackgroundBar, { borderWidth: 1, borderColor: '#000000' }]}>
+    <View style={[styles.fixedBackgroundBar]}>
       {/* Red segment (0-25%) */}
-      <View style={[styles.colorSegment, { left: 0, width: '25%', backgroundColor: '#FF9999' }]} />
+      <View style={[styles.colorSegment, { left: 0, width: '25%', backgroundColor: '#FF6B6B' }]} />
       {/* Green segment (25-75%) */}
-      <View style={[styles.colorSegment, { left: '25%', width: '50%', backgroundColor: '#D4EDDA' }]} />
+      <View style={[styles.colorSegment, { left: '25%', width: '50%', backgroundColor: '#A8E6CF' }]} />
       {/* Gold segment (75-100%) */}
-      <View style={[styles.colorSegment, { left: '75%', width: '25%', backgroundColor: '#FFEB99' }]} />
+      <View style={[styles.colorSegment, { left: '75%', width: '25%', backgroundColor: '#FFDA79' }]} />
 
-      <View style={[styles.fixedIndicator, { left: ACTIVE_RANGE_START_PERCENT * BAR_WIDTH }]} />
-      <View style={[styles.fixedIndicator, { left: ACTIVE_RANGE_END_PERCENT * BAR_WIDTH }]} />
+      <View style={[styles.fixedIndicator, { left: (ACTIVE_RANGE_START_PERCENT * BAR_WIDTH) - (INDICATOR_WIDTH / 2) }]} />
+      <View style={[styles.fixedIndicator, { left: (ACTIVE_RANGE_END_PERCENT * BAR_WIDTH) - (INDICATOR_WIDTH / 2) }]} />
       <View style={[styles.ballMarker, { left: ballLeftPosition, backgroundColor: ballColor }]} />
     </View>
   );
