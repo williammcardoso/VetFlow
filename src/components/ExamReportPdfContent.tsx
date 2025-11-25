@@ -268,7 +268,7 @@ const styles = StyleSheet.create({
     borderBottomColor: "#000",
   },
   eritrogramPlaquetogramHeaderTitle: {
-    width: 115, // Aumentado para dar mais espaço
+    width: 125, // Aumentado para dar mais espaço
     fontSize: 13,
     fontWeight: "bold",
     color: "#333",
@@ -283,7 +283,7 @@ const styles = StyleSheet.create({
     textAlign: 'center', // Centered for single result label
   },
   eritrogramPlaquetogramHeaderReferenceLabel: {
-    width: 225,
+    width: 215, // Reduzido para compensar o aumento do título
     fontSize: 8,
     fontWeight: "bold",
     color: "#333",
