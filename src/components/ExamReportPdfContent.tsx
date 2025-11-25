@@ -509,7 +509,7 @@ const styles = StyleSheet.create({
     lineHeight: 1.4,
     marginBottom: 5,
   },
-  // REMOVED: footerContainer, signatureBlock, signatureLine, signatureLabel, signatureDetails, dateText
+  // REMOVIDO: footerContainer, signatureBlock, signatureLine, signatureLabel, signatureDetails, dateText
 });
 
 // Componente para o Indicador (Barra com faixas de cor e marcador de ponto)
@@ -529,12 +529,12 @@ const IndicatorBar: React.FC<IndicatorBarProps> = ({ value, minRef, maxRef, valu
   const numValue = normalizeNumber(value);
 
   // Definir cores fortes e suaves
-  const RED_STRONG = '#F44336'; // Vermelho mais suave
-  const RED_SOFT = '#FFCDD2';   // Vermelho ainda mais suave
-  const GREEN_STRONG = '#4CAF50'; // Verde mais agradável
-  const GREEN_SOFT = '#C8E6C9';   // Verde mais pálido
-  const GOLD_STRONG = '#FFC107'; // Dourado mais quente
-  const GOLD_SOFT = '#FFECB3';   // Dourado mais claro
+  const RED_STRONG = '#F47C7C'; // Vermelho mais suave (do print1)
+  const RED_SOFT = '#FFC0CB';   // Vermelho ainda mais suave (do print2)
+  const GREEN_STRONG = '#66CC33'; // Verde mais agradável (do print4)
+  const GREEN_SOFT = '#C8FFC8';   // Verde mais pálido (do print3)
+  const GOLD_STRONG = '#FFC107'; // Dourado mais quente (mantido)
+  const GOLD_SOFT = '#FFECB3';   // Dourado mais claro (mantido)
 
   let redSegmentColor = RED_SOFT;
   let greenSegmentColor = GREEN_SOFT;
