@@ -83,7 +83,9 @@ const PLAQUETOGRAM_REF_VALUE_BORDER_COLOR = '#007bff'; // Vibrant blue for refer
 const PLAQUETOGRAM_REF_SEP_BORDER_COLOR = '#28a745'; // Green for reference separator
 const PLAQUETOGRAM_REF_UNIT_BORDER_COLOR = '#6f42c1'; // Purple for reference unit
 
-const INDICATOR_WIDTH = 0.5; // Largura dos separadores fixos (alterado para 0.5)
+const INDICATOR_WIDTH = 0.85; // Largura dos separadores fixos (alterado para 0.85)
+const TRIANGLE_BASE = 10; // Base do triângulo
+const TRIANGLE_HEIGHT = 10; // Altura do triângulo
 
 const styles = StyleSheet.create({
   page: {
@@ -481,10 +483,16 @@ const styles = StyleSheet.create({
   // NEW: Style for the ball marker (now a thin vertical line)
   ballMarker: {
     position: 'absolute',
-    width: INDICATOR_WIDTH, // Use the same width as fixed indicators
-    height: '100%', // Span the full height of the bar
-    borderRadius: 0, // No rounded corners for a line
-    top: 0,
+    width: 0,
+    height: 0,
+    borderLeftWidth: TRIANGLE_BASE / 2,
+    borderRightWidth: TRIANGLE_BASE / 2,
+    borderTopWidth: TRIANGLE_HEIGHT, // Points downwards
+    borderStyle: 'solid',
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    borderTopColor: '#000000', // Always black
+    top: 4, // Center of the bar height (8/2)
   },
   // NEW: Styles for fixed indicators at 15% and 85%
   fixedIndicator: {
@@ -529,7 +537,7 @@ const IndicatorBar: React.FC<IndicatorBarProps> = ({ value, minRef, maxRef, valu
   const numValue = normalizeNumber(value);
 
   // Definir cores fortes e suaves
-  const RED_STRONG = '#FF4264'; // Vermelho forte (do print1)
+  const RED_STRONG = '#E82E32'; // Vermelho forte (do print1)
   const RED_SOFT = '#FFC0CB';   // Vermelho ainda mais suave (do print2)
   const GREEN_STRONG = '#6FE65E'; // Verde forte (do print4)
   const GREEN_SOFT = '#C8FFC8';   // Verde mais pálido (do print3)
@@ -596,11 +604,11 @@ const IndicatorBar: React.FC<IndicatorBarProps> = ({ value, minRef, maxRef, valu
     ballLeftPosition = activeStartPx + (proportionalPosition * activeRangeWidthPx);
   }
 
-  // Adjust position to center the marker (using INDICATOR_WIDTH for the line marker)
-  ballLeftPosition -= (INDICATOR_WIDTH / 2);
+  // Adjust position to center the marker (using TRIANGLE_BASE for the triangle marker)
+  ballLeftPosition -= (TRIANGLE_BASE / 2);
 
-  // Clamp marker position to ensure it stays within the overall bar boundaries (0 to BAR_WIDTH - INDICATOR_WIDTH)
-  ballLeftPosition = Math.max(0, Math.min(BAR_WIDTH - INDICATOR_WIDTH, ballLeftPosition));
+  // Clamp marker position to ensure it stays within the overall bar boundaries (0 to BAR_WIDTH - TRIANGLE_BASE)
+  ballLeftPosition = Math.max(0, Math.min(BAR_WIDTH - TRIANGLE_BASE, ballLeftPosition));
 
   return (
     <View style={[styles.fixedBackgroundBar]}>
