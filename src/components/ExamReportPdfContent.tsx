@@ -682,15 +682,15 @@ export const ExamReportPdfContent = ({
     return (
       <View style={[
         styles.paramRow,
-        applyPlaquetogramBorders && { borderBottomWidth: 1, borderBottomColor: PLAQUETOGRAM_BORDER_COLOR }
+        applyPlaquetogramBorders && { borderBottomWidth: 0 } // Removido borderBottomWidth
       ]}>
         <Text style={[
           styles.paramName,
-          applyPlaquetogramBorders && { borderRightWidth: 1, borderRightColor: PLAQUETOGRAM_BORDER_COLOR }
+          applyPlaquetogramBorders && { borderRightWidth: 0 } // Removido borderRightWidth
         ]}>{label}</Text>
         <View style={[
           styles.paramResultContainer,
-          applyPlaquetogramBorders && { borderRightWidth: 1, borderRightColor: PLAQUETOGRAM_BORDER_COLOR }
+          applyPlaquetogramBorders && { borderRightWidth: 0 } // Removido borderRightWidth
         ]}>
           <View style={styles.paramResultValueWrapper}>
             <Text style={[styles.paramResultValue, resultStyle]}>{value}</Text>
@@ -703,14 +703,14 @@ export const ExamReportPdfContent = ({
         </View>
         <View style={[
           styles.referenceContainer,
-          applyPlaquetogramBorders && { borderRightWidth: 1, borderRightColor: PLAQUETOGRAM_BORDER_COLOR }
+          // REMOVIDO: applyPlaquetogramBorders && { borderRightWidth: 1, borderRightColor: PLAQUETOGRAM_BORDER_COLOR }
         ]}>
           {/* Using flexible wrappers for full reference display */}
           <View style={{ flexDirection: 'row', alignItems: 'center' }}> {/* Removed flexGrow: 1 and justifyContent: 'flex-end' from here */}
             <View style={[
               styles.hemogramRefValWrapper,
               applyPlaquetogramBorders && styles.hemogramRefValWrapperPlaquetogram, // Apply new width conditionally
-              applyPlaquetogramBorders && { borderWidth: 1, borderColor: PLAQUETOGRAM_REF_VALUE_BORDER_COLOR }
+              applyPlaquetogramBorders && { borderWidth: 0 } // Removido borderWidth
             ]}>
               <Text style={styles.refPartText}>{parsedFullRefParts.val1}</Text>
             </View>
@@ -720,7 +720,7 @@ export const ExamReportPdfContent = ({
                 <Text style={[
                   styles.refPartText,
                   styles.hemogramRefPartSepText,
-                  applyPlaquetogramBorders && { borderWidth: 1, borderColor: PLAQUETOGRAM_REF_SEP_BORDER_COLOR }
+                  applyPlaquetogramBorders && { borderWidth: 0 } // Removido borderWidth
                 ]}>{parsedFullRefParts.sep}</Text>
                 <View style={styles.hemogramRefSpacer} /> {/* NEW: Spacer after sep */}
               </>
@@ -729,7 +729,7 @@ export const ExamReportPdfContent = ({
               <View style={[
                 styles.hemogramRefValWrapper,
                 applyPlaquetogramBorders && styles.hemogramRefValWrapperPlaquetogram, // Apply new width conditionally
-                applyPlaquetogramBorders && { borderWidth: 1, borderColor: PLAQUETOGRAM_REF_VALUE_BORDER_COLOR }
+                applyPlaquetogramBorders && { borderWidth: 0 } // Removido borderWidth
               ]}>
                 <Text style={styles.refPartText}>{parsedFullRefParts.val2}</Text>
               </View>
@@ -739,7 +739,7 @@ export const ExamReportPdfContent = ({
               <>
                 <View style={[
                   styles.hemogramRefUnitWrapper,
-                  applyPlaquetogramBorders && { borderWidth: 1, borderColor: PLAQUETOGRAM_REF_UNIT_BORDER_COLOR }
+                  applyPlaquetogramBorders && { borderWidth: 0 } // Removido borderWidth
                 ]}>
                   <Text style={styles.refPartText}>{parsedFullRefParts.unit}</Text>
                 </View>
@@ -750,7 +750,7 @@ export const ExamReportPdfContent = ({
         </View>
         <View style={[
           styles.headerCellSpacer, // This is the empty spacer column
-          applyPlaquetogramBorders && { borderRightWidth: 1, borderRightColor: PLAQUETOGRAM_BORDER_COLOR }
+          applyPlaquetogramBorders && { borderRightWidth: 0 } // Removido borderRightWidth
         ]} />
         <View style={styles.indicatorColumn}>
           {ref && ref.min !== undefined && ref.max !== undefined && !isNaN(normalizeNumber(value)) ? (
