@@ -529,9 +529,9 @@ const IndicatorBar: React.FC<IndicatorBarProps> = ({ value, minRef, maxRef, valu
   const numValue = normalizeNumber(value);
 
   // Definir cores fortes e suaves
-  const RED_STRONG = '#F47C7C'; // Vermelho mais suave (do print1)
+  const RED_STRONG = '#FF4264'; // Vermelho forte (do print1)
   const RED_SOFT = '#FFC0CB';   // Vermelho ainda mais suave (do print2)
-  const GREEN_STRONG = '#66CC33'; // Verde mais agradável (do print4)
+  const GREEN_STRONG = '#6FE65E'; // Verde forte (do print4)
   const GREEN_SOFT = '#C8FFC8';   // Verde mais pálido (do print3)
   const GOLD_STRONG = '#FFC107'; // Dourado mais quente (mantido)
   const GOLD_SOFT = '#FFECB3';   // Dourado mais claro (mantido)
@@ -550,9 +550,8 @@ const IndicatorBar: React.FC<IndicatorBarProps> = ({ value, minRef, maxRef, valu
     }
   }
 
-  let ballColor = styles.resultNormal.color;
-  if (valueStatus === 'high') ballColor = styles.resultHigh.color;
-  if (valueStatus === 'low') ballColor = styles.resultLow.color;
+  // A bolinha deve ser sempre preta
+  const ballColor = '#000000';
 
   // Only render ball if value is a valid number
   if (isNaN(numValue)) {
