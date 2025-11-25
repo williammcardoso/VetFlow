@@ -500,40 +500,7 @@ const styles = StyleSheet.create({
     lineHeight: 1.4,
     marginBottom: 5,
   },
-  footerContainer: {
-    position: 'absolute',
-    bottom: 30,
-    left: 30,
-    right: 30,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-end',
-    paddingTop: 20,
-    borderTopWidth: 1,
-    borderTopColor: "#eee",
-  },
-  signatureBlock: {
-    textAlign: 'center',
-    width: 180,
-  },
-  signatureLine: {
-    borderBottomWidth: 1,
-    borderBottomColor: "#333",
-    marginBottom: 3,
-    marginTop: 10,
-  },
-  signatureLabel: {
-    fontSize: 9,
-    color: "#333",
-  },
-  signatureDetails: {
-    fontSize: 9,
-    color: "#666",
-  },
-  dateText: {
-    fontSize: 10,
-    color: "#333",
-  },
+  // REMOVED: footerContainer, signatureBlock, signatureLine, signatureLabel, signatureDetails, dateText
 });
 
 // Componente para o Indicador (Barra com faixa verde e marcador de ponto)
@@ -1059,19 +1026,6 @@ export const ExamReportPdfContent = ({
             <Text style={styles.observationText}>{exam.observacoesGeraisExame}</Text>
           </View>
         )}
-
-        {/* Rodapé */}
-        <View style={styles.footerContainer} fixed>
-          <Text style={styles.dateText}>
-            Data de Emissão: {formatDateToPortuguese(currentDate)}
-          </Text>
-          <View style={styles.signatureBlock}>
-            <View style={styles.signatureLine}/>
-            <Text style={styles.signatureLabel}>Assinatura do Veterinário</Text>
-            <Text style={styles.signatureDetails}>{exam.vet}</Text>
-            {/* Adicionar CRMV e MAPA do veterinário se disponível */}
-          </View>
-        </View>
       </Page>
     </Document>
   );
