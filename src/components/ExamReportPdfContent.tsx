@@ -306,18 +306,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'flex-end', // Alinhado à direita
   },
-  paramReferenceValueWrapper: {
-    width: 180, // Fixed width for reference value
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-  },
-  paramReferenceUnitWrapper: {
-    width: 50, // Fixed width for reference unit
-    flexDirection: 'row',
-    justifyContent: 'flex-start',
-  },
   leukocyteReferenceSubContainer: {
-    width: 115,
+    width: 115, // Each sub-container for relative/absolute reference
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-end',
@@ -329,24 +319,19 @@ const styles = StyleSheet.create({
     flexShrink: 0,
     flexGrow: 0,
   },
-  refVal1Wrapper: {
-    width: 30,
+  refValWrapper: { // Generic wrapper for value parts, now flexible
     flexDirection: 'row',
     justifyContent: 'flex-end',
+    flexGrow: 1, // Allows it to take available space
   },
   refPartSepText: {
-    width: 15, // VOLTOU PARA 15px
+    width: 15, // Fixed width for separator
     textAlign: 'center',
   },
-  refVal2Wrapper: {
-    width: 30, // MANTIDO em 30px (base para o relativo)
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-  },
   refUnitWrapper: {
-    width: 20, // ALTERADO para 20px (default)
     flexDirection: 'row',
     justifyContent: 'flex-end',
+    width: 20, // Fixed width for unit
   },
   indicatorColumn: {
     width: 105,
@@ -561,24 +546,6 @@ const parseMinMaxFromReferenceString = (refString: string | undefined): { min: n
   return undefined;
 };
 
-// NEW: Helper function to parse full reference string into value and unit parts
-const parseFullReferenceParts = (refString: string | undefined) => {
-  if (!refString || refString === 'N/A' || refString.trim() === '') {
-    return { value: '', unit: '' };
-  }
-  const trimmedRefString = refString.trim();
-  // Regex to capture common units at the end of the string
-  const unitMatch = trimmedRefString.match(/(\s*(?:%|g\/dL|M\/mm3|fL|pg|\/µL|milhões\/mm3|mil\/µL|raros|un|g|mg|mL|mcg|UFC|UFC\/g|UFC\/g|UFC\/kg))$/);
-
-  if (unitMatch) {
-    const unit = unitMatch[1].trim();
-    const value = trimmedRefString.substring(0, unitMatch.index).trim();
-    return { value, unit };
-  }
-  // If no specific unit found, assume the whole string is the value or there's no unit
-  return { value: trimmedRefString, unit: '' };
-};
-
 
 export const ExamReportPdfContent = ({
   animalName, animalId, animalSpecies, tutorName, tutorAddress, exam, hemogramReferences, // hemogramReferences agora vem via props
@@ -624,7 +591,7 @@ export const ExamReportPdfContent = ({
       default: resultStyle = styles.resultNormal;
     }
 
-    const parsedFullRef = parseFullReferenceParts(ref?.full);
+    const parsedFullRefParts = parseLeukocyteReferenceParts(ref?.full);
 
     return (
       <View style={styles.paramRow}>
@@ -638,11 +605,18 @@ export const ExamReportPdfContent = ({
           </View>
         </View>
         <View style={styles.referenceContainer}>
-          <View style={styles.paramReferenceValueWrapper}>
-            <Text style={styles.refPartText}>{parsedFullRef.value}</Text>
-          </View>
-          <View style={styles.paramReferenceUnitWrapper}>
-            <Text style={styles.refPartText}>{parsedFullRef.unit}</Text>
+          {/* Using flexible wrappers for full reference display */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', flexGrow: 1, justifyContent: 'flex-end' }}>
+            <View style={styles.refValWrapper}>
+              <Text style={styles.refPartText}>{parsedFullRefParts.val1}</Text>
+            </View>
+            {parsedFullRefParts.sep && <Text style={[styles.refPartText, styles.refPartSepText]}>{parsedFullRefParts.sep}</Text>}
+            <View style={styles.refValWrapper}>
+              {parsedFullRefParts.val2 && <Text style={styles.refPartText}>{parsedFullRefParts.val2}</Text>}
+            </View>
+            <View style={styles.refUnitWrapper}>
+              {parsedFullRefParts.unit && <Text style={styles.refPartText}>{parsedFullRefParts.unit}</Text>}
+            </View>
           </View>
         </View>
         <View style={styles.indicatorColumn}>
@@ -722,27 +696,27 @@ export const ExamReportPdfContent = ({
         <View style={styles.referenceContainer}>
           {/* Relative Reference */}
           <View style={styles.leukocyteReferenceSubContainer}>
-            <View style={styles.refVal1Wrapper}>
+            <View style={styles.refValWrapper}>
               <Text style={styles.refPartText}>{parsedRelRef.val1}</Text>
             </View>
             {parsedRelRef.sep && <Text style={[styles.refPartText, styles.refPartSepText]}>{parsedRelRef.sep}</Text>}
-            <View style={[styles.refVal2Wrapper, { width: 30 }]}> {/* Override width for relative part */}
+            <View style={styles.refValWrapper}>
               {parsedRelRef.val2 && <Text style={styles.refPartText}>{parsedRelRef.val2}</Text>}
             </View>
-            <View style={[styles.refUnitWrapper, { width: 20 }]}> {/* Override for relative unit */}
+            <View style={styles.refUnitWrapper}>
               {parsedRelRef.unit && <Text style={styles.refPartText}>{parsedRelRef.unit}</Text>}
             </View>
           </View>
           {/* Absolute Reference */}
           <View style={styles.leukocyteReferenceSubContainer}>
-            <View style={styles.refVal1Wrapper}>
+            <View style={styles.refValWrapper}>
               <Text style={styles.refPartText}>{parsedAbsRef.val1}</Text>
             </View>
             {parsedAbsRef.sep && <Text style={[styles.refPartText, styles.refPartSepText]}>{parsedAbsRef.sep}</Text>}
-            <View style={[styles.refVal2Wrapper, { width: 30 }]}> {/* Override width for absolute part */}
+            <View style={styles.refValWrapper}>
               {parsedAbsRef.val2 && <Text style={styles.refPartText}>{parsedAbsRef.val2}</Text>}
             </View>
-            <View style={[styles.refUnitWrapper, { width: 20 }]}> {/* Override for absolute unit */}
+            <View style={styles.refUnitWrapper}>
               {parsedAbsRef.unit && <Text style={styles.refPartText}>{parsedAbsRef.unit}</Text>}
             </View>
           </View>
