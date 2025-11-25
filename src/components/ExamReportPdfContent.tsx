@@ -280,7 +280,7 @@ const styles = StyleSheet.create({
     fontSize: 8,
     fontWeight: "bold",
     color: "#333",
-    textAlign: 'center', // Centered for single result label
+    textAlign: 'right', // ALTERADO para right
   },
   eritrogramPlaquetogramHeaderReferenceLabel: {
     width: 215, // Reduzido para compensar o aumento do título
