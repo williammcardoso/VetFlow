@@ -400,6 +400,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'flex-end', // Keep right-aligned for values
   },
+  hemogramRefValWrapperPlaquetogram: { // NEW: Increased width for plaquetogram values
+    width: 40, // 20 * 2 = 40
+  },
   hemogramRefPartSepText: {
     width: 15,
     textAlign: 'center',
@@ -700,12 +703,13 @@ export const ExamReportPdfContent = ({
         </View>
         <View style={[
           styles.referenceContainer,
-          // REMOVIDO: applyPlaquetogramBorders && { borderRightWidth: 1, borderRightColor: PLAQUETOGRAM_BORDER_COLOR }
+          applyPlaquetogramBorders && { borderRightWidth: 1, borderRightColor: PLAQUETOGRAM_BORDER_COLOR }
         ]}>
           {/* Using flexible wrappers for full reference display */}
           <View style={{ flexDirection: 'row', alignItems: 'center' }}> {/* Removed flexGrow: 1 and justifyContent: 'flex-end' from here */}
             <View style={[
               styles.hemogramRefValWrapper,
+              applyPlaquetogramBorders && styles.hemogramRefValWrapperPlaquetogram, // Apply new width conditionally
               applyPlaquetogramBorders && { borderWidth: 1, borderColor: PLAQUETOGRAM_REF_VALUE_BORDER_COLOR }
             ]}>
               <Text style={styles.refPartText}>{parsedFullRefParts.val1}</Text>
@@ -724,6 +728,7 @@ export const ExamReportPdfContent = ({
             {parsedFullRefParts.val2 && ( // Only render val2 wrapper if val2 exists
               <View style={[
                 styles.hemogramRefValWrapper,
+                applyPlaquetogramBorders && styles.hemogramRefValWrapperPlaquetogram, // Apply new width conditionally
                 applyPlaquetogramBorders && { borderWidth: 1, borderColor: PLAQUETOGRAM_REF_VALUE_BORDER_COLOR }
               ]}>
                 <Text style={styles.refPartText}>{parsedFullRefParts.val2}</Text>
