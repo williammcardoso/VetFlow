@@ -249,7 +249,7 @@ const styles = StyleSheet.create({
     textAlign: 'center', // Centered
   },
   leukogramHeaderIndicatorLabel: {
-    width: 100, // Ajustado para acomodar o espaçador
+    width: 95, // Ajustado para acomodar o espaçador
     fontSize: 8, // Smaller font
     fontWeight: "bold",
     color: "#333",
@@ -268,7 +268,7 @@ const styles = StyleSheet.create({
     borderBottomColor: "#000",
   },
   eritrogramPlaquetogramHeaderTitle: {
-    width: 100,
+    width: 105, // Aumentado para dar mais espaço
     fontSize: 13,
     fontWeight: "bold",
     color: "#333",
