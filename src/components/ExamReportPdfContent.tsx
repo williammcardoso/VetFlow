@@ -622,6 +622,7 @@ export const ExamReportPdfContent = ({
           <View style={styles.paramResultUnitWrapper}>
             <Text style={styles.paramResultUnit}>{unit}</Text>
           </View>
+          <View style={styles.hemogramRefSpacer} /> {/* Adicionado o espaçador aqui */}
         </View>
         <View style={styles.referenceContainer}>
           {/* Using flexible wrappers for full reference display */}
