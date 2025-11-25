@@ -783,7 +783,7 @@ export const ExamReportPdfContent = ({
           <View style={styles.clinicAddressPhone}>
             <Text>{mockCompanySettings.address}</Text>
             <Text>{mockCompanySettings.city} - CEP: {mockCompanySettings.zipCode}</Text>
-            <Text>Telefone: {mockCompanySettings.phone}</Text>
+            <Text>Telefone: (19) 99363-1981</Text>
           </View>
         </View>
 
@@ -830,7 +830,7 @@ export const ExamReportPdfContent = ({
               <Text style={[styles.headerCell, styles.headerCellReference]}>REFERÊNCIA</Text>
               <Text style={[styles.headerCell, styles.headerCellIndicator]}>INDICADOR</Text>
             </View>
-            {renderHemogramParam("Eritrócitos", exam.eritrocitos, "M/µL", "eritrocitos")}
+            {renderHemogramParam("Eritrócitos", exam.eritrocitos, "M/mm3", "eritrocitos")}
             {renderHemogramParam("Hemoglobina", exam.hemoglobina, "g/dL", "hemoglobina")}
             {renderHemogramParam("Hematócrito", exam.hematocrito, "%", "hematocrito")}
             {renderHemogramParam("VCM", exam.vcm, "fL", "vcm")}
