@@ -695,11 +695,13 @@ export const ExamReportPdfContent = ({
           <View style={styles.paramResultValueWrapper}>
             <Text style={[styles.paramResultValue, resultStyle]}>{value}</Text>
           </View>
-          <View style={styles.hemogramRefSpacer} /> {/* NEW: Spacer after value */}
+          {/* Conditionally remove spacer for plaquetogram */}
+          {!applyPlaquetogramBorders && <View style={styles.hemogramRefSpacer} />} 
           <View style={styles.paramResultUnitWrapper}>
             <Text style={styles.paramResultUnit}>{unit}</Text>
           </View>
-          <View style={styles.hemogramRefSpacer} /> {/* Existing spacer after unit */}
+          {/* Conditionally remove spacer for plaquetogram */}
+          {!applyPlaquetogramBorders && <View style={styles.hemogramRefSpacer} />} 
         </View>
         <View style={[
           styles.referenceContainer,
@@ -714,7 +716,8 @@ export const ExamReportPdfContent = ({
             ]}>
               <Text style={styles.refPartText}>{parsedFullRefParts.val1}</Text>
             </View>
-            <View style={styles.hemogramRefSpacer} /> {/* NEW: Spacer after val1 */}
+            {/* Conditionally remove spacer for plaquetogram */}
+            {!applyPlaquetogramBorders && <View style={styles.hemogramRefSpacer} />} 
             {parsedFullRefParts.sep && (
               <>
                 <Text style={[
@@ -722,7 +725,8 @@ export const ExamReportPdfContent = ({
                   styles.hemogramRefPartSepText,
                   applyPlaquetogramBorders && { borderWidth: 0 } // Removido borderWidth
                 ]}>{parsedFullRefParts.sep}</Text>
-                <View style={styles.hemogramRefSpacer} /> {/* NEW: Spacer after sep */}
+                {/* Conditionally remove spacer for plaquetogram */}
+                {!applyPlaquetogramBorders && <View style={styles.hemogramRefSpacer} />} 
               </>
             )}
             {parsedFullRefParts.val2 && ( // Only render val2 wrapper if val2 exists
@@ -734,7 +738,8 @@ export const ExamReportPdfContent = ({
                 <Text style={styles.refPartText}>{parsedFullRefParts.val2}</Text>
               </View>
             )}
-            {parsedFullRefParts.val2 && <View style={styles.hemogramRefSpacer} />} {/* NEW: Spacer after val2 */}
+            {/* Conditionally remove spacer for plaquetogram */}
+            {parsedFullRefParts.val2 && !applyPlaquetogramBorders && <View style={styles.hemogramRefSpacer} />} 
             {parsedFullRefParts.unit && ( // Only render unit wrapper if unit exists
               <>
                 <View style={[
@@ -743,7 +748,8 @@ export const ExamReportPdfContent = ({
                 ]}>
                   <Text style={styles.refPartText}>{parsedFullRefParts.unit}</Text>
                 </View>
-                <View style={styles.hemogramRefSpacer} /> {/* NEW: Spacer after unit */}
+                {/* Conditionally remove spacer for plaquetogram */}
+                {!applyPlaquetogramBorders && <View style={styles.hemogramRefSpacer} />} 
               </>
             )}
           </View>
