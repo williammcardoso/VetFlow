@@ -180,11 +180,14 @@ const styles = StyleSheet.create({
     textAlign: "right",
   },
   headerCellReference: {
-    width: 230, // REFERÊNCIA - AJUSTADO
+    width: 225, // REFERÊNCIA - AJUSTADO para acomodar o espaçador
     textAlign: "right",
   },
+  headerCellSpacer: { // Nova coluna de espaçamento
+    width: 10,
+  },
   headerCellIndicator: {
-    width: 105, // INDICADOR - AJUSTADO
+    width: 100, // INDICADOR - AJUSTADO para acomodar o espaçador
     textAlign: "left", // ALTERADO para left
   },
 
@@ -207,7 +210,7 @@ const styles = StyleSheet.create({
     paddingLeft: 5,
   },
   leukogramHeaderReferenceLabels: {
-    width: 230, // Same width as referenceContainer
+    width: 225, // Ajustado para acomodar o espaçador
     flexDirection: 'row',
     alignItems: 'flex-end', // Align sub-labels to the bottom
   },
@@ -228,7 +231,7 @@ const styles = StyleSheet.create({
     textAlign: 'center', // Centered
   },
   leukogramHeaderIndicatorLabel: {
-    width: 105, // Same width as indicatorColumn
+    width: 100, // Ajustado para acomodar o espaçador
     fontSize: 8, // Smaller font
     fontWeight: "bold",
     color: "#333",
@@ -306,14 +309,14 @@ const styles = StyleSheet.create({
 
   // New styles for granular reference columns (9 columns)
   referenceContainer: {
-    width: 230,
+    width: 225, // Ajustado para acomodar o espaçador
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-end', // Alinhado à direita
     // backgroundColor: '#fff0f5', // REMOVIDO: TEMPORARY: Light pink for debugging
   },
   leukocyteReferenceSubContainer: {
-    width: 115, // Each sub-container for relative/absolute reference
+    width: 112.5, // Cada sub-contêiner para referência relativa/absoluta (225 / 2)
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-end',
@@ -353,7 +356,7 @@ const styles = StyleSheet.create({
     width: 5,
   },
   indicatorColumn: {
-    width: 105,
+    width: 100, // Ajustado para acomodar o espaçador
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-start', // ALTERADO para flex-start
@@ -654,6 +657,7 @@ export const ExamReportPdfContent = ({
             )}
           </View>
         </View>
+        <View style={styles.headerCellSpacer} /> {/* Adicionada a nova coluna de espaçamento */}
         <View style={styles.indicatorColumn}>
           {ref && ref.min !== undefined && ref.max !== undefined && !isNaN(normalizeNumber(value)) ? (
             <IndicatorBar value={value} minRef={ref.min} maxRef={ref.max} valueStatus={valueStatus} />
@@ -756,7 +760,7 @@ export const ExamReportPdfContent = ({
             </View>
           </View>
         </View>
-
+        <View style={styles.headerCellSpacer} /> {/* Adicionada a nova coluna de espaçamento */}
         <View style={styles.indicatorColumn}>
           {indicatorMin !== undefined && indicatorMax !== undefined && !isNaN(normalizeNumber(indicatorValue)) ? (
             <IndicatorBar value={indicatorValue} minRef={indicatorMin} maxRef={indicatorMax} valueStatus={indicatorValueStatus} />
@@ -827,6 +831,7 @@ export const ExamReportPdfContent = ({
               <Text style={[styles.headerCell, styles.headerCellName]}>NOME DO PARÂMETRO</Text>
               <Text style={[styles.headerCell, styles.headerCellResult]}>RESULTADO</Text>
               <Text style={[styles.headerCell, styles.headerCellReference]}>REFERÊNCIA</Text>
+              <Text style={[styles.headerCell, styles.headerCellSpacer]}></Text> {/* Nova coluna de espaçamento */}
               <Text style={[styles.headerCell, styles.headerCellIndicator]}>INDICADOR</Text>
             </View>
             {renderHemogramParam("Eritrócitos", exam.eritrocitos, "M/µL", "eritrocitos")}
@@ -856,6 +861,7 @@ export const ExamReportPdfContent = ({
                   <Text style={styles.leukogramHeaderLabelTextCentered}>Absoluto:</Text>
                 </View>
               </View>
+              <View style={styles.headerCellSpacer} /> {/* Nova coluna de espaçamento */}
               <Text style={styles.leukogramHeaderIndicatorLabel}>Indicador:</Text>
             </View>
 
@@ -882,6 +888,7 @@ export const ExamReportPdfContent = ({
               <Text style={[styles.headerCell, styles.headerCellName]}>NOME DO PARÂMETRO</Text>
               <Text style={[styles.headerCell, styles.headerCellResult]}>RESULTADO</Text>
               <Text style={[styles.headerCell, styles.headerCellReference]}>REFERÊNCIA</Text>
+              <Text style={[styles.headerCell, styles.headerCellSpacer]}></Text> {/* Nova coluna de espaçamento */}
               <Text style={[styles.headerCell, styles.headerCellIndicator]}>INDICADOR</Text>
             </View>
             {renderHemogramParam("Plaquetas totais", exam.contagemPlaquetaria, "/µL", "contagemPlaquetaria")}
