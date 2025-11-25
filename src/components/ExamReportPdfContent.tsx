@@ -309,7 +309,7 @@ const styles = StyleSheet.create({
     width: 100,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'flex-start', // ALTERADO para flex-start
+    justifyContent: 'flex-end', // ALTERADO para flex-end para empurrar o conteúdo para a direita
   },
   paramResultValueWrapper: {
     width: 70, // Fixed width for value
