@@ -280,7 +280,7 @@ const styles = StyleSheet.create({
     fontSize: 8,
     fontWeight: "bold",
     color: "#333",
-    textAlign: 'right', // ALTERADO para right
+    textAlign: 'left', // ALTERADO para left
   },
   eritrogramPlaquetogramHeaderReferenceLabel: {
     width: 215, // Reduzido para compensar o aumento do título
@@ -309,12 +309,13 @@ const styles = StyleSheet.create({
     width: 100,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'flex-end', // Alinhado à direita
+    justifyContent: 'flex-start', // ALTERADO para flex-start
   },
   paramResultValueWrapper: {
     width: 70, // Fixed width for value
     flexDirection: 'row',
     justifyContent: 'flex-end',
+    paddingLeft: 10, // ADICIONADO padding para empurrar o número
   },
   paramResultUnitWrapper: {
     width: 30, // Fixed width for unit
