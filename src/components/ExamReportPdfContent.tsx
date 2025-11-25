@@ -174,26 +174,18 @@ const styles = StyleSheet.create({
   },
   headerCellName: {
     width: 100, // NOME DO PARÂMETRO
-    // borderRightWidth: 1, // REMOVIDO DEBUG
-    // borderRightColor: '#ccc', // REMOVIDO DEBUG
   },
   headerCellResult: {
     width: 100, // RESULTADO - AJUSTADO
     textAlign: "right",
-    // borderRightWidth: 1, // REMOVIDO DEBUG
-    // borderRightColor: '#ccc', // REMOVIDO DEBUG
   },
   headerCellReference: {
     width: 230, // REFERÊNCIA - AJUSTADO
     textAlign: "right",
-    // borderRightWidth: 1, // REMOVIDO DEBUG
-    // borderRightColor: '#ccc', // REMOVIDO DEBUG
   },
   headerCellIndicator: {
     width: 105, // INDICADOR - AJUSTADO
     textAlign: "left", // ALTERADO para left
-    // borderRightWidth: 1, // REMOVIDO DEBUG
-    // borderRightColor: '#ccc', // REMOVIDO DEBUG
   },
 
   // NEW: Combined Leukogram Header Line (as per image)
@@ -203,10 +195,8 @@ const styles = StyleSheet.create({
     marginTop: 20, // ADICIONADO ESPAÇAMENTO
     marginBottom: 5, // Space below this header
     paddingBottom: 5,
-    borderBottomWidth: 1, // REMOVIDO
-    borderBottomColor: "#000", // REMOVIDO
-    // borderWidth: 1, // REMOVIDO DEBUG
-    // borderColor: 'red', // REMOVIDO DEBUG
+    borderBottomWidth: 1,
+    borderBottomColor: "#000",
   },
   leukogramHeaderTitle: {
     width: 200, // NOME DO PARÂMETRO (100) + RESULTADO (100)
@@ -215,20 +205,14 @@ const styles = StyleSheet.create({
     color: "#333",
     textTransform: "uppercase",
     paddingLeft: 5,
-    // borderWidth: 1, // REMOVIDO DEBUG
-    // borderColor: 'red', // REMOVIDO DEBUG
   },
   leukogramHeaderReferenceLabels: {
     width: 230, // Same width as referenceContainer
     flexDirection: 'row',
     alignItems: 'flex-end', // Align sub-labels to the bottom
-    // borderWidth: 1, // REMOVIDO DEBUG
-    // borderColor: 'red', // REMOVIDO DEBUG
   },
   leukogramRefLabelWrapper: { // New wrapper for each label
     width: '50%', // Each takes half the space
-    // borderWidth: 1, // REMOVIDO DEBUG
-    // borderColor: 'blue', // REMOVIDO DEBUG
   },
   leukogramHeaderLabelTextRightWithPadding: {
     fontSize: 8, // Smaller font for sub-labels
@@ -250,8 +234,6 @@ const styles = StyleSheet.create({
     color: "#333",
     textAlign: "left", // Aligned left
     paddingRight: 5, // Add some padding
-    // borderWidth: 1, // REMOVIDO DEBUG
-    // borderColor: 'red', // REMOVIDO DEBUG
   },
 
   paramRow: {
@@ -259,59 +241,50 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 0,
     minHeight: 18,
-    // borderWidth: 1, // REMOVIDO DEBUG
-    // borderColor: 'green', // REMOVIDO DEBUG
-    // REMOVIDO: borderBottomWidth: 1,
-    // REMOVIDO: borderBottomColor: '#eee',
   },
   paramName: {
     width: 100,
     fontSize: 9,
     color: "#333",
     paddingLeft: 5,
-    // borderWidth: 1, // REMOVIDO DEBUG
-    // borderColor: 'blue', // REMOVIDO DEBUG
-    // REMOVIDO: borderRightWidth: 1,
-    // REMOVIDO: borderRightColor: '#eee',
   },
   // For single-value results (Eritrograma, Plaquetas)
   paramResultContainer: {
     width: 100,
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  paramResultValueWrapper: {
+    width: 70, // Fixed width for value
+    flexDirection: 'row',
     justifyContent: 'flex-end',
-    // borderWidth: 1, // REMOVIDO DEBUG
-    // borderColor: 'blue', // REMOVIDO DEBUG
-    // REMOVIDO: borderRightWidth: 1,
-    // REMOVIDO: borderRightColor: '#eee',
+  },
+  paramResultUnitWrapper: {
+    width: 30, // Fixed width for unit
+    flexDirection: 'row',
+    justifyContent: 'flex-start',
   },
   paramResultValue: {
     fontSize: 9,
     fontWeight: "bold",
     textAlign: "right",
-    marginRight: 5,
   },
   paramResultUnit: {
     fontSize: 9,
     color: "#666",
+    textAlign: 'left',
   },
   // For multi-value results (Leukogram)
   leukocyteResultContainer: {
     width: 100,
     flexDirection: 'row',
     alignItems: 'center',
-    // borderWidth: 1, // REMOVIDO DEBUG
-    // borderColor: 'blue', // REMOVIDO DEBUG
-    // REMOVIDO: borderRightWidth: 1,
-    // REMOVIDO: borderRightColor: '#eee',
   },
   leukocyteResultSubContainer: {
     width: 50,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-end',
-    // borderWidth: 1, // REMOVIDO DEBUG
-    // borderColor: 'purple', // REMOVIDO DEBUG
   },
   leukocyteResultValue: {
     fontSize: 9,
@@ -330,19 +303,22 @@ const styles = StyleSheet.create({
     width: 230,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'flex-end', // ALTERADO para flex-end
-    // borderWidth: 1, // REMOVIDO DEBUG
-    // borderColor: 'blue', // REMOVIDO DEBUG
-    // REMOVIDO: borderRightWidth: 1,
-    // REMOVIDO: borderRightColor: '#eee',
+  },
+  paramReferenceValueWrapper: {
+    width: 180, // Fixed width for reference value
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+  },
+  paramReferenceUnitWrapper: {
+    width: 50, // Fixed width for reference unit
+    flexDirection: 'row',
+    justifyContent: 'flex-start',
   },
   leukocyteReferenceSubContainer: {
     width: 115,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-end',
-    // borderWidth: 1, // REMOVIDO DEBUG
-    // borderColor: 'purple', // REMOVIDO DEBUG
   },
   refPartText: {
     fontSize: 9,
@@ -361,7 +337,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   refVal2Wrapper: {
-    width: 15, // MANTIDO em 15px (base para o relativo)
+    width: 30, // MANTIDO em 30px (base para o relativo)
     flexDirection: 'row',
     justifyContent: 'flex-end',
   },
@@ -376,10 +352,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'flex-start', // ALTERADO para flex-start
     flexGrow: 1,
-    // borderWidth: 1, // REMOVIDO DEBUG
-    // borderColor: 'blue', // REMOVIDO DEBUG
-    // REMOVIDO: borderRightWidth: 1,
-    // REMOVIDO: borderRightColor: '#eee',
   },
   // NEW: Fixed background bar style
   fixedBackgroundBar: {
@@ -587,6 +559,24 @@ const parseMinMaxFromReferenceString = (refString: string | undefined): { min: n
   return undefined;
 };
 
+// NEW: Helper function to parse full reference string into value and unit parts
+const parseFullReferenceParts = (refString: string | undefined) => {
+  if (!refString || refString === 'N/A' || refString.trim() === '') {
+    return { value: '', unit: '' };
+  }
+  const trimmedRefString = refString.trim();
+  // Regex to capture common units at the end of the string
+  const unitMatch = trimmedRefString.match(/(\s*(?:%|g\/dL|M\/mm3|fL|pg|\/µL|milhões\/mm3|mil\/µL|raros|un|g|mg|mL|mcg|UFC|UFC\/g|UFC\/kg))$/);
+
+  if (unitMatch) {
+    const unit = unitMatch[1].trim();
+    const value = trimmedRefString.substring(0, unitMatch.index).trim();
+    return { value, unit };
+  }
+  // If no specific unit found, assume the whole string is the value or there's no unit
+  return { value: trimmedRefString, unit: '' };
+};
+
 
 export const ExamReportPdfContent = ({
   animalName, animalId, animalSpecies, tutorName, tutorAddress, exam, hemogramReferences, // hemogramReferences agora vem via props
@@ -616,7 +606,7 @@ export const ExamReportPdfContent = ({
   const renderHemogramParam = (
     label: string,
     value: string | undefined,
-    unit: string,
+    unit: string, // This unit is now just a fallback/hint, the actual unit comes from parsing ref.full
     referenceKey: string,
   ) => {
     if (!value) return null;
@@ -632,15 +622,26 @@ export const ExamReportPdfContent = ({
       default: resultStyle = styles.resultNormal;
     }
 
+    const parsedFullRef = parseFullReferenceParts(ref?.full);
+
     return (
       <View style={styles.paramRow}>
         <Text style={styles.paramName}>{label}</Text>
         <View style={styles.paramResultContainer}>
-          <Text style={[styles.paramResultValue, resultStyle]}>{value}</Text>
-          <Text style={styles.paramResultUnit}>{unit}</Text>
+          <View style={styles.paramResultValueWrapper}>
+            <Text style={[styles.paramResultValue, resultStyle]}>{value}</Text>
+          </View>
+          <View style={styles.paramResultUnitWrapper}>
+            <Text style={styles.paramResultUnit}>{unit}</Text>
+          </View>
         </View>
-        <View style={styles.referenceContainer}> {/* Usando o novo container de referência */}
-          <Text style={styles.refPartText}>{ref?.full || 'N/A'}</Text>
+        <View style={styles.referenceContainer}>
+          <View style={styles.paramReferenceValueWrapper}>
+            <Text style={styles.refPartText}>{parsedFullRef.value}</Text>
+          </View>
+          <View style={styles.paramReferenceUnitWrapper}>
+            <Text style={styles.refPartText}>{parsedFullRef.unit}</Text>
+          </View>
         </View>
         <View style={styles.indicatorColumn}>
           {ref && ref.min !== undefined && ref.max !== undefined && !isNaN(normalizeNumber(value)) ? (
@@ -723,10 +724,10 @@ export const ExamReportPdfContent = ({
               <Text style={styles.refPartText}>{parsedRelRef.val1}</Text>
             </View>
             {parsedRelRef.sep && <Text style={[styles.refPartText, styles.refPartSepText]}>{parsedRelRef.sep}</Text>}
-            <View style={[styles.refVal2Wrapper, { width: 15 }]}> {/* Override width for relative part */}
+            <View style={[styles.refVal2Wrapper, { width: 30 }]}> {/* Override width for relative part */}
               {parsedRelRef.val2 && <Text style={styles.refPartText}>{parsedRelRef.val2}</Text>}
             </View>
-            <View style={[styles.refUnitWrapper, { width: 15 }]}> {/* Override for relative unit */}
+            <View style={[styles.refUnitWrapper, { width: 20 }]}> {/* Override for relative unit */}
               {parsedRelRef.unit && <Text style={styles.refPartText}>{parsedRelRef.unit}</Text>}
             </View>
           </View>
