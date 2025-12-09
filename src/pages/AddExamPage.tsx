@@ -1,19 +1,19 @@
 import React, { useState, useEffect } from "react";
 import { Link, useParams, useNavigate } from "react-router-dom";
-import { FaArrowLeft, FaTimes, FaSave, FaCalendarAlt, FaFlask, FaMicroscope, FaFileMedicalAlt, FaNotesMedical, FaUserMd } from "react-icons/fa"; // Importar ícones de react-icons
+import { FaArrowLeft, FaTimes, FaSave, FaFlask, FaMicroscope, FaFileMedicalAlt, FaNotesMedical, FaUserMd, FaPlus, FaTrash } from "react-icons/fa";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { toast } from "sonner"; // Importar funções de toast
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"; // Importar Card para envolver o formulário
-import { mockClients } from "@/mockData/clients"; // Importar mockClients para obter a espécie do animal
-import { ExamEntry, HemogramReference, HemogramReferenceValue } from "@/types/exam"; // Importar a interface ExamEntry e as interfaces de referência
-import { addMockExam, updateMockExam, mockExams } from "@/mockData/exams"; // Importar funções de mock de exames
-import { hemogramReferences } from "@/constants/examReferences"; // Importar hemogramReferences do arquivo de constantes
+import { toast } from "sonner";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { mockClients } from "@/mockData/clients";
+import { ExamEntry, BiochemicalEntry } from "@/types/exam";
+import { addMockExam, updateMockExam, mockExams } from "@/mockData/exams";
+import { hemogramReferences } from "@/constants/examReferences";
 
-// Mock data para tipos de exame e veterinários (duplicado por enquanto, idealmente viria de um contexto ou API)
+// Tipos de exame
 const mockExamTypes = [
   { id: "1", name: "Hemograma Completo" },
   { id: "2", name: "Exame de Fezes" },
@@ -27,10 +27,34 @@ const mockExamTypes = [
 const mockVets = [
   { id: "1", name: "Dr. Silva" },
   { id: "2", name: "Dra. Costa" },
-  { id: "3", "name": "Dr. Souza" },
+  { id: "3", name: "Dr. Souza" },
 ];
 
-// Componente auxiliar para renderizar uma linha de campo com referência
+// Analitos/Enzimas comuns em rotina (cães e gatos)
+const biochemicalEnzymeOptions = [
+  "ALT (TGP)",
+  "AST (TGO)",
+  "ALP (Fosfatase Alcalina)",
+  "GGT",
+  "CK (CPK)",
+  "Amilase",
+  "Lipase",
+  "Ureia",
+  "Creatinina",
+  "Glicose",
+  "Colesterol",
+  "Triglicerídeos",
+  "Bilirrubina total",
+  "Bilirrubina direta",
+  "Proteínas totais",
+  "Albumina",
+  "Cálcio",
+  "Fósforo",
+  "Frutosamina",
+  "Outro",
+];
+
+// Componentes auxiliares (hemograma/leucograma)
 interface ExamFieldWithReferenceProps {
   id: string;
   label: string;
@@ -71,7 +95,6 @@ const ExamFieldWithReference = React.memo(({
   </div>
 ));
 
-// Componente auxiliar para campos de leucócitos (relativo e absoluto)
 interface LeukocyteFieldWithReferenceProps {
   idPrefix: string;
   label: string;
@@ -100,7 +123,6 @@ const LeukocyteFieldWithReference = React.memo(({
     <Input id={`${idPrefix}-absolute`} type="text" value={absoluteValue} onChange={onAbsoluteChange} className="w-[70px] bg-input flex-shrink-0" />
     <span className="text-xs text-muted-foreground flex-shrink-0">/µL</span>
 
-    {/* Dois quadrados separados para referências */}
     <div className="flex-1 flex flex-wrap gap-1 justify-end">
       <div className="flex-1 flex flex-col items-start p-1 border border-border rounded-md bg-background text-xs text-foreground overflow-hidden">
         <span className="font-medium flex-shrink-0">Relativo:</span>
@@ -118,29 +140,28 @@ const LeukocyteFieldWithReference = React.memo(({
   </div>
 ));
 
-
 const AddExamPage = () => {
-  const { clientId, animalId, examId } = useParams<{ clientId: string; animalId: string; examId?: string }>(); // Obter examId da URL
+  const { clientId, animalId, examId } = useParams<{ clientId: string; animalId: string; examId?: string }>();
   const navigate = useNavigate();
 
-  const isEditing = !!examId; // Determinar se está em modo de edição
+  const isEditing = !!examId;
 
   const currentClient = mockClients.find(c => c.id === clientId);
   const currentAnimal = currentClient?.animals.find(a => a.id === animalId);
   const animalSpecies = currentAnimal?.species === "Canino" ? "dog" : currentAnimal?.species === "Felino" ? "cat" : undefined;
 
-  // Estado do formulário
+  // Estado principal
   const [examDate, setExamDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [examTime, setExamTime] = useState<string>(new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
   const [examType, setExamType] = useState<string | undefined>(undefined);
-  const [examResult, setExamResult] = useState<string>(""); // Reintroduzido o estado examResult
+  const [examResult, setExamResult] = useState<string>("");
   const [examVet, setExamVet] = useState<string | undefined>(undefined);
 
-  // Novos campos gerais do exame
+  // Gerais (alguns tipos)
   const [material, setMaterial] = useState<string>("");
   const [equipamento, setEquipamento] = useState<string>("");
 
-  // Campos específicos para Eritrograma
+  // Eritrograma
   const [eritrocitos, setEritrocitos] = useState<string>("");
   const [hemoglobina, setHemoglobina] = useState<string>("");
   const [hematocrito, setHematocrito] = useState<string>("");
@@ -151,8 +172,8 @@ const AddExamPage = () => {
   const [hemaciasNucleadas, setHemaciasNucleadas] = useState<string>("");
   const [observacoesSerieVermelha, setObservacoesSerieVermelha] = useState<string>("");
 
-  // Campos específicos para Leucograma
-  const [leucocitosTotais, setLeucocitosTotais] = useState<string>(""); // Renomeado
+  // Leucograma
+  const [leucocitosTotais, setLeucocitosTotais] = useState<string>("");
   const [mielocitosRelativo, setMielocitosRelativo] = useState<string>("");
   const [mielocitosAbsoluto, setMielocitosAbsoluto] = useState<string>("");
   const [metamielocitosRelativo, setMetamielocitosRelativo] = useState<string>("");
@@ -171,18 +192,26 @@ const AddExamPage = () => {
   const [monocitosAbsoluto, setMonocitosAbsoluto] = useState<string>("");
   const [observacoesSerieBranca, setObservacoesSerieBranca] = useState<string>("");
 
-  // Campos específicos para Plaquetas
+  // Plaquetas
   const [contagemPlaquetaria, setContagemPlaquetaria] = useState<string>("");
   const [avaliacaoPlaquetaria, setAvaliacaoPlaquetaria] = useState<string>("");
 
-  // Campos adicionais do exame
+  // Bioquímico
+  const [biochemicalEntries, setBiochemicalEntries] = useState<BiochemicalEntry[]>([]);
+  const [selectedEnzyme, setSelectedEnzyme] = useState<string | undefined>(undefined);
+  const [customEnzyme, setCustomEnzyme] = useState<string>("");
+  const [bioMaterial, setBioMaterial] = useState<string>("Soro ou plasma");
+  const [bioMethodology, setBioMethodology] = useState<string>("Colorimétrico enzimático");
+  const [bioEquipment, setBioEquipment] = useState<string>("Bioclin 2200");
+  const [bioResult, setBioResult] = useState<string>("");
+
+  // Adicionais
   const [nota, setNota] = useState<string>("");
   const [laboratory, setLaboratory] = useState<string>("");
   const [laboratoryDate, setLaboratoryDate] = useState<string>("");
   const [observacoesGeraisExame, setObservacoesGeraisExame] = useState<string>("");
   const [liberadoPor, setLiberadoPor] = useState<string>("WILLIAM DE MORAES CARDOSO CRMV-SP 56895");
 
-  // Função para resetar todos os campos específicos de exame
   const resetExamSpecificFields = () => {
     setExamResult("");
     setMaterial("");
@@ -221,9 +250,18 @@ const AddExamPage = () => {
     setLaboratoryDate("");
     setObservacoesGeraisExame("");
     setLiberadoPor("WILLIAM DE MORAES CARDOSO CRMV-SP 56895");
+
+    // Bioquímico
+    setBiochemicalEntries([]);
+    setSelectedEnzyme(undefined);
+    setCustomEnzyme("");
+    setBioMaterial("Soro ou plasma");
+    setBioMethodology("Colorimétrico enzimático");
+    setBioEquipment("Bioclin 2200");
+    setBioResult("");
   };
 
-  // Carregar dados do exame se estiver em modo de edição
+  // Carregar dados ao editar
   useEffect(() => {
     if (isEditing && examId) {
       const examToEdit = mockExams.find(e => e.id === examId);
@@ -269,12 +307,12 @@ const AddExamPage = () => {
         setObservacoesGeraisExame(examToEdit.observacoesGeraisExame || "");
         setExamResult(examToEdit.result || "");
         setLiberadoPor(examToEdit.liberadoPor || "WILLIAM DE MORAES CARDOSO CRMV-SP 56895");
+        setBiochemicalEntries(examToEdit.biochemicalEntries || []);
       } else {
         toast.error("Exame não encontrado para edição.");
         navigate(`/clients/${clientId}/animals/${animalId}/record`);
       }
     } else {
-      // Reset fields when adding a new exam
       resetExamSpecificFields();
       setExamDate(new Date().toISOString().split('T')[0]);
       setExamTime(new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
@@ -283,31 +321,64 @@ const AddExamPage = () => {
     }
   }, [isEditing, examId, clientId, animalId, navigate]);
 
-  // Reset specific fields when examType changes (only if not editing, or if the type is actually changing)
+  // Reset ao trocar tipo
   useEffect(() => {
     if (!isEditing || (isEditing && examType !== mockExams.find(e => e.id === examId)?.type)) {
       resetExamSpecificFields();
-      // Set default material for Hemograma
       if (examType === "Hemograma Completo") {
         setMaterial("SANGUE COM E.D.T.A.");
+      }
+      if (examType === "Bioquímico") {
+        setBioMaterial("Soro ou plasma");
+        setBioMethodology("Colorimétrico enzimático");
+        setBioEquipment("Bioclin 2200");
       }
     }
   }, [examType, isEditing, examId]);
 
-
   const getReference = (param: string, type?: 'relative' | 'absolute' | 'full') => {
     if (!animalSpecies || !hemogramReferences[param]) return "N/A";
-
     const refData = hemogramReferences[param][animalSpecies];
-
-    if (type === 'full' && refData.full) {
-      return refData.full;
-    } else if (type === 'relative' && refData.relative) {
-      return refData.relative;
-    } else if (type === 'absolute' && refData.absolute) {
-      return refData.absolute;
-    }
+    if (type === 'full' && refData.full) return refData.full;
+    if (type === 'relative' && refData.relative) return refData.relative;
+    if (type === 'absolute' && refData.absolute) return refData.absolute;
     return "N/A";
+  };
+
+  // Bioquímico: adicionar/remover/atualizar
+  const handleAddBiochemical = () => {
+    const enzymeName = selectedEnzyme === "Outro" ? customEnzyme.trim() : (selectedEnzyme || "").trim();
+    if (!enzymeName) {
+      toast.error("Selecione ou informe a enzima/analito.");
+      return;
+    }
+    if (!bioResult.trim()) {
+      toast.error("Informe o resultado.");
+      return;
+    }
+    const entry: BiochemicalEntry = {
+      id: `bio-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      enzyme: enzymeName,
+      material: bioMaterial.trim() || "Soro ou plasma",
+      methodology: bioMethodology.trim() || "Colorimétrico enzimático",
+      equipment: bioEquipment.trim() || "Bioclin 2200",
+      result: bioResult.trim(),
+    };
+    setBiochemicalEntries(prev => [...prev, entry]);
+    setSelectedEnzyme(undefined);
+    setCustomEnzyme("");
+    setBioResult("");
+    toast.success("Analito adicionado.");
+  };
+
+  const handleRemoveBiochemical = (id: string) => {
+    setBiochemicalEntries(prev => prev.filter(e => e.id !== id));
+  };
+
+  const handleUpdateBiochemical = (id: string, field: keyof BiochemicalEntry, value: string) => {
+    setBiochemicalEntries(prev =>
+      prev.map(e => (e.id === id ? { ...e, [field]: value } : e))
+    );
   };
 
   const handleSaveExam = () => {
@@ -316,8 +387,13 @@ const AddExamPage = () => {
       return;
     }
 
+    if (examType === "Bioquímico" && biochemicalEntries.length === 0) {
+      toast.error("Adicione pelo menos um analito bioquímico.");
+      return;
+    }
+
     const examData: ExamEntry = {
-      id: examId || `exam-${Date.now()}`, // Usar examId existente ou gerar novo
+      id: examId || `exam-${Date.now()}`,
       date: examDate,
       time: examTime,
       type: examType,
@@ -363,25 +439,29 @@ const AddExamPage = () => {
         avaliacaoPlaquetaria: avaliacaoPlaquetaria.trim() || undefined,
         nota: nota.trim() || undefined,
       });
+    } else if (examType === "Bioquímico") {
+      Object.assign(examData, {
+        biochemicalEntries: biochemicalEntries.length ? biochemicalEntries : undefined,
+      });
     } else {
       examData.result = examResult.trim() || undefined;
     }
 
     if (isEditing && examId) {
-      updateMockExam(examData); // Atualiza o exame existente
+      updateMockExam(examData);
       toast.success("Exame atualizado com sucesso!");
     } else {
-      addMockExam(examData); // Adiciona um novo exame
+      addMockExam(examData);
       toast.success("Exame salvo com sucesso!");
     }
-    navigate(`/clients/${clientId}/animals/${animalId}/record`); // Voltar para o prontuário
+    navigate(`/clients/${clientId}/animals/${animalId}/record`);
   };
 
   const pageTitle = isEditing ? "Editar Exame" : "Adicionar Exame";
 
   return (
     <div className="flex flex-col min-h-screen bg-background">
-      {/* Header da Página com Gradiente e Breadcrumb */}
+      {/* Header */}
       <div className="bg-gradient-to-r from-background via-card to-background p-6 pb-4 border-b border-border">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-2 gap-4 sm:gap-2">
           <div className="flex items-center gap-4">
@@ -405,9 +485,11 @@ const AddExamPage = () => {
         </p>
       </div>
 
+      {/* Conteúdo */}
       <div className="flex-1 p-6">
         <Card className="shadow-sm border border-border rounded-md">
           <CardContent className="grid gap-4 py-4">
+            {/* Passo 1 */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="examDate">Data do Exame</Label>
@@ -450,7 +532,7 @@ const AddExamPage = () => {
                   <SelectTrigger id="examVet" className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200 w-full">
                     <SelectValue placeholder="Selecione o veterinário" />
                   </SelectTrigger>
-                    <SelectContent>
+                  <SelectContent>
                     {mockVets.map((vet) => (
                       <SelectItem key={vet.id} value={vet.name}>
                         {vet.name}
@@ -461,7 +543,8 @@ const AddExamPage = () => {
               </div>
             </div>
 
-            {examType === "Hemograma Completo" ? (
+            {/* Hemograma */}
+            {examType === "Hemograma Completo" && (
               <>
                 <Card className="bg-muted/50 shadow-sm border border-border rounded-md p-4 mt-6">
                   <CardHeader className="pb-3">
@@ -511,14 +594,14 @@ const AddExamPage = () => {
                 </Card>
 
                 <div className="flex flex-col lg:flex-row gap-6 mt-6">
-                  {/* Eritrograma Section */}
+                  {/* Eritrograma */}
                   <Card className="bg-muted/50 shadow-sm border border-border rounded-md p-4 w-full lg:w-[45%]">
                     <CardHeader className="pb-3">
                       <CardTitle className="flex items-center gap-2 text-lg font-semibold text-foreground">
                         <FaFileMedicalAlt className="h-5 w-5 text-primary" /> Eritrograma
                       </CardTitle>
                     </CardHeader>
-                    <CardContent className="grid gap-4 pt-0 px-2"> {/* Ajustado padding horizontal */}
+                    <CardContent className="grid gap-4 pt-0 px-2">
                       <ExamFieldWithReference getReference={getReference} id="eritrocitos" label="Eritrócitos" value={eritrocitos} onChange={(e) => setEritrocitos(e.target.value)} referenceKey="eritrocitos" unit="M/µL" />
                       <ExamFieldWithReference getReference={getReference} id="hemoglobina" label="Hemoglobina" value={hemoglobina} onChange={(e) => setHemoglobina(e.target.value)} referenceKey="hemoglobina" unit="g/dL" />
                       <ExamFieldWithReference getReference={getReference} id="hematocrito" label="Hematócrito" value={hematocrito} onChange={(e) => setHematocrito(e.target.value)} referenceKey="hematocrito" unit="%" />
@@ -535,16 +618,15 @@ const AddExamPage = () => {
                     </CardContent>
                   </Card>
 
-                  {/* Leucograma Section */}
+                  {/* Leucograma */}
                   <Card className="bg-muted/50 shadow-sm border border-border rounded-md p-4 w-full lg:w-[55%]">
                     <CardHeader className="pb-3">
                       <CardTitle className="flex items-center gap-2 text-lg font-semibold text-foreground">
                         <FaUserMd className="h-5 w-5 text-primary" /> Leucograma
                       </CardTitle>
                     </CardHeader>
-                    <CardContent className="grid gap-4 pt-0 px-2"> {/* Ajustado padding horizontal */}
+                    <CardContent className="grid gap-4 pt-0 px-2">
                       <ExamFieldWithReference getReference={getReference} id="leucocitosTotais" label="Leucócitos totais" value={leucocitosTotais} onChange={(e) => setLeucocitosTotais(e.target.value)} referenceKey="leucocitosTotais" unit="/µL" />
-                      
                       <LeukocyteFieldWithReference getReference={getReference} idPrefix="mielocitos" label="Mielócitos" relativeValue={mielocitosRelativo} onRelativeChange={(e) => setMielocitosRelativo(e.target.value)} absoluteValue={mielocitosAbsoluto} onAbsoluteChange={(e) => setMielocitosAbsoluto(e.target.value)} referenceKey="mielocitos" />
                       <LeukocyteFieldWithReference getReference={getReference} idPrefix="metamielocitos" label="Metamielócitos" relativeValue={metamielocitosRelativo} onRelativeChange={(e) => setMetamielocitosRelativo(e.target.value)} absoluteValue={metamielocitosAbsoluto} onAbsoluteChange={(e) => setMetamielocitosAbsoluto(e.target.value)} referenceKey="metamielocitos" />
                       <LeukocyteFieldWithReference getReference={getReference} idPrefix="bastonetes" label="Bastonetes" relativeValue={bastonetesRelativo} onRelativeChange={(e) => setBastonetesRelativo(e.target.value)} absoluteValue={bastonetesAbsoluto} onAbsoluteChange={(e) => setBastonetesAbsoluto(e.target.value)} referenceKey="bastonetes" />
@@ -562,14 +644,14 @@ const AddExamPage = () => {
                   </Card>
                 </div>
 
-                {/* Plaquetas Section */}
+                {/* Plaquetas */}
                 <Card className="bg-muted/50 shadow-sm border border-border rounded-md p-4 mt-6">
                   <CardHeader className="pb-3">
                     <CardTitle className="flex items-center gap-2 text-lg font-semibold text-foreground">
                       <FaFileMedicalAlt className="h-5 w-5 text-primary" /> Plaquetas
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-0 px-2"> {/* Ajustado padding horizontal */}
+                  <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-0 px-2">
                     <ExamFieldWithReference getReference={getReference} id="contagemPlaquetaria" label="Contagem plaquetária" value={contagemPlaquetaria} onChange={(e) => setContagemPlaquetaria(e.target.value)} referenceKey="contagemPlaquetaria" unit="/µL" />
                     <div className="space-y-2 col-span-full">
                       <Label htmlFor="avaliacaoPlaquetaria" className="text-muted-foreground font-medium">Avaliação plaquetária</Label>
@@ -578,7 +660,7 @@ const AddExamPage = () => {
                   </CardContent>
                 </Card>
 
-                {/* Campo Nota */}
+                {/* Nota */}
                 <Card className="bg-muted/50 shadow-sm border border-border rounded-md p-4 mt-6">
                   <CardHeader className="pb-3">
                     <CardTitle className="flex items-center gap-2 text-lg font-semibold text-foreground">
@@ -600,7 +682,189 @@ const AddExamPage = () => {
                   </CardContent>
                 </Card>
               </>
-            ) : examType ? ( // Se um tipo de exame foi selecionado, mas não é Hemograma Completo
+            )}
+
+            {/* Bioquímico */}
+            {examType === "Bioquímico" && (
+              <>
+                {/* Passo 2: adicionar analito */}
+                <Card className="bg-muted/50 shadow-sm border border-border rounded-md p-4 mt-6">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="flex items-center gap-2 text-lg font-semibold text-foreground">
+                      <FaMicroscope className="h-5 w-5 text-primary" /> Adicionar analito bioquímico
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-0 px-2">
+                    <div className="space-y-2">
+                      <Label>Analito/Enzima</Label>
+                      <Select value={selectedEnzyme} onValueChange={setSelectedEnzyme}>
+                        <SelectTrigger className="bg-input rounded-md border-border">
+                          <SelectValue placeholder="Selecione um analito" />
+                        </SelectTrigger>
+                        <SelectContent className="max-h-72">
+                          {biochemicalEnzymeOptions.map(opt => (
+                            <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {selectedEnzyme === "Outro" && (
+                        <Input
+                          placeholder="Informe o nome do analito"
+                          value={customEnzyme}
+                          onChange={(e) => setCustomEnzyme(e.target.value)}
+                          className="bg-input mt-2"
+                        />
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Resultado</Label>
+                      <Input
+                        placeholder="Resultado"
+                        value={bioResult}
+                        onChange={(e) => setBioResult(e.target.value)}
+                        className="bg-input"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Material</Label>
+                      <Input value={bioMaterial} onChange={(e) => setBioMaterial(e.target.value)} className="bg-input" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Metodologia</Label>
+                      <Input value={bioMethodology} onChange={(e) => setBioMethodology(e.target.value)} className="bg-input" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Equipamento</Label>
+                      <Input value={bioEquipment} onChange={(e) => setBioEquipment(e.target.value)} className="bg-input" />
+                    </div>
+                    <div className="flex items-end">
+                      <Button type="button" onClick={handleAddBiochemical} className="flex items-center gap-2">
+                        <FaPlus className="h-4 w-4" /> Adicionar
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Lista de analitos adicionados */}
+                {biochemicalEntries.length > 0 && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+                    {biochemicalEntries.map((entry) => (
+                      <Card key={entry.id} className="border border-border rounded-md">
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-base">{entry.enzyme}</CardTitle>
+                        </CardHeader>
+                        <CardContent className="grid gap-3 pt-0">
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-1">
+                              <Label>Material</Label>
+                              <Input
+                                value={entry.material}
+                                onChange={(e) => handleUpdateBiochemical(entry.id, "material", e.target.value)}
+                                className="bg-input"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <Label>Metodologia</Label>
+                              <Input
+                                value={entry.methodology}
+                                onChange={(e) => handleUpdateBiochemical(entry.id, "methodology", e.target.value)}
+                                className="bg-input"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <Label>Equipamento</Label>
+                              <Input
+                                value={entry.equipment}
+                                onChange={(e) => handleUpdateBiochemical(entry.id, "equipment", e.target.value)}
+                                className="bg-input"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <Label>Resultado</Label>
+                              <Input
+                                value={entry.result}
+                                onChange={(e) => handleUpdateBiochemical(entry.id, "result", e.target.value)}
+                                className="bg-input"
+                              />
+                            </div>
+                          </div>
+                          <div className="flex justify-end">
+                            <Button variant="outline" type="button" onClick={() => handleRemoveBiochemical(entry.id)} className="text-red-600 hover:text-red-700">
+                              <FaTrash className="h-4 w-4 mr-2" /> Remover
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+
+                {/* Informações do laboratório para Bioquímico */}
+                <Card className="bg-muted/50 shadow-sm border border-border rounded-md p-4 mt-6">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="flex items-center gap-2 text-lg font-semibold text-foreground">
+                      <FaMicroscope className="h-5 w-5 text-primary" /> Informações do Laboratório
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-0 px-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="laboratory">Laboratório</Label>
+                      <Input
+                        id="laboratory"
+                        placeholder="Nome do laboratório"
+                        value={laboratory}
+                        onChange={(e) => setLaboratory(e.target.value)}
+                        className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="laboratoryDate">Data do Resultado</Label>
+                      <Input
+                        id="laboratoryDate"
+                        type="date"
+                        value={laboratoryDate}
+                        onChange={(e) => setLaboratoryDate(e.target.value)}
+                        className="bg-input rounded-md border-border focus:ring-2 focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200"
+                      />
+                    </div>
+                    <div className="space-y-2 col-span-full">
+                      <Label htmlFor="liberadoPor">Liberado por</Label>
+                      <Input
+                        id="liberadoPor"
+                        value={liberadoPor}
+                        onChange={(e) => setLiberadoPor(e.target.value)}
+                        className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200"
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Observações gerais (opcional) */}
+                <Card className="bg-muted/50 shadow-sm border border-border rounded-md p-4 mt-6">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="flex items-center gap-2 text-lg font-semibold text-foreground">
+                      <FaNotesMedical className="h-5 w-5 text-primary" /> Observações Gerais do Exame
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="pt-0 px-2">
+                    <div className="space-y-2 col-span-full">
+                      <Label htmlFor="observacoesGeraisExame">Observações</Label>
+                      <Textarea
+                        id="observacoesGeraisExame"
+                        placeholder="Observações gerais do exame"
+                        value={observacoesGeraisExame}
+                        onChange={(e) => setObservacoesGeraisExame(e.target.value)}
+                        rows={3}
+                        className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200"
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
+              </>
+            )}
+
+            {/* Outros tipos (genérico) */}
+            {examType && examType !== "Hemograma Completo" && examType !== "Bioquímico" && (
               <>
                 <Card className="bg-muted/50 shadow-sm border border-border rounded-md p-4 mt-6">
                   <CardHeader className="pb-3">
@@ -682,16 +946,11 @@ const AddExamPage = () => {
                   </CardContent>
                 </Card>
               </>
-            ) : (
-              <Card className="bg-muted/50 shadow-sm border border-border rounded-md p-4 mt-6 text-center">
-                <CardContent className="py-4">
-                  <p className="text-muted-foreground">Selecione um tipo de exame para preencher os detalhes.</p>
-                </CardContent>
-              </Card>
             )}
           </CardContent>
         </Card>
 
+        {/* Ações */}
         <div className="flex flex-col sm:flex-row justify-end gap-2 mt-6">
           <Link to={`/clients/${clientId}/animals/${animalId}/record`}>
             <Button variant="outline" className="w-full sm:w-auto bg-card border border-border text-foreground hover:bg-muted rounded-md transition-all duration-200 shadow-sm hover:shadow-md">

@@ -518,6 +518,13 @@ const styles = StyleSheet.create({
     marginBottom: 5,
   },
   // REMOVIDO: footerContainer, signatureBlock, signatureLine, signatureLabel, signatureDetails, dateText
+  signatureSmall: {
+    fontSize: 9,
+    color: "#333",
+    fontStyle: "italic",
+    marginTop: 2,
+    marginBottom: 6,
+  },
 });
 
 // Componente para o Indicador (Barra com faixas de cor e marcador de ponto)
@@ -1060,6 +1067,30 @@ export const ExamReportPdfContent = ({
               <View style={{ marginTop: 15 }}>
                 <Text style={styles.subsectionTitle}>Nota:</Text>
                 <Text style={styles.observationText}>{exam.nota}</Text>
+              </View>
+            )}
+          </>
+        ) : exam.type === "Bioquímico" && exam.biochemicalEntries && exam.biochemicalEntries.length > 0 ? (
+          <>
+            <Text style={styles.sectionTitle}>BIOQUÍMICO</Text>
+            {exam.biochemicalEntries.map((b, idx) => (
+              <View key={b.id || idx} style={{ marginBottom: 8 }}>
+                <Text style={styles.subsectionTitle}>{b.enzyme}</Text>
+                <View style={{ marginLeft: 6 }}>
+                  {b.material ? <Text style={styles.infoText}>Material: {b.material}</Text> : null}
+                  {b.methodology ? <Text style={styles.infoText}>Metodologia: {b.methodology}</Text> : null}
+                  {b.equipment ? <Text style={styles.infoText}>Equipamento: {b.equipment}</Text> : null}
+                  {b.result ? <Text style={styles.infoText}>Resultado: {b.result}</Text> : null}
+                </View>
+                <Text style={styles.signatureSmall}>
+                  Assinado eletronicamente por: {exam.liberadoPor || "Não informado"}
+                </Text>
+              </View>
+            ))}
+            {exam.observacoesGeraisExame && (
+              <View style={{ marginTop: 10 }}>
+                <Text style={styles.sectionTitle}>Observações Gerais do Exame</Text>
+                <Text style={styles.observationText}>{exam.observacoesGeraisExame}</Text>
               </View>
             )}
           </>
