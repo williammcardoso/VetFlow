@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Link, useParams, useNavigate } from "react-router-dom";
-import { FaArrowLeft, FaTimes, FaSave, FaCalendarAlt, FaFlask, FaMicroscope, FaFileMedicalAlt, FaNotesMedical, FaUserMd, FaPlus } from "react-icons/fa"; // Importar ícones de react-icons
+import { FaArrowLeft, FaTimes, FaSave, FaCalendarAlt, FaFlask, FaMicroscope, FaFileMedicalAlt, FaNotesMedical, FaUserMd } from "react-icons/fa"; // Importar ícones de react-icons
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -9,10 +9,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner"; // Importar funções de toast
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"; // Importar Card para envolver o formulário
 import { mockClients } from "@/mockData/clients"; // Importar mockClients para obter a espécie do animal
-import { ExamEntry, BiochemicalEntry } from "@/types/exam"; // Importar a interface ExamEntry e as interfaces de referência
+import { ExamEntry, HemogramReference, HemogramReferenceValue } from "@/types/exam"; // Importar a interface ExamEntry e as interfaces de referência
 import { addMockExam, updateMockExam, mockExams } from "@/mockData/exams"; // Importar funções de mock de exames
 import { hemogramReferences } from "@/constants/examReferences"; // Importar hemogramReferences do arquivo de constantes
-import BiochemicalExamForm from "@/components/BiochemicalExamForm"; // Importar o novo componente
 
 // Mock data para tipos de exame e veterinários (duplicado por enquanto, idealmente viria de um contexto ou API)
 const mockExamTypes = [
@@ -134,15 +133,12 @@ const AddExamPage = () => {
   const [examDate, setExamDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [examTime, setExamTime] = useState<string>(new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
   const [examType, setExamType] = useState<string | undefined>(undefined);
+  const [examResult, setExamResult] = useState<string>(""); // Reintroduzido o estado examResult
   const [examVet, setExamVet] = useState<string | undefined>(undefined);
 
-  // Campos gerais do exame (para Hemograma e Bioquímico)
+  // Novos campos gerais do exame
   const [material, setMaterial] = useState<string>("");
   const [equipamento, setEquipamento] = useState<string>("");
-  const [laboratory, setLaboratory] = useState<string>("");
-  const [laboratoryDate, setLaboratoryDate] = useState<string>("");
-  const [liberadoPor, setLiberadoPor] = useState<string>("WILLIAM DE MORAES CARDOSO CRMV-SP 56895");
-  const [observacoesGeraisExame, setObservacoesGeraisExame] = useState<string>("");
 
   // Campos específicos para Eritrograma
   const [eritrocitos, setEritrocitos] = useState<string>("");
@@ -156,7 +152,7 @@ const AddExamPage = () => {
   const [observacoesSerieVermelha, setObservacoesSerieVermelha] = useState<string>("");
 
   // Campos específicos para Leucograma
-  const [leucocitosTotais, setLeucocitosTotais] = useState<string>("");
+  const [leucocitosTotais, setLeucocitosTotais] = useState<string>(""); // Renomeado
   const [mielocitosRelativo, setMielocitosRelativo] = useState<string>("");
   const [mielocitosAbsoluto, setMielocitosAbsoluto] = useState<string>("");
   const [metamielocitosRelativo, setMetamielocitosRelativo] = useState<string>("");
@@ -179,26 +175,18 @@ const AddExamPage = () => {
   const [contagemPlaquetaria, setContagemPlaquetaria] = useState<string>("");
   const [avaliacaoPlaquetaria, setAvaliacaoPlaquetaria] = useState<string>("");
 
-  // Campos específicos para Bioquímico
-  const [biochemicals, setBiochemicals] = useState<BiochemicalEntry[]>([]);
-  const [lastAddedBiochemicalId, setLastAddedBiochemicalId] = useState<string | null>(null);
-
-  // Campo de resultado genérico (para outros exames)
-  const [generalResult, setGeneralResult] = useState<string>("");
-
-  // Campo Nota (para Hemograma)
+  // Campos adicionais do exame
   const [nota, setNota] = useState<string>("");
+  const [laboratory, setLaboratory] = useState<string>("");
+  const [laboratoryDate, setLaboratoryDate] = useState<string>("");
+  const [observacoesGeraisExame, setObservacoesGeraisExame] = useState<string>("");
+  const [liberadoPor, setLiberadoPor] = useState<string>("WILLIAM DE MORAES CARDOSO CRMV-SP 56895");
 
   // Função para resetar todos os campos específicos de exame
   const resetExamSpecificFields = () => {
+    setExamResult("");
     setMaterial("");
     setEquipamento("");
-    setLaboratory("");
-    setLaboratoryDate("");
-    setLiberadoPor("WILLIAM DE MORAES CARDOSO CRMV-SP 56895");
-    setObservacoesGeraisExame("");
-
-    // Hemograma
     setEritrocitos("");
     setHemoglobina("");
     setHematocrito("");
@@ -229,12 +217,10 @@ const AddExamPage = () => {
     setContagemPlaquetaria("");
     setAvaliacaoPlaquetaria("");
     setNota("");
-
-    // Bioquímico
-    setBiochemicals([]);
-
-    // Outros
-    setGeneralResult("");
+    setLaboratory("");
+    setLaboratoryDate("");
+    setObservacoesGeraisExame("");
+    setLiberadoPor("WILLIAM DE MORAES CARDOSO CRMV-SP 56895");
   };
 
   // Carregar dados do exame se estiver em modo de edição
@@ -246,53 +232,43 @@ const AddExamPage = () => {
         setExamTime(examToEdit.time || new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
         setExamType(examToEdit.type);
         setExamVet(examToEdit.vet);
-
-        // Campos gerais
         setMaterial(examToEdit.material || "");
         setEquipamento(examToEdit.equipamento || "");
+        setEritrocitos(examToEdit.eritrocitos || "");
+        setHemoglobina(examToEdit.hemoglobina || "");
+        setHematocrito(examToEdit.hematocrito || "");
+        setVcm(examToEdit.vcm || "");
+        setHcm(examToEdit.hcm || "");
+        setChcm(examToEdit.chcm || "");
+        setProteinaTotal(examToEdit.proteinaTotal || "");
+        setHemaciasNucleadas(examToEdit.hemaciasNucleadas || "");
+        setObservacoesSerieVermelha(examToEdit.observacoesSerieVermelha || "");
+        setLeucocitosTotais(examToEdit.leucocitosTotais || "");
+        setMielocitosRelativo(examToEdit.mielocitosRelativo || "");
+        setMielocitosAbsoluto(examToEdit.mielocitosAbsoluto || "");
+        setMetamielocitosRelativo(examToEdit.metamielocitosRelativo || "");
+        setMetamielocitosAbsoluto(examToEdit.metamielocitosAbsoluto || "");
+        setBastonetesRelativo(examToEdit.bastonetesRelativo || "");
+        setBastonetesAbsoluto(examToEdit.bastonetesAbsoluto || "");
+        setSegmentadosRelativo(examToEdit.segmentadosRelativo || "");
+        setSegmentadosAbsoluto(examToEdit.segmentadosAbsoluto || "");
+        setEosinofilosRelativo(examToEdit.eosinofilosRelativo || "");
+        setEosinofilosAbsoluto(examToEdit.eosinofilosAbsoluto || "");
+        setBasofilosRelativo(examToEdit.basofilosRelativo || "");
+        setBasofilosAbsoluto(examToEdit.basofilosAbsoluto || "");
+        setLinfocitosRelativo(examToEdit.linfocitosRelativo || "");
+        setLinfocitosAbsoluto(examToEdit.linfocitosAbsoluto || "");
+        setMonocitosRelativo(examToEdit.monocitosRelativo || "");
+        setMonocitosAbsoluto(examToEdit.monocitosAbsoluto || "");
+        setObservacoesSerieBranca(examToEdit.observacoesSerieBranca || "");
+        setContagemPlaquetaria(examToEdit.contagemPlaquetaria || "");
+        setAvaliacaoPlaquetaria(examToEdit.avaliacaoPlaquetaria || "");
+        setNota(examToEdit.nota || "");
         setLaboratory(examToEdit.laboratory || "");
         setLaboratoryDate(examToEdit.laboratoryDate || "");
-        setLiberadoPor(examToEdit.liberadoPor || "WILLIAM DE MORAES CARDOSO CRMV-SP 56895");
         setObservacoesGeraisExame(examToEdit.observacoesGeraisExame || "");
-
-        if (examToEdit.type === "Hemograma Completo") {
-          setEritrocitos(examToEdit.eritrocitos || "");
-          setHemoglobina(examToEdit.hemoglobina || "");
-          setHematocrito(examToEdit.hematocrito || "");
-          setVcm(examToEdit.vcm || "");
-          setHcm(examToToEdit.hcm || "");
-          setChcm(examToEdit.chcm || "");
-          setProteinaTotal(examToEdit.proteinaTotal || "");
-          setHemaciasNucleadas(examToEdit.hemaciasNucleadas || "");
-          setObservacoesSerieVermelha(examToEdit.observacoesSerieVermelha || "");
-          setLeucocitosTotais(examToEdit.leucocitosTotais || "");
-          setMielocitosRelativo(examToEdit.mielocitosRelativo || "");
-          setMielocitosAbsoluto(examToEdit.mielocitosAbsoluto || "");
-          setMetamielocitosRelativo(examToEdit.metamielocitosRelativo || "");
-          setMetamielocitosAbsoluto(examToEdit.metamielocitosAbsoluto || "");
-          setBastonetesRelativo(examToEdit.bastonetesRelativo || "");
-          setBastonetesAbsoluto(examToEdit.bastonetesAbsoluto || "");
-          setSegmentadosRelativo(examToEdit.segmentadosRelativo || "");
-          setSegmentadosAbsoluto(examToEdit.segmentadosAbsoluto || "");
-          setEosinofilosRelativo(examToEdit.eosinofilosRelativo || "");
-          setEosinofilosAbsoluto(examToEdit.eosinofilosAbsoluto || "");
-          setBasofilosRelativo(examToEdit.basofilosRelativo || "");
-          setBasofilosAbsoluto(examToEdit.basofilosAbsoluto || "");
-          setLinfocitosRelativo(examToEdit.linfocitosRelativo || "");
-          setLinfocitosAbsoluto(examToEdit.linfocitosAbsoluto || "");
-          setMonocitosRelativo(examToEdit.monocitosRelativo || "");
-          setMonocitosAbsoluto(examToEdit.monocitosAbsoluto || "");
-          setObservacoesSerieBranca(examToEdit.observacoesSerieBranca || "");
-          setContagemPlaquetaria(examToEdit.contagemPlaquetaria || "");
-          setAvaliacaoPlaquetaria(examToEdit.avaliacaoPlaquetaria || "");
-          setNota(examToEdit.nota || "");
-        } else if (examToEdit.type === "Bioquímico") {
-          setBiochemicals(examToEdit.biochemicals || []);
-          setMaterial(examToEdit.material || "Soro ou plasma"); // Default para bioquímico
-          setEquipamento(examToEdit.equipamento || "Bioclin 2200"); // Default para bioquímico
-        } else {
-          setGeneralResult(examToEdit.result || "");
-        }
+        setExamResult(examToEdit.result || "");
+        setLiberadoPor(examToEdit.liberadoPor || "WILLIAM DE MORAES CARDOSO CRMV-SP 56895");
       } else {
         toast.error("Exame não encontrado para edição.");
         navigate(`/clients/${clientId}/animals/${animalId}/record`);
@@ -311,13 +287,9 @@ const AddExamPage = () => {
   useEffect(() => {
     if (!isEditing || (isEditing && examType !== mockExams.find(e => e.id === examId)?.type)) {
       resetExamSpecificFields();
-      // Set default material/equipment based on exam type
+      // Set default material for Hemograma
       if (examType === "Hemograma Completo") {
         setMaterial("SANGUE COM E.D.T.A.");
-        setEquipamento("Mindray BC-2800Vet");
-      } else if (examType === "Bioquímico") {
-        setMaterial("Soro ou plasma");
-        setEquipamento("Bioclin 2200");
       }
     }
   }, [examType, isEditing, examId]);
@@ -336,32 +308,6 @@ const AddExamPage = () => {
       return refData.absolute;
     }
     return "N/A";
-  };
-
-  const handleAddBiochemical = () => {
-    const newId = `bio-${Date.now()}`;
-    setBiochemicals((prev) => [
-      ...prev,
-      {
-        id: newId,
-        enzymeName: "",
-        material: "Soro ou plasma",
-        metodologia: "Colorimétrico enzimático",
-        equipamento: "Bioclin 2200",
-        result: "",
-      },
-    ]);
-    setLastAddedBiochemicalId(newId);
-  };
-
-  const handleUpdateBiochemical = (id: string, updatedBiochemical: Partial<BiochemicalEntry>) => {
-    setBiochemicals((prev) =>
-      prev.map((bio) => (bio.id === id ? { ...bio, ...updatedBiochemical } : bio))
-    );
-  };
-
-  const handleDeleteBiochemical = (id: string) => {
-    setBiochemicals((prev) => prev.filter((bio) => bio.id !== id));
   };
 
   const handleSaveExam = () => {
@@ -417,22 +363,8 @@ const AddExamPage = () => {
         avaliacaoPlaquetaria: avaliacaoPlaquetaria.trim() || undefined,
         nota: nota.trim() || undefined,
       });
-    } else if (examType === "Bioquímico") {
-      if (biochemicals.length === 0) {
-        toast.error("Adicione pelo menos uma enzima para o exame bioquímico.");
-        return;
-      }
-      if (biochemicals.some(bio => !bio.enzymeName.trim() || !bio.result.trim())) {
-        toast.error("Preencha o nome da enzima e o resultado para todos os parâmetros bioquímicos.");
-        return;
-      }
-      examData.biochemicals = biochemicals.map(bio => ({
-        ...bio,
-        enzymeName: bio.enzymeName === "Outro" ? bio.customEnzymeName?.trim() || "" : bio.enzymeName,
-        customEnzymeName: bio.enzymeName === "Outro" ? bio.customEnzymeName?.trim() : undefined,
-      }));
     } else {
-      examData.result = generalResult.trim() || undefined;
+      examData.result = examResult.trim() || undefined;
     }
 
     if (isEditing && examId) {
@@ -529,58 +461,55 @@ const AddExamPage = () => {
               </div>
             </div>
 
-            {examType === "Hemograma Completo" || examType === "Bioquímico" ? (
-              <Card className="bg-muted/50 shadow-sm border border-border rounded-md p-4 mt-6">
-                <CardHeader className="pb-3">
-                  <CardTitle className="flex items-center gap-2 text-lg font-semibold text-foreground">
-                    <FaMicroscope className="h-5 w-5 text-primary" /> Informações do Laboratório
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-0 px-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="material">Material</Label>
-                    <Input id="material" value={material} onChange={(e) => setMaterial(e.target.value)} className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200 w-full" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="equipamento">Equipamento</Label>
-                    <Input id="equipamento" value={equipamento} onChange={(e) => setEquipamento(e.target.value)} className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200 w-full" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="laboratory">Laboratório</Label>
-                    <Input
-                      id="laboratory"
-                      placeholder="Nome do laboratório"
-                      value={laboratory}
-                      onChange={(e) => setLaboratory(e.target.value)}
-                      className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="laboratoryDate">Data do Resultado</Label>
-                    <Input
-                      id="laboratoryDate"
-                      type="date"
-                      value={laboratoryDate}
-                      onChange={(e) => setLaboratoryDate(e.target.value)}
-                      className="bg-input rounded-md border-border focus:ring-2 focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200"
-                    />
-                  </div>
-                  <div className="space-y-2 col-span-full">
-                    <Label htmlFor="liberadoPor">Liberado por</Label>
-                    <Input
-                      id="liberadoPor"
-                      value={liberadoPor}
-                      onChange={(e) => setLiberadoPor(e.target.value)}
-                      className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200"
-                    />
-                  </div>
-                </CardContent>
-              </Card>
-            ) : null}
-
-
             {examType === "Hemograma Completo" ? (
               <>
+                <Card className="bg-muted/50 shadow-sm border border-border rounded-md p-4 mt-6">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="flex items-center gap-2 text-lg font-semibold text-foreground">
+                      <FaMicroscope className="h-5 w-5 text-primary" /> Informações do Laboratório
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-0 px-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="material">Material</Label>
+                      <Input id="material" value={material} onChange={(e) => setMaterial(e.target.value)} className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200 w-full" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="equipamento">Equipamento</Label>
+                      <Input id="equipamento" value={equipamento} onChange={(e) => setEquipamento(e.target.value)} className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200 w-full" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="laboratory">Laboratório</Label>
+                      <Input
+                        id="laboratory"
+                        placeholder="Nome do laboratório"
+                        value={laboratory}
+                        onChange={(e) => setLaboratory(e.target.value)}
+                        className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="laboratoryDate">Data do Resultado</Label>
+                      <Input
+                        id="laboratoryDate"
+                        type="date"
+                        value={laboratoryDate}
+                        onChange={(e) => setLaboratoryDate(e.target.value)}
+                        className="bg-input rounded-md border-border focus:ring-2 focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200"
+                      />
+                    </div>
+                    <div className="space-y-2 col-span-full">
+                      <Label htmlFor="liberadoPor">Liberado por</Label>
+                      <Input
+                        id="liberadoPor"
+                        value={liberadoPor}
+                        onChange={(e) => setLiberadoPor(e.target.value)}
+                        className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200"
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
+
                 <div className="flex flex-col lg:flex-row gap-6 mt-6">
                   {/* Eritrograma Section */}
                   <Card className="bg-muted/50 shadow-sm border border-border rounded-md p-4 w-full lg:w-[45%]">
@@ -671,33 +600,7 @@ const AddExamPage = () => {
                   </CardContent>
                 </Card>
               </>
-            ) : examType === "Bioquímico" ? (
-              <Card className="bg-muted/50 shadow-sm border border-border rounded-md p-4 mt-6">
-                <CardHeader className="pb-3">
-                  <CardTitle className="flex items-center gap-2 text-lg font-semibold text-foreground">
-                    <FaFlask className="h-5 w-5 text-primary" /> Parâmetros Bioquímicos
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4 pt-0 px-2">
-                  {biochemicals.length === 0 && (
-                    <p className="text-muted-foreground">Nenhum parâmetro bioquímico adicionado ainda.</p>
-                  )}
-                  {biochemicals.map((bio, index) => (
-                    <BiochemicalExamForm
-                      key={bio.id}
-                      biochemical={bio}
-                      index={index}
-                      onUpdate={handleUpdateBiochemical}
-                      onDelete={handleDeleteBiochemical}
-                      shouldFocus={bio.id === lastAddedBiochemicalId}
-                    />
-                  ))}
-                  <Button onClick={handleAddBiochemical} className="w-full bg-primary text-primary-foreground hover:bg-primary/90 font-semibold transition-all duration-200 shadow-md hover:shadow-lg">
-                    <FaPlus className="mr-2 h-4 w-4" /> Adicionar Enzima
-                  </Button>
-                </CardContent>
-              </Card>
-            ) : examType ? ( // Se um tipo de exame foi selecionado, mas não é Hemograma Completo nem Bioquímico
+            ) : examType ? ( // Se um tipo de exame foi selecionado, mas não é Hemograma Completo
               <>
                 <Card className="bg-muted/50 shadow-sm border border-border rounded-md p-4 mt-6">
                   <CardHeader className="pb-3">
@@ -707,12 +610,51 @@ const AddExamPage = () => {
                   </CardHeader>
                   <CardContent className="pt-0 px-2">
                     <div className="space-y-2 col-span-full">
-                      <Label htmlFor="generalResult">Resultado</Label>
+                      <Label htmlFor="examResult">Resultado</Label>
                       <Input
-                        id="generalResult"
+                        id="examResult"
                         placeholder="Resultado do exame"
-                        value={generalResult}
-                        onChange={(e) => setGeneralResult(e.target.value)}
+                        value={examResult}
+                        onChange={(e) => setExamResult(e.target.value)}
+                        className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200"
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="bg-muted/50 shadow-sm border border-border rounded-md p-4 mt-6">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="flex items-center gap-2 text-lg font-semibold text-foreground">
+                      <FaMicroscope className="h-5 w-5 text-primary" /> Informações do Laboratório
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-0 px-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="laboratory">Laboratório</Label>
+                      <Input
+                        id="laboratory"
+                        placeholder="Nome do laboratório"
+                        value={laboratory}
+                        onChange={(e) => setLaboratory(e.target.value)}
+                        className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="laboratoryDate">Data do Resultado</Label>
+                      <Input
+                        id="laboratoryDate"
+                        type="date"
+                        value={laboratoryDate}
+                        onChange={(e) => setLaboratoryDate(e.target.value)}
+                        className="bg-input rounded-md border-border focus:ring-2 focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200"
+                      />
+                    </div>
+                    <div className="space-y-2 col-span-full">
+                      <Label htmlFor="liberadoPor">Liberado por</Label>
+                      <Input
+                        id="liberadoPor"
+                        value={liberadoPor}
+                        onChange={(e) => setLiberadoPor(e.target.value)}
                         className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200"
                       />
                     </div>

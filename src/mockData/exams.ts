@@ -97,45 +97,6 @@ export let mockExams: ExamEntry[] = [
     observacoesGeraisExame: "Recomendado exames complementares para investigação da anemia e inflamação.",
     liberadoPor: "WILLIAM DE MORAES CARDOSO CRMV-SP 56895",
   },
-  {
-    id: "exam4",
-    date: "2024-08-01",
-    time: "11:00",
-    type: "Bioquímico",
-    vet: "Dra. Ana Paula",
-    material: "Soro ou plasma",
-    equipamento: "Bioclin 2200",
-    laboratory: "Laboratório Central Vet",
-    laboratoryDate: "2024-08-02",
-    observacoesGeraisExame: "Avaliação de função renal e hepática.",
-    liberadoPor: "WILLIAM DE MORAES CARDOSO CRMV-SP 56895",
-    biochemicals: [
-      {
-        id: "bio1",
-        enzymeName: "Creatinina",
-        material: "Soro ou plasma",
-        metodologia: "Colorimétrico enzimático",
-        equipamento: "Bioclin 2200",
-        result: "1.2 mg/dL",
-      },
-      {
-        id: "bio2",
-        enzymeName: "Ureia",
-        material: "Soro ou plasma",
-        metodologia: "Colorimétrico enzimático",
-        equipamento: "Bioclin 2200",
-        result: "45 mg/dL",
-      },
-      {
-        id: "bio3",
-        enzymeName: "ALT (Alanina Aminotransferase)",
-        material: "Soro ou plasma",
-        metodologia: "Colorimétrico enzimático",
-        equipamento: "Bioclin 2200",
-        result: "80 U/L",
-      },
-    ],
-  },
 ];
 
 export const addMockExam = (newExam: Omit<ExamEntry, 'id'>) => {
@@ -163,27 +124,14 @@ export const hemogramReferences: Record<string, HemogramReference> = {
   proteinaTotal: { dog: { full: "6.0 - 8.0 g/dL", min: 6.0, max: 8.0 }, cat: { full: "5.7 - 8.9 g/dL", min: 5.7, max: 8.9 } },
   hemaciasNucleadas: { dog: { full: "0", min: 0, max: 0 }, cat: { full: "0", min: 0, max: 0 } },
 
-  leucocitosTotais: {
-    dog: {
-      relative: "0 - 100 %",
-      absolute: "6.0 - 17.0 /µL", // ALTERADO: Removido 'mil'
-      min: 6.0,
-      max: 17.0
-    },
-    cat: {
-      relative: "0 - 100 %",
-      absolute: "5.5 - 19.5 /µL", // ALTERADO: Removido 'mil'
-      min: 5.5,
-      max: 19.5
-    }
-  },
+  leucocitosTotais: { dog: { full: "6.0 - 17.0 mil/µL", min: 6.0, max: 17.0 }, cat: { full: "5.5 - 19.5 mil/µL", min: 5.5, max: 19.5 } },
   mielocitos: {
-    dog: { relative: "0 - 0 %", absolute: "0 - 0 /µL", min: 0, max: 0 },
-    cat: { relative: "0 - 0 %", absolute: "0 - 0 /µL", min: 0, max: 0 }
+    dog: { relative: "0 %", absolute: "0 /µL", min: 0, max: 0 },
+    cat: { relative: "0 %", absolute: "0 /µL", min: 0, max: 0 }
   },
   metamielocitos: {
-    dog: { relative: "0 - 0 %", absolute: "0 - 0 /µL", min: 0, max: 0 },
-    cat: { relative: "0 - 0 %", absolute: "0 - 0 /µL", min: 0, max: 0 }
+    dog: { relative: "0 %", absolute: "0 /µL", min: 0, max: 0 },
+    cat: { relative: "0 %", absolute: "0 /µL", min: 0, max: 0 }
   },
   bastonetes: {
     dog: { relative: "0 - 3 %", absolute: "0 - 300 /µL", min: 0, max: 3 },
@@ -198,8 +146,8 @@ export const hemogramReferences: Record<string, HemogramReference> = {
     cat: { relative: "2 - 12 %", absolute: "100 - 1.500 /µL", min: 2, max: 12 }
   },
   basofilos: {
-    dog: { relative: "0 - 0 %", absolute: "0 - 0 /µL", min: 0, max: 0 }, // Assuming 0 for rare
-    cat: { relative: "0 - 0 %", absolute: "0 - 0 /µL", min: 0, max: 0 }
+    dog: { relative: "/ raros", absolute: "/ raros", min: 0, max: 0 }, // Assuming 0 for rare
+    cat: { relative: "/ raros", absolute: "/ raros", min: 0, max: 0 }
   },
   linfocitos: {
     dog: { relative: "12 - 30 %", absolute: "1.000 - 4.800 /µL", min: 12, max: 30 },
