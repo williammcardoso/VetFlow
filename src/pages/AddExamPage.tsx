@@ -1,16 +1,17 @@
 import React, { useState, useEffect } from "react";
 import { Link, useParams, useNavigate } from "react-router-dom";
-import { FaArrowLeft, FaTimes, FaSave, FaCalendarAlt, FaFlask } from "react-icons/fa"; // Importar ícones de react-icons
+import { FaArrowLeft, FaTimes, FaSave, FaCalendarAlt, FaFlask, FaMicroscope, FaFileMedicalAlt, FaNotesMedical, FaUserMd } from "react-icons/fa"; // Importar ícones de react-icons
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { showSuccess, showError } from "@/utils/toast"; // Importar funções de toast
+import { toast } from "sonner"; // Importar funções de toast
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"; // Importar Card para envolver o formulário
 import { mockClients } from "@/mockData/clients"; // Importar mockClients para obter a espécie do animal
 import { ExamEntry, HemogramReference, HemogramReferenceValue } from "@/types/exam"; // Importar a interface ExamEntry e as interfaces de referência
-import { addMockExam, updateMockExam, mockExams, hemogramReferences } from "@/mockData/exams"; // Importar funções de mock de exames e hemogramReferences
+import { addMockExam, updateMockExam, mockExams } from "@/mockData/exams"; // Importar funções de mock de exames
+import { hemogramReferences } from "@/constants/examReferences"; // Importar hemogramReferences do arquivo de constantes
 
 // Mock data para tipos de exame e veterinários (duplicado por enquanto, idealmente viria de um contexto ou API)
 const mockExamTypes = [
@@ -18,6 +19,9 @@ const mockExamTypes = [
   { id: "2", name: "Exame de Fezes" },
   { id: "3", name: "Urinálise" },
   { id: "4", name: "Raio-X" },
+  { id: "5", name: "Bioquímico" },
+  { id: "6", name: "Ultrassonografia" },
+  { id: "7", name: "Outro" },
 ];
 
 const mockVets = [
@@ -127,12 +131,13 @@ const AddExamPage = () => {
 
   // Estado do formulário
   const [examDate, setExamDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [examTime, setExamTime] = useState<string>(new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
   const [examType, setExamType] = useState<string | undefined>(undefined);
   const [examResult, setExamResult] = useState<string>(""); // Reintroduzido o estado examResult
   const [examVet, setExamVet] = useState<string | undefined>(undefined);
 
   // Novos campos gerais do exame
-  const [material, setMaterial] = useState<string>("SANGUE COM E.D.T.A.");
+  const [material, setMaterial] = useState<string>("");
   const [equipamento, setEquipamento] = useState<string>("");
 
   // Campos específicos para Eritrograma
@@ -177,12 +182,54 @@ const AddExamPage = () => {
   const [observacoesGeraisExame, setObservacoesGeraisExame] = useState<string>("");
   const [liberadoPor, setLiberadoPor] = useState<string>("WILLIAM DE MORAES CARDOSO CRMV-SP 56895");
 
+  // Função para resetar todos os campos específicos de exame
+  const resetExamSpecificFields = () => {
+    setExamResult("");
+    setMaterial("");
+    setEquipamento("");
+    setEritrocitos("");
+    setHemoglobina("");
+    setHematocrito("");
+    setVcm("");
+    setHcm("");
+    setChcm("");
+    setProteinaTotal("");
+    setHemaciasNucleadas("");
+    setObservacoesSerieVermelha("");
+    setLeucocitosTotais("");
+    setMielocitosRelativo("");
+    setMielocitosAbsoluto("");
+    setMetamielocitosRelativo("");
+    setMetamielocitosAbsoluto("");
+    setBastonetesRelativo("");
+    setBastonetesAbsoluto("");
+    setSegmentadosRelativo("");
+    setSegmentadosAbsoluto("");
+    setEosinofilosRelativo("");
+    setEosinofilosAbsoluto("");
+    setBasofilosRelativo("");
+    setBasofilosAbsoluto("");
+    setLinfocitosRelativo("");
+    setLinfocitosAbsoluto("");
+    setMonocitosRelativo("");
+    setMonocitosAbsoluto("");
+    setObservacoesSerieBranca("");
+    setContagemPlaquetaria("");
+    setAvaliacaoPlaquetaria("");
+    setNota("");
+    setLaboratory("");
+    setLaboratoryDate("");
+    setObservacoesGeraisExame("");
+    setLiberadoPor("WILLIAM DE MORAES CARDOSO CRMV-SP 56895");
+  };
+
   // Carregar dados do exame se estiver em modo de edição
   useEffect(() => {
     if (isEditing && examId) {
       const examToEdit = mockExams.find(e => e.id === examId);
       if (examToEdit) {
         setExamDate(examToEdit.date);
+        setExamTime(examToEdit.time || new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
         setExamType(examToEdit.type);
         setExamVet(examToEdit.vet);
         setMaterial(examToEdit.material || "");
@@ -223,11 +270,29 @@ const AddExamPage = () => {
         setExamResult(examToEdit.result || "");
         setLiberadoPor(examToEdit.liberadoPor || "WILLIAM DE MORAES CARDOSO CRMV-SP 56895");
       } else {
-        showError("Exame não encontrado para edição.");
+        toast.error("Exame não encontrado para edição.");
         navigate(`/clients/${clientId}/animals/${animalId}/record`);
       }
+    } else {
+      // Reset fields when adding a new exam
+      resetExamSpecificFields();
+      setExamDate(new Date().toISOString().split('T')[0]);
+      setExamTime(new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
+      setExamType(undefined);
+      setExamVet(undefined);
     }
   }, [isEditing, examId, clientId, animalId, navigate]);
+
+  // Reset specific fields when examType changes (only if not editing, or if the type is actually changing)
+  useEffect(() => {
+    if (!isEditing || (isEditing && examType !== mockExams.find(e => e.id === examId)?.type)) {
+      resetExamSpecificFields();
+      // Set default material for Hemograma
+      if (examType === "Hemograma Completo") {
+        setMaterial("SANGUE COM E.D.T.A.");
+      }
+    }
+  }, [examType, isEditing, examId]);
 
 
   const getReference = (param: string, type?: 'relative' | 'absolute' | 'full') => {
@@ -246,65 +311,68 @@ const AddExamPage = () => {
   };
 
   const handleSaveExam = () => {
-    if (!examDate || !examType || !examVet) {
-      showError("Por favor, preencha a data, tipo de exame e veterinário.");
+    if (!examDate || !examTime || !examType || !examVet) {
+      toast.error("Por favor, preencha a data, hora, tipo de exame e veterinário.");
       return;
     }
-
-    const now = new Date();
-    const currentTime = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 
     const examData: ExamEntry = {
       id: examId || `exam-${Date.now()}`, // Usar examId existente ou gerar novo
       date: examDate,
-      time: currentTime,
+      time: examTime,
       type: examType,
       vet: examVet,
       material: material.trim() || undefined,
       equipamento: equipamento.trim() || undefined,
-      eritrocitos: eritrocitos.trim() || undefined,
-      hemoglobina: hemoglobina.trim() || undefined,
-      hematocrito: hematocrito.trim() || undefined,
-      vcm: vcm.trim() || undefined,
-      hcm: hcm.trim() || undefined,
-      chcm: chcm.trim() || undefined,
-      proteinaTotal: proteinaTotal.trim() || undefined,
-      hemaciasNucleadas: hemaciasNucleadas.trim() || undefined,
-      observacoesSerieVermelha: observacoesSerieVermelha.trim() || undefined,
-      leucocitosTotais: leucocitosTotais.trim() || undefined,
-      mielocitosRelativo: mielocitosRelativo.trim() || undefined,
-      mielocitosAbsoluto: mielocitosAbsoluto.trim() || undefined,
-      metamielocitosRelativo: metamielocitosRelativo.trim() || undefined,
-      metamielocitosAbsoluto: metamielocitosAbsoluto.trim() || undefined,
-      bastonetesRelativo: bastonetesRelativo.trim() || undefined,
-      bastonetesAbsoluto: bastonetesAbsoluto.trim() || undefined,
-      segmentadosRelativo: segmentadosRelativo.trim() || undefined,
-      segmentadosAbsoluto: segmentadosAbsoluto.trim() || undefined,
-      eosinofilosRelativo: eosinofilosRelativo.trim() || undefined,
-      eosinofilosAbsoluto: eosinofilosAbsoluto.trim() || undefined,
-      basofilosRelativo: basofilosRelativo.trim() || undefined,
-      basofilosAbsoluto: basofilosAbsoluto.trim() || undefined,
-      linfocitosRelativo: linfocitosRelativo.trim() || undefined,
-      linfocitosAbsoluto: linfocitosAbsoluto.trim() || undefined,
-      monocitosRelativo: monocitosRelativo.trim() || undefined,
-      monocitosAbsoluto: monocitosAbsoluto.trim() || undefined,
-      observacoesSerieBranca: observacoesSerieBranca.trim() || undefined,
-      contagemPlaquetaria: contagemPlaquetaria.trim() || undefined,
-      avaliacaoPlaquetaria: avaliacaoPlaquetaria.trim() || undefined,
-      nota: nota.trim() || undefined,
       laboratory: laboratory.trim() || undefined,
       laboratoryDate: laboratoryDate.trim() || undefined,
       observacoesGeraisExame: observacoesGeraisExame.trim() || undefined,
-      result: examType !== "Hemograma Completo" ? examResult.trim() || undefined : undefined,
       liberadoPor: liberadoPor.trim() || undefined,
     };
 
+    if (examType === "Hemograma Completo") {
+      Object.assign(examData, {
+        eritrocitos: eritrocitos.trim() || undefined,
+        hemoglobina: hemoglobina.trim() || undefined,
+        hematocrito: hematocrito.trim() || undefined,
+        vcm: vcm.trim() || undefined,
+        hcm: hcm.trim() || undefined,
+        chcm: chcm.trim() || undefined,
+        proteinaTotal: proteinaTotal.trim() || undefined,
+        hemaciasNucleadas: hemaciasNucleadas.trim() || undefined,
+        observacoesSerieVermelha: observacoesSerieVermelha.trim() || undefined,
+        leucocitosTotais: leucocitosTotais.trim() || undefined,
+        mielocitosRelativo: mielocitosRelativo.trim() || undefined,
+        mielocitosAbsoluto: mielocitosAbsoluto.trim() || undefined,
+        metamielocitosRelativo: metamielocitosRelativo.trim() || undefined,
+        metamielocitosAbsoluto: metamielocitosAbsoluto.trim() || undefined,
+        bastonetesRelativo: bastonetesRelativo.trim() || undefined,
+        bastonetesAbsoluto: bastonetesAbsoluto.trim() || undefined,
+        segmentadosRelativo: segmentadosRelativo.trim() || undefined,
+        segmentadosAbsoluto: segmentadosAbsoluto.trim() || undefined,
+        eosinofilosRelativo: eosinofilosRelativo.trim() || undefined,
+        eosinofilosAbsoluto: eosinofilosAbsoluto.trim() || undefined,
+        basofilosRelativo: basofilosRelativo.trim() || undefined,
+        basofilosAbsoluto: basofilosAbsoluto.trim() || undefined,
+        linfocitosRelativo: linfocitosRelativo.trim() || undefined,
+        linfocitosAbsoluto: linfocitosAbsoluto.trim() || undefined,
+        monocitosRelativo: monocitosRelativo.trim() || undefined,
+        monocitosAbsoluto: monocitosAbsoluto.trim() || undefined,
+        observacoesSerieBranca: observacoesSerieBranca.trim() || undefined,
+        contagemPlaquetaria: contagemPlaquetaria.trim() || undefined,
+        avaliacaoPlaquetaria: avaliacaoPlaquetaria.trim() || undefined,
+        nota: nota.trim() || undefined,
+      });
+    } else {
+      examData.result = examResult.trim() || undefined;
+    }
+
     if (isEditing && examId) {
       updateMockExam(examData); // Atualiza o exame existente
-      showSuccess("Exame atualizado com sucesso!");
+      toast.success("Exame atualizado com sucesso!");
     } else {
       addMockExam(examData); // Adiciona um novo exame
-      showSuccess("Exame salvo com sucesso!");
+      toast.success("Exame salvo com sucesso!");
     }
     navigate(`/clients/${clientId}/animals/${animalId}/record`); // Voltar para o prontuário
   };
@@ -352,6 +420,16 @@ const AddExamPage = () => {
                 />
               </div>
               <div className="space-y-2">
+                <Label htmlFor="examTime">Hora do Exame</Label>
+                <Input
+                  id="examTime"
+                  type="time"
+                  value={examTime}
+                  onChange={(e) => setExamTime(e.target.value)}
+                  className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200 w-full"
+                />
+              </div>
+              <div className="space-y-2">
                 <Label htmlFor="examType">Tipo de Exame</Label>
                 <Select onValueChange={setExamType} value={examType}>
                   <SelectTrigger id="examType" className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200 w-full">
@@ -385,32 +463,68 @@ const AddExamPage = () => {
 
             {examType === "Hemograma Completo" ? (
               <>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="material">Material</Label>
-                    <Input id="material" value={material} onChange={(e) => setMaterial(e.target.value)} className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200 w-full" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="equipamento">Equipamento</Label>
-                    <Input id="equipamento" value={equipamento} onChange={(e) => setEquipamento(e.target.value)} className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200 w-full" />
-                  </div>
-                </div>
+                <Card className="bg-muted/50 shadow-sm border border-border rounded-md p-4 mt-6">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="flex items-center gap-2 text-lg font-semibold text-foreground">
+                      <FaMicroscope className="h-5 w-5 text-primary" /> Informações do Laboratório
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-0 px-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="material">Material</Label>
+                      <Input id="material" value={material} onChange={(e) => setMaterial(e.target.value)} className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200 w-full" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="equipamento">Equipamento</Label>
+                      <Input id="equipamento" value={equipamento} onChange={(e) => setEquipamento(e.target.value)} className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200 w-full" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="laboratory">Laboratório</Label>
+                      <Input
+                        id="laboratory"
+                        placeholder="Nome do laboratório"
+                        value={laboratory}
+                        onChange={(e) => setLaboratory(e.target.value)}
+                        className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="laboratoryDate">Data do Resultado</Label>
+                      <Input
+                        id="laboratoryDate"
+                        type="date"
+                        value={laboratoryDate}
+                        onChange={(e) => setLaboratoryDate(e.target.value)}
+                        className="bg-input rounded-md border-border focus:ring-2 focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200"
+                      />
+                    </div>
+                    <div className="space-y-2 col-span-full">
+                      <Label htmlFor="liberadoPor">Liberado por</Label>
+                      <Input
+                        id="liberadoPor"
+                        value={liberadoPor}
+                        onChange={(e) => setLiberadoPor(e.target.value)}
+                        className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200"
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
 
                 <div className="flex flex-col lg:flex-row gap-6 mt-6">
                   {/* Eritrograma Section */}
                   <Card className="bg-muted/50 shadow-sm border border-border rounded-md p-4 w-full lg:w-[45%]">
                     <CardHeader className="pb-3">
                       <CardTitle className="flex items-center gap-2 text-lg font-semibold text-foreground">
-                        <FaFlask className="h-5 w-5 text-primary" /> Eritrograma
+                        <FaFileMedicalAlt className="h-5 w-5 text-primary" /> Eritrograma
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="grid gap-4 pt-0 px-2"> {/* Ajustado padding horizontal */}
-                      <ExamFieldWithReference getReference={getReference} id="eritrocitos" label="Eritrócitos" value={eritrocitos} onChange={(e) => setEritrocitos(e.target.value)} referenceKey="eritrocitos" unit="milhões/mm3" />
+                      <ExamFieldWithReference getReference={getReference} id="eritrocitos" label="Eritrócitos" value={eritrocitos} onChange={(e) => setEritrocitos(e.target.value)} referenceKey="eritrocitos" unit="M/µL" />
                       <ExamFieldWithReference getReference={getReference} id="hemoglobina" label="Hemoglobina" value={hemoglobina} onChange={(e) => setHemoglobina(e.target.value)} referenceKey="hemoglobina" unit="g/dL" />
                       <ExamFieldWithReference getReference={getReference} id="hematocrito" label="Hematócrito" value={hematocrito} onChange={(e) => setHematocrito(e.target.value)} referenceKey="hematocrito" unit="%" />
                       <ExamFieldWithReference getReference={getReference} id="vcm" label="V.C.M." value={vcm} onChange={(e) => setVcm(e.target.value)} referenceKey="vcm" unit="fL" />
                       <ExamFieldWithReference getReference={getReference} id="hcm" label="H.C.M." value={hcm} onChange={(e) => setHcm(e.target.value)} referenceKey="hcm" unit="pg" />
-                      <ExamFieldWithReference getReference={getReference} id="chcm" label="C.H.C.M." value={chcm} onChange={(e) => setChcm(e.target.value)} referenceKey="chcm" unit="%" />
+                      <ExamFieldWithReference getReference={getReference} id="chcm" label="C.H.C.M." value={chcm} onChange={(e) => setChcm(e.target.value)} referenceKey="chcm" unit="g/dL" />
                       <ExamFieldWithReference getReference={getReference} id="proteinaTotal" label="Proteína total" value={proteinaTotal} onChange={(e) => setProteinaTotal(e.target.value)} referenceKey="proteinaTotal" unit="g/dL" />
                       <ExamFieldWithReference getReference={getReference} id="hemaciasNucleadas" label="Hemácias nucleadas" value={hemaciasNucleadas} onChange={(e) => setHemaciasNucleadas(e.target.value)} referenceKey="hemaciasNucleadas" unit="" />
 
@@ -425,11 +539,11 @@ const AddExamPage = () => {
                   <Card className="bg-muted/50 shadow-sm border border-border rounded-md p-4 w-full lg:w-[55%]">
                     <CardHeader className="pb-3">
                       <CardTitle className="flex items-center gap-2 text-lg font-semibold text-foreground">
-                        <FaFlask className="h-5 w-5 text-primary" /> Leucograma
+                        <FaUserMd className="h-5 w-5 text-primary" /> Leucograma
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="grid gap-4 pt-0 px-2"> {/* Ajustado padding horizontal */}
-                      <ExamFieldWithReference getReference={getReference} id="leucocitosTotais" label="Leucócitos totais" value={leucocitosTotais} onChange={(e) => setLeucocitosTotais(e.target.value)} referenceKey="leucocitosTotais" unit="mil/µL" />
+                      <ExamFieldWithReference getReference={getReference} id="leucocitosTotais" label="Leucócitos totais" value={leucocitosTotais} onChange={(e) => setLeucocitosTotais(e.target.value)} referenceKey="leucocitosTotais" unit="/µL" />
                       
                       <LeukocyteFieldWithReference getReference={getReference} idPrefix="mielocitos" label="Mielócitos" relativeValue={mielocitosRelativo} onRelativeChange={(e) => setMielocitosRelativo(e.target.value)} absoluteValue={mielocitosAbsoluto} onAbsoluteChange={(e) => setMielocitosAbsoluto(e.target.value)} referenceKey="mielocitos" />
                       <LeukocyteFieldWithReference getReference={getReference} idPrefix="metamielocitos" label="Metamielócitos" relativeValue={metamielocitosRelativo} onRelativeChange={(e) => setMetamielocitosRelativo(e.target.value)} absoluteValue={metamielocitosAbsoluto} onAbsoluteChange={(e) => setMetamielocitosAbsoluto(e.target.value)} referenceKey="metamielocitos" />
@@ -452,7 +566,7 @@ const AddExamPage = () => {
                 <Card className="bg-muted/50 shadow-sm border border-border rounded-md p-4 mt-6">
                   <CardHeader className="pb-3">
                     <CardTitle className="flex items-center gap-2 text-lg font-semibold text-foreground">
-                      <FaFlask className="h-5 w-5 text-primary" /> Plaquetas
+                      <FaFileMedicalAlt className="h-5 w-5 text-primary" /> Plaquetas
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-0 px-2"> {/* Ajustado padding horizontal */}
@@ -465,73 +579,116 @@ const AddExamPage = () => {
                 </Card>
 
                 {/* Campo Nota */}
-                <div className="space-y-2 col-span-full mt-6">
-                  <Label htmlFor="nota" className="text-foreground font-medium">Nota</Label>
-                  <Textarea
-                    id="nota"
-                    placeholder="Adicione observações sobre as alterações do exame"
-                    value={nota}
-                    onChange={(e) => setNota(e.target.value)}
-                    rows={3}
-                    className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200"
-                  />
-                </div>
+                <Card className="bg-muted/50 shadow-sm border border-border rounded-md p-4 mt-6">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="flex items-center gap-2 text-lg font-semibold text-foreground">
+                      <FaNotesMedical className="h-5 w-5 text-primary" /> Nota
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="pt-0 px-2">
+                    <div className="space-y-2 col-span-full">
+                      <Label htmlFor="nota" className="text-foreground font-medium">Observações sobre as alterações do exame</Label>
+                      <Textarea
+                        id="nota"
+                        placeholder="Adicione observações sobre as alterações do exame"
+                        value={nota}
+                        onChange={(e) => setNota(e.target.value)}
+                        rows={3}
+                        className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200"
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
+              </>
+            ) : examType ? ( // Se um tipo de exame foi selecionado, mas não é Hemograma Completo
+              <>
+                <Card className="bg-muted/50 shadow-sm border border-border rounded-md p-4 mt-6">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="flex items-center gap-2 text-lg font-semibold text-foreground">
+                      <FaFileMedicalAlt className="h-5 w-5 text-primary" /> Resultado do Exame
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="pt-0 px-2">
+                    <div className="space-y-2 col-span-full">
+                      <Label htmlFor="examResult">Resultado</Label>
+                      <Input
+                        id="examResult"
+                        placeholder="Resultado do exame"
+                        value={examResult}
+                        onChange={(e) => setExamResult(e.target.value)}
+                        className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200"
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="bg-muted/50 shadow-sm border border-border rounded-md p-4 mt-6">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="flex items-center gap-2 text-lg font-semibold text-foreground">
+                      <FaMicroscope className="h-5 w-5 text-primary" /> Informações do Laboratório
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-0 px-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="laboratory">Laboratório</Label>
+                      <Input
+                        id="laboratory"
+                        placeholder="Nome do laboratório"
+                        value={laboratory}
+                        onChange={(e) => setLaboratory(e.target.value)}
+                        className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="laboratoryDate">Data do Resultado</Label>
+                      <Input
+                        id="laboratoryDate"
+                        type="date"
+                        value={laboratoryDate}
+                        onChange={(e) => setLaboratoryDate(e.target.value)}
+                        className="bg-input rounded-md border-border focus:ring-2 focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200"
+                      />
+                    </div>
+                    <div className="space-y-2 col-span-full">
+                      <Label htmlFor="liberadoPor">Liberado por</Label>
+                      <Input
+                        id="liberadoPor"
+                        value={liberadoPor}
+                        onChange={(e) => setLiberadoPor(e.target.value)}
+                        className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200"
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="bg-muted/50 shadow-sm border border-border rounded-md p-4 mt-6">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="flex items-center gap-2 text-lg font-semibold text-foreground">
+                      <FaNotesMedical className="h-5 w-5 text-primary" /> Observações Gerais do Exame
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="pt-0 px-2">
+                    <div className="space-y-2 col-span-full">
+                      <Label htmlFor="observacoesGeraisExame">Observações</Label>
+                      <Textarea
+                        id="observacoesGeraisExame"
+                        placeholder="Observações gerais do exame"
+                        value={observacoesGeraisExame}
+                        onChange={(e) => setObservacoesGeraisExame(e.target.value)}
+                        rows={3}
+                        className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200"
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
               </>
             ) : (
-              <div className="space-y-2 col-span-full">
-                <Label htmlFor="examResult">Resultado</Label>
-                <Input
-                  id="examResult"
-                  placeholder="Resultado do exame"
-                  value={examResult}
-                  onChange={(e) => setExamResult(e.target.value)}
-                  className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200"
-                />
-              </div>
+              <Card className="bg-muted/50 shadow-sm border border-border rounded-md p-4 mt-6 text-center">
+                <CardContent className="py-4">
+                  <p className="text-muted-foreground">Selecione um tipo de exame para preencher os detalhes.</p>
+                </CardContent>
+              </Card>
             )}
-
-            <div className="space-y-2 col-span-full mt-4">
-              <Label htmlFor="observacoesGeraisExame">Observações</Label>
-              <Textarea
-                id="observacoesGeraisExame"
-                placeholder="Observações gerais do exame"
-                value={observacoesGeraisExame}
-                onChange={(e) => setObservacoesGeraisExame(e.target.value)}
-                rows={3}
-                className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200"
-              />
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="laboratory">Laboratório</Label>
-                <Input
-                  id="laboratory"
-                  placeholder="Nome do laboratório"
-                  value={laboratory}
-                  onChange={(e) => setLaboratory(e.target.value)}
-                  className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="laboratoryDate">Data do Resultado</Label>
-                <Input
-                  id="laboratoryDate"
-                  type="date"
-                  value={laboratoryDate}
-                  onChange={(e) => setLaboratoryDate(e.target.value)}
-                  className="bg-input rounded-md border-border focus:ring-2 focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="liberadoPor">Liberado por</Label>
-                <Input
-                  id="liberadoPor"
-                  value={liberadoPor}
-                  onChange={(e) => setLiberadoPor(e.target.value)}
-                  className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200"
-                />
-              </div>
-            </div>
           </CardContent>
         </Card>
 
@@ -541,7 +698,7 @@ const AddExamPage = () => {
               <FaTimes className="mr-2 h-4 w-4" /> Cancelar
             </Button>
           </Link>
-          <Button onClick={handleSaveExam} className="w-full sm:w-auto bg-primary text-primary-foreground hover:bg-primary/90 rounded-md font-semibold transition-all duration-200 shadow-md hover:shadow-lg">
+          <Button onClick={handleSaveExam} disabled={!examType} className="w-full sm:w-auto bg-primary text-primary-foreground hover:bg-primary/90 rounded-md font-semibold transition-all duration-200 shadow-md hover:shadow-lg">
             <FaSave className="mr-2 h-4 w-4" /> Salvar Exame
           </Button>
         </div>
