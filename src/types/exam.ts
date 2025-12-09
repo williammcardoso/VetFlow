@@ -1,8 +1,18 @@
+export interface BiochemicalEntry {
+  id: string;
+  enzymeName: string;
+  customEnzymeName?: string; // Para a opção "Outro"
+  material: string;
+  metodologia: string;
+  equipamento: string;
+  result: string;
+}
+
 export interface ExamEntry {
   id: string;
   date: string;
   time: string;
-  type: string; // Ex: "Hemograma Completo", "Exame de Fezes"
+  type: string; // Ex: "Hemograma Completo", "Exame de Fezes", "Bioquímico"
   vet: string; // Veterinário solicitante
 
   // Campos gerais do exame
@@ -44,15 +54,18 @@ export interface ExamEntry {
   contagemPlaquetaria?: string;
   avaliacaoPlaquetaria?: string;
 
+  // Campos específicos para Bioquímico
+  biochemicals?: BiochemicalEntry[]; // Novo campo para exames bioquímicos
+
+  // Campo de resultado genérico (para exames que não são hemograma ou bioquímico)
+  result?: string;
+
   // Campos adicionais do exame
   nota?: string;
   laboratory?: string;
   laboratoryDate?: string;
   observacoesGeraisExame?: string;
   liberadoPor?: string;
-
-  // Campo de resultado genérico (para exames que não são hemograma)
-  result?: string;
 }
 
 // Interfaces para os valores de referência do hemograma
