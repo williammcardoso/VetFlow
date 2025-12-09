@@ -2,7 +2,7 @@ export interface ExamEntry {
   id: string;
   date: string;
   time: string;
-  type: string; // Ex: "Hemograma Completo", "Exame de Fezes"
+  type: string; // Ex: "Hemograma Completo", "Exame de Fezes", "Bioquímico"
   vet: string; // Veterinário solicitante
 
   // Campos gerais do exame
@@ -44,6 +44,9 @@ export interface ExamEntry {
   contagemPlaquetaria?: string;
   avaliacaoPlaquetaria?: string;
 
+  // Campos específicos para Bioquímico (várias entradas por enzima)
+  biochemicalEntries?: BiochemicalEntry[];
+
   // Campos adicionais do exame
   nota?: string;
   laboratory?: string;
@@ -77,4 +80,13 @@ export interface ExamReportData {
   tutorAddress: string;
   exam: ExamEntry;
   hemogramReferences: Record<string, HemogramReference>;
+}
+
+export interface BiochemicalEntry {
+  id: string;
+  enzyme: string; // Nome da enzima (ou outro analito)
+  material: string; // Ex: "Soro ou plasma"
+  methodology: string; // Ex: "Colorimétrico enzimático"
+  equipment: string; // Ex: "Bioclin 2200"
+  result: string; // Resultado informado
 }
