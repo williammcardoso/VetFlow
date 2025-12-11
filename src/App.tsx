@@ -17,6 +17,7 @@ import AppointmentViewPage from "./pages/AppointmentViewPage"; // Importar a nov
 import SpeciesPage from "./pages/registrations/SpeciesPage";
 import BreedsPage from "./pages/registrations/BreedsPage";
 import CoatTypesPage from "./pages/registrations/CoatTypesPage";
+import ExamReferencesPage from "./pages/registrations/ExamReferencesPage";
 import CompanySettingsPage from "./pages/settings/CompanySettingsPage";
 import UserSettingsPage from "./pages/settings/UserSettingsPage";
 import AgendaPage from "./pages/AgendaPage";
@@ -81,6 +82,7 @@ const App = () => (
               <Route path="/registrations/species" element={<SpeciesPage />} />
               <Route path="/registrations/breeds" element={<BreedsPage />} />
               <Route path="/registrations/coat-types" element={<CoatTypesPage />} />
+              <Route path="/registrations/exam-references" element={<ExamReferencesPage />} />
               <Route path="/settings/company" element={<CompanySettingsPage />} />
               <Route path="/settings/user" element={<UserSettingsPage />} />
               <Route path="/agenda" element={<AgendaPage />} />
