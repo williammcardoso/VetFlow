@@ -3,7 +3,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
 import { toast } from "sonner";
 import { hemogramReferences as defaultRefs } from "@/constants/examReferences";
@@ -11,16 +10,27 @@ import { hemogramReferences as defaultRefs } from "@/constants/examReferences";
 type Species = "dog" | "cat";
 
 type RefValue = {
-  // Para eritrograma/plaquetas: usamos min/max/unit -> gera full
   full?: string;
   min?: number;
   max?: number;
-  // Para leucócitos: usamos relative/absolute como strings
   relative?: string;
   absolute?: string;
 };
 
-type RefsShape = Record<string, { dog: RefValue; cat: RefValue }>;
+type HemogramRefsShape = Record<string, { dog: RefValue; cat: RefValue }>;
+
+type BiochemEntry = {
+  unit: string;
+  dog: { min?: number; max?: number };
+  cat: { min?: number; max?: number };
+};
+
+type BiochemicalRefsShape = Record<string, BiochemEntry>;
+
+type RefsState = {
+  hemogram: HemogramRefsShape;
+  biochemical: BiochemicalRefsShape;
+};
 
 const LOCAL_STORAGE_KEY = "examReferences";
 
@@ -48,6 +58,29 @@ const LEUKO_KEYS = [
   "monocitos",
 ];
 
+// Lista inicial de analitos bioquímicos comuns
+const DEFAULT_BIOCHEMICALS = [
+  "Ureia",
+  "Creatinina",
+  "ALT (TGP)",
+  "AST (TGO)",
+  "ALP (Fosfatase Alcalina)",
+  "GGT",
+  "CK (CPK)",
+  "Amilase",
+  "Lipase",
+  "Glicose",
+  "Colesterol",
+  "Triglicerídeos",
+  "Bilirrubina total",
+  "Bilirrubina direta",
+  "Proteínas totais",
+  "Albumina",
+  "Cálcio",
+  "Fósforo",
+  "Frutosamina",
+];
+
 const formatFull = (min?: string | number, max?: string | number, unit?: string) => {
   const minStr = typeof min === "number" ? String(min) : (min || "").trim();
   const maxStr = typeof max === "number" ? String(max) : (max || "").trim();
@@ -59,9 +92,8 @@ const formatFull = (min?: string | number, max?: string | number, unit?: string)
   return unitStr;
 };
 
-const getInitialRefs = (): RefsShape => {
-  // Clona os defaults para edição
-  const cloned: RefsShape = {} as any;
+const getInitialHemogramRefs = (): HemogramRefsShape => {
+  const cloned: HemogramRefsShape = {} as any;
   for (const key of Object.keys(defaultRefs)) {
     const k = key as keyof typeof defaultRefs;
     cloned[key] = {
@@ -72,60 +104,104 @@ const getInitialRefs = (): RefsShape => {
   return cloned;
 };
 
-const loadRefs = (): RefsShape => {
+const getInitialBiochemicalRefs = (): BiochemicalRefsShape => {
+  const initial: BiochemicalRefsShape = {};
+  DEFAULT_BIOCHEMICALS.forEach((name) => {
+    initial[name] = {
+      unit: "",
+      dog: { min: undefined, max: undefined },
+      cat: { min: undefined, max: undefined },
+    };
+  });
+  return initial;
+};
+
+const loadRefs = (): RefsState => {
   try {
     const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
-    if (!raw) return getInitialRefs();
+    const hemogramBase = getInitialHemogramRefs();
+    const biochemicalBase = getInitialBiochemicalRefs();
+
+    if (!raw) {
+      return { hemogram: hemogramBase, biochemical: biochemicalBase };
+    }
+
     const parsed = JSON.parse(raw);
-    // Mescla com defaults para garantir chaves existentes
-    const base = getInitialRefs();
-    for (const key of Object.keys(base)) {
-      if (!parsed[key]) parsed[key] = base[key];
-      else {
-        parsed[key].dog = { ...base[key].dog, ...parsed[key].dog };
-        parsed[key].cat = { ...base[key].cat, ...parsed[key].cat };
+
+    // Migração: se vier na estrutura antiga (apenas hemogram flat), adaptar
+    if (!parsed.hemogram && !parsed.biochemical) {
+      const oldFlat = parsed as HemogramRefsShape;
+      const hemogramMerged: HemogramRefsShape = { ...hemogramBase };
+      for (const key of Object.keys(hemogramBase)) {
+        if (oldFlat[key]) {
+          hemogramMerged[key] = {
+            dog: { ...hemogramBase[key].dog, ...oldFlat[key].dog },
+            cat: { ...hemogramBase[key].cat, ...oldFlat[key].cat },
+          };
+        }
+      }
+      return { hemogram: hemogramMerged, biochemical: biochemicalBase };
+    }
+
+    // Estrutura nova
+    const hemogramMerged: HemogramRefsShape = { ...hemogramBase };
+    for (const key of Object.keys(hemogramBase)) {
+      const incoming = parsed.hemogram?.[key];
+      if (incoming) {
+        hemogramMerged[key] = {
+          dog: { ...hemogramBase[key].dog, ...incoming.dog },
+          cat: { ...hemogramBase[key].cat, ...incoming.cat },
+        };
       }
     }
-    return parsed;
+
+    const biochemicalMerged: BiochemicalRefsShape = { ...biochemicalBase };
+    const incomingBiochem = parsed.biochemical || {};
+    for (const name of Object.keys(incomingBiochem)) {
+      const inc = incomingBiochem[name];
+      biochemicalMerged[name] = {
+        unit: inc.unit || "",
+        dog: { min: inc.dog?.min, max: inc.dog?.max },
+        cat: { min: inc.cat?.min, max: inc.cat?.max },
+      };
+    }
+
+    return { hemogram: hemogramMerged, biochemical: biochemicalMerged };
   } catch {
-    return getInitialRefs();
+    return { hemogram: getInitialHemogramRefs(), biochemical: getInitialBiochemicalRefs() };
   }
 };
 
 const ExamReferencesPage: React.FC = () => {
-  const [refs, setRefs] = useState<RefsShape>(() => loadRefs());
-  const [activeSpecies, setActiveSpecies] = useState<Species>("dog");
+  const [refs, setRefs] = useState<RefsState>(() => loadRefs());
 
-  useEffect(() => {
-    // Ao montar, garantir estrutura
-    setRefs(loadRefs());
-  }, []);
+  // Para adicionar rapidamente novo analito bioquímico
+  const [newBiochemName, setNewBiochemName] = useState("");
+  const [newBiochemUnit, setNewBiochemUnit] = useState("");
 
+  // Funções de atualização (hemograma/plaquetas)
   const onChangeNonLeuko = (paramKey: string, species: Species, field: "min" | "max" | "unit", value: string) => {
     setRefs(prev => {
-      const next = { ...prev };
-      const current = { ...(next[paramKey]?.[species] || {}) };
-      // Guardar min/max como número, unidade como parte de full
-      if (field === "min") current.min = value ? Number(value) : undefined;
-      if (field === "max") current.max = value ? Number(value) : undefined;
+      const next: RefsState = { ...prev, hemogram: { ...prev.hemogram } };
+      const currentSpecies = { ...(next.hemogram[paramKey]?.[species] || {}) };
+      if (field === "min") currentSpecies.min = value ? Number(value) : undefined;
+      if (field === "max") currentSpecies.max = value ? Number(value) : undefined;
+
+      // Extrair unidade atual da full, se houver
+      let existingUnit = (currentSpecies.full || "").trim().split(" ").pop() || "";
       if (field === "unit") {
-        // recalcular full usando min/max + unit
-        const unit = value || "";
-        const minStr = current.min !== undefined ? current.min : undefined;
-        const maxStr = current.max !== undefined ? current.max : undefined;
-        current.full = formatFull(minStr, maxStr, unit);
-      } else {
-        // quando altera min/max sem mexer na unit, tentar extrair unidade da full existente
-        const existingUnit = (current.full || "").split(" ").pop() || "";
-        const minStr = current.min !== undefined ? current.min : undefined;
-        const maxStr = current.max !== undefined ? current.max : undefined;
-        current.full = formatFull(minStr, maxStr, existingUnit);
+        existingUnit = value || "";
       }
-      next[paramKey] = { ...next[paramKey], [species]: current };
+      const minStr = currentSpecies.min !== undefined ? currentSpecies.min : undefined;
+      const maxStr = currentSpecies.max !== undefined ? currentSpecies.max : undefined;
+      currentSpecies.full = formatFull(minStr, maxStr, existingUnit);
+
+      next.hemogram[paramKey] = { ...next.hemogram[paramKey], [species]: currentSpecies } as any;
       return next;
     });
   };
 
+  // Funções de atualização (leucograma)
   const onChangeLeuko = (
     paramKey: string,
     species: Species,
@@ -134,13 +210,14 @@ const ExamReferencesPage: React.FC = () => {
     value: string
   ) => {
     setRefs(prev => {
-      const next = { ...prev };
-      const current = { ...(next[paramKey]?.[species] || {}) };
-      // Fazer parse da string existente
-      const existing = (current[part] || "").trim();
+      const next: RefsState = { ...prev, hemogram: { ...prev.hemogram } };
+      const currentSpecies = { ...(next.hemogram[paramKey]?.[species] || {}) };
+
+      const existing = (currentSpecies[part] || "").trim();
       let existingMin = "";
       let existingMax = "";
       let existingUnit = "";
+
       const m = existing.match(/^(\S+)\s*-\s*(\S+)\s*(\S*)$/);
       if (m) {
         existingMin = m[1] || "";
@@ -162,17 +239,76 @@ const ExamReferencesPage: React.FC = () => {
         ? `${existingMin} - ${existingMax} ${existingUnit}`.trim()
         : `${existingMin} ${existingUnit}`.trim();
 
-      current[part] = built;
+      currentSpecies[part] = built;
 
-      // Também atualizar min/max numéricos só para absoluto (usado em indicadores)
+      // Atualizar min/max numéricos com base no absoluto (para indicadores)
       if (part === "absolute") {
         const numMin = existingMin ? Number(existingMin.replace(/\./g, "").replace(",", ".")) : undefined;
         const numMax = existingMax ? Number(existingMax.replace(/\./g, "").replace(",", ".")) : undefined;
-        current.min = numMin;
-        current.max = numMax;
+        currentSpecies.min = numMin;
+        currentSpecies.max = numMax;
       }
 
-      next[paramKey] = { ...next[paramKey], [species]: current };
+      next.hemogram[paramKey] = { ...next.hemogram[paramKey], [species]: currentSpecies } as any;
+      return next;
+    });
+  };
+
+  // Bioquímico: adicionar, remover, atualizar
+  const handleAddBiochemical = () => {
+    const name = newBiochemName.trim();
+    const unit = newBiochemUnit.trim();
+    if (!name) {
+      toast.error("Informe o nome do analito bioquímico.");
+      return;
+    }
+    setRefs(prev => {
+      if (prev.biochemical[name]) {
+        toast.error("Esse analito já existe.");
+        return prev;
+      }
+      const next: RefsState = { ...prev, biochemical: { ...prev.biochemical } };
+      next.biochemical[name] = {
+        unit,
+        dog: { min: undefined, max: undefined },
+        cat: { min: undefined, max: undefined },
+      };
+      return next;
+    });
+    setNewBiochemName("");
+    setNewBiochemUnit("");
+    toast.success("Analito adicionado.");
+  };
+
+  const handleRemoveBiochemical = (name: string) => {
+    setRefs(prev => {
+      const next: RefsState = { ...prev, biochemical: { ...prev.biochemical } };
+      delete next.biochemical[name];
+      return next;
+    });
+    toast.success("Analito removido.");
+  };
+
+  const updateBiochemical = (
+    name: string,
+    species: Species | "unit",
+    field: "min" | "max" | "unit",
+    value: string
+  ) => {
+    setRefs(prev => {
+      const entry = prev.biochemical[name];
+      if (!entry) return prev;
+      const next: RefsState = { ...prev, biochemical: { ...prev.biochemical } };
+      const copy = { ...entry };
+      if (species === "unit") {
+        copy.unit = value;
+      } else {
+        const bucket = { ...(species === "dog" ? copy.dog : copy.cat) };
+        if (field === "min") bucket.min = value ? Number(value) : undefined;
+        if (field === "max") bucket.max = value ? Number(value) : undefined;
+        if (species === "dog") copy.dog = bucket; else copy.cat = bucket;
+      }
+      next.biochemical[name] = copy;
       return next;
     });
   };
@@ -183,179 +319,282 @@ const ExamReferencesPage: React.FC = () => {
   };
 
   const handleReset = () => {
-    const initial = getInitialRefs();
+    const initial: RefsState = {
+      hemogram: getInitialHemogramRefs(),
+      biochemical: getInitialBiochemicalRefs(),
+    };
     setRefs(initial);
     localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(initial));
     toast.success("Referências restauradas para os valores padrão.");
   };
 
-  const SpeciesToggle = useMemo(() => (
-    <Tabs value={activeSpecies} onValueChange={(v) => setActiveSpecies(v as Species)} className="w-full">
-      <TabsList className="grid grid-cols-2 w-full">
-        <TabsTrigger value="dog">Cão</TabsTrigger>
-        <TabsTrigger value="cat">Gato</TabsTrigger>
-      </TabsList>
-      <TabsContent value="dog" />
-      <TabsContent value="cat" />
-    </Tabs>
-  ), [activeSpecies]);
+  const renderedNonLeukoRows = useMemo(() => {
+    return NON_LEUKO_KEYS.map((key) => {
+      const dog = refs.hemogram[key]?.dog || {};
+      const cat = refs.hemogram[key]?.cat || {};
+      const dogUnit = (dog.full || "").trim().split(" ").pop() || "";
+      const catUnit = (cat.full || "").trim().split(" ").pop() || "";
+
+      const label = key.replace(/([A-Z])/g, " $1");
+
+      return (
+        <div key={`nl-${key}`} className="grid grid-cols-1 sm:grid-cols-7 gap-2 items-end">
+          <div className="sm:col-span-1">
+            <Label className="text-xs font-medium capitalize">{label}</Label>
+          </div>
+
+          {/* Cão */}
+          <Input
+            value={dog.min ?? ""}
+            onChange={(e) => onChangeNonLeuko(key, "dog", "min", e.target.value)}
+            placeholder="Cão mín."
+            className="bg-input h-8 text-sm"
+          />
+          <Input
+            value={dog.max ?? ""}
+            onChange={(e) => onChangeNonLeuko(key, "dog", "max", e.target.value)}
+            placeholder="Cão máx."
+            className="bg-input h-8 text-sm"
+          />
+          <Input
+            value={dogUnit}
+            onChange={(e) => onChangeNonLeuko(key, "dog", "unit", e.target.value)}
+            placeholder="Unid. cão"
+            className="bg-input h-8 text-sm"
+          />
+
+          {/* Gato */}
+          <Input
+            value={cat.min ?? ""}
+            onChange={(e) => onChangeNonLeuko(key, "cat", "min", e.target.value)}
+            placeholder="Gato mín."
+            className="bg-input h-8 text-sm"
+          />
+          <Input
+            value={cat.max ?? ""}
+            onChange={(e) => onChangeNonLeuko(key, "cat", "max", e.target.value)}
+            placeholder="Gato máx."
+            className="bg-input h-8 text-sm"
+          />
+          <Input
+            value={catUnit}
+            onChange={(e) => onChangeNonLeuko(key, "cat", "unit", e.target.value)}
+            placeholder="Unid. gato"
+            className="bg-input h-8 text-sm"
+          />
+        </div>
+      );
+    });
+  }, [refs]);
+
+  const renderedLeukoRows = useMemo(() => {
+    return LEUKO_KEYS.map((key) => {
+      const dog = refs.hemogram[key]?.dog || {};
+      const cat = refs.hemogram[key]?.cat || {};
+
+      const parseRange = (raw?: string) => {
+        const t = (raw || "").trim();
+        const m = t.match(/^(\S+)\s*-\s*(\S+)\s*(\S*)$/);
+        if (m) return { min: m[1], max: m[2], unit: m[3] || "" };
+        const m2 = t.match(/^(\S+)\s*(\S*)$/);
+        if (m2) return { min: m2[1], max: "", unit: m2[2] || "" };
+        return { min: "", max: "", unit: "" };
+      };
+
+      const dogRel = parseRange(dog.relative);
+      const dogAbs = parseRange(dog.absolute);
+      const catRel = parseRange(cat.relative);
+      const catAbs = parseRange(cat.absolute);
+
+      const label = key.replace(/([A-Z])/g, " $1");
+
+      return (
+        <div key={`lk-${key}`} className="space-y-1">
+          {/* Relativo */}
+          <div className="grid grid-cols-1 sm:grid-cols-7 gap-2 items-end">
+            <div className="sm:col-span-1">
+              <Label className="text-xs font-medium capitalize">{label} (Rel.)</Label>
+            </div>
+            <Input value={dogRel.min} onChange={(e) => onChangeLeuko(key, "dog", "relative", "min", e.target.value)} placeholder="Cão mín." className="bg-input h-8 text-sm" />
+            <Input value={dogRel.max} onChange={(e) => onChangeLeuko(key, "dog", "relative", "max", e.target.value)} placeholder="Cão máx." className="bg-input h-8 text-sm" />
+            <Input value={dogRel.unit} onChange={(e) => onChangeLeuko(key, "dog", "relative", "unit", e.target.value)} placeholder="Unid. cão" className="bg-input h-8 text-sm" />
+            <Input value={catRel.min} onChange={(e) => onChangeLeuko(key, "cat", "relative", "min", e.target.value)} placeholder="Gato mín." className="bg-input h-8 text-sm" />
+            <Input value={catRel.max} onChange={(e) => onChangeLeuko(key, "cat", "relative", "max", e.target.value)} placeholder="Gato máx." className="bg-input h-8 text-sm" />
+            <Input value={catRel.unit} onChange={(e) => onChangeLeuko(key, "cat", "relative", "unit", e.target.value)} placeholder="Unid. gato" className="bg-input h-8 text-sm" />
+          </div>
+
+          {/* Absoluto */}
+          <div className="grid grid-cols-1 sm:grid-cols-7 gap-2 items-end">
+            <div className="sm:col-span-1">
+              <Label className="text-xs font-medium capitalize">{label} (Abs.)</Label>
+            </div>
+            <Input value={dogAbs.min} onChange={(e) => onChangeLeuko(key, "dog", "absolute", "min", e.target.value)} placeholder="Cão mín." className="bg-input h-8 text-sm" />
+            <Input value={dogAbs.max} onChange={(e) => onChangeLeuko(key, "dog", "absolute", "max", e.target.value)} placeholder="Cão máx." className="bg-input h-8 text-sm" />
+            <Input value={dogAbs.unit} onChange={(e) => onChangeLeuko(key, "dog", "absolute", "unit", e.target.value)} placeholder="Unid. cão" className="bg-input h-8 text-sm" />
+            <Input value={catAbs.min} onChange={(e) => onChangeLeuko(key, "cat", "absolute", "min", e.target.value)} placeholder="Gato mín." className="bg-input h-8 text-sm" />
+            <Input value={catAbs.max} onChange={(e) => onChangeLeuko(key, "cat", "absolute", "max", e.target.value)} placeholder="Gato máx." className="bg-input h-8 text-sm" />
+            <Input value={catAbs.unit} onChange={(e) => onChangeLeuko(key, "cat", "absolute", "unit", e.target.value)} placeholder="Unid. gato" className="bg-input h-8 text-sm" />
+          </div>
+        </div>
+      );
+    });
+  }, [refs]);
+
+  const biochemicalNames = useMemo(() => Object.keys(refs.biochemical).sort((a, b) => a.localeCompare(b)), [refs.biochemical]);
 
   return (
-    <div className="flex flex-col min-h-screen bg-background p-6">
-      <div className="mb-4">
-        <h1 className="text-2xl font-semibold">Referências de Exames</h1>
-        <p className="text-sm text-muted-foreground">Cadastre os valores mínimos, máximos e unidade por espécie. Para leucócitos, preencha referências relativas e absolutas.</p>
+    <div className="flex flex-col min-h-screen bg-background p-4 sm:p-6">
+      <div className="mb-3 sm:mb-4">
+        <h1 className="text-xl sm:text-2xl font-semibold">Referências de Exames</h1>
+        <p className="text-xs sm:text-sm text-muted-foreground">Valores mínimos, máximos e unidade por espécie. Leucócitos com referências relativas e absolutas. Bioquímicos com min/máx por Cão e Gato.</p>
       </div>
 
       <Card className="border border-border">
-        <CardHeader>
-          <CardTitle className="flex items-center justify-between">
-            <span>Espécies</span>
+        <CardHeader className="py-3">
+          <CardTitle className="flex items-center justify-between text-base sm:text-lg">
+            <span>Gerenciar Referências</span>
             <div className="flex gap-2">
-              <Button variant="outline" onClick={handleReset}>Restaurar padrão</Button>
-              <Button onClick={handleSave}>Salvar</Button>
+              <Button variant="outline" onClick={handleReset} className="h-8 px-3 text-sm">Restaurar padrão</Button>
+              <Button onClick={handleSave} className="h-8 px-3 text-sm">Salvar</Button>
             </div>
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-6">
-          {SpeciesToggle}
-
+        <CardContent className="space-y-3 sm:space-y-4">
           <Accordion type="multiple" className="w-full">
             <AccordionItem value="eritrograma">
-              <AccordionTrigger>Eritrograma e Plaquetas</AccordionTrigger>
-              <AccordionContent className="space-y-4">
-                {NON_LEUKO_KEYS.map((key) => {
-                  const current = refs[key]?.[activeSpecies] || {};
-                  // Extrair unidade da full existente (última palavra), se houver
-                  const unitGuess = (current.full || "").trim().split(" ").pop() || "";
-                  return (
-                    <div key={`${key}-${activeSpecies}`} className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
-                      <div className="md:col-span-1">
-                        <Label className="text-sm font-medium capitalize">{key.replaceAll(/([A-Z])/g, " $1")}</Label>
-                      </div>
-                      <div className="space-y-1">
-                        <Label>Mín.</Label>
-                        <Input
-                          value={current.min ?? ""}
-                          onChange={(e) => onChangeNonLeuko(key, activeSpecies, "min", e.target.value)}
-                          placeholder="Ex.: 4.7"
-                          className="bg-input"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label>Máx.</Label>
-                        <Input
-                          value={current.max ?? ""}
-                          onChange={(e) => onChangeNonLeuko(key, activeSpecies, "max", e.target.value)}
-                          placeholder="Ex.: 6.8"
-                          className="bg-input"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label>Unidade</Label>
-                        <Input
-                          value={unitGuess}
-                          onChange={(e) => onChangeNonLeuko(key, activeSpecies, "unit", e.target.value)}
-                          placeholder="Ex.: g/dL, /µL, %"
-                          className="bg-input"
-                        />
-                      </div>
-                    </div>
-                  );
-                })}
+              <AccordionTrigger className="text-sm">Eritrograma e Plaquetas</AccordionTrigger>
+              <AccordionContent className="space-y-2">
+                <div className="grid gap-1">
+                  {/* Cabeçalho compacto */}
+                  <div className="grid grid-cols-1 sm:grid-cols-7 gap-2">
+                    <div />
+                    <div className="text-[11px] text-muted-foreground">Cão mín.</div>
+                    <div className="text-[11px] text-muted-foreground">Cão máx.</div>
+                    <div className="text-[11px] text-muted-foreground">Unid. cão</div>
+                    <div className="text-[11px] text-muted-foreground">Gato mín.</div>
+                    <div className="text-[11px] text-muted-foreground">Gato máx.</div>
+                    <div className="text-[11px] text-muted-foreground">Unid. gato</div>
+                  </div>
+                  {renderedNonLeukoRows}
+                </div>
               </AccordionContent>
             </AccordionItem>
 
             <AccordionItem value="leucograma">
-              <AccordionTrigger>Leucograma (Relativo e Absoluto)</AccordionTrigger>
-              <AccordionContent className="space-y-6">
-                {LEUKO_KEYS.map((key) => {
-                  const current = refs[key]?.[activeSpecies] || {};
-                  // Parse existentes para relative
-                  const parseRange = (raw?: string) => {
-                    const t = (raw || "").trim();
-                    const m = t.match(/^(\S+)\s*-\s*(\S+)\s*(\S*)$/);
-                    if (m) return { min: m[1], max: m[2], unit: m[3] || "" };
-                    const m2 = t.match(/^(\S+)\s*(\S*)$/);
-                    if (m2) return { min: m2[1], max: "", unit: m2[2] || "" };
-                    return { min: "", max: "", unit: "" };
-                  };
-                  const rel = parseRange(current.relative);
-                  const abs = parseRange(current.absolute);
+              <AccordionTrigger className="text-sm">Leucograma (Relativo e Absoluto)</AccordionTrigger>
+              <AccordionContent className="space-y-2">
+                <div className="grid gap-1">
+                  {/* Cabeçalho compacto */}
+                  <div className="grid grid-cols-1 sm:grid-cols-7 gap-2">
+                    <div />
+                    <div className="text-[11px] text-muted-foreground">Cão mín.</div>
+                    <div className="text-[11px] text-muted-foreground">Cão máx.</div>
+                    <div className="text-[11px] text-muted-foreground">Unid. cão</div>
+                    <div className="text-[11px] text-muted-foreground">Gato mín.</div>
+                    <div className="text-[11px] text-muted-foreground">Gato máx.</div>
+                    <div className="text-[11px] text-muted-foreground">Unid. gato</div>
+                  </div>
+                  {renderedLeukoRows}
+                </div>
+              </AccordionContent>
+            </AccordionItem>
 
-                  return (
-                    <div key={`${key}-${activeSpecies}`} className="space-y-3">
-                      <Label className="text-sm font-medium capitalize">{key.replaceAll(/([A-Z])/g, " $1")}</Label>
-                      {/* Relativo */}
-                      <div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
-                        <div className="md:col-span-1">
-                          <span className="text-xs text-muted-foreground">Relativo</span>
-                        </div>
-                        <div className="space-y-1">
-                          <Label>Mín.</Label>
+            <AccordionItem value="bioquimico">
+              <AccordionTrigger className="text-sm">Bioquímico</AccordionTrigger>
+              <AccordionContent className="space-y-3">
+                {/* Adicionar novo analito */}
+                <div className="grid grid-cols-1 sm:grid-cols-5 gap-2 items-end">
+                  <div className="sm:col-span-2">
+                    <Label className="text-xs">Nome do Analito</Label>
+                    <Input
+                      value={newBiochemName}
+                      onChange={(e) => setNewBiochemName(e.target.value)}
+                      placeholder="Ex.: Ureia, ALT (TGP)"
+                      className="bg-input h-8 text-sm"
+                    />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <Label className="text-xs">Unidade</Label>
+                    <Input
+                      value={newBiochemUnit}
+                      onChange={(e) => setNewBiochemUnit(e.target.value)}
+                      placeholder="Ex.: mg/dL, U/L"
+                      className="bg-input h-8 text-sm"
+                    />
+                  </div>
+                  <div className="sm:col-span-1 flex">
+                    <Button onClick={handleAddBiochemical} className="h-8 px-3 text-sm w-full">Adicionar</Button>
+                  </div>
+                </div>
+
+                {/* Cabeçalho da tabela */}
+                <div className="grid grid-cols-1 sm:grid-cols-8 gap-2 items-center">
+                  <div className="text-[11px] text-muted-foreground">Nome</div>
+                  <div className="text-[11px] text-muted-foreground">Unidade</div>
+                  <div className="text-[11px] text-muted-foreground">Cão mín.</div>
+                  <div className="text-[11px] text-muted-foreground">Cão máx.</div>
+                  <div className="text-[11px] text-muted-foreground">Gato mín.</div>
+                  <div className="text-[11px] text-muted-foreground">Gato máx.</div>
+                  <div className="text-[11px] text-muted-foreground">Ações</div>
+                  <div /> {/* Espaçador para manter grade */}
+                </div>
+
+                {/* Linhas dos analitos */}
+                <div className="space-y-1">
+                  {biochemicalNames.map((name) => {
+                    const entry = refs.biochemical[name];
+                    return (
+                      <div key={`bio-${name}`} className="grid grid-cols-1 sm:grid-cols-8 gap-2 items-end">
+                        <div className="sm:col-span-2">
                           <Input
-                            value={rel.min}
-                            onChange={(e) => onChangeLeuko(key, activeSpecies, "relative", "min", e.target.value)}
-                            placeholder="Ex.: 60"
-                            className="bg-input"
+                            value={name}
+                            readOnly
+                            className="bg-input h-8 text-sm"
                           />
                         </div>
-                        <div className="space-y-1">
-                          <Label>Máx.</Label>
-                          <Input
-                            value={rel.max}
-                            onChange={(e) => onChangeLeuko(key, activeSpecies, "relative", "max", e.target.value)}
-                            placeholder="Ex.: 77"
-                            className="bg-input"
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <Label>Unidade</Label>
-                          <Input
-                            value={rel.unit}
-                            onChange={(e) => onChangeLeuko(key, activeSpecies, "relative", "unit", e.target.value)}
-                            placeholder="Ex.: %"
-                            className="bg-input"
-                          />
+                        <Input
+                          value={entry.unit}
+                          onChange={(e) => updateBiochemical(name, "unit", "unit", e.target.value)}
+                          placeholder="Unidade"
+                          className="bg-input h-8 text-sm"
+                        />
+                        <Input
+                          value={entry.dog.min ?? ""}
+                          onChange={(e) => updateBiochemical(name, "dog", "min", e.target.value)}
+                          placeholder="Cão mín."
+                          className="bg-input h-8 text-sm"
+                        />
+                        <Input
+                          value={entry.dog.max ?? ""}
+                          onChange={(e) => updateBiochemical(name, "dog", "max", e.target.value)}
+                          placeholder="Cão máx."
+                          className="bg-input h-8 text-sm"
+                        />
+                        <Input
+                          value={entry.cat.min ?? ""}
+                          onChange={(e) => updateBiochemical(name, "cat", "min", e.target.value)}
+                          placeholder="Gato mín."
+                          className="bg-input h-8 text-sm"
+                        />
+                        <Input
+                          value={entry.cat.max ?? ""}
+                          onChange={(e) => updateBiochemical(name, "cat", "max", e.target.value)}
+                          placeholder="Gato máx."
+                          className="bg-input h-8 text-sm"
+                        />
+                        <div className="sm:col-span-1 flex gap-2">
+                          <Button
+                            variant="outline"
+                            onClick={() => handleRemoveBiochemical(name)}
+                            className="h-8 px-3 text-sm w-full"
+                          >
+                            Remover
+                          </Button>
                         </div>
                       </div>
-
-                      {/* Absoluto */}
-                      <div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
-                        <div className="md:col-span-1">
-                          <span className="text-xs text-muted-foreground">Absoluto</span>
-                        </div>
-                        <div className="space-y-1">
-                          <Label>Mín.</Label>
-                          <Input
-                            value={abs.min}
-                            onChange={(e) => onChangeLeuko(key, activeSpecies, "absolute", "min", e.target.value)}
-                            placeholder="Ex.: 3000"
-                            className="bg-input"
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <Label>Máx.</Label>
-                          <Input
-                            value={abs.max}
-                            onChange={(e) => onChangeLeuko(key, activeSpecies, "absolute", "max", e.target.value)}
-                            placeholder="Ex.: 11500"
-                            className="bg-input"
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <Label>Unidade</Label>
-                          <Input
-                            value={abs.unit}
-                            onChange={(e) => onChangeLeuko(key, activeSpecies, "absolute", "unit", e.target.value)}
-                            placeholder="Ex.: /µL"
-                            className="bg-input"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </AccordionContent>
             </AccordionItem>
           </Accordion>
