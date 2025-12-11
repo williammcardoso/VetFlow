@@ -11,28 +11,13 @@ import { toast } from "sonner";
 import { addMockFinancialTransaction } from "@/mockData/financial";
 import { mockClients } from "@/mockData/clients"; // Importar o mock de clientes centralizado
 import { Client, Animal } from "@/types/client"; // Importar as interfaces Client e Animal
+import { getCatalog, findCatalogItem, adjustStock } from "@/mockData/catalog";
 
 // Mock data para produtos/serviços
 interface Product {
   id: string;
   name: string;
   price: number;
-}
-
-const mockProducts: Product[] = [
-  { id: "prod1", name: "Ração Premium 1kg", price: 50.00 },
-  { id: "prod2", name: "Brinquedo para Cachorro", price: 25.00 },
-  { id: "prod3", name: "Consulta de Rotina", price: 120.00 },
-  { id: "prod4", name: "Vacina V8", price: 90.00 },
-  { id: "prod5", name: "Exame de Sangue", price: 150.00 },
-];
-
-interface CartItem {
-  productId: string;
-  name: string;
-  price: number;
-  quantity: number;
-  total: number;
 }
 
 const POSPage = () => {
@@ -51,7 +36,7 @@ const POSPage = () => {
 
   const handleAddProductToCart = () => {
     if (!selectedProduct) {
-      toast.error("Por favor, selecione um produto.");
+      toast.error("Por favor, selecione um item.");
       return;
     }
     if (quantity <= 0) {
@@ -59,27 +44,27 @@ const POSPage = () => {
       return;
     }
 
-    const product = mockProducts.find(p => p.id === selectedProduct);
-    if (product) {
-      const existingItemIndex = cart.findIndex(item => item.productId === product.id);
-
+    const item = findCatalogItem(selectedProduct);
+    if (item) {
+      const existingItemIndex = cart.findIndex(ci => ci.productId === item.id);
+      const price = item.price;
       if (existingItemIndex > -1) {
         const updatedCart = [...cart];
         updatedCart[existingItemIndex].quantity += quantity;
-        updatedCart[existingItemIndex].total = updatedCart[existingItemIndex].quantity * product.price;
+        updatedCart[existingItemIndex].total = updatedCart[existingItemIndex].quantity * price;
         setCart(updatedCart);
       } else {
         setCart([...cart, {
-          productId: product.id,
-          name: product.name,
-          price: product.price,
+          productId: item.id,
+          name: item.name,
+          price: price,
           quantity: quantity,
-          total: quantity * product.price,
+          total: quantity * price,
         }]);
       }
       setSelectedProduct(undefined);
       setQuantity(1);
-      toast.success(`${product.name} adicionado ao carrinho!`);
+      toast.success(`${item.name} adicionado ao carrinho!`);
     }
   };
 
@@ -108,7 +93,7 @@ const POSPage = () => {
 
     addMockFinancialTransaction({
       date: currentDate,
-      time: currentTime, // Adicionado campo de hora
+      time: currentTime,
       description: description,
       type: 'income',
       amount: subtotal,
@@ -117,11 +102,19 @@ const POSPage = () => {
       relatedAnimalId: selectedAnimalId,
     });
 
+    // NEW: baixar estoque dos itens de produto
+    cart.forEach(ci => {
+      const item = findCatalogItem(ci.productId);
+      if (item && item.type === 'product') {
+        adjustStock(item.id, -ci.quantity);
+      }
+    });
+
     toast.success("Venda processada com sucesso!");
     setCart([]);
     setSelectedClientId(undefined);
     setSelectedAnimalId(undefined);
-    navigate('/sales/my-sales'); // Redirecionar para a página de vendas
+    navigate('/sales/my-sales');
   };
 
   return (
@@ -166,9 +159,9 @@ const POSPage = () => {
                   <SelectValue placeholder="Selecione um produto ou serviço" />
                 </SelectTrigger>
                 <SelectContent>
-                  {mockProducts.map((product) => (
-                    <SelectItem key={product.id} value={product.id}>
-                      {product.name} (R$ {product.price.toFixed(2).replace('.', ',')})
+                  {getCatalog().map((item) => (
+                    <SelectItem key={item.id} value={item.id}>
+                      {item.name} (R$ {item.price.toFixed(2).replace('.', ',')}) {item.type === 'product' ? '• Produto' : '• Serviço'}
                     </SelectItem>
                   ))}
                 </SelectContent>

@@ -51,6 +51,10 @@ import CategoriesPage from "./pages/financial/CategoriesPage";
 import SuppliersPage from "./pages/financial/SuppliersPage";
 import FinancialPaymentMethodsPage from "./pages/financial/PaymentMethodsPage"; // Renomeado para evitar conflito
 
+// ADDED: Stock pages
+import ProductsServicesPage from "./pages/stock/ProductsServicesPage";
+import PurchasesPage from "./pages/stock/PurchasesPage";
+import OtherExitsPage from "./pages/stock/OtherExitsPage";
 
 const queryClient = new QueryClient();
 
@@ -113,6 +117,11 @@ const App = () => (
               <Route path="/financial/categories" element={<CategoriesPage />} />
               <Route path="/financial/suppliers" element={<SuppliersPage />} />
               <Route path="/financial/payment-methods" element={<FinancialPaymentMethodsPage />} />
+
+              {/* Estoque e Serviços */}
+              <Route path="/stock/products-services" element={<ProductsServicesPage />} />
+              <Route path="/stock/purchases" element={<PurchasesPage />} />
+              <Route path="/stock/other-exits" element={<OtherExitsPage />} />
 
               {/* ADICIONE TODAS AS ROTAS PERSONALIZADAS ACIMA DA ROTA CATCH-ALL "*" */}
               <Route path="*" element={<NotFound />} />

@@ -3,8 +3,32 @@ import { Link } from "react-router-dom";
 import { FaArrowLeft, FaTags } from "react-icons/fa";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { getCatalog, updateCatalogItem, CatalogItem } from "@/mockData/catalog";
+import { toast } from "sonner";
 
 const PriceListPage = () => {
+  // NEW: state
+  const [items, setItems] = React.useState<CatalogItem[]>(getCatalog());
+  const [tab, setTab] = React.useState<"product"|"service">("product");
+
+  const refresh = () => setItems(getCatalog());
+
+  const handleUpdate = (item: CatalogItem, field: keyof CatalogItem, value: any) => {
+    const updated: CatalogItem = { ...item, [field]: field === 'price' ? Number(value) || 0 : value };
+    const ok = updateCatalogItem(updated);
+    if (ok) {
+      toast.success("Lista de preços atualizada.");
+      refresh();
+    } else {
+      toast.error("Falha ao atualizar preço.");
+    }
+  };
+
+  const filtered = items.filter(i => i.type === tab);
+
   return (
     <div className="flex flex-col min-h-screen bg-background">
       <div className="bg-gradient-to-r from-background via-card to-background p-6 pb-4 border-b border-border">
@@ -30,17 +54,92 @@ const PriceListPage = () => {
         </p>
       </div>
 
-      <div className="flex-1 p-6 flex items-center justify-center">
-        <Card className="w-full max-w-md text-center shadow-sm border border-border rounded-md">
-          <CardHeader>
-            <CardTitle className="text-xl font-semibold text-foreground">
-              Funcionalidade em Breve!
-            </CardTitle>
+      <div className="flex-1 p-6">
+        <Card className="shadow-sm border border-border rounded-md">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg font-semibold">Tabela de Preços</CardTitle>
           </CardHeader>
-          <CardContent>
-            <p className="text-muted-foreground">
-              A página de Lista de Preços está em desenvolvimento. Volte em breve para mais novidades!
-            </p>
+          <CardContent className="pt-0">
+            <Tabs value={tab} onValueChange={(v) => setTab(v as any)}>
+              <TabsList className="grid grid-cols-2 w-full mb-3">
+                <TabsTrigger value="product">Produtos</TabsTrigger>
+                <TabsTrigger value="service">Serviços</TabsTrigger>
+              </TabsList>
+              <TabsContent value="product">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Nome</TableHead>
+                      <TableHead>SKU</TableHead>
+                      <TableHead>Preço</TableHead>
+                      <TableHead>Ativo</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filtered.map(item => (
+                      <TableRow key={item.id}>
+                        <TableCell className="font-medium">{item.name}</TableCell>
+                        <TableCell>{item.sku || "-"}</TableCell>
+                        <TableCell>
+                          <Input
+                            value={item.price}
+                            onChange={(e) => handleUpdate(item, 'price', e.target.value)}
+                            className="h-8 text-sm bg-input w-24"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <select
+                            value={item.active ? 'true' : 'false'}
+                            onChange={(e) => handleUpdate(item, 'active', e.target.value === 'true')}
+                            className="h-8 text-sm bg-input rounded-md border-border"
+                          >
+                            <option value="true">Ativo</option>
+                            <option value="false">Inativo</option>
+                          </select>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TabsContent>
+              <TabsContent value="service">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Nome</TableHead>
+                      <TableHead>Unidade</TableHead>
+                      <TableHead>Preço</TableHead>
+                      <TableHead>Ativo</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filtered.map(item => (
+                      <TableRow key={item.id}>
+                        <TableCell className="font-medium">{item.name}</TableCell>
+                        <TableCell>{item.unit || "-"}</TableCell>
+                        <TableCell>
+                          <Input
+                            value={item.price}
+                            onChange={(e) => handleUpdate(item, 'price', e.target.value)}
+                            className="h-8 text-sm bg-input w-24"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <select
+                            value={item.active ? 'true' : 'false'}
+                            onChange={(e) => handleUpdate(item, 'active', e.target.value === 'true')}
+                            className="h-8 text-sm bg-input rounded-md border-border"
+                          >
+                            <option value="true">Ativo</option>
+                            <option value="false">Inativo</option>
+                          </select>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TabsContent>
+            </Tabs>
           </CardContent>
         </Card>
       </div>
