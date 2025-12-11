@@ -44,6 +44,7 @@ const navItems: NavItem[] = [
       { title: "Minhas vendas", href: "/sales/my-sales", icon: FaShoppingCart },
       { title: "Movimentos de caixa", href: "/sales/cash-movements", icon: FaMoneyBillWave },
       { title: "Consulta vendas", href: "/sales/consult-sales", icon: FaSearchDollar },
+      { title: "Orçamentos", href: "/sales/budgets", icon: FaFileInvoiceDollar },
       { title: "Pacotes vendidos", href: "/sales/sold-packages", icon: FaBoxOpen },
       { title: "Recebimentos", href: "/sales/receipts", icon: FaMoneyCheckAlt },
       { title: "Lista de preços", href: "/sales/price-list", icon: FaTags },

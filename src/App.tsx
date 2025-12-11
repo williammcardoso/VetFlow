@@ -45,7 +45,7 @@ import PriceListPage from "./pages/sales/PriceListPage";
 import ClientRankingPage from "./pages/sales/ClientRankingPage";
 import ClientBalancePage from "./pages/sales/ClientBalancePage";
 import PaymentMethodsPage from "./pages/sales/PaymentMethodsPage";
-import BudgetModelPage from "./pages/sales/BudgetModelPage";
+import BudgetsPage from "./pages/sales/BudgetsPage";
 import StatementModelPage from "./pages/sales/StatementModelPage";
 import SalesConfigurationPage from "./pages/sales/SalesConfigurationPage";
 
@@ -123,13 +123,13 @@ const App = () => (
               <Route path="/sales/my-sales" element={<SalesPage />} />
               <Route path="/sales/cash-movements" element={<CashMovementsPage />} />
               <Route path="/sales/consult-sales" element={<ConsultSalesPage />} />
+              <Route path="/sales/budgets" element={<BudgetsPage />} />
               <Route path="/sales/sold-packages" element={<SoldPackagesPage />} />
               <Route path="/sales/receipts" element={<ReceiptsPage />} />
               <Route path="/sales/price-list" element={<PriceListPage />} />
               <Route path="/sales/client-ranking" element={<ClientRankingPage />} />
               <Route path="/sales/client-balance" element={<ClientBalancePage />} />
               <Route path="/sales/payment-methods" element={<PaymentMethodsPage />} />
-              <Route path="/sales/budget-model" element={<BudgetModelPage />} />
               <Route path="/sales/statement-model" element={<StatementModelPage />} />
               <Route path="/sales/configuration" element={<SalesConfigurationPage />} />
 
