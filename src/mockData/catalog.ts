@@ -11,13 +11,14 @@ export interface CatalogItem {
   brand?: string;
   group?: string;
   active: boolean;
+  recommended?: boolean; // NEW
 }
 
 const STORAGE_KEY = 'catalogItems';
 
 const defaultItems: CatalogItem[] = [
-  { id: 'prod1', name: 'Ração Premium 1kg', type: 'product', price: 50, sku: 'RAC-1KG', unit: 'un', stockQty: 20, brand: 'PetPlus', group: 'Alimentos', active: true },
-  { id: 'prod2', name: 'Brinquedo para Cachorro', type: 'product', price: 25, sku: 'BRI-DOG', unit: 'un', stockQty: 30, brand: 'PetFun', group: 'Acessórios', active: true },
+  { id: 'prod1', name: 'Ração Premium 1kg', type: 'product', price: 50, sku: 'RAC-1KG', unit: 'un', stockQty: 20, brand: 'PetPlus', group: 'Alimentos', active: true, recommended: true },
+  { id: 'prod2', name: 'Brinquedo para Cachorro', type: 'product', price: 25, sku: 'BRI-DOG', unit: 'un', stockQty: 30, brand: 'PetFun', group: 'Acessórios', active: true, recommended: false },
   { id: 'serv1', name: 'Consulta de Rotina', type: 'service', price: 120, unit: 'serviço', active: true },
   { id: 'serv2', name: 'Vacina V8', type: 'service', price: 90, unit: 'dose', active: true },
   { id: 'serv3', name: 'Exame de Sangue', type: 'service', price: 150, unit: 'exame', active: true },
@@ -43,6 +44,7 @@ const load = (): CatalogItem[] => {
       brand: it.brand,
       group: it.group,
       active: it.active !== false,
+      recommended: it.recommended === true,
     }));
   } catch {
     return [...defaultItems];

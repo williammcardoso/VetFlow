@@ -20,6 +20,15 @@ import CoatTypesPage from "./pages/registrations/CoatTypesPage";
 import ExamReferencesPage from "./pages/registrations/ExamReferencesPage";
 import CompanySettingsPage from "./pages/settings/CompanySettingsPage";
 import UserSettingsPage from "./pages/settings/UserSettingsPage";
+// NEW registrations
+import PathologiesPage from "./pages/registrations/PathologiesPage";
+import AppointmentTypesPage from "./pages/registrations/AppointmentTypesPage";
+import VaccinesPage from "./pages/registrations/VaccinesPage";
+import ExamsPage from "./pages/registrations/ExamsPage";
+import ExamAttributesPage from "./pages/registrations/ExamAttributesPage";
+import ClientOriginsPage from "./pages/registrations/ClientOriginsPage";
+import DocumentModelPage from "./pages/registrations/DocumentModelPage";
+import RecipeModelPage from "./pages/registrations/RecipeModelPage";
 import AgendaPage from "./pages/AgendaPage";
 import FinancialPage from "./pages/FinancialPage";
 import NotFound from "./pages/NotFound";
@@ -55,6 +64,15 @@ import FinancialPaymentMethodsPage from "./pages/financial/PaymentMethodsPage"; 
 import ProductsServicesPage from "./pages/stock/ProductsServicesPage";
 import PurchasesPage from "./pages/stock/PurchasesPage";
 import OtherExitsPage from "./pages/stock/OtherExitsPage";
+import StockAnalysisPage from "./pages/stock/StockAnalysisPage";
+import InventoryPage from "./pages/stock/InventoryPage";
+import PurchaseOrderPage from "./pages/stock/PurchaseOrderPage";
+import ProductGroupsPage from "./pages/stock/ProductGroupsPage";
+import BrandsPage from "./pages/stock/BrandsPage";
+import RecommendedProductsPage from "./pages/stock/RecommendedProductsPage";
+// NEW settings
+import ExternalAccessPage from "./pages/settings/ExternalAccessPage";
+import AccessProfilePage from "./pages/settings/AccessProfilePage";
 
 const queryClient = new QueryClient();
 
@@ -87,6 +105,15 @@ const App = () => (
               <Route path="/registrations/breeds" element={<BreedsPage />} />
               <Route path="/registrations/coat-types" element={<CoatTypesPage />} />
               <Route path="/registrations/exam-references" element={<ExamReferencesPage />} />
+              {/* NEW registrations */}
+              <Route path="/registrations/pathologies" element={<PathologiesPage />} />
+              <Route path="/registrations/appointment-types" element={<AppointmentTypesPage />} />
+              <Route path="/registrations/vaccines" element={<VaccinesPage />} />
+              <Route path="/registrations/exams" element={<ExamsPage />} />
+              <Route path="/registrations/exam-attributes" element={<ExamAttributesPage />} />
+              <Route path="/registrations/client-origins" element={<ClientOriginsPage />} />
+              <Route path="/registrations/document-model" element={<DocumentModelPage />} />
+              <Route path="/registrations/recipe-model" element={<RecipeModelPage />} />
               <Route path="/settings/company" element={<CompanySettingsPage />} />
               <Route path="/settings/user" element={<UserSettingsPage />} />
               <Route path="/agenda" element={<AgendaPage />} />
@@ -122,8 +149,21 @@ const App = () => (
               <Route path="/stock/products-services" element={<ProductsServicesPage />} />
               <Route path="/stock/purchases" element={<PurchasesPage />} />
               <Route path="/stock/other-exits" element={<OtherExitsPage />} />
+              {/* NEW stock */}
+              <Route path="/stock/stock-analysis" element={<StockAnalysisPage />} />
+              <Route path="/stock/inventory" element={<InventoryPage />} />
+              <Route path="/stock/purchase-order" element={<PurchaseOrderPage />} />
+              <Route path="/stock/product-groups" element={<ProductGroupsPage />} />
+              <Route path="/stock/brands" element={<BrandsPage />} />
+              <Route path="/stock/recommended-products" element={<RecommendedProductsPage />} />
 
-              {/* ADICIONE TODAS AS ROTAS PERSONALIZADAS ACIMA DA ROTA CATCH-ALL "*" */}
+              {/* Configuração */}
+              <Route path="/settings/company" element={<CompanySettingsPage />} />
+              <Route path="/settings/user" element={<UserSettingsPage />} />
+              {/* NEW settings */}
+              <Route path="/settings/external-access" element={<ExternalAccessPage />} />
+              <Route path="/settings/access-profile" element={<AccessProfilePage />} />
+              
               <Route path="*" element={<NotFound />} />
             </Routes>
           </Layout>
