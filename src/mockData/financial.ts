@@ -8,6 +8,7 @@ export interface FinancialTransaction {
   category: string;
   relatedAnimalId?: string;
   relatedClientId?: string;
+  paymentMethod?: string; // NEW: método de pagamento
 }
 
 export interface OverallFinancialSummary {

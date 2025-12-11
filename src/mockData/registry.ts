@@ -8,7 +8,8 @@ export type RegistryKeySimple =
   | "documentModels"
   | "recipeModels"
   | "productGroups"
-  | "brands";
+  | "brands"
+  | "paymentMethods";
 
 export interface RegistryItem {
   id: string;

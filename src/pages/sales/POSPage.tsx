@@ -12,6 +12,7 @@ import { addMockFinancialTransaction } from "@/mockData/financial";
 import { mockClients } from "@/mockData/clients"; // Importar o mock de clientes centralizado
 import { Client, Animal } from "@/types/client"; // Importar as interfaces Client e Animal
 import { getCatalog, findCatalogItem, adjustStock } from "@/mockData/catalog";
+import { getRegistryList } from "@/mockData/registry";
 
 // Mock data para produtos/serviços
 interface Product {
@@ -27,10 +28,13 @@ const POSPage = () => {
   const [quantity, setQuantity] = useState<number>(1);
   const [selectedClientId, setSelectedClientId] = useState<string | undefined>(undefined);
   const [selectedAnimalId, setSelectedAnimalId] = useState<string | undefined>(undefined);
+  const [selectedPaymentMethodId, setSelectedPaymentMethodId] = useState<string | undefined>(undefined); // NEW
 
   const filteredAnimals = selectedClientId
     ? mockClients.find(c => c.id === selectedClientId)?.animals || []
     : [];
+
+  const paymentMethods = getRegistryList("paymentMethods"); // NEW
 
   const subtotal = cart.reduce((sum, item) => sum + item.total, 0);
 
@@ -82,9 +86,15 @@ const POSPage = () => {
       toast.error("Por favor, selecione o cliente responsável pela venda.");
       return;
     }
+    if (!selectedPaymentMethodId) {
+      toast.error("Selecione a forma de pagamento.");
+      return;
+    }
 
     const clientName = mockClients.find(c => c.id === selectedClientId)?.name;
     const animalName = selectedAnimalId ? mockClients.find(c => c.id === selectedClientId)?.animals.find(a => a.id === selectedAnimalId)?.name : undefined;
+    const pm = paymentMethods.find(pm => pm.id === selectedPaymentMethodId);
+    const paymentMethodName = pm?.name || "Não informado";
 
     const description = `Venda para ${clientName}${animalName ? ` (Animal: ${animalName})` : ''}: ${cart.map(item => `${item.name} x${item.quantity}`).join(', ')}`;
     const now = new Date();
@@ -100,9 +110,9 @@ const POSPage = () => {
       category: 'Venda de Produtos',
       relatedClientId: selectedClientId,
       relatedAnimalId: selectedAnimalId,
+      paymentMethod: paymentMethodName, // NEW
     });
 
-    // NEW: baixar estoque dos itens de produto
     cart.forEach(ci => {
       const item = findCatalogItem(ci.productId);
       if (item && item.type === 'product') {
@@ -114,7 +124,8 @@ const POSPage = () => {
     setCart([]);
     setSelectedClientId(undefined);
     setSelectedAnimalId(undefined);
-    navigate('/sales/my-sales');
+    setSelectedPaymentMethodId(undefined);
+    navigate('/sales/my-sales'); // Redirecionar para a página de vendas
   };
 
   return (
@@ -226,7 +237,7 @@ const POSPage = () => {
               <span>R$ {subtotal.toFixed(2).replace('.', ',')}</span>
             </div>
 
-            <div className="space-y-2 mt-4">
+            <div className="space-y-2 mt-2">
               <Label htmlFor="client-select">Cliente Responsável</Label>
               <Select onValueChange={setSelectedClientId} value={selectedClientId}>
                 <SelectTrigger id="client-select" className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200">
@@ -259,6 +270,28 @@ const POSPage = () => {
                 </Select>
               </div>
             )}
+
+            <div className="space-y-2 mt-2">
+              <Label htmlFor="payment-method-select">Forma de Pagamento</Label>
+              <Select onValueChange={setSelectedPaymentMethodId} value={selectedPaymentMethodId}>
+                <SelectTrigger id="payment-method-select" className="bg-white rounded-lg border-gray-200 dark:border-gray-600 focus:ring-2 focus:ring-blue-400 transition-all duration-200">
+                  <SelectValue placeholder="Selecione a forma de pagamento" />
+                </SelectTrigger>
+                <SelectContent>
+                  {paymentMethods.length > 0 ? (
+                    paymentMethods.map((pm) => (
+                      <SelectItem key={pm.id} value={pm.id}>
+                        {pm.name}
+                      </SelectItem>
+                    ))
+                  ) : (
+                    <SelectItem value="none" disabled>
+                      Cadastre formas em Vendas &gt; Formas de Recebimento
+                    </SelectItem>
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
 
             <Button onClick={handleProcessSale} disabled={cart.length === 0 || !selectedClientId} className="bg-accent text-accent-foreground hover:bg-accent/90 font-semibold transition-all duration-200 shadow-md hover:shadow-lg mt-4">
               <FaCheckCircle className="mr-2 h-4 w-4" /> Processar Venda
