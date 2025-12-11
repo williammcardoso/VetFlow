@@ -147,7 +147,7 @@ const AddExamPage = () => {
   const isEditing = !!examId;
 
   const currentClient = mockClients.find(c => c.id === clientId);
-  const currentAnimal = currentClient?.animals.find(a => c.id === clientId && a.id === animalId); // Corrigido para encontrar o animal corretamente
+  const currentAnimal = currentClient?.animals.find(a => a.id === animalId); // Corrigido para encontrar o animal corretamente
   const animalSpecies = currentAnimal?.species === "Canino" ? "dog" : currentAnimal?.species === "Felino" ? "cat" : undefined;
 
   // Estado principal
@@ -258,9 +258,6 @@ const AddExamPage = () => {
     setBiochemicalEntries([]);
     setSelectedEnzyme(undefined);
     setCustomEnzyme("");
-    setBioMaterial("Soro ou plasma");
-    setBioMethodology("Colorimétrico enzimático");
-    setBioEquipment("Bioclin 2200");
     setBioResult("");
     setBioMinReference(""); // Resetar
     setBioMaxReference(""); // Resetar
