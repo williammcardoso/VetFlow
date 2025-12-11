@@ -147,7 +147,7 @@ const AddExamPage = () => {
   const isEditing = !!examId;
 
   const currentClient = mockClients.find(c => c.id === clientId);
-  const currentAnimal = currentClient?.animals.find(a => a.id === animalId);
+  const currentAnimal = currentClient?.animals.find(a => c.id === clientId && a.id === animalId); // Corrigido para encontrar o animal corretamente
   const animalSpecies = currentAnimal?.species === "Canino" ? "dog" : currentAnimal?.species === "Felino" ? "cat" : undefined;
 
   // Estado principal
@@ -204,6 +204,9 @@ const AddExamPage = () => {
   const [bioMethodology, setBioMethodology] = useState<string>("Colorimétrico enzimático");
   const [bioEquipment, setBioEquipment] = useState<string>("Bioclin 2200");
   const [bioResult, setBioResult] = useState<string>("");
+  const [bioMinReference, setBioMinReference] = useState<string>(""); // Novo
+  const [bioMaxReference, setBioMaxReference] = useState<string>(""); // Novo
+  const [bioReferenceUnit, setBioReferenceUnit] = useState<string>(""); // Novo
 
   // Adicionais
   const [nota, setNota] = useState<string>("");
@@ -259,6 +262,9 @@ const AddExamPage = () => {
     setBioMethodology("Colorimétrico enzimático");
     setBioEquipment("Bioclin 2200");
     setBioResult("");
+    setBioMinReference(""); // Resetar
+    setBioMaxReference(""); // Resetar
+    setBioReferenceUnit(""); // Resetar
   };
 
   // Carregar dados ao editar
@@ -356,6 +362,11 @@ const AddExamPage = () => {
       toast.error("Informe o resultado.");
       return;
     }
+    if (!bioMinReference.trim() || !bioMaxReference.trim() || !bioReferenceUnit.trim()) {
+      toast.error("Informe os valores de referência (mínimo, máximo e unidade).");
+      return;
+    }
+
     const entry: BiochemicalEntry = {
       id: `bio-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
       enzyme: enzymeName,
@@ -363,11 +374,17 @@ const AddExamPage = () => {
       methodology: bioMethodology.trim() || "Colorimétrico enzimático",
       equipment: bioEquipment.trim() || "Bioclin 2200",
       result: bioResult.trim(),
+      minReference: bioMinReference.trim(), // Novo
+      maxReference: bioMaxReference.trim(), // Novo
+      referenceUnit: bioReferenceUnit.trim(), // Novo
     };
     setBiochemicalEntries(prev => [...prev, entry]);
     setSelectedEnzyme(undefined);
     setCustomEnzyme("");
     setBioResult("");
+    setBioMinReference(""); // Resetar
+    setBioMaxReference(""); // Resetar
+    setBioReferenceUnit(""); // Resetar
     toast.success("Analito adicionado.");
   };
 
@@ -725,6 +742,35 @@ const AddExamPage = () => {
                         className="bg-input"
                       />
                     </div>
+                    <div className="grid grid-cols-3 gap-2 col-span-full">
+                      <div className="space-y-2">
+                        <Label>Ref. Mínima</Label>
+                        <Input
+                          placeholder="Mín."
+                          value={bioMinReference}
+                          onChange={(e) => setBioMinReference(e.target.value)}
+                          className="bg-input"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Ref. Máxima</Label>
+                        <Input
+                          placeholder="Máx."
+                          value={bioMaxReference}
+                          onChange={(e) => setBioMaxReference(e.target.value)}
+                          className="bg-input"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Unidade</Label>
+                        <Input
+                          placeholder="Unidade"
+                          value={bioReferenceUnit}
+                          onChange={(e) => setBioReferenceUnit(e.target.value)}
+                          className="bg-input"
+                        />
+                      </div>
+                    </div>
                     <div className="space-y-2">
                       <Label>Material</Label>
                       <Input value={bioMaterial} onChange={(e) => setBioMaterial(e.target.value)} className="bg-input" />
@@ -737,7 +783,7 @@ const AddExamPage = () => {
                       <Label>Equipamento</Label>
                       <Input value={bioEquipment} onChange={(e) => setBioEquipment(e.target.value)} className="bg-input" />
                     </div>
-                    <div className="flex items-end">
+                    <div className="flex items-end col-span-full">
                       <Button type="button" onClick={handleAddBiochemical} className="flex items-center gap-2">
                         <FaPlus className="h-4 w-4" /> Adicionar
                       </Button>
@@ -784,6 +830,30 @@ const AddExamPage = () => {
                               <Input
                                 value={entry.result}
                                 onChange={(e) => handleUpdateBiochemical(entry.id, "result", e.target.value)}
+                                className="bg-input"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <Label>Ref. Mínima</Label>
+                              <Input
+                                value={entry.minReference || ''}
+                                onChange={(e) => handleUpdateBiochemical(entry.id, "minReference", e.target.value)}
+                                className="bg-input"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <Label>Ref. Máxima</Label>
+                              <Input
+                                value={entry.maxReference || ''}
+                                onChange={(e) => handleUpdateBiochemical(entry.id, "maxReference", e.target.value)}
+                                className="bg-input"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <Label>Unidade</Label>
+                              <Input
+                                value={entry.referenceUnit || ''}
+                                onChange={(e) => handleUpdateBiochemical(entry.id, "referenceUnit", e.target.value)}
                                 className="bg-input"
                               />
                             </div>

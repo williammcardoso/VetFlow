@@ -3,7 +3,7 @@
 import React from "react";
 import { Document, Page, View, Text, StyleSheet, Font } from "@react-pdf/renderer";
 import { mockCompanySettings } from "@/mockData/settings";
-import { ExamEntry, HemogramReference, HemogramReferenceValue, ExamReportData } from "@/types/exam";
+import { ExamEntry, HemogramReference, HemogramReferenceValue, ExamReportData, BiochemicalEntry } from "@/types/exam";
 // import { hemogramReferences } from "@/constants/examReferences"; // Removido: agora vem via props
 
 // Registrando a fonte Exo com pesos regular, bold, italic e bold-italic
@@ -525,6 +525,63 @@ const styles = StyleSheet.create({
     marginTop: 2,
     marginBottom: 6,
   },
+  // NEW: Styles for Biochemical Report
+  biochemicalEnzymeHeader: {
+    backgroundColor: '#f0f0f0', // Light gray background
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    marginBottom: 5,
+    marginTop: 15,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 3,
+  },
+  biochemicalEnzymeName: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  biochemicalRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 3,
+    paddingHorizontal: 5,
+  },
+  biochemicalLabel: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    width: 80, // Fixed width for labels
+    color: '#333',
+  },
+  biochemicalValue: {
+    fontSize: 10,
+    color: '#444',
+    flex: 1, // Take remaining space
+  },
+  biochemicalResultContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 5,
+    paddingHorizontal: 5,
+  },
+  biochemicalResultLabel: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    width: 80,
+    color: '#333',
+  },
+  biochemicalResultValue: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    color: '#000', // Default black
+    width: 80, // Fixed width for result value
+  },
+  biochemicalReference: {
+    fontSize: 10,
+    color: '#666',
+    marginLeft: 10,
+    flex: 1,
+  },
 });
 
 // Componente para o Indicador (Barra com faixas de cor e marcador de ponto)
@@ -931,6 +988,20 @@ export const ExamReportPdfContent = ({
     );
   };
 
+  // Helper para determinar o status do resultado bioquímico
+  const getBiochemicalValueStatus = (value: string | undefined, minRef: string | undefined, maxRef: string | undefined): 'normal' | 'high' | 'low' | 'invalid' => {
+    if (!value || !minRef || !maxRef) return 'invalid';
+    const numValue = normalizeNumber(value);
+    const numMinRef = normalizeNumber(minRef);
+    const numMaxRef = normalizeNumber(maxRef);
+
+    if (isNaN(numValue) || isNaN(numMinRef) || isNaN(numMaxRef)) return 'invalid';
+
+    if (numValue < numMinRef) return 'low';
+    if (numValue > numMaxRef) return 'high';
+    return 'normal';
+  };
+
   return (
     <Document>
       <Page size="A4" style={styles.page}>
@@ -953,8 +1024,7 @@ export const ExamReportPdfContent = ({
 
         <Text style={styles.mainTitle}>LAUDO DE EXAME</Text>
 
-        {/* Informações do Animal e Tutor (Comentado para testes) */}
-        {/*
+        {/* Informações do Animal e Tutor */}
         <View style={styles.infoSectionContainer}>
           <View style={styles.infoCard}>
             <Text style={styles.infoTitle}>Animal</Text>
@@ -966,12 +1036,10 @@ export const ExamReportPdfContent = ({
             <Text style={styles.infoTitle}>Tutor</Text>
             <Text style={styles.infoText}>Nome: {tutorName}</Text>
             <Text style={styles.infoText}>Endereço: {tutorAddress || "Não informado"}</Text>
-          </Text>
+          </View>
         </View>
-        */}
 
-        {/* General Exam Info (Comentado para testes) */}
-        {/*
+        {/* General Exam Info */}
         <Text style={styles.sectionTitle}>INFORMAÇÕES GERAIS DO EXAME</Text>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 10 }}>
           <Text style={[styles.infoText, { width: '50%' }]}>Data do Exame: {exam.date}</Text>
@@ -982,7 +1050,6 @@ export const ExamReportPdfContent = ({
           {exam.laboratory && <Text style={[styles.infoText, { width: '50%' }]}>Laboratório: {exam.laboratory}</Text>}
           {exam.laboratoryDate && <Text style={[styles.infoText, { width: '50%' }]}>Data do Resultado: {exam.laboratoryDate}</Text>}
         </View>
-        */}
 
         {exam.type === "Hemograma Completo" ? (
           <>
@@ -1073,20 +1140,38 @@ export const ExamReportPdfContent = ({
         ) : exam.type === "Bioquímico" && exam.biochemicalEntries && exam.biochemicalEntries.length > 0 ? (
           <>
             <Text style={styles.sectionTitle}>BIOQUÍMICO</Text>
-            {exam.biochemicalEntries.map((b, idx) => (
-              <View key={b.id || idx} style={{ marginBottom: 8 }}>
-                <Text style={styles.subsectionTitle}>{b.enzyme}</Text>
-                <View style={{ marginLeft: 6 }}>
-                  {b.material ? <Text style={styles.infoText}>Material: {b.material}</Text> : null}
-                  {b.methodology ? <Text style={styles.infoText}>Metodologia: {b.methodology}</Text> : null}
-                  {b.equipment ? <Text style={styles.infoText}>Equipamento: {b.equipment}</Text> : null}
-                  {b.result ? <Text style={styles.infoText}>Resultado: {b.result}</Text> : null}
+            {exam.biochemicalEntries.map((b: BiochemicalEntry, idx) => {
+              const valueStatus = getBiochemicalValueStatus(b.result, b.minReference, b.maxReference);
+              let resultStyle;
+              switch (valueStatus) {
+                case 'normal': resultStyle = styles.resultNormal; break;
+                case 'high': resultStyle = styles.resultHigh; break;
+                case 'low': resultStyle = styles.resultLow; break;
+                default: resultStyle = styles.resultNormal;
+              }
+
+              return (
+                <View key={b.id || idx} style={{ marginBottom: 10 }}>
+                  <View style={styles.biochemicalEnzymeHeader}>
+                    <Text style={styles.biochemicalEnzymeName}>{b.enzyme}</Text>
+                  </View>
+                  <View style={styles.biochemicalResultContainer}>
+                    <Text style={styles.biochemicalResultLabel}>Resultado:</Text>
+                    <Text style={[styles.biochemicalResultValue, resultStyle]}>{b.result}</Text>
+                    {b.minReference && b.maxReference && b.referenceUnit && (
+                      <Text style={styles.biochemicalReference}>
+                        Ref.: {b.minReference} - {b.maxReference} {b.referenceUnit}
+                      </Text>
+                    )}
+                  </View>
+                  <View style={{ marginLeft: 10 }}>
+                    {b.material ? <View style={styles.biochemicalRow}><Text style={styles.biochemicalLabel}>Material:</Text><Text style={styles.biochemicalValue}>{b.material}</Text></View> : null}
+                    {b.methodology ? <View style={styles.biochemicalRow}><Text style={styles.biochemicalLabel}>Metodologia:</Text><Text style={styles.biochemicalValue}>{b.methodology}</Text></View> : null}
+                    {b.equipment ? <View style={styles.biochemicalRow}><Text style={styles.biochemicalLabel}>Equipamento:</Text><Text style={styles.biochemicalValue}>{b.equipment}</Text></View> : null}
+                  </View>
                 </View>
-                <Text style={styles.signatureSmall}>
-                  Assinado eletronicamente por: {exam.liberadoPor || "Não informado"}
-                </Text>
-              </View>
-            ))}
+              );
+            })}
             {exam.observacoesGeraisExame && (
               <View style={{ marginTop: 10 }}>
                 <Text style={styles.sectionTitle}>Observações Gerais do Exame</Text>
@@ -1103,10 +1188,21 @@ export const ExamReportPdfContent = ({
           )
         )}
 
-        {exam.observacoesGeraisExame && (
+        {exam.observacoesGeraisExame && exam.type !== "Bioquímico" && ( // Evitar duplicidade se já renderizado no bioquímico
           <View style={{ marginTop: 15 }}>
             <Text style={styles.sectionTitle}>Observações Gerais do Exame</Text>
             <Text style={styles.observationText}>{exam.observacoesGeraisExame}</Text>
+          </View>
+        )}
+
+        {exam.liberadoPor && (
+          <View style={{ marginTop: 20, textAlign: 'center' }}>
+            <Text style={styles.signatureSmall}>
+              Liberado por: {exam.liberadoPor}
+            </Text>
+            <Text style={styles.signatureSmall}>
+              Data de Liberação: {exam.laboratoryDate ? formatDateToPortuguese(new Date(exam.laboratoryDate)) : formatDateToPortuguese(currentDate)}
+            </Text>
           </View>
         )}
       </Page>

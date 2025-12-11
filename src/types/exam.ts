@@ -89,4 +89,7 @@ export interface BiochemicalEntry {
   methodology: string; // Ex: "Colorimétrico enzimático"
   equipment: string; // Ex: "Bioclin 2200"
   result: string; // Resultado informado
+  minReference?: string; // Novo: Valor de referência mínimo
+  maxReference?: string; // Novo: Valor de referência máximo
+  referenceUnit?: string; // Novo: Unidade de referência
 }
