@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { CatalogItem, CatalogItemType, getCatalog, addCatalogItem, updateCatalogItem, removeCatalogItem, adjustStock } from "@/mockData/catalog";
+import CurrencyInput from "@/components/CurrencyInput";
 
 const ProductsServicesPage: React.FC = () => {
   const [items, setItems] = useState<CatalogItem[]>([]);
@@ -15,7 +16,7 @@ const ProductsServicesPage: React.FC = () => {
   // Form para novo item
   const [newName, setNewName] = useState("");
   const [newType, setNewType] = useState<CatalogItemType>("product");
-  const [newPrice, setNewPrice] = useState<string>("0");
+  const [newPrice, setNewPrice] = useState<number>(0);
   const [newSKU, setNewSKU] = useState("");
   const [newUnit, setNewUnit] = useState("");
   const [newStockQty, setNewStockQty] = useState<string>("0");
@@ -48,7 +49,12 @@ const ProductsServicesPage: React.FC = () => {
       active: true,
     });
     toast.success(`${created.type === 'product' ? 'Produto' : 'Serviço'} adicionado.`);
-    setNewName(""); setNewPrice("0"); setNewSKU(""); setNewUnit(""); setNewStockQty("0"); setNewType("product");
+    setNewName("");
+    setNewPrice(0);
+    setNewSKU("");
+    setNewUnit("");
+    setNewStockQty("0");
+    setNewType("product");
     refresh();
   };
 
@@ -111,7 +117,7 @@ const ProductsServicesPage: React.FC = () => {
           </div>
           <div>
             <Label className="text-xs">Preço</Label>
-            <Input value={newPrice} onChange={(e) => setNewPrice(e.target.value)} className="h-8 text-sm bg-input" placeholder="0,00" />
+            <CurrencyInput value={newPrice} onValueChange={setNewPrice} className="h-8 text-sm w-full" />
           </div>
           <div>
             <Label className="text-xs">SKU</Label>
@@ -159,10 +165,10 @@ const ProductsServicesPage: React.FC = () => {
                       <TableCell className="font-medium">{item.name}</TableCell>
                       <TableCell>{item.sku || "-"}</TableCell>
                       <TableCell>
-                        <Input
+                        <CurrencyInput
                           value={item.price}
-                          onChange={(e) => handleUpdateItem(item, 'price', Number(e.target.value))}
-                          className="h-8 text-sm bg-input w-24"
+                          onValueChange={(val) => handleUpdateItem(item, 'price', val)}
+                          className="h-8 text-sm w-24"
                         />
                       </TableCell>
                       <TableCell className="flex items-center gap-2">
@@ -207,10 +213,10 @@ const ProductsServicesPage: React.FC = () => {
                       <TableCell className="font-medium">{item.name}</TableCell>
                       <TableCell>{item.unit || "-"}</TableCell>
                       <TableCell>
-                        <Input
+                        <CurrencyInput
                           value={item.price}
-                          onChange={(e) => handleUpdateItem(item, 'price', Number(e.target.value))}
-                          className="h-8 text-sm bg-input w-24"
+                          onValueChange={(val) => handleUpdateItem(item, 'price', val)}
+                          className="h-8 text-sm w-24"
                         />
                       </TableCell>
                       <TableCell>

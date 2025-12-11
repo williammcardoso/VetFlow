@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getCatalog, updateCatalogItem, CatalogItem } from "@/mockData/catalog";
 import { toast } from "sonner";
+import CurrencyInput from "@/components/CurrencyInput";
 
 const PriceListPage = () => {
   // NEW: state
@@ -81,10 +82,10 @@ const PriceListPage = () => {
                         <TableCell className="font-medium">{item.name}</TableCell>
                         <TableCell>{item.sku || "-"}</TableCell>
                         <TableCell>
-                          <Input
+                          <CurrencyInput
                             value={item.price}
-                            onChange={(e) => handleUpdate(item, 'price', e.target.value)}
-                            className="h-8 text-sm bg-input w-24"
+                            onValueChange={(val) => handleUpdate(item, 'price', val)}
+                            className="h-8 text-sm w-24"
                           />
                         </TableCell>
                         <TableCell>
@@ -118,10 +119,10 @@ const PriceListPage = () => {
                         <TableCell className="font-medium">{item.name}</TableCell>
                         <TableCell>{item.unit || "-"}</TableCell>
                         <TableCell>
-                          <Input
+                          <CurrencyInput
                             value={item.price}
-                            onChange={(e) => handleUpdate(item, 'price', e.target.value)}
-                            className="h-8 text-sm bg-input w-24"
+                            onValueChange={(val) => handleUpdate(item, 'price', val)}
+                            className="h-8 text-sm w-24"
                           />
                         </TableCell>
                         <TableCell>
