@@ -503,8 +503,8 @@ const AddExamPage = () => {
       <div className="flex-1 p-6">
         <Card className="shadow-sm border border-border rounded-md">
           <CardContent className="grid gap-4 py-4">
-            {/* Passo 1 */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {/* Passo 1: Data, Hora, Tipo, Veterinário - na mesma linha */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="examDate">Data do Exame</Label>
                 <Input
@@ -708,39 +708,40 @@ const AddExamPage = () => {
                       <FaMicroscope className="h-5 w-5 text-primary" /> Adicionar analito bioquímico
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-0 px-2">
-                    <div className="space-y-2">
-                      <Label>Analito/Enzima</Label>
-                      <Select value={selectedEnzyme} onValueChange={setSelectedEnzyme}>
-                        <SelectTrigger className="bg-input rounded-md border-border">
-                          <SelectValue placeholder="Selecione um analito" />
-                        </SelectTrigger>
-                        <SelectContent className="max-h-72">
-                          {biochemicalEnzymeOptions.map(opt => (
-                            <SelectItem key={opt} value={opt}>{opt}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      {selectedEnzyme === "Outro" && (
+                  <CardContent className="grid gap-4 pt-0 px-2">
+                    {/* Enzima, Resultado, Mínimo, Máximo, Unidade - na mesma linha */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
+                      <div className="space-y-2 col-span-full lg:col-span-1">
+                        <Label>Analito/Enzima</Label>
+                        <Select value={selectedEnzyme} onValueChange={setSelectedEnzyme}>
+                          <SelectTrigger className="bg-input rounded-md border-border">
+                            <SelectValue placeholder="Selecione um analito" />
+                          </SelectTrigger>
+                          <SelectContent className="max-h-72">
+                            {biochemicalEnzymeOptions.map(opt => (
+                              <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        {selectedEnzyme === "Outro" && (
+                          <Input
+                            placeholder="Informe o nome do analito"
+                            value={customEnzyme}
+                            onChange={(e) => setCustomEnzyme(e.target.value)}
+                            className="bg-input mt-2"
+                          />
+                        )}
+                      </div>
+                      <div className="space-y-2 col-span-full sm:col-span-1 lg:col-span-1">
+                        <Label>Resultado</Label>
                         <Input
-                          placeholder="Informe o nome do analito"
-                          value={customEnzyme}
-                          onChange={(e) => setCustomEnzyme(e.target.value)}
-                          className="bg-input mt-2"
+                          placeholder="Resultado"
+                          value={bioResult}
+                          onChange={(e) => setBioResult(e.target.value)}
+                          className="bg-input"
                         />
-                      )}
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Resultado</Label>
-                      <Input
-                        placeholder="Resultado"
-                        value={bioResult}
-                        onChange={(e) => setBioResult(e.target.value)}
-                        className="bg-input"
-                      />
-                    </div>
-                    <div className="grid grid-cols-3 gap-2 col-span-full">
-                      <div className="space-y-2">
+                      </div>
+                      <div className="space-y-2 col-span-full sm:col-span-1 lg:col-span-1">
                         <Label>Ref. Mínima</Label>
                         <Input
                           placeholder="Mín."
@@ -749,7 +750,7 @@ const AddExamPage = () => {
                           className="bg-input"
                         />
                       </div>
-                      <div className="space-y-2">
+                      <div className="space-y-2 col-span-full sm:col-span-1 lg:col-span-1">
                         <Label>Ref. Máxima</Label>
                         <Input
                           placeholder="Máx."
@@ -758,7 +759,7 @@ const AddExamPage = () => {
                           className="bg-input"
                         />
                       </div>
-                      <div className="space-y-2">
+                      <div className="space-y-2 col-span-full sm:col-span-1 lg:col-span-1">
                         <Label>Unidade</Label>
                         <Input
                           placeholder="Unidade"
@@ -768,17 +769,20 @@ const AddExamPage = () => {
                         />
                       </div>
                     </div>
-                    <div className="space-y-2">
-                      <Label>Material</Label>
-                      <Input value={bioMaterial} onChange={(e) => setBioMaterial(e.target.value)} className="bg-input" />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Metodologia</Label>
-                      <Input value={bioMethodology} onChange={(e) => setBioMethodology(e.target.value)} className="bg-input" />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Equipamento</Label>
-                      <Input value={bioEquipment} onChange={(e) => setBioEquipment(e.target.value)} className="bg-input" />
+                    {/* Material, Metodologia, Equipamento - na mesma linha */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+                      <div className="space-y-2">
+                        <Label>Material</Label>
+                        <Input value={bioMaterial} onChange={(e) => setBioMaterial(e.target.value)} className="bg-input" />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Metodologia</Label>
+                        <Input value={bioMethodology} onChange={(e) => setBioMethodology(e.target.value)} className="bg-input" />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Equipamento</Label>
+                        <Input value={bioEquipment} onChange={(e) => setBioEquipment(e.target.value)} className="bg-input" />
+                      </div>
                     </div>
                     <div className="flex items-end col-span-full">
                       <Button type="button" onClick={handleAddBiochemical} className="flex items-center gap-2">

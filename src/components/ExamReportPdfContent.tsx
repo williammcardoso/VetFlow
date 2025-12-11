@@ -528,59 +528,69 @@ const styles = StyleSheet.create({
   // NEW: Styles for Biochemical Report
   biochemicalEnzymeHeader: {
     backgroundColor: '#f0f0f0', // Light gray background
-    paddingVertical: 5,
-    paddingHorizontal: 10,
+    paddingVertical: 3, // Mais estreito
+    paddingHorizontal: 0, // Ocupa a linha inteira
     marginBottom: 5,
     marginTop: 15,
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 3,
+    borderWidth: 0, // Sem borda
+    borderRadius: 0, // Sem borda arredondada
   },
   biochemicalEnzymeName: {
-    fontSize: 12,
+    fontSize: 11, // Um pouco menor
     fontWeight: 'bold',
     color: '#333',
+    paddingLeft: 10, // Padding interno para o texto
   },
-  biochemicalRow: {
+  biochemicalResultLine: { // Nova linha para resultado e referência
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'baseline', // Alinha pela base do texto
     marginBottom: 3,
-    paddingHorizontal: 5,
-  },
-  biochemicalLabel: {
-    fontSize: 10,
-    fontWeight: 'bold',
-    width: 80, // Fixed width for labels
-    color: '#333',
-  },
-  biochemicalValue: {
-    fontSize: 10,
-    color: '#444',
-    flex: 1, // Take remaining space
-  },
-  biochemicalResultContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 5,
-    paddingHorizontal: 5,
+    paddingLeft: 10, // Recuo
   },
   biochemicalResultLabel: {
     fontSize: 10,
     fontWeight: 'bold',
-    width: 80,
+    width: 60, // Largura fixa para "Resultado:"
     color: '#333',
   },
   biochemicalResultValue: {
     fontSize: 10,
     fontWeight: 'bold',
     color: '#000', // Default black
-    width: 80, // Fixed width for result value
+    width: 50, // Largura fixa para o valor
   },
-  biochemicalReference: {
+  biochemicalResultUnit: {
+    fontSize: 10,
+    color: '#444',
+    width: 30, // Largura fixa para a unidade
+  },
+  biochemicalReferenceLabel: {
     fontSize: 10,
     color: '#666',
-    marginLeft: 10,
-    flex: 1,
+    marginLeft: 5, // Espaçamento após a unidade do resultado
+    width: 30, // Largura fixa para "Ref.:"
+  },
+  biochemicalReferenceRange: {
+    fontSize: 10,
+    color: '#666',
+    flex: 1, // Ocupa o restante do espaço
+  },
+  biochemicalDetailRow: { // Nova linha para material, metodologia, equipamento
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 2,
+    paddingLeft: 10, // Recuo
+  },
+  biochemicalDetailLabel: {
+    fontSize: 9,
+    fontWeight: 'bold',
+    width: 80, // Largura fixa para o label
+    color: '#333',
+  },
+  biochemicalDetailValue: {
+    fontSize: 9,
+    color: '#444',
+    flex: 1, // Ocupa o restante do espaço
   },
 });
 
@@ -1155,19 +1165,23 @@ export const ExamReportPdfContent = ({
                   <View style={styles.biochemicalEnzymeHeader}>
                     <Text style={styles.biochemicalEnzymeName}>{b.enzyme}</Text>
                   </View>
-                  <View style={styles.biochemicalResultContainer}>
+                  <View style={styles.biochemicalResultLine}>
                     <Text style={styles.biochemicalResultLabel}>Resultado:</Text>
                     <Text style={[styles.biochemicalResultValue, resultStyle]}>{b.result}</Text>
+                    {b.referenceUnit && <Text style={styles.biochemicalResultUnit}>{b.referenceUnit}</Text>}
                     {b.minReference && b.maxReference && b.referenceUnit && (
-                      <Text style={styles.biochemicalReference}>
-                        Ref.: {b.minReference} - {b.maxReference} {b.referenceUnit}
-                      </Text>
+                      <>
+                        <Text style={styles.biochemicalReferenceLabel}>Ref.:</Text>
+                        <Text style={styles.biochemicalReferenceRange}>
+                          {b.minReference} - {b.maxReference} {b.referenceUnit}
+                        </Text>
+                      </>
                     )}
                   </View>
                   <View style={{ marginLeft: 10 }}>
-                    {b.material ? <View style={styles.biochemicalRow}><Text style={styles.biochemicalLabel}>Material:</Text><Text style={styles.biochemicalValue}>{b.material}</Text></View> : null}
-                    {b.methodology ? <View style={styles.biochemicalRow}><Text style={styles.biochemicalLabel}>Metodologia:</Text><Text style={styles.biochemicalValue}>{b.methodology}</Text></View> : null}
-                    {b.equipment ? <View style={styles.biochemicalRow}><Text style={styles.biochemicalLabel}>Equipamento:</Text><Text style={styles.biochemicalValue}>{b.equipment}</Text></View> : null}
+                    {b.material ? <View style={styles.biochemicalDetailRow}><Text style={styles.biochemicalDetailLabel}>Material:</Text><Text style={styles.biochemicalDetailValue}>{b.material}</Text></View> : null}
+                    {b.methodology ? <View style={styles.biochemicalDetailRow}><Text style={styles.biochemicalDetailLabel}>Metodologia:</Text><Text style={styles.biochemicalDetailValue}>{b.methodology}</Text></View> : null}
+                    {b.equipment ? <View style={styles.biochemicalDetailRow}><Text style={styles.biochemicalDetailLabel}>Equipamento:</Text><Text style={styles.biochemicalDetailValue}>{b.equipment}</Text></View> : null}
                   </View>
                 </View>
               );
