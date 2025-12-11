@@ -12,6 +12,9 @@ import { mockClients } from "@/mockData/clients";
 import { addMockFinancialTransaction } from "@/mockData/financial";
 import { getBudgets, addBudget, updateBudgetStatus, removeBudget, Budget } from "@/mockData/budgets";
 import { getRegistryList } from "@/mockData/registry";
+import AutocompleteSelect from "@/components/AutocompleteSelect";
+import BudgetReportPdfContent from "@/components/BudgetReportPdfContent";
+import { PDFDownloadLink } from "@react-pdf/renderer";
 
 const BudgetsPage: React.FC = () => {
   const [clientId, setClientId] = React.useState<string | undefined>(undefined);
@@ -20,10 +23,17 @@ const BudgetsPage: React.FC = () => {
   const [qty, setQty] = React.useState<number>(1);
   const [unitPrice, setUnitPrice] = React.useState<number>(0);
   const [items, setItems] = React.useState<{ itemId: string; name: string; qty: number; price: number }[]>([]);
+  const [customItemEnabled, setCustomItemEnabled] = React.useState<boolean>(false);
+  const [customItemName, setCustomItemName] = React.useState<string>("");
+  const [customItemPrice, setCustomItemPrice] = React.useState<number>(0);
 
   const [budgets, setBudgets] = React.useState<Budget[]>(getBudgets());
 
   const productsAndServices = React.useMemo(() => getCatalog(), []);
+  const options = React.useMemo(
+    () => productsAndServices.map(p => ({ value: p.id, label: p.name })),
+    [productsAndServices]
+  );
   const paymentMethods = getRegistryList("paymentMethods");
 
   const refreshBudgets = () => setBudgets(getBudgets());
@@ -46,13 +56,23 @@ const BudgetsPage: React.FC = () => {
   const subtotal = items.reduce((sum, it) => sum + it.qty * it.price, 0);
 
   const addItemToBudget = () => {
+    if (customItemEnabled) {
+      if (!customItemName.trim() || customItemPrice <= 0 || qty <= 0) {
+        toast.error("Preencha nome, preço e quantidade válidos para o item personalizado.");
+        return;
+      }
+      setItems(prev => [...prev, { itemId: `custom-${Date.now()}`, name: customItemName.trim(), qty, price: customItemPrice }]);
+      setCustomItemName(""); setCustomItemPrice(0); setQty(1);
+      return;
+    }
+
     if (!productId) {
-      toast.error("Selecione um item.");
+      toast.error("Selecione um item do catálogo.");
       return;
     }
     const item = findCatalogItem(productId);
     if (!item) {
-      toast.error("Item não encontrado.");
+      toast.error("Item não encontrado no catálogo.");
       return;
     }
     if (qty <= 0) {
@@ -151,17 +171,34 @@ const BudgetsPage: React.FC = () => {
               </SelectContent>
             </Select>
           </div>
-          <div className="sm:col-span-2">
-            <Label className="text-xs">Item</Label>
-            <Select value={productId} onValueChange={setProductId}>
-              <SelectTrigger className="h-8 text-sm bg-input"><SelectValue placeholder="Selecione um item" /></SelectTrigger>
-              <SelectContent>
-                {productsAndServices.map((p: CatalogItem) => (
-                  <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="sm:col-span-6 flex items-center gap-2">
+            <label className="text-xs text-muted-foreground">Item personalizado</label>
+            <input type="checkbox" checked={customItemEnabled} onChange={(e) => setCustomItemEnabled(e.target.checked)} />
           </div>
+
+          {!customItemEnabled ? (
+            <div className="sm:col-span-2">
+              <Label className="text-xs">Item</Label>
+              <AutocompleteSelect
+                value={productId}
+                onChange={setProductId}
+                options={options}
+                placeholder="Selecione um item"
+                className="bg-input"
+              />
+            </div>
+          ) : (
+            <>
+              <div className="sm:col-span-2">
+                <Label className="text-xs">Nome do item</Label>
+                <Input value={customItemName} onChange={(e) => setCustomItemName(e.target.value)} className="h-8 text-sm bg-input" placeholder="Ex.: Cirurgia ortopédica" />
+              </div>
+              <div>
+                <Label className="text-xs">Preço Unitário</Label>
+                <CurrencyInput value={customItemPrice} onValueChange={setCustomItemPrice} className="h-8 text-sm w-full" />
+              </div>
+            </>
+          )}
           <div>
             <Label className="text-xs">Qtd</Label>
             <Input value={qty} onChange={(e) => setQty(Number(e.target.value) || 0)} className="h-8 text-sm bg-input w-full" />
@@ -259,6 +296,16 @@ const BudgetsPage: React.FC = () => {
                       <Button variant="outline" size="sm" className="h-8" onClick={() => removeBudgetAction(b.id)}>
                         Remover
                       </Button>
+                      <PDFDownloadLink
+                        document={<BudgetReportPdfContent budget={b} />}
+                        fileName={`orcamento_${b.id}.pdf`}
+                      >
+                        {({ loading }) => (
+                          <Button variant="outline" size="sm" className="h-8">
+                            {loading ? "Gerando..." : "Relatório"}
+                          </Button>
+                        )}
+                      </PDFDownloadLink>
                     </TableCell>
                   </TableRow>
                 );
