@@ -192,6 +192,75 @@ const PatientRecordPage = () => {
     (t) => t.relatedAnimalId === animalId && t.type === 'income' && t.category === 'Venda de Produtos'
   );
 
+  // Estado e form para lançamento financeiro
+  const [financeModalOpen, setFinanceModalOpen] = useState(false);
+  const [financeForm, setFinanceForm] = useState({ description: "", amount: "", type: "income" as "income" | "expense", category: "", paymentMethod: "" });
+
+  const FinanceForm: React.FC = () => {
+    return (
+      <>
+        <div className="space-y-3">
+          <div>
+            <Label>Descrição</Label>
+            <Input value={financeForm.description} onChange={(e) => setFinanceForm(v => ({ ...v, description: e.target.value }))} placeholder="Ex.: Exame de Sangue" />
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <Label>Valor</Label>
+              <Input type="number" value={financeForm.amount} onChange={(e) => setFinanceForm(v => ({ ...v, amount: e.target.value }))} placeholder="Ex.: 150.00" />
+            </div>
+            <div>
+              <Label>Tipo</Label>
+              <Select value={financeForm.type} onValueChange={(val) => setFinanceForm(v => ({ ...v, type: val as "income" | "expense" }))}>
+                <SelectTrigger className="bg-input"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="income">Receita</SelectItem>
+                  <SelectItem value="expense">Despesa</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div>
+            <Label>Categoria</Label>
+            <Input value={financeForm.category} onChange={(e) => setFinanceForm(v => ({ ...v, category: e.target.value }))} placeholder="Ex.: Atendimento" />
+          </div>
+          <div>
+            <Label>Método de Pagamento (opcional)</Label>
+            <Input value={financeForm.paymentMethod} onChange={(e) => setFinanceForm(v => ({ ...v, paymentMethod: e.target.value }))} placeholder="Ex.: Dinheiro" />
+          </div>
+        </div>
+        <DialogFooter className="mt-4">
+          <Button variant="outline" onClick={() => setFinanceModalOpen(false)}>Cancelar</Button>
+          <Button
+            onClick={() => {
+              const amount = Number(financeForm.amount);
+              if (!financeForm.description || !amount || !financeForm.category) {
+                toast.error("Preencha descrição, valor e categoria.");
+                return;
+              }
+              const now = new Date();
+              addMockFinancialTransaction({
+                date: now.toISOString().split("T")[0],
+                time: now.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
+                description: financeForm.description,
+                type: financeForm.type,
+                amount,
+                category: financeForm.category,
+                relatedAnimalId: currentAnimal.id,
+                relatedClientId: currentClient.id,
+                paymentMethod: financeForm.paymentMethod || undefined,
+              });
+              setFinanceModalOpen(false);
+              setFinanceForm({ description: "", amount: "", type: "income", category: "", paymentMethod: "" });
+              toast.success("Lançamento adicionado!");
+            }}
+          >
+            Salvar
+          </Button>
+        </DialogFooter>
+      </>
+    );
+  };
 
   if (!currentClient || !currentAnimal) {
     return (

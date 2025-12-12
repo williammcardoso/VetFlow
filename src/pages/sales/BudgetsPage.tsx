@@ -145,7 +145,9 @@ const BudgetsPage: React.FC = () => {
     const blob = await pdf(<BudgetReportPdfContent budget={b} />).toBlob();
     const url = URL.createObjectURL(blob);
     window.open(url, "_blank");
-    URL.revokeObjectURL(url);
+    // Importante: não revogar imediatamente para evitar invalidar o blob antes do carregamento.
+    // Opcionalmente, poderíamos revogar após alguns minutos:
+    // setTimeout(() => URL.revokeObjectURL(url), 60_000);
   };
 
   return (
