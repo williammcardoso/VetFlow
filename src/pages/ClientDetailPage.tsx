@@ -1,19 +1,30 @@
 import React from "react";
 import { Link, useParams, useNavigate } from "react-router-dom";
-import { FaArrowLeft, FaUsers, FaPaw, FaPlus, FaEye, FaEdit, FaEnvelope, FaPhone, FaMapMarkerAlt, FaIdCard, FaBirthdayCake, FaBriefcase, FaWhatsapp, FaSms, FaStickyNote } from "react-icons/fa"; // Importar ícones de react-icons
+import { FaArrowLeft, FaUsers, FaPaw, FaPlus, FaEye, FaEdit, FaEnvelope, FaPhone, FaMapMarkerAlt, FaIdCard, FaBirthdayCake, FaBriefcase, FaWhatsapp, FaSms, FaStickyNote } from "react-icons/fa";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { cn } from "@/lib/utils"; // Importar cn
-import { mockClients } from "@/mockData/clients"; // Importar o mock de clientes centralizado
-import { Client, Animal } from "@/types/client"; // Importar as interfaces Client e Animal
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"; // Importar Tooltip
+import { cn } from "@/lib/utils";
+import { Client } from "@/types/client";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { useClientWithAnimals } from "@/hooks/useSupabaseClients";
+import { mockClients as fallbackMockClients } from "@/mockData/clients";
 
 const ClientDetailPage = () => {
   const { clientId } = useParams<{ clientId: string }>();
   const navigate = useNavigate();
 
-  const client = mockClients.find(c => c.id === clientId);
+  const { data: dbClient, isLoading, isError } = useClientWithAnimals(clientId);
+  const client: Client | undefined = isError || !dbClient ? fallbackMockClients.find(c => c.id === clientId) : dbClient;
+
+  if (isLoading && !client) {
+    return (
+      <div className="p-6 text-center">
+        <h1 className="text-2xl font-semibold mb-2">Carregando...</h1>
+        <p className="text-muted-foreground">Buscando dados do cliente.</p>
+      </div>
+    );
+  }
 
   if (!client) {
     return (
@@ -115,14 +126,6 @@ const ClientDetailPage = () => {
                     <span className="font-medium text-foreground">Telefone Principal:</span> {client.mainPhoneContact}
                   </div>
                 </div>
-                {client.dynamicContacts && client.dynamicContacts.map((contact, index) => (
-                  <div key={index} className="flex items-start gap-2">
-                    <FaPhone className="h-4 w-4 mt-1 flex-shrink-0" />
-                    <div>
-                      <span className="font-medium text-foreground">{contact.label || `Contato ${index + 1}`}:</span> {contact.value}
-                    </div>
-                  </div>
-                ))}
                 <p><span className="font-medium text-foreground">Aceita Email:</span> {client.acceptEmail === "yes" ? "Sim" : "Não"}</p>
                 <p><span className="font-medium text-foreground">Aceita WhatsApp:</span> {client.acceptWhatsapp === "yes" ? "Sim" : "Não"}</p>
                 <p><span className="font-medium text-foreground">Aceita SMS:</span> {client.acceptSMS === "yes" ? "Sim" : "Não"}</p>
@@ -167,7 +170,7 @@ const ClientDetailPage = () => {
                 <CardTitle className="flex items-center gap-2 text-lg font-semibold text-foreground">
                   <FaPaw className="h-5 w-5 text-primary" /> Animais de {client.name}
                 </CardTitle>
-                <Link to={`/animals/add?clientId=${client.id}`}> {/* Passa o clientId como parâmetro */}
+                <Link to={`/animals/add?clientId=${client.id}`}>
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Button size="icon" className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-md font-semibold transition-all duration-200 shadow-md hover:shadow-lg">
@@ -182,7 +185,7 @@ const ClientDetailPage = () => {
               </CardHeader>
               <CardContent className="pt-0">
                 {client.animals.length > 0 ? (
-                  <div className="overflow-x-auto"> {/* Adicionado overflow-x-auto para tabelas em mobile */}
+                  <div className="overflow-x-auto">
                     <Table>
                       <TableHeader>
                         <TableRow>

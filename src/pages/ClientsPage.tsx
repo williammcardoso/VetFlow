@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { FaUsers, FaCog, FaSearch, FaFilter, FaSyncAlt, FaPlus, FaEye, FaTimes } from "react-icons/fa"; // Adicionado FaTimes
+import { FaUsers, FaCog, FaSearch, FaFilter, FaSyncAlt, FaPlus, FaEye, FaTimes } from "react-icons/fa";
 import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
@@ -16,8 +16,9 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { mockClients } from "@/mockData/clients"; // Importar o mock de clientes centralizado
-import { Client } from "@/types/client"; // Importar a interface Client
+import { Client } from "@/types/client";
+import { useClientsList } from "@/hooks/useSupabaseClients";
+import { mockClients as fallbackMockClients } from "@/mockData/clients";
 
 // Mock data for species (from SpeciesPage.tsx)
 const mockSpecies = [
@@ -28,19 +29,27 @@ const mockSpecies = [
 ];
 
 const ClientsPage = () => {
+  const { data: dbClients, isLoading, isError } = useClientsList();
+  const baseClients: Client[] = useMemo(() => {
+    // Fallback para mocks caso não haja sessão ou erro de RLS
+    if (isError || !dbClients || dbClients.length === 0) {
+      return fallbackMockClients;
+    }
+    return dbClients;
+  }, [dbClients, isError]);
+
   const [responsibleSearch, setResponsibleSearch] = useState("");
   const [animalSearch, setAnimalSearch] = useState("");
-  const [filteredClients, setFilteredClients] = useState<Client[]>(mockClients);
+  const [filteredClients, setFilteredClients] = useState<Client[]>(baseClients);
   const [isFilterDialogOpen, setIsFilterDialogOpen] = useState(false);
   const [filterSpecies, setFilterSpecies] = useState<string | undefined>(undefined);
   const [filterGender, setFilterGender] = useState<string | undefined>(undefined);
 
-  // Função de filtragem principal
   const applyFilters = () => {
     const lowerCaseResponsibleSearch = responsibleSearch.toLowerCase();
     const lowerCaseAnimalSearch = animalSearch.toLowerCase();
 
-    const results = mockClients.filter(client => {
+    const results = baseClients.filter(client => {
       const matchesResponsible = responsibleSearch.length === 0 || client.name.toLowerCase().includes(lowerCaseResponsibleSearch);
 
       const matchesAnimal = client.animals.some(animal => {
@@ -50,8 +59,6 @@ const ClientsPage = () => {
         return animalNameMatches && animalSpeciesMatches && animalGenderMatches;
       });
 
-      // Se não houver busca por animal, mas houver filtros de animal, aplicar os filtros aos animais do cliente.
-      // Se o cliente não tiver animais, ele só será incluído se não houver busca por animal ou filtros de animal.
       if (animalSearch.length === 0 && (filterSpecies || filterGender)) {
         return matchesResponsible && client.animals.some(animal => {
           const animalSpeciesMatches = !filterSpecies || animal.species === filterSpecies;
@@ -65,17 +72,19 @@ const ClientsPage = () => {
     setFilteredClients(results);
   };
 
-  // Efeito para aplicar filtros sempre que os estados de busca ou filtro mudarem
+  useEffect(() => {
+    setFilteredClients(baseClients);
+  }, [baseClients]);
+
   useEffect(() => {
     applyFilters();
-  }, [responsibleSearch, animalSearch, filterSpecies, filterGender, mockClients]); // Adicionado mockClients como dependência
+  }, [responsibleSearch, animalSearch, filterSpecies, filterGender]); // aplica em tempo real
 
   const handleReset = () => {
     setResponsibleSearch("");
     setAnimalSearch("");
     setFilterSpecies(undefined);
     setFilterGender(undefined);
-    // applyFilters() será chamado pelo useEffect
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -92,7 +101,6 @@ const ClientsPage = () => {
   const handleClearFilterDialog = () => {
     setFilterSpecies(undefined);
     setFilterGender(undefined);
-    // applyFilters() será chamado pelo useEffect
     setIsFilterDialogOpen(false);
   };
 
@@ -144,7 +152,6 @@ const ClientsPage = () => {
               onKeyDown={handleKeyDown}
             />
           </div>
-          {/* O botão de busca explícita pode ser mantido ou removido se a busca em tempo real for suficiente */}
           <Button variant="secondary" size="icon" onClick={applyFilters} className="rounded-md bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors duration-200 shadow-sm hover:shadow-md dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-600">
             <FaSearch className="h-4 w-4" />
           </Button>
@@ -177,25 +184,33 @@ const ClientsPage = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredClients.map((client, index) => (
-                  <TableRow key={client.id} className={cn(index % 2 === 1 && "bg-muted/50")}>
-                    <TableCell className="font-medium">{client.name} ({client.animals.length})</TableCell>
-                    <TableCell>{client.animals.map(a => a.name).join(", ")}</TableCell>
-                    <TableCell className="text-right">
-                      <Link to={`/clients/${client.id}`}>
-                        <Button variant="ghost" size="sm" className="rounded-md hover:bg-gray-100 hover:text-gray-900 dark:hover:bg-gray-700 dark:hover:text-gray-200 transition-colors duration-200">
-                          <FaEye className="h-4 w-4 mr-2" /> Ver
-                        </Button>
-                      </Link>
-                    </TableCell>
-                  </TableRow>
-                ))}
-                {filteredClients.length === 0 && (
+                {isLoading ? (
                   <TableRow>
-                    <TableCell colSpan={3} className="text-center text-muted-foreground py-4">
-                      Nenhum cliente encontrado.
-                    </TableCell>
+                    <TableCell colSpan={3} className="py-6 text-muted-foreground">Carregando clientes...</TableCell>
                   </TableRow>
+                ) : (
+                  <>
+                    {filteredClients.map((client, index) => (
+                      <TableRow key={client.id} className={cn(index % 2 === 1 && "bg-muted/50")}>
+                        <TableCell className="font-medium">{client.name} ({client.animals.length})</TableCell>
+                        <TableCell>{client.animals.map(a => a.name).join(", ")}</TableCell>
+                        <TableCell className="text-right">
+                          <Link to={`/clients/${client.id}`}>
+                            <Button variant="ghost" size="sm" className="rounded-md hover:bg-gray-100 hover:text-gray-900 dark:hover:bg-gray-700 dark:hover:text-gray-200 transition-colors duration-200">
+                              <FaEye className="h-4 w-4 mr-2" /> Ver
+                            </Button>
+                          </Link>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {filteredClients.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={3} className="text-center text-muted-foreground py-4">
+                          Nenhum cliente encontrado.
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </>
                 )}
               </TableBody>
             </Table>
