@@ -37,7 +37,7 @@ import { pdf } from "@react-pdf/renderer"; // Importar pdf para impressão
 import { PrescriptionPdfContent } from "@/components/PrescriptionPdfContent"; // Importar o componente de conteúdo do PDF
 // ADDED: Import do conteúdo de PDF do exame
 import { ExamReportPdfContent } from "@/components/ExamReportPdfContent";
-import { FinancialTransaction, mockFinancialTransactions } from "@/mockData/financial"; // Importar mock data financeiro
+import { FinancialTransaction, mockFinancialTransactions, addMockFinancialTransaction } from "@/mockData/financial"; // Importar mock data financeiro
 import { AppointmentEntry, BaseAppointmentDetails, ConsultationDetails } from "@/types/appointment"; // Importar a nova interface de atendimento
 import { mockClients, updateAnimalDetails } from "@/mockData/clients"; // Importar o mock de clientes centralizado e updateAnimalDetails
 import { Client, Animal, WeightEntry } from "@/types/client"; // Importar as interfaces Client, Animal e WeightEntry
@@ -60,7 +60,7 @@ const mockVets = [
   { id: "3", "name": "Dr. Souza" },
 ];
 
-// Mock data para vacinas (apenas para exibição, não para gerenciamento completo)
+// Mock data para vacinas (base inicial; gerida via estado)
 const mockVaccines = [
   { id: "vac1", date: "2024-03-10", time: "11:00", type: "V8", nextDue: "2025-03-10", vet: "Dra. Costa" },
 ];
@@ -179,6 +179,30 @@ const PatientRecordPage = () => {
     setExamsList([...mockExams]); // Create a new array reference to trigger re-render
   }, [mockExams, animalId]); // Dependência em mockExams para re-renderizar quando ele é alterado
 
+  // Estado de Vacinas e diálogos
+  const [vaccines, setVaccines] = useState(mockVaccines);
+  const [vaccineAddOpen, setVaccineAddOpen] = useState(false);
+  const [vaccineViewOpen, setVaccineViewOpen] = useState(false);
+  const [selectedVaccine, setSelectedVaccine] = useState<(typeof mockVaccines)[number] | null>(null);
+  const [vaccineForm, setVaccineForm] = useState({
+    date: new Date().toISOString().split("T")[0],
+    time: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
+    type: "",
+    nextDue: "",
+    vet: "",
+  });
+
+  // Modal: Observação
+  const [observationModalOpen, setObservationModalOpen] = useState(false);
+  const [selectedObservation, setSelectedObservation] = useState<ObservationEntry | null>(null);
+
+  // Modal: Peso
+  const [weightModalOpen, setWeightModalOpen] = useState(false);
+  const [selectedWeight, setSelectedWeight] = useState<WeightEntry | null>(null);
+
+  // Modal: Venda
+  const [saleModalOpen, setSaleModalOpen] = useState(false);
+  const [saleForm, setSaleForm] = useState({ description: "", amount: "", paymentMethod: "" });
 
   // Filtrar transações financeiras relacionadas a este animal
   const animalFinancialTransactions = mockFinancialTransactions.filter(
@@ -513,8 +537,8 @@ const PatientRecordPage = () => {
     });
   });
 
-  // Adicionar Vacinas (mockadas)
-  mockVaccines.forEach(vaccine => {
+  // Adicionar Vacinas
+  vaccines.forEach(vaccine => {
     allTimelineEvents.push({
       id: `vaccine-${vaccine.id}`,
       date: vaccine.date,
@@ -649,9 +673,28 @@ const PatientRecordPage = () => {
                   <p className="text-sm text-muted-foreground">Telefone: <span className="font-normal text-foreground">{currentClient.mainPhoneContact}</span></p>
                 </div>
                 <div className="bg-muted/50 dark:bg-muted/30 p-3 rounded-md border border-border">
-                  <p className="text-base font-semibold text-foreground mb-1">Resumo Financeiro</p>
-                  <p className="text-sm text-muted-foreground">Total de atendimentos: <span className="font-normal text-foreground">{totalAppointments}</span></p>
-                  <p className="text-sm text-muted-foreground">Receitas: <span className="font-normal text-foreground">R$ {totalIncome.toFixed(2).replace('.', ',')}</span></p>
+                  <p className="text-base font-semibold text-foreground mb-2">Resumo Financeiro</p>
+                  {(() => {
+                    const income = mockFinancialTransactions.filter(t => t.relatedAnimalId === animalId && t.type === 'income').reduce((s, t) => s + t.amount, 0);
+                    const expense = mockFinancialTransactions.filter(t => t.relatedAnimalId === animalId && t.type === 'expense').reduce((s, t) => s + t.amount, 0);
+                    const net = income - expense;
+                    return (
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                        <div className="p-3 rounded-md bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
+                          <span className="text-xs text-green-700 dark:text-green-300 font-medium flex items-center gap-2"><FaArrowUp className="h-4 w-4" /> Receitas</span>
+                          <div className="text-lg font-semibold text-green-700 dark:text-green-300 mt-1">R$ {income.toFixed(2).replace('.', ',')}</div>
+                        </div>
+                        <div className="p-3 rounded-md bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
+                          <span className="text-xs text-red-700 dark:text-red-300 font-medium flex items-center gap-2"><FaArrowDown className="h-4 w-4" /> Despesas</span>
+                          <div className="text-lg font-semibold text-red-700 dark:text-red-300 mt-1">R$ {expense.toFixed(2).replace('.', ',')}</div>
+                        </div>
+                        <div className="p-3 rounded-md bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
+                          <span className="text-xs text-blue-700 dark:text-blue-300 font-medium flex items-center gap-2"><FaBalanceScale className="h-4 w-4" /> Saldo</span>
+                          <div className={`text-lg font-semibold mt-1 ${net >= 0 ? "text-blue-700 dark:text-blue-300" : "text-yellow-700 dark:text-yellow-300"}`}>R$ {net.toFixed(2).replace('.', ',')}</div>
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
             </CardContent>
@@ -719,11 +762,20 @@ const PatientRecordPage = () => {
                             </p>
                           </div>
                           {event.link && (
-                            <Link to={event.link}>
-                              <Button variant="ghost" size="icon" className="rounded-md hover:bg-muted hover:text-foreground transition-colors duration-200">
-                                <FaEye className="h-4 w-4" />
-                              </Button>
-                            </Link>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => {
+                                if (event.link.startsWith("http") || event.link.startsWith("blob:")) {
+                                  window.open(event.link, "_blank");
+                                } else {
+                                  navigate(event.link);
+                                }
+                              }}
+                              className="rounded-md hover:bg-muted hover:text-foreground transition-colors duration-200"
+                            >
+                              <FaEye className="h-4 w-4" />
+                            </Button>
                           )}
                         </div>
                         <div className="flex items-center gap-1 text-sm text-muted-foreground">
@@ -911,9 +963,9 @@ const PatientRecordPage = () => {
                 </Button>
               </CardHeader>
               <CardContent className="pt-0">
-                {mockVaccines.length > 0 ? (
+                {vaccines.length > 0 ? (
                   <div className="space-y-4">
-                    {mockVaccines.map((vaccine) => (
+                    {vaccines.map((vaccine) => (
                       <Card key={vaccine.id} className="p-4 bg-input shadow-sm border border-border">
                         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-2 gap-2">
                           <div className="flex items-center gap-2">
@@ -924,7 +976,12 @@ const PatientRecordPage = () => {
                               Próxima Dose: {formatDateTime(vaccine.nextDue)}
                             </p>
                           </div>
-                          <Button variant="ghost" size="icon" className="rounded-md hover:bg-muted hover:text-foreground transition-colors duration-200">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => { setSelectedVaccine(vaccine); setVaccineViewOpen(true); }}
+                            className="rounded-md hover:bg-muted hover:text-foreground transition-colors duration-200"
+                          >
                             <FaEye className="h-4 w-4" />
                           </Button>
                         </div>
@@ -984,10 +1041,15 @@ const PatientRecordPage = () => {
                               {entry.weight.toFixed(2)} kg
                             </p>
                           </div>
-                          {/* Ações para peso, se houver */}
-                          <Button variant="ghost" size="icon" className="rounded-md hover:bg-muted hover:text-foreground transition-colors duration-200">
-                            <FaEye className="h-4 w-4" />
-                          </Button>
+                          {/* Ver registro de Peso */}
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => { setSelectedWeight(entry); setWeightModalOpen(true); }}
+                            className="rounded-md hover:bg-muted hover:text-foreground transition-colors duration-200"
+                          >
+                             <FaEye className="h-4 w-4" />
+                           </Button>
                         </div>
                         <div className="flex items-center gap-1 text-sm text-muted-foreground">
                           <FaCalendarAlt className="h-3 w-3" /> {formatDateTime(entry.date, entry.time)} {entry.source && <span className="text-xs italic">({entry.source})</span>}
@@ -1182,10 +1244,15 @@ const PatientRecordPage = () => {
                               {obs.observation}
                             </p>
                           </div>
-                          {/* Ações para observação, se houver */}
-                          <Button variant="ghost" size="icon" className="rounded-md hover:bg-muted hover:text-foreground transition-colors duration-200">
-                            <FaEye className="h-4 w-4" />
-                          </Button>
+                          {/* Ver Observação */}
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => { setSelectedObservation(obs); setObservationModalOpen(true); }}
+                            className="rounded-md hover:bg-muted hover:text-foreground transition-colors duration-200"
+                          >
+                             <FaEye className="h-4 w-4" />
+                           </Button>
                         </div>
                         <div className="flex items-center gap-1 text-sm text-muted-foreground">
                           <FaCalendarAlt className="h-3 w-3" /> {formatDateTime(obs.date, obs.time)}
@@ -1255,6 +1322,170 @@ const PatientRecordPage = () => {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Dialog: Ver Observação */}
+      <Dialog open={observationModalOpen} onOpenChange={setObservationModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Observação</DialogTitle>
+            <DialogDescription>Detalhes da observação registrada.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <p className="text-sm text-foreground">{selectedObservation?.observation}</p>
+            {selectedObservation && (
+              <p className="text-xs text-muted-foreground">Data: {formatDateTime(selectedObservation.date, selectedObservation.time)}</p>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog: Ver Peso */}
+      <Dialog open={weightModalOpen} onOpenChange={setWeightModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Registro de Peso</DialogTitle>
+            <DialogDescription>Detalhes do registro de peso.</DialogDescription>
+          </DialogHeader>
+          {selectedWeight && (
+            <div className="space-y-2">
+              <p className="text-foreground font-semibold">{selectedWeight.weight.toFixed(2)} kg</p>
+              <p className="text-sm text-muted-foreground">Origem: {selectedWeight.source || "-"}</p>
+              <p className="text-xs text-muted-foreground">Data: {formatDateTime(selectedWeight.date, selectedWeight.time)}</p>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog: Adicionar Vacina */}
+      <Dialog open={vaccineAddOpen} onOpenChange={setVaccineAddOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Adicionar Vacina</DialogTitle>
+            <DialogDescription>Cadastre uma vacina aplicada para este paciente.</DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <Label>Data</Label>
+              <Input type="date" value={vaccineForm.date} onChange={(e) => setVaccineForm(v => ({ ...v, date: e.target.value }))} />
+            </div>
+            <div>
+              <Label>Hora</Label>
+              <Input value={vaccineForm.time} onChange={(e) => setVaccineForm(v => ({ ...v, time: e.target.value }))} />
+            </div>
+            <div className="sm:col-span-2">
+              <Label>Tipo</Label>
+              <Input value={vaccineForm.type} onChange={(e) => setVaccineForm(v => ({ ...v, type: e.target.value }))} placeholder="Ex.: V8, Antirrábica" />
+            </div>
+            <div>
+              <Label>Próxima Dose</Label>
+              <Input type="date" value={vaccineForm.nextDue} onChange={(e) => setVaccineForm(v => ({ ...v, nextDue: e.target.value }))} />
+            </div>
+            <div>
+              <Label>Veterinário</Label>
+              <Input value={vaccineForm.vet} onChange={(e) => setVaccineForm(v => ({ ...v, vet: e.target.value }))} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setVaccineAddOpen(false)}>Cancelar</Button>
+            <Button
+              onClick={() => {
+                if (!vaccineForm.type || !vaccineForm.date) {
+                  toast.error("Preencha ao menos o tipo e a data.");
+                  return;
+                }
+                const newVac = { id: `vac-${Date.now()}`, ...vaccineForm };
+                setVaccines(prev => [...prev, newVac]);
+                setVaccineAddOpen(false);
+                toast.success("Vacina adicionada!");
+              }}
+            >
+              Salvar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog: Ver Vacina */}
+      <Dialog open={vaccineViewOpen} onOpenChange={setVaccineViewOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Detalhes da Vacina</DialogTitle>
+            <DialogDescription>Informações da aplicação selecionada.</DialogDescription>
+          </DialogHeader>
+          {selectedVaccine && (
+            <div className="space-y-2">
+              <p className="text-sm"><span className="font-semibold">Tipo:</span> {selectedVaccine.type}</p>
+              <p className="text-sm"><span className="font-semibold">Aplicada em:</span> {formatDateTime(selectedVaccine.date, selectedVaccine.time)}</p>
+              <p className="text-sm"><span className="font-semibold">Próxima dose:</span> {formatDateTime(selectedVaccine.nextDue)}</p>
+              <p className="text-sm"><span className="font-semibold">Veterinário:</span> {selectedVaccine.vet}</p>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog: Adicionar Venda */}
+      <Dialog open={saleModalOpen} onOpenChange={setSaleModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Adicionar Venda</DialogTitle>
+            <DialogDescription>Registre uma venda vinculada a este paciente.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label>Descrição</Label>
+              <Input value={saleForm.description} onChange={(e) => setSaleForm(v => ({ ...v, description: e.target.value }))} placeholder="Ex.: Venda de Ração Premium" />
+            </div>
+            <div>
+              <Label>Valor</Label>
+              <Input type="number" value={saleForm.amount} onChange={(e) => setSaleForm(v => ({ ...v, amount: e.target.value }))} placeholder="Ex.: 85.00" />
+            </div>
+            <div>
+              <Label>Método de Pagamento</Label>
+              <Input value={saleForm.paymentMethod} onChange={(e) => setSaleForm(v => ({ ...v, paymentMethod: e.target.value }))} placeholder="Ex.: Cartão de Crédito" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSaleModalOpen(false)}>Cancelar</Button>
+            <Button
+              onClick={() => {
+                const amount = Number(saleForm.amount);
+                if (!saleForm.description || !amount) {
+                  toast.error("Preencha a descrição e um valor válido.");
+                  return;
+                }
+                const now = new Date();
+                addMockFinancialTransaction({
+                  date: now.toISOString().split("T")[0],
+                  time: now.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
+                  description: saleForm.description,
+                  type: "income",
+                  amount,
+                  category: "Venda de Produtos",
+                  relatedAnimalId: currentAnimal.id,
+                  relatedClientId: currentClient.id,
+                  paymentMethod: saleForm.paymentMethod || undefined,
+                });
+                setSaleModalOpen(false);
+                setSaleForm({ description: "", amount: "", paymentMethod: "" });
+                toast.success("Venda registrada!");
+              }}
+            >
+              Salvar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog: Adicionar Lançamento Financeiro */}
+      <Dialog open={financeModalOpen} onOpenChange={setFinanceModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Adicionar Lançamento</DialogTitle>
+            <DialogDescription>Crie uma receita ou despesa vinculada ao paciente.</DialogDescription>
+          </DialogHeader>
+          <FinanceForm />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
