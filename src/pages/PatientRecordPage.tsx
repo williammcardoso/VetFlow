@@ -182,12 +182,14 @@ const PatientRecordPage = () => {
 
   // Filtrar transações financeiras relacionadas a este animal
   const animalFinancialTransactions = mockFinancialTransactions.filter(
-    (t) => t.relatedAnimalId === animalId
+    (t) =>
+      t.relatedAnimalId === animalId &&
+      !(t.type === 'income' && t.category === 'Venda de Produtos') // EXCLUI vendas para não duplicar com a aba Vendas
   );
 
   // Filtrar transações de vendas relacionadas a este animal
   const animalSalesTransactions = mockFinancialTransactions.filter(
-    (t) => t.relatedAnimalId === animalId && t.type === 'income' && t.category === 'Venda de Produtos' // Assumindo categoria 'Venda de Produtos' para vendas
+    (t) => t.relatedAnimalId === animalId && t.type === 'income' && t.category === 'Venda de Produtos'
   );
 
 
@@ -478,6 +480,12 @@ const PatientRecordPage = () => {
   });
 
 
+  // Totais dinâmicos para o resumo no cabeçalho
+  const totalAppointments = animalAppointments.length;
+  const totalIncome = mockFinancialTransactions
+    .filter((t) => t.relatedAnimalId === animalId && t.type === 'income')
+    .reduce((sum, t) => sum + t.amount, 0);
+
   return (
     <div className="flex flex-col min-h-screen bg-background">
       {/* Header da Página com Gradiente e Breadcrumb */}
@@ -573,8 +581,8 @@ const PatientRecordPage = () => {
                 </div>
                 <div className="bg-muted/50 dark:bg-muted/30 p-3 rounded-md border border-border">
                   <p className="text-base font-semibold text-foreground mb-1">Resumo Financeiro</p>
-                  <p className="text-sm text-muted-foreground">Total de procedimentos: <span className="font-normal text-foreground">{currentAnimal.totalProcedures || 0}</span></p>
-                  <p className="text-sm text-muted-foreground">Valor total: <span className="font-normal text-foreground">R$ {(currentAnimal.totalValue || 0).toFixed(2).replace('.', ',')}</span></p>
+                  <p className="text-sm text-muted-foreground">Total de atendimentos: <span className="font-normal text-foreground">{totalAppointments}</span></p>
+                  <p className="text-sm text-muted-foreground">Receitas: <span className="font-normal text-foreground">R$ {totalIncome.toFixed(2).replace('.', ',')}</span></p>
                 </div>
               </div>
             </CardContent>

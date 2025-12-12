@@ -14,7 +14,7 @@ import { getBudgets, addBudget, updateBudgetStatus, removeBudget, Budget } from 
 import { getRegistryList } from "@/mockData/registry";
 import AutocompleteSelect from "@/components/AutocompleteSelect";
 import BudgetReportPdfContent from "@/components/BudgetReportPdfContent";
-import { PDFDownloadLink } from "@react-pdf/renderer";
+import { pdf } from "@react-pdf/renderer";
 
 const BudgetsPage: React.FC = () => {
   const [clientId, setClientId] = React.useState<string | undefined>(undefined);
@@ -139,6 +139,13 @@ const BudgetsPage: React.FC = () => {
     removeBudget(budgetId);
     refreshBudgets();
     toast.success("Orçamento removido.");
+  };
+
+  const handleOpenBudgetPdf = async (b: Budget) => {
+    const blob = await pdf(<BudgetReportPdfContent budget={b} />).toBlob();
+    const url = URL.createObjectURL(blob);
+    window.open(url, "_blank");
+    URL.revokeObjectURL(url);
   };
 
   return (
@@ -296,16 +303,9 @@ const BudgetsPage: React.FC = () => {
                       <Button variant="outline" size="sm" className="h-8" onClick={() => removeBudgetAction(b.id)}>
                         Remover
                       </Button>
-                      <PDFDownloadLink
-                        document={<BudgetReportPdfContent budget={b} />}
-                        fileName={`orcamento_${b.id}.pdf`}
-                      >
-                        {({ loading }) => (
-                          <Button variant="outline" size="sm" className="h-8">
-                            {loading ? "Gerando..." : "Relatório"}
-                          </Button>
-                        )}
-                      </PDFDownloadLink>
+                      <Button variant="outline" size="sm" className="h-8" onClick={() => handleOpenBudgetPdf(b)}>
+                        Relatório
+                      </Button>
                     </TableCell>
                   </TableRow>
                 );
