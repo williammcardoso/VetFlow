@@ -1,4 +1,3 @@
-Financeiro; remover abas principais duplicadas; renomear sub-aba 'Pagamentos' para 'Financeiro'; adicionar UI de pagamentos.">
 "use client";
 
 import React, { useState, useEffect } from "react";
