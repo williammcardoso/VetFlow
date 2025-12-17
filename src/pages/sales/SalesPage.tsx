@@ -6,10 +6,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { mockFinancialTransactions } from "@/mockData/financial";
+import { mockFinancialTransactions, updateMockFinancialTransaction } from "@/mockData/financial";
 import { mockClients } from "@/mockData/clients"; // Importar o mock de clientes centralizado
 import { Client, Animal } from "@/types/client"; // Importar as interfaces Client e Animal
-import { toast } from "@/components/ui/toast";
+import { toast } from "sonner";
 
 const SalesPage = () => {
   // Filtros
