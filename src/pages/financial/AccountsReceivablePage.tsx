@@ -10,6 +10,7 @@ import { mockFinancialTransactions, updateMockFinancialTransaction, FinancialTra
 import { mockClients } from "@/mockData/clients";
 import { getRegistryList } from "@/mockData/registry";
 import { formatDateTime } from "@/lib/utils";
+import CurrencyInput from "@/components/CurrencyInput";
 
 const sumReceiptsForSale = (saleId: string) => {
   const receipts = mockFinancialTransactions.filter(
@@ -133,18 +134,15 @@ const AccountsReceivablePage: React.FC = () => {
                         type="date"
                         value={payDateMap[sale.id] || new Date().toISOString().split("T")[0]}
                         onChange={(e) => setPayDateMap(prev => ({ ...prev, [sale.id]: e.target.value }))}
-                        className="h-9 bg-input"
+                        className="h-9 bg-input border border-border rounded-md"
                       />
                     </div>
                     <div>
                       <label className="text-xs text-muted-foreground">Valor</label>
-                      <Input
-                        type="number"
-                        min="0"
-                        step="0.01"
+                      <CurrencyInput
                         value={typeof payAmountMap[sale.id] === "number" ? payAmountMap[sale.id] : remaining}
-                        onChange={(e) => setPayAmountMap(prev => ({ ...prev, [sale.id]: parseFloat(e.target.value) || 0 }))}
-                        className="h-9 bg-input"
+                        onValueChange={(v) => setPayAmountMap(prev => ({ ...prev, [sale.id]: v }))}
+                        className="h-9 w-full border border-border rounded-md"
                       />
                     </div>
                     <div className="md:col-span-2">
@@ -153,7 +151,7 @@ const AccountsReceivablePage: React.FC = () => {
                         onValueChange={(v) => setPayMethodMap(prev => ({ ...prev, [sale.id]: v }))}
                         value={payMethodMap[sale.id]}
                       >
-                        <SelectTrigger className="h-9 bg-input">
+                        <SelectTrigger className="h-9 bg-input border border-border rounded-md">
                           <SelectValue placeholder="Selecione" />
                         </SelectTrigger>
                         <SelectContent>

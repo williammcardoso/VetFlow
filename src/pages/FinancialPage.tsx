@@ -62,11 +62,11 @@ const FinancialPage: React.FC = () => {
       <div className="p-6 grid grid-cols-1 md:grid-cols-3 gap-3">
         <div>
           <label className="text-xs text-muted-foreground">De</label>
-          <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="h-9 bg-input" />
+          <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="h-9 bg-input border border-border rounded-md" />
         </div>
         <div>
           <label className="text-xs text-muted-foreground">Até</label>
-          <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="h-9 bg-input" />
+          <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="h-9 bg-input border border-border rounded-md" />
         </div>
         <div className="flex items-end">
           <div className="text-xs text-muted-foreground">

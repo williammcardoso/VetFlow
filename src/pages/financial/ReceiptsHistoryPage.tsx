@@ -52,16 +52,16 @@ const ReceiptsHistoryPage: React.FC = () => {
       <div className="p-6 grid grid-cols-1 md:grid-cols-5 gap-3">
         <div>
           <label className="text-xs text-muted-foreground">De</label>
-          <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="h-9 bg-input" />
+          <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="h-9 bg-input border border-border rounded-md" />
         </div>
         <div>
           <label className="text-xs text-muted-foreground">Até</label>
-          <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="h-9 bg-input" />
+          <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="h-9 bg-input border border-border rounded-md" />
         </div>
         <div className="md:col-span-2">
           <label className="text-xs text-muted-foreground">Forma de pagamento</label>
           <Select value={paymentMethod} onValueChange={setPaymentMethod}>
-            <SelectTrigger className="h-9 bg-input"><SelectValue placeholder="Todas" /></SelectTrigger>
+            <SelectTrigger className="h-9 bg-input border border-border rounded-md"><SelectValue placeholder="Todas" /></SelectTrigger>
             <SelectContent>
               <SelectItem value={undefined as any}>Todas</SelectItem>
               {methodList.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}

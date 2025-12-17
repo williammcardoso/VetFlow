@@ -4,6 +4,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
+import CurrencyInput from "@/components/CurrencyInput";
 import { mockFinancialTransactions, addMockFinancialTransaction } from "@/mockData/financial";
 import { getRegistryList } from "@/mockData/registry";
 import { formatDateTime } from "@/lib/utils";
@@ -77,11 +78,11 @@ const CashMovementsPage: React.FC = () => {
       <div className="p-6 grid grid-cols-1 md:grid-cols-4 gap-3">
         <div>
           <label className="text-xs text-muted-foreground">De</label>
-          <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="h-9 bg-input" />
+          <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="h-9 bg-input border border-border rounded-md" />
         </div>
         <div>
           <label className="text-xs text-muted-foreground">Até</label>
-          <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="h-9 bg-input" />
+          <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="h-9 bg-input border border-border rounded-md" />
         </div>
         <div className="md:col-span-2 flex items-end">
           <div className="text-sm bg-muted px-3 py-2 rounded-md">
@@ -100,20 +101,20 @@ const CashMovementsPage: React.FC = () => {
           <CardContent className="grid grid-cols-1 md:grid-cols-5 gap-2 items-end">
             <div>
               <label className="text-xs text-muted-foreground">Data</label>
-              <Input type="date" value={outDate} onChange={(e) => setOutDate(e.target.value)} className="h-9 bg-input" />
+              <Input type="date" value={outDate} onChange={(e) => setOutDate(e.target.value)} className="h-9 bg-input border border-border rounded-md" />
             </div>
             <div className="md:col-span-2">
               <label className="text-xs text-muted-foreground">Descrição</label>
-              <Input value={outDescription} onChange={(e) => setOutDescription(e.target.value)} className="h-9 bg-input" placeholder="Ex.: Ajuste de caixa" />
+              <Input value={outDescription} onChange={(e) => setOutDescription(e.target.value)} className="h-9 bg-input border border-border rounded-md" placeholder="Ex.: Ajuste de caixa" />
             </div>
             <div>
               <label className="text-xs text-muted-foreground">Categoria</label>
-              <Input value={outCategory} onChange={(e) => setOutCategory(e.target.value)} className="h-9 bg-input" placeholder="Ex.: Despesa" />
+              <Input value={outCategory} onChange={(e) => setOutCategory(e.target.value)} className="h-9 bg-input border border-border rounded-md" placeholder="Ex.: Despesa" />
             </div>
             <div>
               <label className="text-xs text-muted-foreground">Forma de pagamento</label>
               <Select value={outMethodId} onValueChange={setOutMethodId}>
-                <SelectTrigger className="h-9 bg-input">
+                <SelectTrigger className="h-9 bg-input border border-border rounded-md">
                   <SelectValue placeholder="Selecione" />
                 </SelectTrigger>
                 <SelectContent>
@@ -127,7 +128,7 @@ const CashMovementsPage: React.FC = () => {
             </div>
             <div className="md:col-span-5">
               <label className="text-xs text-muted-foreground">Valor</label>
-              <Input type="number" min="0" step="0.01" value={outAmount} onChange={(e) => setOutAmount(parseFloat(e.target.value) || 0)} className="h-9 bg-input" />
+              <CurrencyInput value={outAmount} onValueChange={setOutAmount} className="h-9 w-full border border-border rounded-md" />
             </div>
             <div className="md:col-span-5 flex justify-end">
               <Button onClick={handleAddExpense} className="h-9 px-4">Registrar saída</Button>
