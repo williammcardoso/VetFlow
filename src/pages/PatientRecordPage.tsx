@@ -89,7 +89,7 @@ const calculateAge = (birthday: string) => {
   return age > 0 ? `${age} ano(s)` : 'Menos de 1 ano';
 };
 
-// Tipagens locais para metadados da venda e pagamentos no prontuário
+// Tipagens locais e storage para vendas e pagamentos no prontuário
 type SaleStatusLocal = "open" | "finalized";
 type SaleItemMeta = { itemId: string; name: string; type: "product" | "service"; qty: number; unitPrice: number };
 type PatientSaleMeta = {
@@ -106,12 +106,12 @@ type PatientPaymentMeta = {
   id: string; // id da transação de recebimento (ftN)
   saleId: string;
   date: string;
+  time: string; // horário do pagamento
   amount: number;
   paymentMethod?: string;
   observations?: string;
 };
 
-// Helpers de storage por animal
 const salesStorageKey = (animalId?: string) => `patient:sales:${animalId || "unknown"}`;
 const paymentsStorageKey = (animalId?: string) => `patient:payments:${animalId || "unknown"}`;
 const readPatientSales = (animalId?: string): PatientSaleMeta[] => {
@@ -139,7 +139,9 @@ const writePatientPayments = (animalId: string | undefined, list: PatientPayment
 
 // Mock data para catalogo de produtos e serviços
 import AutocompleteSelect from "@/components/AutocompleteSelect";
+import CurrencyInput from "@/components/CurrencyInput";
 import { getCatalog, findCatalogItem, adjustStock, CatalogItem } from "@/mockData/catalog";
+import { getRegistryList } from "@/mockData/registry";
 
 const PatientRecordPage = () => {
   const { clientId, animalId } = useParams<{ clientId: string; animalId: string }>();
@@ -266,7 +268,7 @@ const PatientRecordPage = () => {
   const [saleUnitPrice, setSaleUnitPrice] = useState<number>(0);
   const [saleItems, setSaleItems] = useState<SaleItemMeta[]>([]);
 
-  // Atualizar preço unitário quando selecionar item
+  // UseEffect para atualizar preço unitário quando selecionar item
   useEffect(() => {
     if (!saleSelectedItemId) {
       setSaleUnitPrice(0);
@@ -281,16 +283,16 @@ const PatientRecordPage = () => {
   // Adicionar item à venda
   const addItemToSale = () => {
     if (!saleSelectedItemId) {
-      toast.error("Selecione um item (serviço/produto).");
+      toast.error("Selecione um item.");
       return;
     }
     if (saleQty <= 0 || saleUnitPrice <= 0) {
-      toast.error("Informe quantidade e preço válidos.");
+      toast.error("Qtd e preço devem ser válidos.");
       return;
     }
     const catItem = findCatalogItem(saleSelectedItemId);
     if (!catItem) {
-      toast.error("Item não encontrado no catálogo.");
+      toast.error("Item não encontrado.");
       return;
     }
     setSaleItems(prev => [
@@ -315,22 +317,20 @@ const PatientRecordPage = () => {
 
   // Salvar venda
   const handleSaveSale = () => {
-    // Regras: Nenhuma venda existe sem atendimento
     if (!saleAppointmentId) {
       toast.error("Selecione o atendimento vinculado.");
       return;
     }
     if (saleItems.length === 0) {
-      toast.error("Adicione itens (serviços/produtos) à venda.");
+      toast.error("Adicione itens à venda.");
       return;
     }
     if (!currentClient || !currentAnimal) {
       toast.error("Cliente/animal não encontrados.");
       return;
     }
-    // id da próxima transação
+
     const nextId = `ft${mockFinancialTransactions.length + 1}`;
-    // Registrar venda no financeiro global
     addMockFinancialTransaction({
       date: saleDate,
       time: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
@@ -340,10 +340,8 @@ const PatientRecordPage = () => {
       category: "Venda de Produtos",
       relatedAnimalId: currentAnimal.id,
       relatedClientId: currentClient.id,
-      // Sem forma de pagamento aqui (controle é na aba Financeiro)
     });
 
-    // Ajustar estoque para produtos
     saleItems.forEach(it => {
       const cat = findCatalogItem(it.itemId);
       if (cat && cat.type === "product") {
@@ -351,7 +349,6 @@ const PatientRecordPage = () => {
       }
     });
 
-    // Salvar metadados da venda no prontuário
     const newSaleMeta: PatientSaleMeta = {
       id: nextId,
       date: saleDate,
@@ -366,7 +363,6 @@ const PatientRecordPage = () => {
     setPatientSales(updated);
     writePatientSales(animalId, updated);
 
-    // Resetar form
     setSaleModalOpen(false);
     setSaleDate(new Date().toISOString().split("T")[0]);
     setSaleAppointmentId("");
@@ -384,11 +380,8 @@ const PatientRecordPage = () => {
     writePatientSales(animalId, updated);
   };
 
-  // Utilitários de financeiro por venda
-  const getPaidForSale = (saleId: string): number => {
-    // Somar pagamentos locais vinculados a essa venda
-    return patientPayments.filter(p => p.saleId === saleId).reduce((sum, p) => sum + p.amount, 0);
-  };
+  // Cálculo financeiro por venda
+  const getPaidForSale = (saleId: string): number => patientPayments.filter(p => p.saleId === saleId).reduce((sum, p) => sum + p.amount, 0);
   const getFinancialStatusForSale = (saleId: string, saleAmount: number): "paid" | "partial" | "pending" => {
     const paid = getPaidForSale(saleId);
     if (paid >= saleAmount) return "paid";
@@ -396,20 +389,25 @@ const PatientRecordPage = () => {
     return "pending";
   };
 
-  // Registrar pagamento
+  // Pagamentos (aba Financeiro)
+  const pmRegistry = getRegistryList("paymentMethods");
   const [paymentSaleId, setPaymentSaleId] = useState<string | undefined>(undefined);
   const [paymentDate, setPaymentDate] = useState<string>(new Date().toISOString().split("T")[0]);
+  const [paymentTime, setPaymentTime] = useState<string>(new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }));
   const [paymentAmount, setPaymentAmount] = useState<number>(0);
-  const [paymentMethod, setPaymentMethod] = useState<string>("");
+  const [paymentMethodId, setPaymentMethodId] = useState<string | undefined>(undefined);
   const [paymentObservations, setPaymentObservations] = useState<string>("");
+
+  // BLOQUEIO: não permitir baixar se já estiver pago
+  const canRegisterPayment = (saleId: string): boolean => {
+    const sale = patientSales.find(s => s.id === saleId);
+    if (!sale) return false;
+    return getFinancialStatusForSale(saleId, sale.total) !== "paid";
+  };
 
   const handleAddPayment = () => {
     if (!paymentSaleId) {
       toast.error("Selecione a venda vinculada.");
-      return;
-    }
-    if (paymentAmount <= 0) {
-      toast.error("Informe um valor de pagamento válido.");
       return;
     }
     const saleMeta = patientSales.find(s => s.id === paymentSaleId);
@@ -417,44 +415,55 @@ const PatientRecordPage = () => {
       toast.error("Venda não encontrada.");
       return;
     }
-    // Regras: Nenhum pagamento existe sem venda — ok, pois paymentSaleId existe
+    if (!canRegisterPayment(paymentSaleId)) {
+      toast.error("Esta venda já está PAGA. Não é possível registrar novas baixas.");
+      return;
+    }
+    if (paymentAmount <= 0) {
+      toast.error("Informe um valor de pagamento válido.");
+      return;
+    }
 
-    // Id do próximo recebimento
+    const pmName = paymentMethodId ? (pmRegistry.find(pm => pm.id === paymentMethodId)?.name || undefined) : undefined;
+
     const nextReceiptId = `ft${mockFinancialTransactions.length + 1}`;
-    // Registrar recebimento no financeiro global
     addMockFinancialTransaction({
       date: paymentDate,
-      time: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
+      time: paymentTime,
       description: `Recebimento da venda ${paymentSaleId}`,
       type: "income",
       amount: paymentAmount,
       category: "Recebimento",
       relatedAnimalId: currentAnimal.id,
       relatedClientId: currentClient.id,
-      paymentMethod: paymentMethod || undefined,
+      paymentMethod: pmName,
     });
 
-    // Salvar pagamento no prontuário
     const newPayment: PatientPaymentMeta = {
       id: nextReceiptId,
       saleId: paymentSaleId,
       date: paymentDate,
+      time: paymentTime,
       amount: paymentAmount,
-      paymentMethod: paymentMethod || undefined,
+      paymentMethod: pmName,
       observations: paymentObservations || undefined,
     };
     const updatedPayments = [...patientPayments, newPayment];
     setPatientPayments(updatedPayments);
     writePatientPayments(animalId, updatedPayments);
 
-    // Reset
     setPaymentSaleId(undefined);
     setPaymentDate(new Date().toISOString().split("T")[0]);
+    setPaymentTime(new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }));
     setPaymentAmount(0);
-    setPaymentMethod("");
+    setPaymentMethodId(undefined);
     setPaymentObservations("");
     toast.success("Pagamento registrado!");
   };
+
+  // EXPANSÍVEL: controlar exibição de itens por venda
+  const [expandedSales, setExpandedSales] = useState<Record<string, boolean>>({});
+  const toggleExpanded = (saleId: string) => setExpandedSales(prev => ({ ...prev, [saleId]: !prev[saleId] }));
 
   // Filtrar transações financeiras relacionadas a este animal
   const animalFinancialTransactions = mockFinancialTransactions.filter(
@@ -487,71 +496,158 @@ const PatientRecordPage = () => {
   // Catálogo para itens da venda
   const catalogItems = getCatalog().filter(i => i.active);
 
-  const FinanceForm: React.FC = () => {
-    return (
-      <>
-        <div className="space-y-3">
-          <div>
-            <Label>Descrição</Label>
-            <Input value={financeForm.description} onChange={(e) => setFinanceForm(v => ({ ...v, description: e.target.value }))} placeholder="Ex.: Exame de Sangue" />
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <Label>Valor</Label>
-              <Input type="number" value={financeForm.amount} onChange={(e) => setFinanceForm(v => ({ ...v, amount: e.target.value }))} placeholder="Ex.: 150.00" />
-            </div>
-            <div>
-              <Label>Tipo</Label>
-              <Select value={financeForm.type} onValueChange={(val) => setFinanceForm(v => ({ ...v, type: val as "income" | "expense" }))}>
-                <SelectTrigger className="bg-input"><SelectValue placeholder="Selecione" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="income">Receita</SelectItem>
-                  <SelectItem value="expense">Despesa</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <div>
-            <Label>Categoria</Label>
-            <Input value={financeForm.category} onChange={(e) => setFinanceForm(v => ({ ...v, category: e.target.value }))} placeholder="Ex.: Atendimento" />
-          </div>
-          <div>
-            <Label>Método de Pagamento (opcional)</Label>
-            <Input value={financeForm.paymentMethod} onChange={(e) => setFinanceForm(v => ({ ...v, paymentMethod: e.target.value }))} placeholder="Ex.: Dinheiro" />
-          </div>
-        </div>
-        <DialogFooter className="mt-4">
-          <Button variant="outline" onClick={() => setFinanceModalOpen(false)}>Cancelar</Button>
-          <Button
-            onClick={() => {
-              const amount = Number(financeForm.amount);
-              if (!financeForm.description || !amount || !financeForm.category) {
-                toast.error("Preencha descrição, valor e categoria.");
-                return;
-              }
-              const now = new Date();
-              addMockFinancialTransaction({
-                date: now.toISOString().split("T")[0],
-                time: now.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
-                description: financeForm.description,
-                type: financeForm.type,
-                amount,
-                category: financeForm.category,
-                relatedAnimalId: currentAnimal.id,
-                relatedClientId: currentClient.id,
-                paymentMethod: financeForm.paymentMethod || undefined,
-              });
-              setFinanceModalOpen(false);
-              setFinanceForm({ description: "", amount: "", type: "income", category: "", paymentMethod: "" });
-              toast.success("Lançamento adicionado!");
-            }}
-          >
-            Salvar
-          </Button>
-        </DialogFooter>
-      </>
-    );
+  // Substituir conteúdo da aba Vendas para aplicar bordas, máscara, itens e modal mais largo
+  const [saleModalOpen, setSaleModalOpen] = useState(false);
+  const [saleDate, setSaleDate] = useState<string>(new Date().toISOString().split("T")[0]);
+  const [saleAppointmentId, setSaleAppointmentId] = useState<string>("");
+  const [saleResponsible, setSaleResponsible] = useState<string>("");
+  const [saleObservations, setSaleObservations] = useState<string>("");
+  const [saleStatusLocal, setSaleStatusLocal] = useState<SaleStatusLocal>("open");
+
+  // Itens da venda
+  const [saleSelectedItemId, setSaleSelectedItemId] = useState<string>("");
+  const [saleQty, setSaleQty] = useState<number>(1);
+  const [saleUnitPrice, setSaleUnitPrice] = useState<number>(0);
+  const [saleItems, setSaleItems] = useState<SaleItemMeta[]>([]);
+
+  useEffect(() => {
+    if (!saleSelectedItemId) { setSaleUnitPrice(0); return; }
+    const item = findCatalogItem(saleSelectedItemId);
+    setSaleUnitPrice(item?.price || 0);
+  }, [saleSelectedItemId]);
+
+  const saleTotal = saleItems.reduce((sum, it) => sum + it.qty * it.unitPrice, 0);
+
+  const addItemToSale = () => {
+    if (!saleSelectedItemId) { toast.error("Selecione um item."); return; }
+    if (saleQty <= 0 || saleUnitPrice <= 0) { toast.error("Qtd e preço devem ser válidos."); return; }
+    const catItem = findCatalogItem(saleSelectedItemId);
+    if (!catItem) { toast.error("Item não encontrado."); return; }
+    setSaleItems(prev => [...prev, { itemId: catItem.id, name: catItem.name, type: catItem.type, qty: saleQty, unitPrice: saleUnitPrice }]);
+    setSaleSelectedItemId(""); setSaleQty(1); setSaleUnitPrice(0);
   };
+
+  const removeSaleItem = (itemId: string, index: number) => {
+    setSaleItems(prev => prev.filter((_, i) => !(i === index && _.itemId === itemId)));
+  };
+
+  const handleSaveSale = () => {
+    if (!saleAppointmentId) { toast.error("Selecione o atendimento vinculado."); return; }
+    if (saleItems.length === 0) { toast.error("Adicione itens à venda."); return; }
+    if (!currentClient || !currentAnimal) { toast.error("Cliente/animal não encontrados."); return; }
+
+    const nextId = `ft${mockFinancialTransactions.length + 1}`;
+    addMockFinancialTransaction({
+      date: saleDate,
+      time: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
+      description: `Venda atendimento ${saleAppointmentId}: ${saleItems.map(i => `${i.name} x${i.qty}`).join(", ")}`,
+      type: "income",
+      amount: saleTotal,
+      category: "Venda de Produtos",
+      relatedAnimalId: currentAnimal.id,
+      relatedClientId: currentClient.id,
+    });
+
+    saleItems.forEach(it => {
+      const cat = findCatalogItem(it.itemId);
+      if (cat && cat.type === "product") adjustStock(it.itemId, -it.qty);
+    });
+
+    const newSaleMeta: PatientSaleMeta = {
+      id: nextId,
+      date: saleDate,
+      appointmentId: saleAppointmentId,
+      items: saleItems,
+      total: saleTotal,
+      saleStatus: saleStatusLocal,
+      responsible: saleResponsible || animalAppointments.find(a => a.id === saleAppointmentId)?.vet || undefined,
+      observations: saleObservations || undefined,
+    };
+    const updated = [...patientSales, newSaleMeta];
+    setPatientSales(updated); writePatientSales(animalId, updated);
+
+    setSaleModalOpen(false);
+    setSaleDate(new Date().toISOString().split("T")[0]);
+    setSaleAppointmentId(""); setSaleResponsible(""); setSaleObservations(""); setSaleStatusLocal("open"); setSaleItems([]);
+    toast.success("Venda registrada com sucesso!");
+  };
+
+  const updateSaleStatus = (saleId: string, status: SaleStatusLocal) => {
+    const updated = patientSales.map(s => (s.id === saleId ? { ...s, saleStatus: status } : s));
+    setPatientSales(updated); writePatientSales(animalId, updated);
+  };
+
+  // Cálculo financeiro por venda
+  const getPaidForSale = (saleId: string): number => patientPayments.filter(p => p.saleId === saleId).reduce((sum, p) => sum + p.amount, 0);
+  const getFinancialStatusForSale = (saleId: string, saleAmount: number): "paid" | "partial" | "pending" => {
+    const paid = getPaidForSale(saleId);
+    if (paid >= saleAmount) return "paid";
+    if (paid > 0) return "partial";
+    return "pending";
+  };
+
+  // Pagamentos (aba Financeiro)
+  const pmRegistry = getRegistryList("paymentMethods");
+  const [paymentSaleId, setPaymentSaleId] = useState<string | undefined>(undefined);
+  const [paymentDate, setPaymentDate] = useState<string>(new Date().toISOString().split("T")[0]);
+  const [paymentTime, setPaymentTime] = useState<string>(new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }));
+  const [paymentAmount, setPaymentAmount] = useState<number>(0);
+  const [paymentMethodId, setPaymentMethodId] = useState<string | undefined>(undefined);
+  const [paymentObservations, setPaymentObservations] = useState<string>("");
+
+  // BLOQUEIO: não permitir baixar se já estiver pago
+  const canRegisterPayment = (saleId: string): boolean => {
+    const sale = patientSales.find(s => s.id === saleId);
+    if (!sale) return false;
+    return getFinancialStatusForSale(saleId, sale.total) !== "paid";
+  };
+
+  const handleAddPayment = () => {
+    if (!paymentSaleId) { toast.error("Selecione a venda vinculada."); return; }
+    const saleMeta = patientSales.find(s => s.id === paymentSaleId);
+    if (!saleMeta) { toast.error("Venda não encontrada."); return; }
+    if (!canRegisterPayment(paymentSaleId)) { toast.error("Esta venda já está PAGA. Não é possível registrar novas baixas."); return; }
+    if (paymentAmount <= 0) { toast.error("Informe um valor de pagamento válido."); return; }
+
+    const pmName = paymentMethodId ? (pmRegistry.find(pm => pm.id === paymentMethodId)?.name || undefined) : undefined;
+
+    const nextReceiptId = `ft${mockFinancialTransactions.length + 1}`;
+    addMockFinancialTransaction({
+      date: paymentDate,
+      time: paymentTime,
+      description: `Recebimento da venda ${paymentSaleId}`,
+      type: "income",
+      amount: paymentAmount,
+      category: "Recebimento",
+      relatedAnimalId: currentAnimal.id,
+      relatedClientId: currentClient.id,
+      paymentMethod: pmName,
+    });
+
+    const newPayment: PatientPaymentMeta = {
+      id: nextReceiptId,
+      saleId: paymentSaleId,
+      date: paymentDate,
+      time: paymentTime,
+      amount: paymentAmount,
+      paymentMethod: pmName,
+      observations: paymentObservations || undefined,
+    };
+    const updatedPayments = [...patientPayments, newPayment];
+    setPatientPayments(updatedPayments); writePatientPayments(animalId, updatedPayments);
+
+    setPaymentSaleId(undefined);
+    setPaymentDate(new Date().toISOString().split("T")[0]);
+    setPaymentTime(new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }));
+    setPaymentAmount(0);
+    setPaymentMethodId(undefined);
+    setPaymentObservations("");
+    toast.success("Pagamento registrado!");
+  };
+
+  // EXPANSÍVEL: controlar exibição de itens por venda
+  const [expandedSales, setExpandedSales] = useState<Record<string, boolean>>({});
+  const toggleExpanded = (saleId: string) => setExpandedSales(prev => ({ ...prev, [saleId]: !prev[saleId] }));
 
   if (!currentClient || !currentAnimal) {
     return (
@@ -1181,11 +1277,7 @@ const PatientRecordPage = () => {
                 </CardTitle>
                 <Button
                   size="sm"
-                  onClick={() => {
-                    // Responsável padrão pelo atendimento selecionado
-                    setSaleResponsible("");
-                    setSaleModalOpen(true);
-                  }}
+                  onClick={() => { setSaleResponsible(""); setSaleModalOpen(true); }}
                   className="rounded-md bg-primary text-primary-foreground hover:bg-primary/90 font-semibold transition-all duration-200 shadow-md hover:shadow-lg"
                 >
                   <FaPlus className="h-4 w-4 mr-2" /> Adicionar Venda
@@ -1197,12 +1289,13 @@ const PatientRecordPage = () => {
                     {patientSales.map((sale) => {
                       const paid = getPaidForSale(sale.id);
                       const saldo = Math.max(0, sale.total - paid);
+                      const finStatus = getFinancialStatusForSale(sale.id, sale.total);
                       const app = animalAppointments.find(a => a.id === sale.appointmentId);
                       return (
                         <Card key={sale.id} className="p-4 bg-input shadow-sm border border-border">
                           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-2 gap-2">
                             <div className="flex items-center gap-2">
-                              <Badge className="px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                              <Badge className={`px-2 py-0.5 text-xs font-medium rounded-full ${finStatus === "paid" ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200" : "bg-muted"}`}>
                                 {sale.saleStatus === "open" ? "Venda Aberta" : "Venda Finalizada"}
                               </Badge>
                               <p className="text-lg font-semibold text-foreground">
@@ -1213,19 +1306,19 @@ const PatientRecordPage = () => {
                               <div className="text-right">
                                 <div className="text-xs text-muted-foreground">Total</div>
                                 <div className="text-lg font-bold text-green-600 dark:text-green-400">
-                                  R$ {sale.total.toFixed(2).replace('.', ',')}
+                                  {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(sale.total)}
                                 </div>
                               </div>
                               <div className="text-right">
                                 <div className="text-xs text-muted-foreground">Pago</div>
                                 <div className="text-lg font-bold">
-                                  R$ {paid.toFixed(2).replace('.', ',')}
+                                  {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(paid)}
                                 </div>
                               </div>
                               <div className="text-right">
                                 <div className="text-xs text-muted-foreground">Saldo</div>
                                 <div className="text-lg font-bold">
-                                  R$ {saldo.toFixed(2).replace('.', ',')}
+                                  {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(saldo)}
                                 </div>
                               </div>
                             </div>
@@ -1235,7 +1328,7 @@ const PatientRecordPage = () => {
                               <FaCalendarAlt className="h-3 w-3" /> {formatDateTime(sale.date)}
                             </div>
                             <div className="flex items-center gap-1">
-                              <FaTag className="h-3 w-3" /> Status financeiro: {getFinancialStatusForSale(sale.id, sale.total)}
+                              <FaTag className="h-3 w-3" /> Status financeiro: {finStatus === "paid" ? "Pago" : finStatus === "partial" ? "Parcial" : "Pendente"}
                             </div>
                             <div className="flex items-center gap-1">
                               <FaStethoscope className="h-3 w-3" /> Atendimento: {sale.appointmentId}
@@ -1246,37 +1339,42 @@ const PatientRecordPage = () => {
                               Observações: {sale.observations}
                             </div>
                           )}
-                          <div className="mt-3">
-                            <Table>
-                              <TableHeader>
-                                <TableRow>
-                                  <TableHead>Item</TableHead>
-                                  <TableHead>Tipo</TableHead>
-                                  <TableHead>Qtd</TableHead>
-                                  <TableHead>Preço</TableHead>
-                                  <TableHead className="text-right">Subtotal</TableHead>
-                                </TableRow>
-                              </TableHeader>
-                              <TableBody>
-                                {sale.items.map((it, idx) => (
-                                  <TableRow key={`${sale.id}-${it.itemId}-${idx}`}>
-                                    <TableCell className="font-medium">{it.name}</TableCell>
-                                    <TableCell className="capitalize">{it.type}</TableCell>
-                                    <TableCell>{it.qty}</TableCell>
-                                    <TableCell>{new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(it.unitPrice)}</TableCell>
-                                    <TableCell className="text-right">
-                                      {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(it.qty * it.unitPrice)}
-                                    </TableCell>
-                                  </TableRow>
-                                ))}
-                              </TableBody>
-                            </Table>
-                          </div>
-                          <div className="flex justify-end gap-2 mt-3">
+                          <div className="flex justify-between mt-3">
                             <Button variant="outline" size="sm" onClick={() => updateSaleStatus(sale.id, sale.saleStatus === "open" ? "finalized" : "open")}>
                               {sale.saleStatus === "open" ? "Finalizar venda" : "Reabrir venda"}
                             </Button>
+                            <Button variant="ghost" size="sm" onClick={() => toggleExpanded(sale.id)}>
+                              {expandedSales[sale.id] ? "Ocultar detalhes" : "Ver detalhes"}
+                            </Button>
                           </div>
+                          {expandedSales[sale.id] && (
+                            <div className="mt-3">
+                              <Table>
+                                <TableHeader>
+                                  <TableRow>
+                                    <TableHead>Item</TableHead>
+                                    <TableHead>Tipo</TableHead>
+                                    <TableHead>Qtd</TableHead>
+                                    <TableHead>Preço</TableHead>
+                                    <TableHead className="text-right">Subtotal</TableHead>
+                                  </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                  {sale.items.map((it, idx) => (
+                                    <TableRow key={`${sale.id}-${it.itemId}-${idx}`}>
+                                      <TableCell className="font-medium">{it.name}</TableCell>
+                                      <TableCell className="capitalize">{it.type}</TableCell>
+                                      <TableCell>{it.qty}</TableCell>
+                                      <TableCell>{new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(it.unitPrice)}</TableCell>
+                                      <TableCell className="text-right">
+                                        {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(it.qty * it.unitPrice)}
+                                      </TableCell>
+                                    </TableRow>
+                                  ))}
+                                </TableBody>
+                              </Table>
+                            </div>
+                          )}
                         </Card>
                       );
                     })}
@@ -1618,47 +1716,45 @@ const PatientRecordPage = () => {
                       const saldo = Math.max(0, sale.total - paid);
                       const finStatus = getFinancialStatusForSale(sale.id, sale.total);
                       const salePayments = patientPayments.filter(p => p.saleId === sale.id);
+                      const isPaid = finStatus === "paid";
                       return (
                         <Card key={`fin-${sale.id}`} className="p-4 bg-input shadow-sm border border-border">
                           <div className="flex items-center justify-between mb-2">
                             <div className="flex items-center gap-2">
-                              <Badge className="px-2 py-0.5 text-xs font-medium rounded-full bg-muted">
-                                Venda {sale.id}
+                              <Badge className={`px-2 py-0.5 text-xs font-medium rounded-full ${isPaid ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200" : "bg-muted"}`}>
+                                {isPaid ? "Pago" : finStatus === "partial" ? "Parcial" : "Pendente"}
                               </Badge>
-                              <p className="text-sm text-muted-foreground">Atendimento: {sale.appointmentId}</p>
+                              <p className="text-sm text-muted-foreground">Venda {sale.id} • Atendimento: {sale.appointmentId}</p>
                             </div>
                             <div className="flex items-center gap-3">
                               <div className="text-right">
                                 <div className="text-xs text-muted-foreground">Total</div>
                                 <div className="text-lg font-bold text-green-600 dark:text-green-400">
-                                  R$ {sale.total.toFixed(2).replace('.', ',')}
+                                  {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(sale.total)}
                                 </div>
                               </div>
                               <div className="text-right">
                                 <div className="text-xs text-muted-foreground">Pago</div>
                                 <div className="text-lg font-bold">
-                                  R$ {paid.toFixed(2).replace('.', ',')}
+                                  {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(paid)}
                                 </div>
                               </div>
                               <div className="text-right">
                                 <div className="text-xs text-muted-foreground">Saldo</div>
                                 <div className="text-lg font-bold">
-                                  R$ {saldo.toFixed(2).replace('.', ',')}
+                                  {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(saldo)}
                                 </div>
                               </div>
-                              <Badge className="px-2 py-0.5 text-xs font-medium rounded-full">
-                                {finStatus === "paid" ? "Pago" : finStatus === "partial" ? "Parcial" : "Pendente"}
-                              </Badge>
                             </div>
                           </div>
 
-                          {/* Pagamentos vinculados */}
                           {salePayments.length > 0 && (
                             <div className="mt-2">
                               <Table>
                                 <TableHeader>
                                   <TableRow>
                                     <TableHead>Data</TableHead>
+                                    <TableHead>Horário</TableHead>
                                     <TableHead>Valor</TableHead>
                                     <TableHead>Forma</TableHead>
                                     <TableHead>Observações</TableHead>
@@ -1668,6 +1764,7 @@ const PatientRecordPage = () => {
                                   {salePayments.map(p => (
                                     <TableRow key={p.id}>
                                       <TableCell>{p.date}</TableCell>
+                                      <TableCell>{p.time}</TableCell>
                                       <TableCell>{new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(p.amount)}</TableCell>
                                       <TableCell>{p.paymentMethod || "-"}</TableCell>
                                       <TableCell>{p.observations || "-"}</TableCell>
@@ -1678,35 +1775,47 @@ const PatientRecordPage = () => {
                             </div>
                           )}
 
-                          {/* Form de pagamento */}
-                          <div className="grid grid-cols-1 sm:grid-cols-5 gap-2 items-end mt-3">
+                          <div className="grid grid-cols-1 sm:grid-cols-6 gap-2 items-end mt-3">
                             <div className="sm:col-span-2">
                               <Label>Venda vinculada</Label>
-                              <Select value={paymentSaleId} onValueChange={setPaymentSaleId}>
-                                <SelectTrigger className="bg-input"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                              <Select value={paymentSaleId} onValueChange={setPaymentSaleId} disabled={isPaid}>
+                                <SelectTrigger className="bg-input border border-border rounded-md h-9"><SelectValue placeholder="Selecione" /></SelectTrigger>
                                 <SelectContent>
-                                  <SelectItem value={sale.id}>{sale.id} • Total R$ {sale.total.toFixed(2).replace('.', ',')}</SelectItem>
+                                  <SelectItem value={sale.id}>{sale.id} • Total {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(sale.total)}</SelectItem>
                                 </SelectContent>
                               </Select>
                             </div>
                             <div>
                               <Label>Data do pagamento</Label>
-                              <Input type="date" value={paymentDate} onChange={(e) => setPaymentDate(e.target.value)} className="h-9 bg-input" />
+                              <Input type="date" value={paymentDate} onChange={(e) => setPaymentDate(e.target.value)} className="h-9 bg-input border border-border rounded-md" disabled={isPaid} />
+                            </div>
+                            <div>
+                              <Label>Horário</Label>
+                              <Input type="time" value={paymentTime} onChange={(e) => setPaymentTime(e.target.value)} className="h-9 bg-input border border-border rounded-md" disabled={isPaid} />
                             </div>
                             <div>
                               <Label>Valor pago</Label>
-                              <Input type="number" step="0.01" value={paymentAmount} onChange={(e) => setPaymentAmount(parseFloat(e.target.value) || 0)} className="h-9 bg-input" />
+                              <CurrencyInput value={paymentAmount} onValueChange={setPaymentAmount} className="h-9 w-full border border-border rounded-md" disabled={isPaid} />
                             </div>
                             <div>
                               <Label>Forma de pagamento</Label>
-                              <Input value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)} className="h-9 bg-input" placeholder="Ex.: Dinheiro, Cartão, PIX" />
+                              <Select value={paymentMethodId} onValueChange={setPaymentMethodId} disabled={isPaid}>
+                                <SelectTrigger className="bg-input border border-border rounded-md h-9"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                                <SelectContent>
+                                  {pmRegistry.length > 0 ? pmRegistry.map(pm => (
+                                    <SelectItem key={pm.id} value={pm.id}>{pm.name}</SelectItem>
+                                  )) : (
+                                    <SelectItem value="none" disabled>Cadastre formas em Vendas &gt; Formas de Recebimento</SelectItem>
+                                  )}
+                                </SelectContent>
+                              </Select>
                             </div>
-                            <div className="sm:col-span-5">
+                            <div className="sm:col-span-6">
                               <Label>Observações financeiras</Label>
-                              <Input value={paymentObservations} onChange={(e) => setPaymentObservations(e.target.value)} className="h-9 bg-input" placeholder="Opcional" />
+                              <Input value={paymentObservations} onChange={(e) => setPaymentObservations(e.target.value)} className="h-9 bg-input border border-border rounded-md" disabled={isPaid} placeholder="Opcional" />
                             </div>
-                            <div className="sm:col-span-5 flex justify-end">
-                              <Button onClick={handleAddPayment} className="h-9 px-4">Registrar Pagamento</Button>
+                            <div className="sm:col-span-6 flex justify-end">
+                              <Button onClick={handleAddPayment} className="h-9 px-4" disabled={isPaid}>Registrar Pagamento</Button>
                             </div>
                           </div>
                         </Card>
@@ -1824,7 +1933,7 @@ const PatientRecordPage = () => {
 
       {/* Dialog: Adicionar Venda */}
       <Dialog open={saleModalOpen} onOpenChange={setSaleModalOpen}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-3xl">
           <DialogHeader>
             <DialogTitle>Adicionar Venda</DialogTitle>
             <DialogDescription>Registre tudo que foi cobrado neste atendimento.</DialogDescription>
@@ -1832,12 +1941,12 @@ const PatientRecordPage = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <Label>Data</Label>
-              <Input type="date" value={saleDate} onChange={(e) => setSaleDate(e.target.value)} />
+              <Input type="date" value={saleDate} onChange={(e) => setSaleDate(e.target.value)} className="h-9 bg-input border border-border rounded-md" />
             </div>
             <div>
               <Label>Atendimento vinculado</Label>
               <Select value={saleAppointmentId} onValueChange={setSaleAppointmentId}>
-                <SelectTrigger className="bg-input"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                <SelectTrigger className="bg-input border border-border rounded-md h-9"><SelectValue placeholder="Selecione" /></SelectTrigger>
                 <SelectContent>
                   {animalAppointments.map(a => (
                     <SelectItem key={a.id} value={a.id}>{a.type} • {formatDateTime(a.date, a.time)}</SelectItem>
@@ -1847,22 +1956,22 @@ const PatientRecordPage = () => {
             </div>
             <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-5 gap-2 items-end">
               <div className="sm:col-span-2">
-                <Label>Item (serviço/produto)</Label>
+                <Label>Item</Label>
                 <AutocompleteSelect
                   value={saleSelectedItemId}
                   onChange={setSaleSelectedItemId}
-                  options={catalogItems.map(ci => ({ value: ci.id, label: `${ci.name} (${ci.type === "product" ? "Produto" : "Serviço"})` }))}
+                  options={catalogItems.map(ci => ({ value: ci.id, label: `${ci.name} — ${new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(ci.price)}` }))}
                   placeholder="Selecione um item"
-                  className="bg-input"
+                  className="bg-input border border-border rounded-md"
                 />
               </div>
               <div>
                 <Label>Qtd</Label>
-                <Input type="number" value={saleQty} onChange={(e) => setSaleQty(Number(e.target.value) || 0)} className="h-9 bg-input" />
+                <Input type="number" value={saleQty} onChange={(e) => setSaleQty(Number(e.target.value) || 0)} className="h-9 bg-input border border-border rounded-md" />
               </div>
               <div>
                 <Label>Preço Unitário</Label>
-                <Input type="number" step="0.01" value={saleUnitPrice} onChange={(e) => setSaleUnitPrice(parseFloat(e.target.value) || 0)} className="h-9 bg-input" />
+                <CurrencyInput value={saleUnitPrice} onValueChange={setSaleUnitPrice} className="h-9 w-full border border-border rounded-md" />
               </div>
               <div>
                 <Button onClick={addItemToSale} className="h-9 px-4">Adicionar</Button>
@@ -1888,9 +1997,7 @@ const PatientRecordPage = () => {
                         <TableCell className="capitalize">{it.type}</TableCell>
                         <TableCell>{it.qty}</TableCell>
                         <TableCell>{new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(it.unitPrice)}</TableCell>
-                        <TableCell className="text-right">
-                          {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(it.qty * it.unitPrice)}
-                        </TableCell>
+                        <TableCell className="text-right">{new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(it.qty * it.unitPrice)}</TableCell>
                         <TableCell className="text-right">
                           <Button variant="ghost" size="icon" onClick={() => removeSaleItem(it.itemId, idx)}>
                             <FaTrashAlt className="h-4 w-4 text-destructive" />
@@ -1907,12 +2014,12 @@ const PatientRecordPage = () => {
             )}
             <div>
               <Label>Responsável</Label>
-              <Input value={saleResponsible} onChange={(e) => setSaleResponsible(e.target.value)} placeholder="Ex.: Dr(a). Nome" />
+              <Input value={saleResponsible} onChange={(e) => setSaleResponsible(e.target.value)} placeholder="Ex.: Dr(a). Nome" className="h-9 bg-input border border-border rounded-md" />
             </div>
             <div>
               <Label>Status da venda</Label>
               <Select value={saleStatusLocal} onValueChange={(v) => setSaleStatusLocal(v as SaleStatusLocal)}>
-                <SelectTrigger className="bg-input"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                <SelectTrigger className="bg-input border border-border rounded-md h-9"><SelectValue placeholder="Selecione" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="open">Aberta</SelectItem>
                   <SelectItem value="finalized">Finalizada</SelectItem>
@@ -1921,7 +2028,7 @@ const PatientRecordPage = () => {
             </div>
             <div className="sm:col-span-2">
               <Label>Observações</Label>
-              <Textarea value={saleObservations} onChange={(e) => setSaleObservations(e.target.value)} placeholder="Observações da venda" />
+              <Textarea value={saleObservations} onChange={(e) => setSaleObservations(e.target.value)} placeholder="Observações da venda" className="bg-input border border-border rounded-md" />
             </div>
           </div>
           <DialogFooter>
@@ -1932,15 +2039,7 @@ const PatientRecordPage = () => {
       </Dialog>
 
       {/* Dialog: Adicionar Lançamento Financeiro */}
-      <Dialog open={financeModalOpen} onOpenChange={setFinanceModalOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Adicionar Lançamento</DialogTitle>
-            <DialogDescription>Crie uma receita ou despesa vinculada ao paciente.</DialogDescription>
-          </DialogHeader>
-          <FinanceForm />
-        </DialogContent>
-      </Dialog>
+      {/* REMOVIDO: formulário genérico de lançamentos financeiros soltos para evitar duplicação e respeitar vínculo com venda. */}
     </div>
   );
 };
