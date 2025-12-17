@@ -254,214 +254,11 @@ const PatientRecordPage = () => {
   const [weightModalOpen, setWeightModalOpen] = useState(false);
   const [selectedWeight, setSelectedWeight] = useState<WeightEntry | null>(null);
 
-  // Itens da venda
-  const [saleSelectedItemId, setSaleSelectedItemId] = useState<string>("");
-  const [saleQty, setSaleQty] = useState<number>(1);
-  const [saleUnitPrice, setSaleUnitPrice] = useState<number>(0);
-  const [saleItems, setSaleItems] = useState<SaleItemMeta[]>([]);
-
-  // UseEffect para atualizar preço unitário quando selecionar item
-  useEffect(() => {
-    if (!saleSelectedItemId) {
-      setSaleUnitPrice(0);
-      return;
-    }
-    const item = findCatalogItem(saleSelectedItemId);
-    setSaleUnitPrice(item?.price || 0);
-  }, [saleSelectedItemId]);
-
-  const saleTotal = saleItems.reduce((sum, it) => sum + it.qty * it.unitPrice, 0);
-
-  // Adicionar item à venda
-  const addItemToSale = () => {
-    if (!saleSelectedItemId) {
-      toast.error("Selecione um item.");
-      return;
-    }
-    if (saleQty <= 0 || saleUnitPrice <= 0) {
-      toast.error("Qtd e preço devem ser válidos.");
-      return;
-    }
-    const catItem = findCatalogItem(saleSelectedItemId);
-    if (!catItem) {
-      toast.error("Item não encontrado.");
-      return;
-    }
-    setSaleItems(prev => [
-      ...prev,
-      {
-        itemId: catItem.id,
-        name: catItem.name,
-        type: catItem.type,
-        qty: saleQty,
-        unitPrice: saleUnitPrice,
-      },
-    ]);
-    setSaleSelectedItemId("");
-    setSaleQty(1);
-    setSaleUnitPrice(0);
-  };
-
-  // Remover item
-  const removeSaleItem = (itemId: string, index: number) => {
-    setSaleItems(prev => prev.filter((_, i) => !(i === index && _.itemId === itemId)));
-  };
-
-  // Salvar venda
-  const handleSaveSale = () => {
-    if (!saleAppointmentId) {
-      toast.error("Selecione o atendimento vinculado.");
-      return;
-    }
-    if (saleItems.length === 0) {
-      toast.error("Adicione itens à venda.");
-      return;
-    }
-    if (!currentClient || !currentAnimal) {
-      toast.error("Cliente/animal não encontrados.");
-      return;
-    }
-
-    const nextId = `ft${mockFinancialTransactions.length + 1}`;
-    addMockFinancialTransaction({
-      date: saleDate,
-      time: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
-      description: `Venda atendimento ${saleAppointmentId}: ${saleItems.map(i => `${i.name} x${i.qty}`).join(", ")}`,
-      type: "income",
-      amount: saleTotal,
-      category: "Venda de Produtos",
-      relatedAnimalId: currentAnimal.id,
-      relatedClientId: currentClient.id,
-    });
-
-    saleItems.forEach(it => {
-      const cat = findCatalogItem(it.itemId);
-      if (cat && cat.type === "product") {
-        adjustStock(it.itemId, -it.qty);
-      }
-    });
-
-    const newSaleMeta: PatientSaleMeta = {
-      id: nextId,
-      date: saleDate,
-      appointmentId: saleAppointmentId,
-      items: saleItems,
-      total: saleTotal,
-      saleStatus: saleStatusLocal,
-      responsible: saleResponsible || animalAppointments.find(a => a.id === saleAppointmentId)?.vet || undefined,
-      observations: saleObservations || undefined,
-    };
-    const updated = [...patientSales, newSaleMeta];
-    setPatientSales(updated);
-    writePatientSales(animalId, updated);
-
-    setSaleModalOpen(false);
-    setSaleDate(new Date().toISOString().split("T")[0]);
-    setSaleAppointmentId("");
-    setSaleResponsible("");
-    setSaleObservations("");
-    setSaleStatusLocal("open");
-    setSaleItems([]);
-    toast.success("Venda registrada com sucesso!");
-  };
-
-  // Atualizar status da venda (abrir/finalizar)
-  const updateSaleStatus = (saleId: string, status: SaleStatusLocal) => {
-    const updated = patientSales.map(s => (s.id === saleId ? { ...s, saleStatus: status } : s));
-    setPatientSales(updated);
-    writePatientSales(animalId, updated);
-  };
-
-  // Cálculo financeiro por venda
-  const getPaidForSale = (saleId: string): number => patientPayments.filter(p => p.saleId === saleId).reduce((sum, p) => sum + p.amount, 0);
-  const getFinancialStatusForSale = (saleId: string, saleAmount: number): "paid" | "partial" | "pending" => {
-    const paid = getPaidForSale(saleId);
-    if (paid >= saleAmount) return "paid";
-    if (paid > 0) return "partial";
-    return "pending";
-  };
-
-  // Pagamentos (aba Financeiro)
-  const pmRegistry = getRegistryList("paymentMethods");
-  const [paymentSaleId, setPaymentSaleId] = useState<string | undefined>(undefined);
-  const [paymentDate, setPaymentDate] = useState<string>(new Date().toISOString().split("T")[0]);
-  const [paymentTime, setPaymentTime] = useState<string>(new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }));
-  const [paymentAmount, setPaymentAmount] = useState<number>(0);
-  const [paymentMethodId, setPaymentMethodId] = useState<string | undefined>(undefined);
-  const [paymentObservations, setPaymentObservations] = useState<string>("");
-
-  // BLOQUEIO: não permitir baixar se já estiver pago
-  const canRegisterPayment = (saleId: string): boolean => {
-    const sale = patientSales.find(s => s.id === saleId);
-    if (!sale) return false;
-    return getFinancialStatusForSale(saleId, sale.total) !== "paid";
-  };
-
-  const handleAddPayment = () => {
-    if (!paymentSaleId) {
-      toast.error("Selecione a venda vinculada.");
-      return;
-    }
-    const saleMeta = patientSales.find(s => s.id === paymentSaleId);
-    if (!saleMeta) {
-      toast.error("Venda não encontrada.");
-      return;
-    }
-    if (!canRegisterPayment(paymentSaleId)) {
-      toast.error("Esta venda já está PAGA. Não é possível registrar novas baixas.");
-      return;
-    }
-    if (paymentAmount <= 0) {
-      toast.error("Informe um valor de pagamento válido.");
-      return;
-    }
-
-    const pmName = paymentMethodId ? (pmRegistry.find(pm => pm.id === paymentMethodId)?.name || undefined) : undefined;
-
-    const nextReceiptId = `ft${mockFinancialTransactions.length + 1}`;
-    addMockFinancialTransaction({
-      date: paymentDate,
-      time: paymentTime,
-      description: `Recebimento da venda ${paymentSaleId}`,
-      type: "income",
-      amount: paymentAmount,
-      category: "Recebimento",
-      relatedAnimalId: currentAnimal.id,
-      relatedClientId: currentClient.id,
-      paymentMethod: pmName,
-    });
-
-    const newPayment: PatientPaymentMeta = {
-      id: nextReceiptId,
-      saleId: paymentSaleId,
-      date: paymentDate,
-      time: paymentTime,
-      amount: paymentAmount,
-      paymentMethod: pmName,
-      observations: paymentObservations || undefined,
-    };
-    const updatedPayments = [...patientPayments, newPayment];
-    setPatientPayments(updatedPayments);
-    writePatientPayments(animalId, updatedPayments);
-
-    setPaymentSaleId(undefined);
-    setPaymentDate(new Date().toISOString().split("T")[0]);
-    setPaymentTime(new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }));
-    setPaymentAmount(0);
-    setPaymentMethodId(undefined);
-    setPaymentObservations("");
-    toast.success("Pagamento registrado!");
-  };
-
-  // EXPANSÍVEL: controlar exibição de itens por venda
-  const [expandedSales, setExpandedSales] = useState<Record<string, boolean>>({});
-  const toggleExpanded = (saleId: string) => setExpandedSales(prev => ({ ...prev, [saleId]: !prev[saleId] }));
-
   // Filtrar transações financeiras relacionadas a este animal
   const animalFinancialTransactions = mockFinancialTransactions.filter(
     (t) =>
       t.relatedAnimalId === animalId &&
-      !(t.type === 'income' && t.category === 'Venda de Produtos') // EXCLUI vendas para não duplicar com a aba Vendas
+      !(t.type === 'income' && t.category === 'Venda de Produtos')
   );
 
   // Filtrar transações de vendas relacionadas a este animal (para linha do tempo e exibição)
@@ -542,7 +339,9 @@ const PatientRecordPage = () => {
 
     saleItems.forEach(it => {
       const cat = findCatalogItem(it.itemId);
-      if (cat && cat.type === "product") adjustStock(it.itemId, -it.qty);
+      if (cat && cat.type === "product") {
+        adjustStock(it.itemId, -it.qty);
+      }
     });
 
     const newSaleMeta: PatientSaleMeta = {
@@ -556,17 +355,23 @@ const PatientRecordPage = () => {
       observations: saleObservations || undefined,
     };
     const updated = [...patientSales, newSaleMeta];
-    setPatientSales(updated); writePatientSales(animalId, updated);
+    setPatientSales(updated);
+    writePatientSales(animalId, updated);
 
     setSaleModalOpen(false);
     setSaleDate(new Date().toISOString().split("T")[0]);
-    setSaleAppointmentId(""); setSaleResponsible(""); setSaleObservations(""); setSaleStatusLocal("open"); setSaleItems([]);
+    setSaleAppointmentId("");
+    setSaleResponsible("");
+    setSaleObservations("");
+    setSaleStatusLocal("open");
+    setSaleItems([]);
     toast.success("Venda registrada com sucesso!");
   };
 
   const updateSaleStatus = (saleId: string, status: SaleStatusLocal) => {
     const updated = patientSales.map(s => (s.id === saleId ? { ...s, saleStatus: status } : s));
-    setPatientSales(updated); writePatientSales(animalId, updated);
+    setPatientSales(updated);
+    writePatientSales(animalId, updated);
   };
 
   // Cálculo financeiro por venda
@@ -595,11 +400,23 @@ const PatientRecordPage = () => {
   };
 
   const handleAddPayment = () => {
-    if (!paymentSaleId) { toast.error("Selecione a venda vinculada."); return; }
+    if (!paymentSaleId) {
+      toast.error("Selecione a venda vinculada.");
+      return;
+    }
     const saleMeta = patientSales.find(s => s.id === paymentSaleId);
-    if (!saleMeta) { toast.error("Venda não encontrada."); return; }
-    if (!canRegisterPayment(paymentSaleId)) { toast.error("Esta venda já está PAGA. Não é possível registrar novas baixas."); return; }
-    if (paymentAmount <= 0) { toast.error("Informe um valor de pagamento válido."); return; }
+    if (!saleMeta) {
+      toast.error("Venda não encontrada.");
+      return;
+    }
+    if (!canRegisterPayment(paymentSaleId)) {
+      toast.error("Esta venda já está PAGA. Não é possível registrar novas baixas.");
+      return;
+    }
+    if (paymentAmount <= 0) {
+      toast.error("Informe um valor de pagamento válido.");
+      return;
+    }
 
     const pmName = paymentMethodId ? (pmRegistry.find(pm => pm.id === paymentMethodId)?.name || undefined) : undefined;
 
@@ -626,7 +443,8 @@ const PatientRecordPage = () => {
       observations: paymentObservations || undefined,
     };
     const updatedPayments = [...patientPayments, newPayment];
-    setPatientPayments(updatedPayments); writePatientPayments(animalId, updatedPayments);
+    setPatientPayments(updatedPayments);
+    writePatientPayments(animalId, updatedPayments);
 
     setPaymentSaleId(undefined);
     setPaymentDate(new Date().toISOString().split("T")[0]);
