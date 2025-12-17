@@ -93,42 +93,40 @@ const calculateAge = (birthday: string) => {
 type SaleStatusLocal = "open" | "finalized";
 type SaleItemMeta = { itemId: string; name: string; type: "product" | "service"; qty: number; unitPrice: number };
 type PatientSaleMeta = {
-  id: string; // id da transação de venda (ftN)
+  id: string;
   date: string;
   appointmentId: string;
   items: SaleItemMeta[];
   total: number;
   saleStatus: SaleStatusLocal;
-  origin?: "manual" | "orcamento"; // NOVO: origem da venda
+  origin?: "manual" | "orcamento";
   responsible?: string;
   observations?: string;
 };
 type PatientPaymentMeta = {
-  id: string; // id da transação de recebimento (ftN)
+  id: string;
   saleId: string;
   date: string;
-  time: string; // horário do pagamento
+  time: string;
   amount: number;
   paymentMethod?: string;
   observations?: string;
 };
 
-// Storage
-const salesStorageKey = (animalId?: string) => `patient:sales:${animalId || "unknown"}`;
-const paymentsStorageKey = (animalId?: string) => `patient:payments:${animalId || "unknown"}`;
-
-// NOVO: orçamento no prontuário
+// NOVO: orçamento no prontuário (sem atendimento na criação)
 type BudgetStatusLocal = "aberto" | "aprovado" | "convertido" | "expirado" | "cancelado";
 type PatientBudgetMeta = {
-  id: string; // id local do orçamento
+  id: string;
   date: string;
-  appointmentId: string;
-  items: SaleItemMeta[]; // serviços/produtos previstos
+  // atendimento não é exigido na criação
+  appointmentId?: string;
+  items: SaleItemMeta[];
   total: number;
   validityDays: number;
   status: BudgetStatusLocal;
   observations?: string;
 };
+
 const budgetsStorageKey = (animalId?: string) => `patient:budgets:${animalId || "unknown"}`;
 const readPatientBudgets = (animalId?: string): PatientBudgetMeta[] => {
   try {
@@ -310,7 +308,7 @@ const PatientRecordPage = () => {
   const [patientBudgets, setPatientBudgets] = useState<PatientBudgetMeta[]>(readPatientBudgets(animalId));
   useEffect(() => { setPatientBudgets(readPatientBudgets(animalId)); }, [animalId]);
 
-  // Catálogo para itens da venda/orçamento
+  // Catálogo para itens (orçamentos e vendas)
   const catalogItems = getCatalog().filter(i => i.active);
 
   // Substituir conteúdo da aba Vendas para aplicar bordas, máscara, itens e modal mais largo
@@ -479,9 +477,10 @@ const PatientRecordPage = () => {
   const [expandedSales, setExpandedSales] = useState<Record<string, boolean>>({});
   const toggleExpanded = (saleId: string) => setExpandedSales(prev => ({ ...prev, [saleId]: !prev[saleId] }));
 
-  // NOVO: estados e handlers de Orçamentos
+  // -------- Orçamentos: modal e lógica --------
+  const [budgetModalOpen, setBudgetModalOpen] = useState(false);
   const [budgetDate, setBudgetDate] = useState<string>(new Date().toISOString().split("T")[0]);
-  const [budgetAppointmentId, setBudgetAppointmentId] = useState<string>("");
+  // orçamento sem atendimento na criação
   const [budgetSelectedItemId, setBudgetSelectedItemId] = useState<string>("");
   const [budgetQty, setBudgetQty] = useState<number>(1);
   const [budgetUnitPrice, setBudgetUnitPrice] = useState<number>(0);
@@ -515,13 +514,12 @@ const PatientRecordPage = () => {
     return today > exp && b.status !== "convertido" && b.status !== "cancelado";
   };
   const saveBudget = () => {
-    if (!budgetAppointmentId) { toast.error("Selecione o atendimento vinculado."); return; }
     if (budgetItems.length === 0) { toast.error("Adicione itens ao orçamento."); return; }
     if (!currentClient || !currentAnimal) { toast.error("Cliente/animal não encontrados."); return; }
     const newBudget: PatientBudgetMeta = {
       id: `bud-${Date.now()}`,
       date: budgetDate,
-      appointmentId: budgetAppointmentId,
+      // appointmentId: indefinido na criação
       items: budgetItems,
       total: budgetTotal,
       validityDays: budgetValidityDays,
@@ -530,9 +528,10 @@ const PatientRecordPage = () => {
     };
     const next = [...patientBudgets, newBudget];
     setPatientBudgets(next); writePatientBudgets(animalId, next);
-    // reset
+    // reset e fechar modal
     setBudgetDate(new Date().toISOString().split("T")[0]);
-    setBudgetAppointmentId(""); setBudgetItems([]); setBudgetQty(1); setBudgetUnitPrice(0); setBudgetValidityDays(15); setBudgetObservations("");
+    setBudgetItems([]); setBudgetQty(1); setBudgetUnitPrice(0); setBudgetValidityDays(15); setBudgetObservations("");
+    setBudgetModalOpen(false);
     toast.success("Orçamento salvo.");
   };
   const approveBudget = (id: string) => {
@@ -550,7 +549,6 @@ const PatientRecordPage = () => {
       <html><head><title>Orçamento</title></head><body style="font-family: sans-serif; padding:16px">
       <h2>Orçamento</h2>
       <p><strong>Data:</strong> ${formatDateTime(b.date)}</p>
-      <p><strong>Atendimento:</strong> ${b.appointmentId}</p>
       <table border="1" cellspacing="0" cellpadding="6" width="100%">
         <tr><th>Item</th><th>Tipo</th><th>Qtd</th><th>Preço</th><th>Subtotal</th></tr>
         ${b.items.map(i => `<tr>
@@ -568,33 +566,53 @@ const PatientRecordPage = () => {
     win.focus();
     win.print();
   };
-  const convertBudgetToSale = (id: string) => {
+
+  // Conversão: pedir atendimento na hora de converter
+  const [convertModalOpen, setConvertModalOpen] = useState(false);
+  const [convertTargetBudgetId, setConvertTargetBudgetId] = useState<string | null>(null);
+  const [convertAppointmentId, setConvertAppointmentId] = useState<string>("");
+
+  const openConvertModal = (id: string) => {
+    setConvertTargetBudgetId(id);
+    setConvertAppointmentId("");
+    setConvertModalOpen(true);
+  };
+  const confirmConvert = () => {
+    if (!convertTargetBudgetId) return;
+    if (!convertAppointmentId) { toast.error("Selecione um atendimento para converter em venda."); return; }
+    convertBudgetToSale(convertTargetBudgetId, convertAppointmentId);
+    setConvertModalOpen(false);
+    setConvertTargetBudgetId(null);
+    setConvertAppointmentId("");
+  };
+
+  const convertBudgetToSale = (id: string, appointmentId: string) => {
     const b = patientBudgets.find(x => x.id === id);
     if (!b) return;
     if (isBudgetExpired(b)) { toast.error("Orçamento expirado. Não é possível converter."); return; }
     if (!currentClient || !currentAnimal) { toast.error("Cliente/animal não encontrados."); return; }
-    // Registrar venda no financeiro global
+
     const nextId = `ft${mockFinancialTransactions.length + 1}`;
     addMockFinancialTransaction({
       date: new Date().toISOString().split("T")[0],
       time: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
-      description: `Orçamento convertido (atend. ${b.appointmentId}): ${b.items.map(i => `${i.name} x${i.qty}`).join(", ")}`,
+      description: `Orçamento convertido (atend. ${appointmentId}): ${b.items.map(i => `${i.name} x${i.qty}`).join(", ")}`,
       type: "income",
       amount: b.total,
       category: "Venda de Produtos",
       relatedAnimalId: currentAnimal.id,
       relatedClientId: currentClient.id,
     });
-    // Atualizar estoque para produtos
+
     b.items.forEach(it => {
       const cat = findCatalogItem(it.itemId);
       if (cat && cat.type === "product") adjustStock(it.itemId, -it.qty);
     });
-    // Criar venda no prontuário
+
     const newSale: PatientSaleMeta = {
       id: nextId,
       date: new Date().toISOString().split("T")[0],
-      appointmentId: b.appointmentId,
+      appointmentId,
       items: b.items,
       total: b.total,
       saleStatus: "open",
@@ -603,8 +621,8 @@ const PatientRecordPage = () => {
     };
     const updatedSales = [...patientSales, newSale];
     setPatientSales(updatedSales); writePatientSales(animalId, updatedSales);
-    // Atualizar status do orçamento
-    const updatedBudgets = patientBudgets.map(x => x.id === id ? { ...x, status: "convertido" } : x);
+
+    const updatedBudgets = patientBudgets.map(x => x.id === id ? { ...x, status: "convertido", appointmentId } : x);
     setPatientBudgets(updatedBudgets); writePatientBudgets(animalId, updatedBudgets);
     toast.success("Orçamento convertido em venda.");
   };
@@ -1238,28 +1256,82 @@ const PatientRecordPage = () => {
                 <CardTitle className="flex items-center gap-2 text-lg font-semibold text-foreground">
                   <FaFileAlt className="h-5 w-5 text-primary" /> Orçamentos
                 </CardTitle>
+                <Button size="sm" onClick={() => setBudgetModalOpen(true)} className="rounded-md bg-primary text-primary-foreground hover:bg-primary/90 font-semibold transition-all duration-200 shadow-md hover:shadow-lg">
+                  <FaPlus className="h-4 w-4 mr-2" /> Novo Orçamento
+                </Button>
               </CardHeader>
               <CardContent className="pt-0 space-y-4">
                 <Card className="border border-border">
-                  <CardHeader className="pb-2"><CardTitle className="text-base">Novo Orçamento</CardTitle></CardHeader>
-                  <CardContent className="grid grid-cols-1 sm:grid-cols-6 gap-2 items-end">
-                    <div>
-                      <Label>Data</Label>
-                      <Input type="date" value={budgetDate} onChange={(e)=>setBudgetDate(e.target.value)} className="h-9 bg-input border border-border rounded-md" />
-                    </div>
+                  <CardHeader className="pb-2"><CardTitle className="text-base">Orçamentos Salvos</CardTitle></CardHeader>
+                  <CardContent>
+                    {patientBudgets.length === 0 ? (
+                      <p className="text-muted-foreground">Nenhum orçamento registrado.</p>
+                    ) : (
+                      <div className="space-y-3">
+                        {patientBudgets.map(b => {
+                          const expired = isBudgetExpired(b);
+                          const statusDisplay = expired && b.status !== "convertido" && b.status !== "cancelado" ? "expirado" : b.status;
+                          const canConvert = !expired && b.status !== "cancelado" && b.status !== "convertido";
+                          const badgeClass =
+                            statusDisplay === "convertido" ? "bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200" :
+                            statusDisplay === "aprovado" ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200" :
+                            statusDisplay === "expirado" ? "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200" :
+                            statusDisplay === "cancelado" ? "bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-gray-100" :
+                            "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"; // aberto
+                          return (
+                            <Card key={b.id} className="p-4 bg-input border border-border">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                  <Badge className={`px-2 py-0.5 text-xs rounded-full ${badgeClass}`}>
+                                    {statusDisplay}
+                                  </Badge>
+                                  {/* atendimento não exibido por padrão */}
+                                </div>
+                                <div className="text-sm font-semibold text-green-700 dark:text-green-300">
+                                  {new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(b.total)}
+                                </div>
+                              </div>
+                              <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mt-2 text-sm text-muted-foreground">
+                                <div className="flex items-center gap-1"><FaCalendarAlt className="h-3 w-3" /> {formatDateTime(b.date)}</div>
+                                <div className="flex items-center gap-1"><FaTag className="h-3 w-3" /> Validade: {b.validityDays} dia(s)</div>
+                                {b.observations && <div className="flex items-center gap-1"><FaTag className="h-3 w-3" /> Obs.: {b.observations}</div>}
+                              </div>
+                              <div className="flex justify-end gap-2 mt-2">
+                                <Button variant="outline" size="sm" onClick={()=>approveBudget(b.id)} disabled={statusDisplay==="convertido" || statusDisplay==="cancelado"}>Aprovar</Button>
+                                <Button variant="outline" size="sm" onClick={()=>cancelBudget(b.id)} disabled={statusDisplay==="convertido" || statusDisplay==="cancelado"}>Cancelar</Button>
+                                <Button variant="outline" size="sm" onClick={()=>printBudget(b)}>Imprimir</Button>
+                                <Button size="sm" onClick={()=>openConvertModal(b.id)} disabled={!canConvert}>Converter em venda</Button>
+                              </div>
+                            </Card>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </CardContent>
+            </Card>
+
+            {/* Modal: Novo Orçamento */}
+            <Dialog open={budgetModalOpen} onOpenChange={setBudgetModalOpen}>
+              <DialogContent className="sm:max-w-3xl">
+                <DialogHeader>
+                  <DialogTitle>Novo Orçamento</DialogTitle>
+                  <DialogDescription>Crie uma proposta de cobrança (não gera movimentação financeira).</DialogDescription>
+                </DialogHeader>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <Label>Data</Label>
+                    <Input type="date" value={budgetDate} onChange={(e)=>setBudgetDate(e.target.value)} className="h-9 bg-input border border-border rounded-md" />
+                  </div>
+                  <div>
+                    <Label>Validade (dias)</Label>
+                    <Input type="number" value={budgetValidityDays} onChange={(e)=>setBudgetValidityDays(parseInt(e.target.value)||0)} className="h-9 bg-input border border-border rounded-md" />
+                  </div>
+                  {/* Linha única de itens */}
+                  <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-5 gap-2 items-end">
                     <div className="sm:col-span-2">
-                      <Label>Atendimento vinculado</Label>
-                      <Select value={budgetAppointmentId} onValueChange={setBudgetAppointmentId}>
-                        <SelectTrigger className="bg-input border border-border rounded-md h-9"><SelectValue placeholder="Selecione" /></SelectTrigger>
-                        <SelectContent>
-                          {animalAppointments.map(a => (
-                            <SelectItem key={a.id} value={a.id}>{a.type} • {formatDateTime(a.date, a.time)}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="sm:col-span-2">
-                      <Label>Item (previsto)</Label>
+                      <Label>Item</Label>
                       <AutocompleteSelect
                         value={budgetSelectedItemId}
                         onChange={setBudgetSelectedItemId}
@@ -1279,98 +1351,79 @@ const PatientRecordPage = () => {
                     <div>
                       <Button onClick={addItemToBudget} className="h-9 px-4">Adicionar</Button>
                     </div>
-                    {budgetItems.length > 0 && (
-                      <div className="sm:col-span-6">
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead>Item</TableHead>
-                              <TableHead>Tipo</TableHead>
-                              <TableHead>Qtd</TableHead>
-                              <TableHead>Preço</TableHead>
-                              <TableHead className="text-right">Subtotal</TableHead>
-                              <TableHead className="text-right">Ações</TableHead>
+                  </div>
+                  {budgetItems.length > 0 && (
+                    <div className="sm:col-span-2">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Item</TableHead>
+                            <TableHead>Tipo</TableHead>
+                            <TableHead>Qtd</TableHead>
+                            <TableHead>Preço</TableHead>
+                            <TableHead className="text-right">Subtotal</TableHead>
+                            <TableHead className="text-right">Ações</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {budgetItems.map((it, idx)=>(
+                            <TableRow key={`${it.itemId}-${idx}`}>
+                              <TableCell className="font-medium">{it.name}</TableCell>
+                              <TableCell className="capitalize">{it.type}</TableCell>
+                              <TableCell>{it.qty}</TableCell>
+                              <TableCell>{new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(it.unitPrice)}</TableCell>
+                              <TableCell className="text-right">{new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(it.qty*it.unitPrice)}</TableCell>
+                              <TableCell className="text-right">
+                                <Button variant="ghost" size="icon" onClick={()=>removeBudgetItem(it.itemId, idx)}><FaTrashAlt className="h-4 w-4 text-destructive" /></Button>
+                              </TableCell>
                             </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {budgetItems.map((it, idx)=>(
-                              <TableRow key={`${it.itemId}-${idx}`}>
-                                <TableCell className="font-medium">{it.name}</TableCell>
-                                <TableCell className="capitalize">{it.type}</TableCell>
-                                <TableCell>{it.qty}</TableCell>
-                                <TableCell>{new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(it.unitPrice)}</TableCell>
-                                <TableCell className="text-right">{new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(it.qty*it.unitPrice)}</TableCell>
-                                <TableCell className="text-right">
-                                  <Button variant="ghost" size="icon" onClick={()=>removeBudgetItem(it.itemId, idx)}><FaTrashAlt className="h-4 w-4 text-destructive" /></Button>
-                                </TableCell>
-                              </TableRow>
-                            ))}
-                          </TableBody>
-                        </Table>
-                        <div className="flex justify-between mt-2 text-sm font-semibold">
-                          <span>Total:</span>
-                          <span>{new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(budgetTotal)}</span>
-                        </div>
+                          ))}
+                        </TableBody>
+                      </Table>
+                      <div className="flex justify-between mt-2 text-sm font-semibold">
+                        <span>Total:</span>
+                        <span>{new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(budgetTotal)}</span>
                       </div>
-                    )}
-                    <div>
-                      <Label>Validade (dias)</Label>
-                      <Input type="number" value={budgetValidityDays} onChange={(e)=>setBudgetValidityDays(parseInt(e.target.value)||0)} className="h-9 bg-input border border-border rounded-md" />
                     </div>
-                    <div className="sm:col-span-6">
-                      <Label>Observações</Label>
-                      <Textarea value={budgetObservations} onChange={(e)=>setBudgetObservations(e.target.value)} className="bg-input border border-border rounded-md" />
-                    </div>
-                    <div className="sm:col-span-6 flex justify-end">
-                      <Button onClick={saveBudget} className="h-9 px-4">Salvar Orçamento</Button>
-                    </div>
-                  </CardContent>
-                </Card>
+                  )}
+                  <div className="sm:col-span-2">
+                    <Label>Observações</Label>
+                    <Textarea value={budgetObservations} onChange={(e)=>setBudgetObservations(e.target.value)} className="bg-input border border-border rounded-md" />
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={()=>setBudgetModalOpen(false)}>Cancelar</Button>
+                  <Button onClick={saveBudget}>Salvar Orçamento</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
 
-                <Card className="border border-border">
-                  <CardHeader className="pb-2"><CardTitle className="text-base">Orçamentos Salvos</CardTitle></CardHeader>
-                  <CardContent>
-                    {patientBudgets.length === 0 ? (
-                      <p className="text-muted-foreground">Nenhum orçamento registrado.</p>
-                    ) : (
-                      <div className="space-y-3">
-                        {patientBudgets.map(b => {
-                          const expired = isBudgetExpired(b);
-                          const statusDisplay = expired && b.status !== "convertido" && b.status !== "cancelado" ? "expirado" : b.status;
-                          const canConvert = !expired && b.status !== "cancelado" && b.status !== "convertido";
-                          return (
-                            <Card key={b.id} className="p-4 bg-input border border-border">
-                              <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                  <Badge className={`px-2 py-0.5 text-xs rounded-full ${statusDisplay==="convertido" ? "bg-blue-100 text-blue-800" : statusDisplay==="aprovado" ? "bg-green-100 text-green-800" : statusDisplay==="expirado" ? "bg-red-100 text-red-800" : "bg-muted"}`}>
-                                    {statusDisplay}
-                                  </Badge>
-                                  <span className="text-sm text-muted-foreground">Atend.: {b.appointmentId}</span>
-                                </div>
-                                <div className="text-sm font-semibold text-green-700">
-                                  {new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(b.total)}
-                                </div>
-                              </div>
-                              <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mt-2 text-sm text-muted-foreground">
-                                <div className="flex items-center gap-1"><FaCalendarAlt className="h-3 w-3" /> {formatDateTime(b.date)}</div>
-                                <div className="flex items-center gap-1"><FaTag className="h-3 w-3" /> Validade: {b.validityDays} dia(s)</div>
-                                {b.observations && <div className="flex items-center gap-1"><FaTag className="h-3 w-3" /> Obs.: {b.observations}</div>}
-                              </div>
-                              <div className="flex justify-end gap-2 mt-2">
-                                <Button variant="outline" size="sm" onClick={()=>approveBudget(b.id)} disabled={statusDisplay==="convertido" || statusDisplay==="cancelado"}>Aprovar</Button>
-                                <Button variant="outline" size="sm" onClick={()=>cancelBudget(b.id)} disabled={statusDisplay==="convertido" || statusDisplay==="cancelado"}>Cancelar</Button>
-                                <Button variant="outline" size="sm" onClick={()=>printBudget(b)}>Imprimir</Button>
-                                <Button size="sm" onClick={()=>convertBudgetToSale(b.id)} disabled={!canConvert}>Converter em venda</Button>
-                              </div>
-                            </Card>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              </CardContent>
-            </Card>
+            {/* Modal: Converter Orçamento em Venda (seleção de atendimento) */}
+            <Dialog open={convertModalOpen} onOpenChange={setConvertModalOpen}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Converter Orçamento em Venda</DialogTitle>
+                  <DialogDescription>Selecione o atendimento para criar a venda.</DialogDescription>
+                </DialogHeader>
+                <div className="space-y-3">
+                  <div>
+                    <Label>Atendimento</Label>
+                    <Select value={convertAppointmentId} onValueChange={setConvertAppointmentId}>
+                      <SelectTrigger className="bg-input border border-border rounded-md h-9"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                      <SelectContent>
+                        {animalAppointments.map(a => (
+                          <SelectItem key={a.id} value={a.id}>{a.type} • {formatDateTime(a.date, a.time)}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={()=>setConvertModalOpen(false)}>Cancelar</Button>
+                  <Button onClick={confirmConvert}>Converter</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           </TabsContent>
 
           <TabsContent value="sales" className="mt-4">
