@@ -91,7 +91,6 @@ const navItems: NavItem[] = [
   },
   {
     title: "Financeiro",
-    href: "/financial",
     icon: FaMoneyBillWave,
     subItems: [
       { title: "Visão geral", href: "/financial", icon: FaMoneyBillWave },
