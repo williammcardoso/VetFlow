@@ -91,18 +91,13 @@ const navItems: NavItem[] = [
   },
   {
     title: "Financeiro",
-    href: "/financial", // Link principal para a nova página de visão geral
-    icon: FaMoneyBillWave, // Ícone para o módulo financeiro
+    href: "/financial",
+    icon: FaMoneyBillWave,
     subItems: [
-      { title: "Lançamentos", href: "/financial/transactions", icon: FaExchangeAlt }, // Ícone atualizado
-      { title: "Conciliação de cartões", href: "/financial/card-reconciliation", icon: FaCreditCard },
-      { title: "Contas a pagar", href: "/financial/accounts-payable", icon: FaMoneyBillAlt },
-      { title: "Demonstrativo", href: "/financial/statement", icon: FaFileInvoice },
-      { title: "Fluxo de caixa", href: "/financial/cash-flow", icon: FaChartBar },
-      { title: "Contas e cartões", href: "/financial/accounts-cards", icon: FaWallet },
-      { title: "Categorias", href: "/financial/categories", icon: FaTags },
-      { title: "Fornecedores", href: "/financial/suppliers", icon: FaTruck },
-      { title: "Formas de pagamento", href: "/financial/payment-methods", icon: FaCreditCard }, // Ícone atualizado
+      { title: "Visão geral", href: "/financial", icon: FaMoneyBillWave },
+      { title: "Contas a receber", href: "/financial/accounts-receivable", icon: FaMoneyBillAlt },
+      { title: "Recebimentos", href: "/financial/receipts", icon: FaMoneyCheckAlt },
+      { title: "Caixa / Movimentações", href: "/financial/cash-movements", icon: FaWallet },
     ],
   },
   {

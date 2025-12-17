@@ -59,6 +59,9 @@ import AccountsCardsPage from "./pages/financial/AccountsCardsPage";
 import CategoriesPage from "./pages/financial/CategoriesPage";
 import SuppliersPage from "./pages/financial/SuppliersPage";
 import FinancialPaymentMethodsPage from "./pages/financial/PaymentMethodsPage"; // Renomeado para evitar conflito
+import AccountsReceivablePage from "./pages/financial/AccountsReceivablePage";
+import ReceiptsHistoryPage from "./pages/financial/ReceiptsHistoryPage";
+import FinancialCashMovementsPage from "./pages/financial/CashMovementsPage";
 
 // ADDED: Stock pages
 import ProductsServicesPage from "./pages/stock/ProductsServicesPage";
@@ -135,6 +138,9 @@ const App = () => (
 
               {/* Rotas do Módulo Financeiro */}
               <Route path="/financial" element={<FinancialPage />} />
+              <Route path="/financial/accounts-receivable" element={<AccountsReceivablePage />} />
+              <Route path="/financial/receipts" element={<ReceiptsHistoryPage />} />
+              <Route path="/financial/cash-movements" element={<FinancialCashMovementsPage />} />
               <Route path="/financial/transactions" element={<TransactionsPage />} />
               <Route path="/financial/card-reconciliation" element={<CardReconciliationPage />} />
               <Route path="/financial/accounts-payable" element={<AccountsPayablePage />} />
