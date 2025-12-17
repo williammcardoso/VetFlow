@@ -254,14 +254,6 @@ const PatientRecordPage = () => {
   const [weightModalOpen, setWeightModalOpen] = useState(false);
   const [selectedWeight, setSelectedWeight] = useState<WeightEntry | null>(null);
 
-  // Modal: Venda
-  const [saleModalOpen, setSaleModalOpen] = useState(false);
-  const [saleDate, setSaleDate] = useState<string>(new Date().toISOString().split("T")[0]);
-  const [saleAppointmentId, setSaleAppointmentId] = useState<string>("");
-  const [saleResponsible, setSaleResponsible] = useState<string>("");
-  const [saleObservations, setSaleObservations] = useState<string>("");
-  const [saleStatusLocal, setSaleStatusLocal] = useState<SaleStatusLocal>("open");
-
   // Itens da venda
   const [saleSelectedItemId, setSaleSelectedItemId] = useState<string>("");
   const [saleQty, setSaleQty] = useState<number>(1);
@@ -2039,7 +2031,7 @@ const PatientRecordPage = () => {
       </Dialog>
 
       {/* Dialog: Adicionar Lançamento Financeiro */}
-      {/* REMOVIDO: formulário genérico de lançamentos financeiros soltos para evitar duplicação e respeitar vínculo com venda. */}
+      {/* REMOVED: formulário genérico de lançamentos financeiros soltos para evitar duplicação e respeitar vínculo com venda. */}
     </div>
   );
 };
