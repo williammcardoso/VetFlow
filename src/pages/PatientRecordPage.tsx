@@ -1319,41 +1319,60 @@ const PatientRecordPage = () => {
                   <DialogTitle>Novo Orçamento</DialogTitle>
                   <DialogDescription>Crie uma proposta de cobrança (não gera movimentação financeira).</DialogDescription>
                 </DialogHeader>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <Label>Data</Label>
-                    <Input type="date" value={budgetDate} onChange={(e)=>setBudgetDate(e.target.value)} className="h-9 bg-input border border-border rounded-md" />
-                  </div>
-                  <div>
-                    <Label>Validade (dias)</Label>
-                    <Input type="number" value={budgetValidityDays} onChange={(e)=>setBudgetValidityDays(parseInt(e.target.value)||0)} className="h-9 bg-input border border-border rounded-md" />
-                  </div>
-                  {/* Linha única de itens */}
-                  <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-5 gap-2 items-end">
-                    <div className="sm:col-span-2">
+
+                <div className="space-y-4">
+                  {/* Linha única: Data (pequeno), Item (grande), Qtd (pequeno), Preço Unitário (pequeno) */}
+                  <div className="grid grid-cols-12 gap-2 items-end">
+                    <div className="col-span-2">
+                      <Label>Data</Label>
+                      <Input
+                        type="date"
+                        value={budgetDate}
+                        onChange={(e)=>setBudgetDate(e.target.value)}
+                        className="h-9 bg-input border border-border rounded-md"
+                      />
+                    </div>
+
+                    <div className="col-span-6">
                       <Label>Item</Label>
                       <AutocompleteSelect
                         value={budgetSelectedItemId}
                         onChange={setBudgetSelectedItemId}
-                        options={catalogItems.map(ci => ({ value: ci.id, label: `${ci.name} — ${new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(ci.price)}` }))}
+                        options={catalogItems.map(ci => ({
+                          value: ci.id,
+                          label: `${ci.name} — ${new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(ci.price)}`
+                        }))}
                         placeholder="Selecione um item"
                         className="bg-input border border-border rounded-md"
                       />
                     </div>
-                    <div>
+
+                    <div className="col-span-2">
                       <Label>Qtd</Label>
-                      <Input type="number" value={budgetQty} onChange={(e)=>setBudgetQty(Number(e.target.value)||0)} className="h-9 bg-input border border-border rounded-md" />
+                      <Input
+                        type="number"
+                        value={budgetQty}
+                        onChange={(e)=>setBudgetQty(Number(e.target.value)||0)}
+                        className="h-9 bg-input border border-border rounded-md"
+                      />
                     </div>
-                    <div>
+
+                    <div className="col-span-2">
                       <Label>Preço Unitário</Label>
-                      <CurrencyInput value={budgetUnitPrice} onValueChange={setBudgetUnitPrice} className="h-9 w-full border border-border rounded-md" />
-                    </div>
-                    <div>
-                      <Button onClick={addItemToBudget} className="h-9 px-4">Adicionar</Button>
+                      <CurrencyInput
+                        value={budgetUnitPrice}
+                        onValueChange={setBudgetUnitPrice}
+                        className="h-9 w-full border border-border rounded-md"
+                      />
                     </div>
                   </div>
+
+                  <div className="flex justify-end">
+                    <Button onClick={addItemToBudget} className="h-9 px-4">Adicionar</Button>
+                  </div>
+
                   {budgetItems.length > 0 && (
-                    <div className="sm:col-span-2">
+                    <div>
                       <Table>
                         <TableHeader>
                           <TableRow>
@@ -1374,7 +1393,9 @@ const PatientRecordPage = () => {
                               <TableCell>{new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(it.unitPrice)}</TableCell>
                               <TableCell className="text-right">{new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(it.qty*it.unitPrice)}</TableCell>
                               <TableCell className="text-right">
-                                <Button variant="ghost" size="icon" onClick={()=>removeBudgetItem(it.itemId, idx)}><FaTrashAlt className="h-4 w-4 text-destructive" /></Button>
+                                <Button variant="ghost" size="icon" onClick={()=>removeBudgetItem(it.itemId, idx)}>
+                                  <FaTrashAlt className="h-4 w-4 text-destructive" />
+                                </Button>
                               </TableCell>
                             </TableRow>
                           ))}
@@ -1386,14 +1407,34 @@ const PatientRecordPage = () => {
                       </div>
                     </div>
                   )}
-                  <div className="sm:col-span-2">
+
+                  <div>
                     <Label>Observações</Label>
-                    <Textarea value={budgetObservations} onChange={(e)=>setBudgetObservations(e.target.value)} className="bg-input border border-border rounded-md" />
+                    <Textarea
+                      value={budgetObservations}
+                      onChange={(e)=>setBudgetObservations(e.target.value)}
+                      className="bg-input border border-border rounded-md"
+                    />
                   </div>
                 </div>
-                <DialogFooter>
-                  <Button variant="outline" onClick={()=>setBudgetModalOpen(false)}>Cancelar</Button>
-                  <Button onClick={saveBudget}>Salvar Orçamento</Button>
+
+                {/* Rodapé: Validade (dias) + botões */}
+                <DialogFooter className="flex items-end justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <div>
+                      <Label>Validade (dias)</Label>
+                      <Input
+                        type="number"
+                        value={budgetValidityDays}
+                        onChange={(e)=>setBudgetValidityDays(parseInt(e.target.value)||0)}
+                        className="h-9 bg-input border border-border rounded-md w-28"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button variant="outline" onClick={()=>setBudgetModalOpen(false)}>Cancelar</Button>
+                    <Button onClick={saveBudget}>Salvar Orçamento</Button>
+                  </div>
                 </DialogFooter>
               </DialogContent>
             </Dialog>
