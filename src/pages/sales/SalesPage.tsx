@@ -3,7 +3,8 @@ import { Link } from "react-router-dom";
 import { FaArrowLeft, FaShoppingCart, FaPlus, FaDollarSign, FaCalendarAlt, FaTag, FaPaw, FaEye } from "react-icons/fa";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Input } from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { mockFinancialTransactions } from "@/mockData/financial";
 import { mockClients } from "@/mockData/clients"; // Importar o mock de clientes centralizado
