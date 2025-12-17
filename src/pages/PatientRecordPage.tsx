@@ -580,17 +580,21 @@ const PatientRecordPage = () => {
   const confirmConvert = () => {
     if (!convertTargetBudgetId) return;
     if (!convertAppointmentId) { toast.error("Selecione um atendimento para converter em venda."); return; }
-    convertBudgetToSale(convertTargetBudgetId, convertAppointmentId);
-    setConvertModalOpen(false);
-    setConvertTargetBudgetId(null);
-    setConvertAppointmentId("");
+    const ok = convertBudgetToSale(convertTargetBudgetId, convertAppointmentId);
+    if (ok) {
+      // Modal fecha somente em caso de sucesso
+      setConvertModalOpen(false);
+      setConvertTargetBudgetId(null);
+      setConvertAppointmentId("");
+      // A confirmação já é exibida em convertBudgetToSale via toast.success
+    }
   };
 
-  const convertBudgetToSale = (id: string, appointmentId: string) => {
+  const convertBudgetToSale = (id: string, appointmentId: string): boolean => {
     const b = patientBudgets.find(x => x.id === id);
-    if (!b) return;
-    if (isBudgetExpired(b)) { toast.error("Orçamento expirado. Não é possível converter."); return; }
-    if (!currentClient || !currentAnimal) { toast.error("Cliente/animal não encontrados."); return; }
+    if (!b) return false;
+    if (isBudgetExpired(b)) { toast.error("Orçamento expirado. Não é possível converter."); return false; }
+    if (!currentClient || !currentAnimal) { toast.error("Cliente/animal não encontrados."); return false; }
 
     const nextId = `ft${mockFinancialTransactions.length + 1}`;
     addMockFinancialTransaction({
@@ -622,9 +626,12 @@ const PatientRecordPage = () => {
     const updatedSales = [...patientSales, newSale];
     setPatientSales(updatedSales); writePatientSales(animalId, updatedSales);
 
+    // Atualizar status do orçamento para 'convertido'
     const updatedBudgets = patientBudgets.map(x => x.id === id ? { ...x, status: "convertido", appointmentId } : x);
     setPatientBudgets(updatedBudgets); writePatientBudgets(animalId, updatedBudgets);
+
     toast.success("Orçamento convertido em venda.");
+    return true;
   };
 
   if (!currentClient || !currentAnimal) {
