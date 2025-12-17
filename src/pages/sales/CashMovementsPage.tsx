@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import CurrencyInput from "@/components/CurrencyInput";
 import { mockFinancialTransactions, addMockFinancialTransaction } from "@/mockData/financial";
 import { mockClients } from "@/mockData/clients";
+import { getRegistryList } from "@/mockData/registry";
 import { formatDateTime } from "@/lib/utils";
 
 const CashMovementsPage = () => {
@@ -20,6 +21,9 @@ const CashMovementsPage = () => {
   const [category, setCategory] = useState("");
   const [clientId, setClientId] = useState<string | undefined>(undefined);
   const [animalId, setAnimalId] = useState<string | undefined>(undefined);
+  const [paymentMethodId, setPaymentMethodId] = useState<string | undefined>(undefined);
+
+  const paymentMethods = getRegistryList("paymentMethods");
 
   const animals = useMemo(() => {
     if (!clientId) return [];
@@ -49,6 +53,7 @@ const CashMovementsPage = () => {
   const handleAddMovement = () => {
     if (!description.trim() || amount <= 0) return;
     const now = new Date();
+    const pmName = paymentMethodId ? (paymentMethods.find(pm => pm.id === paymentMethodId)?.name || undefined) : undefined;
     addMockFinancialTransaction({
       date: now.toISOString().split('T')[0],
       time: now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
@@ -58,6 +63,7 @@ const CashMovementsPage = () => {
       category: category || (type === "expense" ? "Despesa" : "Receita"),
       relatedClientId: clientId,
       relatedAnimalId: animalId,
+      paymentMethod: pmName,
     });
   };
 
@@ -148,6 +154,19 @@ const CashMovementsPage = () => {
                 <SelectTrigger className="h-9 bg-input"><SelectValue placeholder="Opcional" /></SelectTrigger>
                 <SelectContent>
                   {(mockClients.find(c => c.id === clientId)?.animals || []).map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground">Forma de Pagamento</label>
+              <Select onValueChange={setPaymentMethodId} value={paymentMethodId}>
+                <SelectTrigger className="h-9 bg-input"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                <SelectContent>
+                  {paymentMethods.length > 0 ? paymentMethods.map(pm => (
+                    <SelectItem key={pm.id} value={pm.id}>{pm.name}</SelectItem>
+                  )) : (
+                    <SelectItem value="none" disabled>Cadastre formas em Vendas &gt; Formas de Recebimento</SelectItem>
+                  )}
                 </SelectContent>
               </Select>
             </div>

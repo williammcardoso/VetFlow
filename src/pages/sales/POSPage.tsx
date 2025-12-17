@@ -26,9 +26,17 @@ const POSPage = () => {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<string | undefined>(undefined);
   const [quantity, setQuantity] = useState<number>(1);
+  const [unitPriceOverride, setUnitPriceOverride] = useState<number | undefined>(undefined);
   const [selectedClientId, setSelectedClientId] = useState<string | undefined>(undefined);
   const [selectedAnimalId, setSelectedAnimalId] = useState<string | undefined>(undefined);
   const [selectedPaymentMethodId, setSelectedPaymentMethodId] = useState<string | undefined>(undefined); // NEW
+  const [saleWithoutClient, setSaleWithoutClient] = useState<boolean>(false); // NEW: venda avulsa
+  const [discount, setDiscount] = useState<number>(0); // NEW: desconto global
+  const [surcharge, setSurcharge] = useState<number>(0); // NEW: acréscimos
+  const [receivedNow, setReceivedNow] = useState<number>(0); // NEW: recebimento imediato/parcial
+  const [installments, setInstallments] = useState<number>(1); // NEW: parcelado
+  const [observations, setObservations] = useState<string>(""); // NEW
+  const [responsible, setResponsible] = useState<string>(""); // NEW
 
   const filteredAnimals = selectedClientId
     ? mockClients.find(c => c.id === selectedClientId)?.animals || []
@@ -37,6 +45,7 @@ const POSPage = () => {
   const paymentMethods = getRegistryList("paymentMethods"); // NEW
 
   const subtotal = cart.reduce((sum, item) => sum + item.total, 0);
+  const finalTotal = Math.max(0, subtotal - (discount || 0) + (surcharge || 0)); // total final
 
   const handleAddProductToCart = () => {
     if (!selectedProduct) {
@@ -51,10 +60,11 @@ const POSPage = () => {
     const item = findCatalogItem(selectedProduct);
     if (item) {
       const existingItemIndex = cart.findIndex(ci => ci.productId === item.id);
-      const price = item.price;
+      const price = typeof unitPriceOverride === 'number' && unitPriceOverride >= 0 ? unitPriceOverride : item.price;
       if (existingItemIndex > -1) {
         const updatedCart = [...cart];
         updatedCart[existingItemIndex].quantity += quantity;
+        updatedCart[existingItemIndex].price = price;
         updatedCart[existingItemIndex].total = updatedCart[existingItemIndex].quantity * price;
         setCart(updatedCart);
       } else {
@@ -68,6 +78,7 @@ const POSPage = () => {
       }
       setSelectedProduct(undefined);
       setQuantity(1);
+      setUnitPriceOverride(undefined);
       toast.success(`${item.name} adicionado ao carrinho!`);
     }
   };
@@ -82,16 +93,24 @@ const POSPage = () => {
       toast.error("O carrinho está vazio. Adicione produtos para processar a venda.");
       return;
     }
-    if (!selectedClientId) {
-      toast.error("Por favor, selecione o cliente responsável pela venda.");
+    if (!selectedClientId && !saleWithoutClient) {
+      toast.error("Selecione o cliente ou marque venda avulsa.");
       return;
     }
     if (!selectedPaymentMethodId) {
       toast.error("Selecione a forma de pagamento.");
       return;
     }
+    if (receivedNow < 0) {
+      toast.error("Valor recebido não pode ser negativo.");
+      return;
+    }
+    if (installments <= 0) {
+      toast.error("Número de parcelas deve ser maior que zero.");
+      return;
+    }
 
-    const clientName = mockClients.find(c => c.id === selectedClientId)?.name;
+    const clientName = selectedClientId ? mockClients.find(c => c.id === selectedClientId)?.name : "Avulsa";
     const animalName = selectedAnimalId ? mockClients.find(c => c.id === selectedClientId)?.animals.find(a => a.id === selectedAnimalId)?.name : undefined;
     const pm = paymentMethods.find(pm => pm.id === selectedPaymentMethodId);
     const paymentMethodName = pm?.name || "Não informado";
@@ -101,18 +120,27 @@ const POSPage = () => {
     const currentDate = now.toISOString().split('T')[0];
     const currentTime = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 
+    const status = receivedNow >= finalTotal ? 'paid' : (receivedNow > 0 ? 'partial' : 'pending');
+
+    // Registrar a venda
     addMockFinancialTransaction({
       date: currentDate,
       time: currentTime,
       description: description,
       type: 'income',
-      amount: subtotal,
+      amount: finalTotal,
       category: 'Venda de Produtos',
-      relatedClientId: selectedClientId,
+      relatedClientId: saleWithoutClient ? undefined : selectedClientId,
       relatedAnimalId: selectedAnimalId,
       paymentMethod: paymentMethodName, // NEW
+      paidAmount: receivedNow || 0,
+      status,
+      responsible: responsible || undefined,
+      observations: observations || undefined,
+      paymentInstallments: installments,
     });
 
+    // Ajustar estoque para produtos
     cart.forEach(ci => {
       const item = findCatalogItem(ci.productId);
       if (item && item.type === 'product') {
@@ -121,10 +149,18 @@ const POSPage = () => {
     });
 
     toast.success("Venda processada com sucesso!");
+    // Reset
     setCart([]);
     setSelectedClientId(undefined);
     setSelectedAnimalId(undefined);
     setSelectedPaymentMethodId(undefined);
+    setSaleWithoutClient(false);
+    setDiscount(0);
+    setSurcharge(0);
+    setReceivedNow(0);
+    setInstallments(1);
+    setObservations("");
+    setResponsible("");
     navigate('/sales/my-sales'); // Redirecionar para a página de vendas
   };
 
@@ -189,6 +225,18 @@ const POSPage = () => {
                 className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200"
               />
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="unit-price-input">Preço unitário</Label>
+              <Input
+                id="unit-price-input"
+                type="number"
+                min="0"
+                step="0.01"
+                value={typeof unitPriceOverride === 'number' ? unitPriceOverride : (selectedProduct ? (findCatalogItem(selectedProduct)?.price ?? 0) : 0)}
+                onChange={(e) => setUnitPriceOverride(parseFloat(e.target.value) || 0)}
+                className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200"
+              />
+            </div>
             <Button onClick={handleAddProductToCart} className="bg-primary text-primary-foreground hover:bg-primary/90 font-semibold transition-all duration-200 shadow-md hover:shadow-lg">
               <FaPlus className="mr-2 h-4 w-4" /> Adicionar ao Carrinho
             </Button>
@@ -237,21 +285,109 @@ const POSPage = () => {
               <span>R$ {subtotal.toFixed(2).replace('.', ',')}</span>
             </div>
 
-            <div className="space-y-2 mt-2">
-              <Label htmlFor="client-select">Cliente Responsável</Label>
-              <Select onValueChange={setSelectedClientId} value={selectedClientId}>
-                <SelectTrigger id="client-select" className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200">
-                  <SelectValue placeholder="Selecione o cliente" />
-                </SelectTrigger>
-                <SelectContent>
-                  {mockClients.map((client) => (
-                    <SelectItem key={client.id} value={client.id}>
-                      {client.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label htmlFor="discount-input">Desconto</Label>
+                <Input
+                  id="discount-input"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={discount}
+                  onChange={(e) => setDiscount(parseFloat(e.target.value) || 0)}
+                  className="bg-input rounded-md border-border"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="surcharge-input">Acréscimos</Label>
+                <Input
+                  id="surcharge-input"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={surcharge}
+                  onChange={(e) => setSurcharge(parseFloat(e.target.value) || 0)}
+                  className="bg-input rounded-md border-border"
+                />
+              </div>
             </div>
+
+            <div className="flex justify-between items-center font-bold text-lg border-t border-border pt-4 mt-2">
+              <span>Total Final:</span>
+              <span>R$ {finalTotal.toFixed(2).replace('.', ',')}</span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label htmlFor="received-now-input">Valor recebido agora</Label>
+                <Input
+                  id="received-now-input"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={receivedNow}
+                  onChange={(e) => setReceivedNow(parseFloat(e.target.value) || 0)}
+                  className="bg-input rounded-md border-border"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="installments-input">Parcelas</Label>
+                <Input
+                  id="installments-input"
+                  type="number"
+                  min="1"
+                  value={installments}
+                  onChange={(e) => setInstallments(parseInt(e.target.value) || 1)}
+                  className="bg-input rounded-md border-border"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="observations-textarea">Observações</Label>
+              <Input
+                id="responsible-input"
+                placeholder="Responsável"
+                value={responsible}
+                onChange={(e) => setResponsible(e.target.value)}
+                className="bg-input rounded-md border-border"
+              />
+              <Input
+                id="observations-textarea"
+                placeholder="Observações da venda"
+                value={observations}
+                onChange={(e) => setObservations(e.target.value)}
+                className="bg-input rounded-md border-border"
+              />
+            </div>
+
+            <div className="flex items-center gap-2 mt-2">
+              <input
+                id="sale-without-client"
+                type="checkbox"
+                checked={saleWithoutClient}
+                onChange={(e) => setSaleWithoutClient(e.target.checked)}
+              />
+              <Label htmlFor="sale-without-client">Venda Avulsa</Label>
+            </div>
+
+            {!saleWithoutClient && (
+              <div className="space-y-2 mt-2">
+                <Label htmlFor="client-select">Cliente Responsável</Label>
+                <Select onValueChange={setSelectedClientId} value={selectedClientId}>
+                  <SelectTrigger id="client-select" className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200">
+                    <SelectValue placeholder="Selecione o cliente" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {mockClients.map((client) => (
+                      <SelectItem key={client.id} value={client.id}>
+                        {client.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
             {selectedClientId && filteredAnimals.length > 0 && (
               <div className="space-y-2">

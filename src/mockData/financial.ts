@@ -9,6 +9,14 @@ export interface FinancialTransaction {
   relatedAnimalId?: string;
   relatedClientId?: string;
   paymentMethod?: string; // NEW: método de pagamento
+
+  // NEW FIELDS
+  status?: 'paid' | 'partial' | 'pending' | 'cancelled';
+  paidAmount?: number; // quanto já foi recebido desta venda
+  responsible?: string;
+  observations?: string;
+  paymentInstallments?: number; // número de parcelas, quando aplicável
+  saleId?: string; // para recebimentos vinculados a uma venda específica
 }
 
 export interface OverallFinancialSummary {
@@ -111,4 +119,51 @@ export const getOverallFinancialSummary = (): OverallFinancialSummary => {
 export const addMockFinancialTransaction = (newTransaction: Omit<FinancialTransaction, 'id'>) => {
   const id = `ft${mockFinancialTransactions.length + 1}`;
   mockFinancialTransactions.push({ ...newTransaction, id });
+};
+
+// NEW: Atualizar uma transação existente por id
+export const updateMockFinancialTransaction = (id: string, changes: Partial<FinancialTransaction>): boolean => {
+  const idx = mockFinancialTransactions.findIndex(t => t.id === id);
+  if (idx === -1) return false;
+  mockFinancialTransactions[idx] = { ...mockFinancialTransactions[idx], ...changes };
+  return true;
+};
+
+// NEW: Registrar recebimento (income) e atualizar o status/valor pago da venda vinculada, se houver
+export const addMockReceipt = (data: {
+  saleId?: string;
+  amount: number;
+  paymentMethod?: string;
+  description?: string;
+  relatedClientId?: string;
+  relatedAnimalId?: string;
+}) => {
+  const now = new Date();
+  const receipt: Omit<FinancialTransaction, 'id'> = {
+    date: now.toISOString().split('T')[0],
+    time: now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+    description: data.description || 'Recebimento',
+    type: 'income',
+    amount: data.amount,
+    category: 'Recebimento',
+    paymentMethod: data.paymentMethod,
+    saleId: data.saleId,
+    relatedClientId: data.relatedClientId,
+    relatedAnimalId: data.relatedAnimalId,
+  };
+  addMockFinancialTransaction(receipt);
+
+  if (data.saleId) {
+    // Procurar a venda original e atualizar paidAmount/status
+    const saleIdx = mockFinancialTransactions.findIndex(
+      t => t.id === data.saleId && t.category === 'Venda de Produtos'
+    );
+    if (saleIdx > -1) {
+      const sale = mockFinancialTransactions[saleIdx];
+      const alreadyPaid = sale.paidAmount || 0;
+      const newPaid = alreadyPaid + data.amount;
+      const newStatus = newPaid >= sale.amount ? 'paid' : (newPaid > 0 ? 'partial' : 'pending');
+      mockFinancialTransactions[saleIdx] = { ...sale, paidAmount: newPaid, status: newStatus };
+    }
+  }
 };
