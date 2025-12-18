@@ -45,6 +45,7 @@ import { mockAppointments } from "@/pages/AddAppointmentPage"; // Importar mockA
 import { ExamEntry, ExamReportData, HemogramReference, HemogramReferenceValue } from "@/types/exam"; // Importar a interface ExamEntry e ExamReportData, e as interfaces de referência
 import { mockExams } from "@/mockData/exams";
 import { hemogramReferences } from "@/constants/examReferences";
+import { mockUserSettings } from "@/mockData/settings";
 
 // Mock data para tipos de exame e veterinários
 const mockExamTypes = [
@@ -75,6 +76,9 @@ interface TimelineEvent {
   icon: React.ElementType;
   link?: string; // Opcional, para navegar para detalhes
   badgeColor?: string; // Opcional, para customizar a cor do badge
+  // NEW:
+  summary?: string;
+  author?: string;
 }
 
 // Helper function to calculate age
@@ -833,9 +837,11 @@ const PatientRecordPage = () => {
       time: app.time,
       type: 'Atendimento',
       description: `${app.type}: ${description}`,
+      summary: app.observacoesGerais || description,
       icon: FaStethoscope,
       link: `/clients/${clientId}/animals/${animalId}/view-appointment/${app.id}`,
       badgeColor: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
+      author: app.vet || mockUserSettings.userName,
     });
   });
 
@@ -847,9 +853,10 @@ const PatientRecordPage = () => {
       time: exam.time,
       type: 'Exame',
       description: `${exam.type}: ${exam.result || 'Ver detalhes'}`,
+      summary: exam.note || exam.result || undefined,
       icon: FaFlask,
-      // link: `/clients/${clientId}/animals/${animalId}/view-exam/${exam.id}`, // Se houver uma página de visualização de exame
       badgeColor: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200",
+      author: exam.vet || mockUserSettings.userName,
     });
   });
 
@@ -866,9 +873,11 @@ const PatientRecordPage = () => {
       time: rx.time,
       type: 'Receita',
       description: `${rx.type === 'simple' ? 'Receita Simples' : rx.type === 'controlled' ? 'Receita Controlada' : 'Receita Manipulada'}: ${description}`,
+      summary: rx.instructions || rx.treatmentDescription || rx.medicationName || undefined,
       icon: FaPrescriptionBottleAlt,
       link: `/clients/${clientId}/animals/${animalId}/edit-prescription/${rx.id}?type=${rx.type}`,
-      badgeColor: badgeColor,
+      badgeColor,
+      author: mockUserSettings.userName,
     });
   });
 
@@ -880,8 +889,10 @@ const PatientRecordPage = () => {
       time: entry.time,
       type: 'Peso',
       description: `Peso registrado: ${entry.weight.toFixed(1)} kg (${entry.source})`,
+      summary: `Origem: ${entry.source || "-"}`,
       icon: FaWeightHanging,
       badgeColor: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200",
+      author: mockUserSettings.userName,
     });
   });
 
@@ -893,8 +904,10 @@ const PatientRecordPage = () => {
       time: obs.time,
       type: 'Observação',
       description: `Observação: ${obs.observation}`,
+      summary: obs.observation,
       icon: FaCommentAlt,
       badgeColor: "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200",
+      author: mockUserSettings.userName,
     });
   });
 
@@ -906,8 +919,10 @@ const PatientRecordPage = () => {
       time: sale.time,
       type: 'Venda',
       description: `Venda: ${sale.description} (R$ ${sale.amount.toFixed(2).replace('.', ',')})`,
+      summary: sale.description,
       icon: FaDollarSign,
       badgeColor: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
+      author: mockUserSettings.userName,
     });
   });
 
@@ -919,8 +934,10 @@ const PatientRecordPage = () => {
       time: vaccine.time,
       type: 'Vacina',
       description: `Vacina ${vaccine.type} aplicada. Próxima dose: ${formatDateTime(vaccine.nextDue)}`,
+      summary: `Aplicada por ${vaccine.vet}`,
       icon: FaSyringe,
       badgeColor: "bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-200",
+      author: vaccine.vet || mockUserSettings.userName,
     });
   });
 
@@ -932,9 +949,11 @@ const PatientRecordPage = () => {
       time: doc.time,
       type: 'Documento',
       description: `Documento: ${doc.name}`,
+      summary: doc.name,
       icon: FaFileAlt,
       link: doc.fileUrl,
       badgeColor: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200",
+      author: mockUserSettings.userName,
     });
   });
 
@@ -1005,18 +1024,16 @@ const PatientRecordPage = () => {
             </CardHeader>
             <CardContent className="pt-0">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Perfil do Pet */}
-                <div className="flex items-center gap-4">
-                  <div className="relative">
-                    <Avatar className="h-16 w-16 rounded-full ring-2 ring-white shadow-sm">
-                      <AvatarImage src={undefined} />
-                      <AvatarFallback className="bg-[#0F4C5C] text-white text-lg font-bold">
-                        <FaPaw className="h-6 w-6" />
-                      </AvatarFallback>
-                    </Avatar>
-                  </div>
+                {/* Perfil do Pet + chips e dados compactos */}
+                <div className="flex items-start gap-4">
+                  <Avatar className="h-16 w-16 rounded-full ring-2 ring-white shadow-sm">
+                    <AvatarImage src={undefined} />
+                    <AvatarFallback className="bg-[#0F4C5C] text-white text-lg font-bold">
+                      <FaPaw className="h-6 w-6" />
+                    </AvatarFallback>
+                  </Avatar>
                   <div className="flex-1">
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex flex-wrap gap-2 mb-2">
                       <span className="px-3 py-1 rounded-full text-xs font-medium bg-[#F5F7FA] text-[#374151] border border-[#E5E7EB]">
                         Espécie: <span className="font-semibold text-[#111827]">{currentAnimal.species}</span>
                       </span>
@@ -1030,47 +1047,74 @@ const PatientRecordPage = () => {
                         Peso: <span className="font-semibold text-[#111827]">{currentAnimal.weight.toFixed(1)} kg</span>
                       </span>
                     </div>
+                    {/* Linha adicional: Sexo, Nascimento, Alergias */}
+                    <div className="flex flex-wrap gap-2">
+                      <span className="px-2 py-1 rounded-full text-xs bg-[#F3F4F6] text-[#374151] border border-[#E5E7EB]">
+                        Sexo: <span className="font-semibold text-[#111827]">{currentAnimal.gender}</span>
+                      </span>
+                      <span className="px-2 py-1 rounded-full text-xs bg-[#F3F4F6] text-[#374151] border border-[#E5E7EB]">
+                        Nasc.: <span className="font-semibold text-[#111827]">{formatDateTime(currentAnimal.birthday || '')}</span>
+                      </span>
+                      <span className={cn(
+                        "px-2 py-1 rounded-full text-xs border",
+                        currentAnimal.notes && currentAnimal.notes.length > 0
+                          ? "bg-[#FEF2F2] text-[#991B1B] border-[#FCA5A5] font-semibold"
+                          : "bg-[#F3F4F6] text-[#374151] border-[#E5E7EB]"
+                      )}>
+                        Alergias: {currentAnimal.notes && currentAnimal.notes.length > 0 ? "Ver observações" : "Nenhuma"}
+                      </span>
+                    </div>
                   </div>
                 </div>
 
-                {/* Resumo Financeiro com mini-cards pastéis */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  {(() => {
-                    const income = mockFinancialTransactions.filter(t => t.relatedAnimalId === animalId && t.type === 'income').reduce((s, t) => s + t.amount, 0);
-                    const expense = mockFinancialTransactions.filter(t => t.relatedAnimalId === animalId && t.type === 'expense').reduce((s, t) => s + t.amount, 0);
-                    const net = income - expense;
-                    const pending = Math.max(0, patientSales.reduce((sum, s) => sum + s.total, 0) - patientPayments.reduce((sum, p) => sum + p.amount, 0));
-
-                    return (
-                      <>
-                        <Card className="bg-[#ECFDF5] rounded-xl border-0 shadow-sm">
-                          <CardContent className="pt-4">
-                            <div className="text-xs text-[#065F46]">Pago</div>
-                            <div className="text-xl font-bold text-[#065F46]">
-                              {new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(income)}
-                            </div>
-                          </CardContent>
-                        </Card>
-                        <Card className="bg-[#FEF2F2] rounded-xl border-0 shadow-sm">
-                          <CardContent className="pt-4">
-                            <div className="text-xs text-[#991B1B]">Pendências</div>
-                            <div className="text-xl font-bold text-[#991B1B]">
-                              {new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(pending)}
-                            </div>
-                          </CardContent>
-                        </Card>
-                        <Card className="bg-[#EFF6FF] rounded-xl border-0 shadow-sm">
-                          <CardContent className="pt-4">
-                            <div className="text-xs text-[#1D4ED8]">Saldo</div>
-                            <div className={cn("text-xl font-bold", net >= 0 ? "text-[#1D4ED8]" : "text-[#D97706]")}>
-                              {new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(net)}
-                            </div>
-                          </CardContent>
-                        </Card>
-                      </>
-                    );
-                  })()}
+                {/* Coluna do Tutor ao lado da foto */}
+                <div className="space-y-2">
+                  <p className="text-sm text-[#6B7280]">Tutor Responsável</p>
+                  <div className="p-3 bg-[#F9FAFB] rounded-lg border border-[#E5E7EB]">
+                    <p className="text-sm"><span className="font-semibold text-[#111827]">Nome:</span> {currentClient.name}</p>
+                    <p className="text-sm"><span className="font-semibold text-[#111827]">{currentClient.clientType === "physical" ? "CPF" : "CNPJ"}:</span> {currentClient.identificationNumber}</p>
+                    <p className="text-sm"><span className="font-semibold text-[#111827]">Telefone:</span> {currentClient.mainPhoneContact}</p>
+                  </div>
                 </div>
+              </div>
+
+              {/* Resumo financeiro pastel (mantido) */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {(() => {
+                  const income = mockFinancialTransactions.filter(t => t.relatedAnimalId === animalId && t.type === 'income').reduce((s, t) => s + t.amount, 0);
+                  const expense = mockFinancialTransactions.filter(t => t.relatedAnimalId === animalId && t.type === 'expense').reduce((s, t) => s + t.amount, 0);
+                  const net = income - expense;
+                  const pending = Math.max(0, patientSales.reduce((sum, s) => sum + s.total, 0) - patientPayments.reduce((sum, p) => sum + p.amount, 0));
+
+                  return (
+                    <>
+                      <Card className="bg-[#ECFDF5] rounded-xl border-0 shadow-sm">
+                        <CardContent className="pt-4">
+                          <div className="text-xs text-[#065F46]">Pago</div>
+                          <div className="text-xl font-bold text-[#065F46]">
+                            {new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(income)}
+                          </div>
+                        </CardContent>
+                      </Card>
+                      <Card className="bg-[#FEF2F2] rounded-xl border-0 shadow-sm">
+                        <CardContent className="pt-4">
+                          <div className="text-xs text-[#991B1B]">Pendências</div>
+                          <div className="text-xl font-bold text-[#991B1B]">
+                            {new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(pending)}
+                          </div>
+                        </CardContent>
+                      </Card>
+                      <Card className="bg-[#EFF6FF] rounded-xl border-0 shadow-sm">
+                        <CardContent className="pt-4">
+                          <div className="text-xs text-[#1D4ED8]">Saldo</div>
+                          <div className={cn("text-xl font-bold", net >= 0 ? "text-[#1D4ED8]" : "text-[#D97706]")}>
+                            {new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(net)}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </>
+                  );
+                })()}
               </div>
             </CardContent>
           </Card>
@@ -1080,30 +1124,39 @@ const PatientRecordPage = () => {
           <TabsList className="flex flex-wrap gap-4 bg-transparent border-b border-[#E5E7EB] rounded-none p-0">
             <TabsTrigger value="timeline" className="relative -mb-px pb-3 text-[#6B7280] data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold data-[state=active]:after:content-[''] data-[state=active]:after:absolute data-[state=active]:after:left-0 data-[state=active]:after:right-0 data-[state=active]:after:-bottom-[1px] data-[state=active]:after:h-[2px] data-[state=active]:after:bg-[#0F4C5C]">
               <FaClock className="h-4 w-4 mr-2" /> Linha do Tempo
+              <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[10px] bg-[#F3F4F6] text-[#374151]">{sortedTimelineEvents.length}</span>
             </TabsTrigger>
             <TabsTrigger value="appointments" className="relative -mb-px pb-3 text-[#6B7280] data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold data-[state=active]:after:content-[''] data-[state=active]:after:absolute data-[state=active]:after:left-0 data-[state=active]:after:right-0 data-[state=active]:after:-bottom-[1px] data-[state=active]:after:h-[2px] data-[state=active]:after:bg-[#0F4C5C]">
               <FaStethoscope className="h-4 w-4 mr-2" /> Atendimento
+              <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[10px] bg-[#F3F4F6] text-[#374151]">{animalAppointments.length}</span>
             </TabsTrigger>
             <TabsTrigger value="exams" className="relative -mb-px pb-3 text-[#6B7280] data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold data-[state=active]:after:content-[''] data-[state=active]:after:absolute data-[state=active]:after:left-0 data-[state=active]:after:right-0 data-[state=active]:after:-bottom-[1px] data-[state=active]:after:h-[2px] data-[state=active]:after:bg-[#0F4C5C]">
               <FaFlask className="h-4 w-4 mr-2" /> Exames
+              <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[10px] bg-[#F3F4F6] text-[#374151]">{examsList.length}</span>
             </TabsTrigger>
             <TabsTrigger value="vaccines" className="relative -mb-px pb-3 text-[#6B7280] data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold data-[state=active]:after:content-[''] data-[state=active]:after:absolute data-[state=active]:after:left-0 data-[state=active]:after:right-0 data-[state=active]:after:-bottom-[1px] data-[state=active]:after:h-[2px] data-[state=active]:after:bg-[#0F4C5C]">
               <FaSyringe className="h-4 w-4 mr-2" /> Vacinas
+              <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[10px] bg-[#F3F4F6] text-[#374151]">{vaccines.length}</span>
             </TabsTrigger>
             <TabsTrigger value="weight" className="relative -mb-px pb-3 text-[#6B7280] data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold data-[state=active]:after:content-[''] data-[state=active]:after:absolute data-[state=active]:after:left-0 data-[state=active]:after:right-0 data-[state=active]:after:-bottom-[1px] data-[state=active]:after:h-[2px] data-[state=active]:after:bg-[#0F4C5C]">
               <FaWeightHanging className="h-4 w-4 mr-2" /> Peso
+              <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[10px] bg-[#F3F4F6] text-[#374151]">{weightHistory.length}</span>
             </TabsTrigger>
             <TabsTrigger value="documents" className="relative -mb-px pb-3 text-[#6B7280] data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold data-[state=active]:after:content-[''] data-[state=active]:after:absolute data-[state=active]:after:left-0 data-[state=active]:after:right-0 data-[state=active]:after:-bottom-[1px] data-[state=active]:after:h-[2px] data-[state=active]:after:bg-[#0F4C5C]">
               <FaFileAlt className="h-4 w-4 mr-2" /> Documentos
+              <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[10px] bg-[#F3F4F6] text-[#374151]">{documents.length}</span>
             </TabsTrigger>
             <TabsTrigger value="prescriptions" className="relative -mb-px pb-3 text-[#6B7280] data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold data-[state=active]:after:content-[''] data-[state=active]:after:absolute data-[state=active]:after:left-0 data-[state=active]:after:right-0 data-[state=active]:after:-bottom-[1px] data-[state=active]:after:h-[2px] data-[state=active]:after:bg-[#0F4C5C]">
               <FaPrescriptionBottleAlt className="h-4 w-4 mr-2" /> Receitas
+              <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[10px] bg-[#F3F4F6] text-[#374151]">{prescriptions.length}</span>
             </TabsTrigger>
             <TabsTrigger value="observations" className="relative -mb-px pb-3 text-[#6B7280] data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold data-[state=active]:after:content-[''] data-[state=active]:after:absolute data-[state=active]:after:left-0 data-[state=active]:after:right-0 data-[state=active]:after:-bottom-[1px] data-[state=active]:after:h-[2px] data-[state=active]:after:bg-[#0F4C5C]">
               <FaCommentAlt className="h-4 w-4 mr-2" /> Observações
+              <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[10px] bg-[#F3F4F6] text-[#374151]">{observations.length}</span>
             </TabsTrigger>
             <TabsTrigger value="financial" className="relative -mb-px pb-3 text-[#6B7280] data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold data-[state=active]:after:content-[''] data-[state=active]:after:absolute data-[state=active]:after:left-0 data-[state=active]:after:right-0 data-[state=active]:after:-bottom-[1px] data-[state=active]:after:h-[2px] data-[state=active]:after:bg-[#0F4C5C]">
               <FaMoneyBillWave className="h-4 w-4 mr-2" /> Financeiro
+              <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[10px] bg-[#F3F4F6] text-[#374151]">{patientSales.length}</span>
             </TabsTrigger>
           </TabsList>
 
@@ -1118,46 +1171,60 @@ const PatientRecordPage = () => {
               <CardContent className="pt-0">
                 {sortedTimelineEvents.length > 0 ? (
                   <div className="relative">
-                    <div className="absolute left-3 top-0 bottom-0 w-px bg-[#E5E7EB]" />
+                    {/* Linha vertical com leve gradiente para profundidade */}
+                    <div className="absolute left-3 top-0 bottom-0 w-[2px] bg-gradient-to-b from-[#E5E7EB] via-[#D1D5DB] to-[#E5E7EB]" />
                     <div className="space-y-4">
-                      {sortedTimelineEvents.map((event) => (
-                        <div key={event.id} className="relative pl-8">
-                          <span className="absolute left-0 top-4 h-3 w-3 rounded-full bg-[#0F4C5C] shadow-sm" />
-                          <Card className="p-4 bg-white rounded-xl shadow-sm border border-[#E5E7EB]">
-                            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-2 gap-2">
-                              <div className="flex items-center gap-2">
-                                {React.createElement(event.icon, { className: "h-4 w-4 text-[#6B7280]" })}
-                                <Badge className={cn("px-2 py-0.5 text-xs font-medium rounded-full",
-                                  event.badgeColor || "bg-[#F3F4F6] text-[#374151]")}>
-                                  {event.type}
-                                </Badge>
-                                <p className="text-lg font-semibold text-[#111827]">
-                                  {event.description}
-                                </p>
+                      {sortedTimelineEvents.map((event) => {
+                        const nodeColor = getNodeColorClass(event.badgeColor);
+                        return (
+                          <div key={event.id} className="relative pl-8">
+                            <span className={cn("absolute left-2.5 top-4 h-4 w-4 rounded-full shadow-sm", nodeColor)} />
+                            <Card className="p-4 bg-white rounded-xl shadow-sm border border-[#E5E7EB]">
+                              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-2 gap-2">
+                                <div className="flex items-center gap-2">
+                                  {React.createElement(event.icon, { className: "h-4 w-4 text-[#6B7280]" })}
+                                  <Badge className={cn("px-2 py-0.5 text-xs font-medium rounded-full",
+                                    event.badgeColor || "bg-[#F3F4F6] text-[#374151]")}>
+                                    {event.type}
+                                  </Badge>
+                                  <p className="text-lg font-semibold text-[#111827]">
+                                    {event.description}
+                                  </p>
+                                </div>
+                                {event.link && (
+                                  <Button
+                                    variant="outline"
+                                    size="icon"
+                                    onClick={() => {
+                                      if (event.link && (event.link.startsWith("http") || event.link.startsWith("blob:"))) {
+                                        window.open(event.link, "_blank");
+                                      } else if (event.link) {
+                                        navigate(event.link);
+                                      }
+                                    }}
+                                    className="rounded-lg border-[#E2E8F0] text-[#374151] hover:bg-[#F3F4F6]"
+                                  >
+                                    <FaEye className="h-4 w-4" />
+                                  </Button>
+                                )}
                               </div>
-                              {event.link && (
-                                <Button
-                                  variant="outline"
-                                  size="icon"
-                                  onClick={() => {
-                                    if (event.link.startsWith("http") || event.link.startsWith("blob:")) {
-                                      window.open(event.link, "_blank");
-                                    } else {
-                                      navigate(event.link);
-                                    }
-                                  }}
-                                  className="rounded-lg border-[#E2E8F0] text-[#374151] hover:bg-[#F3F4F6]"
-                                >
-                                  <FaEye className="h-4 w-4" />
-                                </Button>
+                              {/* Resumo/observação rápida */}
+                              {event.summary && (
+                                <p className="text-sm text-[#6B7280] mb-2">{event.summary}</p>
                               )}
-                            </div>
-                            <div className="flex items-center gap-1 text-sm text-[#6B7280]">
-                              <FaCalendarAlt className="h-3 w-3" /> {formatDateTime(event.date, event.time)}
-                            </div>
-                          </Card>
-                        </div>
-                      ))}
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-1 text-sm text-[#6B7280]">
+                                  <FaCalendarAlt className="h-3 w-3" /> {formatDateTime(event.date, event.time)}
+                                </div>
+                                {/* Autor no canto inferior direito */}
+                                <div className="text-xs text-[#6B7280]">
+                                  {event.author ? `Profissional: ${event.author}` : ""}
+                                </div>
+                              </div>
+                            </Card>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 ) : (
