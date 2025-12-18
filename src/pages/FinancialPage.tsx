@@ -1,12 +1,20 @@
 import React, { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { FaMoneyBillWave, FaCalendarAlt, FaArrowUp, FaArrowDown, FaShoppingCart } from "react-icons/fa";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { cn, formatDateTime } from "@/lib/utils";
-import { mockFinancialTransactions, FinancialTransaction } from "@/mockData/financial";
+import { mockFinancialTransactions } from "@/mockData/financial";
+import {
+  DollarSign,
+  CheckCircle,
+  AlertCircle,
+  Tag,
+  TrendingUp,
+  Clock,
+  PawPrint,
+} from "lucide-react";
 
-// Helper: verifica se data está no intervalo
 const withinRange = (dateStr: string, from?: string, to?: string) => {
   const dt = new Date(`${dateStr}T00:00`);
   const f = from ? new Date(`${from}T00:00`) : undefined;
@@ -14,10 +22,12 @@ const withinRange = (dateStr: string, from?: string, to?: string) => {
   return (!f || dt >= f) && (!t || dt <= t);
 };
 
-// Helper: soma recebimentos de uma venda
 const sumReceiptsForSale = (saleId: string) => {
   const receipts = mockFinancialTransactions.filter(
-    t => t.type === "income" && t.category === "Recebimento" && (t.saleId === saleId || (t.description || "").includes(saleId))
+    (t) =>
+      t.type === "income" &&
+      t.category === "Recebimento" &&
+      (t.saleId === saleId || (t.description || "").includes(saleId))
   );
   return receipts.reduce((s, r) => s + r.amount, 0);
 };
@@ -26,275 +36,346 @@ const FinancialPage: React.FC = () => {
   const [dateFrom, setDateFrom] = useState<string>("");
   const [dateTo, setDateTo] = useState<string>("");
 
-  // KPIs e situação do período (controle e interpretação)
-  const kpis = useMemo(() => {
-    const salesInRange = mockFinancialTransactions.filter(
-      t => t.type === "income" && t.category === "Venda de Produtos" && withinRange(t.date, dateFrom, dateTo)
+  const data = useMemo(() => {
+    // Filtro por período
+    const sales = mockFinancialTransactions.filter(
+      (t) => t.type === "income" && t.category === "Venda de Produtos" && withinRange(t.date, dateFrom, dateTo)
     );
-    const receiptsInRange = mockFinancialTransactions.filter(
-      t => t.type === "income" && t.category === "Recebimento" && withinRange(t.date, dateFrom, dateTo)
+    const receipts = mockFinancialTransactions.filter(
+      (t) => t.type === "income" && t.category === "Recebimento" && withinRange(t.date, dateFrom, dateTo)
     );
-    const totalFaturado = salesInRange.reduce((s, t) => s + t.amount, 0);
-    const totalRecebido = receiptsInRange.reduce((s, t) => s + t.amount, 0);
+
+    const totalFaturado = sales.reduce((s, t) => s + t.amount, 0);
+    const totalRecebido = receipts.reduce((s, t) => s + t.amount, 0);
 
     let totalEmAberto = 0;
     let vendasPendentes = 0;
-    salesInRange.forEach(sale => {
+    sales.forEach((sale) => {
       const paid = sumReceiptsForSale(sale.id);
       const remaining = Math.max(0, sale.amount - paid);
       totalEmAberto += remaining;
       if ((sale.status || "pending") !== "cancelled" && remaining > 0) vendasPendentes += 1;
     });
 
-    const ticketMedio = salesInRange.length > 0 ? totalFaturado / salesInRange.length : 0;
+    const ticketMedio = sales.length > 0 ? totalFaturado / sales.length : 0;
     const percentRecebido = totalFaturado > 0 ? Math.min(100, Math.round((totalRecebido / totalFaturado) * 100)) : 100;
 
-    // Situação do período: Estável, Atenção, Pendências
+    // Situação interpretativa: Estável, Atenção, Pendências
     let situacao: "Estável" | "Atenção" | "Pendências" = "Estável";
     if (totalEmAberto > 0 || vendasPendentes > 0) {
       situacao = percentRecebido < 70 ? "Pendências" : "Atenção";
     }
 
-    // Status dos KPIs (normal, atenção, ok) — zeros como positivos
-    const status = {
-      faturado: totalFaturado === 0 ? "ok" : "normal",
-      recebido: totalFaturado === 0 ? "ok" : (percentRecebido >= 80 ? "ok" : percentRecebido >= 50 ? "normal" : "atenção"),
-      emAberto: totalEmAberto === 0 ? "ok" : "atenção",
-      pendentes: vendasPendentes === 0 ? "ok" : "atenção",
-      ticketMedio: ticketMedio === 0 ? "ok" : "normal",
-    };
+    // Série por dia para gráfico simples (linhas/barras)
+    const byDayMap: Record<string, number> = {};
+    sales.forEach((s) => {
+      byDayMap[s.date] = (byDayMap[s.date] || 0) + s.amount;
+    });
+    const dayKeys = Object.keys(byDayMap).sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
+    const series = dayKeys.map((d) => ({ date: d, value: byDayMap[d] }));
 
-    const periodLabel = dateFrom && dateTo
-      ? `Período: ${formatDateTime(dateFrom)} a ${formatDateTime(dateTo)}`
-      : "Período: todos os registros";
+    // Últimas transações (todas no período, ordenadas)
+    const lastTransactions = mockFinancialTransactions
+      .filter((t) => withinRange(t.date, dateFrom, dateTo))
+      .sort((a, b) => {
+        const A = new Date(`${a.date}T${a.time || "00:00"}`).getTime();
+        const B = new Date(`${b.date}T${b.time || "00:00"}`).getTime();
+        return B - A;
+      })
+      .slice(0, 6);
+
+    const periodLabel =
+      dateFrom && dateTo
+        ? `Período: ${formatDateTime(dateFrom)} a ${formatDateTime(dateTo)}`
+        : "Período: todos os registros";
 
     return {
-      totals: { totalFaturado, totalRecebido, totalEmAberto, vendasPendentes, ticketMedio, percentRecebido },
+      totalFaturado,
+      totalRecebido,
+      totalEmAberto,
+      vendasPendentes,
+      ticketMedio,
+      percentRecebido,
       situacao,
-      status,
+      series,
+      lastTransactions,
       periodLabel,
-      alerts: {
-        hasPendencias: totalEmAberto > 0 || vendasPendentes > 0,
-        allPaid: totalEmAberto === 0 && vendasPendentes === 0 && totalFaturado > 0,
-      },
     };
   }, [dateFrom, dateTo]);
 
-  return (
-    <div className="flex flex-col min-h-screen bg-background">
-      <div className="bg-gradient-to-r from-background via-card to-background p-6 pb-4 border-b border-border">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-semibold flex items-center gap-3 text-foreground">
-            <FaMoneyBillWave className="h-5 w-5 text-muted-foreground" /> Visão Geral Financeira
-          </h1>
-        </div>
-        <p className="text-sm text-muted-foreground">Painel &gt; Financeiro &gt; Visão geral</p>
-      </div>
+  // Estilo base Modern SaaS (paleta branca/cinza suave e detalhes em verde/azul-petróleo)
+  const cardClass =
+    "bg-white border border-border rounded-[12px] shadow-sm hover:shadow-md transition-all";
 
-      <div className="p-6 grid grid-cols-1 md:grid-cols-3 gap-3">
-        <div>
-          <label className="text-xs text-muted-foreground">De</label>
-          <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="h-9 bg-input border border-border rounded-md" />
+  // Gráfico simples com SVG barras/linha (leve e sem libs)
+  const Chart = ({ points }: { points: { date: string; value: number }[] }) => {
+    const width = 480;
+    const height = 140;
+    const padding = 24;
+    const max = Math.max(1, ...points.map((p) => p.value));
+    const step = points.length > 1 ? (width - padding * 2) / (points.length - 1) : 0;
+
+    const linePath = points
+      .map((p, i) => {
+        const x = padding + i * step;
+        const y = height - padding - (p.value / max) * (height - padding * 2);
+        return `${i === 0 ? "M" : "L"} ${x} ${y}`;
+      })
+      .join(" ");
+
+    return (
+      <svg width={width} height={height} className="w-full h-[140px]">
+        <rect x={0} y={0} width={width} height={height} fill="#F8F9FA" rx={12} />
+        {/* Linha de tendência */}
+        <path d={linePath} stroke="#0ea5a3" strokeWidth={2} fill="none" />
+        {/* Pontos */}
+        {points.map((p, i) => {
+          const x = padding + i * step;
+          const y = height - padding - (p.value / max) * (height - padding * 2);
+          return <circle key={i} cx={x} cy={y} r={3} fill="#10b981" />;
+        })}
+      </svg>
+    );
+  };
+
+  return (
+    <div className="flex flex-col min-h-screen bg-white" style={{ fontFamily: "Inter, ui-sans-serif, system-ui" }}>
+      {/* Header compacto com filtros + ações */}
+      <div className="bg-[#F8F9FA] p-6 pb-4 border-b border-border relative">
+        {/* sutil contexto pet */}
+        <PawPrint className="absolute right-6 top-6 h-12 w-12 text-muted-foreground/10" />
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">Visão Geral Financeira</h1>
+            <p className="text-xs text-muted-foreground mt-1">{data.periodLabel}</p>
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" className="rounded-md border-border">
+              Exportar PDF
+            </Button>
+            <Button variant="outline" className="rounded-md border-border">
+              Exportar Excel
+            </Button>
+          </div>
         </div>
-        <div>
-          <label className="text-xs text-muted-foreground">Até</label>
-          <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="h-9 bg-input border border-border rounded-md" />
-        </div>
-        <div className="flex items-end">
-          <div className="text-xs text-muted-foreground">
-            <div className="flex items-center gap-1"><FaCalendarAlt className="h-3 w-3" /> {dateFrom ? formatDateTime(dateFrom) : "Período"} → {dateTo ? formatDateTime(dateTo) : "Atual"}</div>
+        <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-2">
+          <div>
+            <label className="text-xs text-muted-foreground">De</label>
+            <Input
+              type="date"
+              value={dateFrom}
+              onChange={(e) => setDateFrom(e.target.value)}
+              className="h-9 bg-white border border-border rounded-md"
+            />
+          </div>
+          <div>
+            <label className="text-xs text-muted-foreground">Até</label>
+            <Input
+              type="date"
+              value={dateTo}
+              onChange={(e) => setDateTo(e.target.value)}
+              className="h-9 bg-white border border-border rounded-md"
+            />
           </div>
         </div>
       </div>
 
-      {/* Indicador do período analisado */}
-      <div className="px-6 -mt-2 mb-4 text-xs text-muted-foreground">
-        <div>{kpis.periodLabel}</div>
-      </div>
-
       {/* Card principal: Resumo Financeiro do Período */}
-      <div className="px-6 mb-4">
-        <Card className="border border-border rounded-md shadow-sm hover:shadow-md transition-all">
+      <div className="p-6">
+        <Card className={cn(cardClass, "mb-4")}>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-lg font-semibold">Resumo Financeiro do Período</CardTitle>
-            <span className={
-              cn(
+            <span
+              className={cn(
                 "text-xs px-3 py-1 rounded-full font-medium",
-                kpis.situacao === "Estável" && "bg-green-100 text-green-800",
-                kpis.situacao === "Atenção" && "bg-yellow-100 text-yellow-800",
-                kpis.situacao === "Pendências" && "bg-red-100 text-red-800"
-              )
-            }>
-              {kpis.situacao}
+                data.situacao === "Estável" && "bg-green-100 text-green-700",
+                data.situacao === "Atenção" && "bg-yellow-100 text-yellow-700",
+                data.situacao === "Pendências" && "bg-red-100 text-red-700"
+              )}
+            >
+              {data.situacao}
             </span>
           </CardHeader>
           <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-0">
-            <div className="p-3 rounded-md bg-muted/40 border border-border">
+            <div className="p-3 rounded-[12px] bg-[#F8F9FA] border border-border">
               <div className="text-xs text-muted-foreground">Total faturado</div>
-              <div className="text-2xl font-bold">
-                {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(kpis.totals.totalFaturado)}
+              <div className="text-2xl font-bold text-foreground">
+                {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(data.totalFaturado)}
               </div>
             </div>
-            <div className="p-3 rounded-md bg-muted/40 border border-border">
-              <div className="text-xs text-muted-foreground">% efetivamente recebido</div>
-              <div className={cn("text-2xl font-bold", kpis.totals.percentRecebido >= 80 ? "text-green-700" : kpis.totals.percentRecebido >= 50 ? "text-yellow-700" : "text-red-700")}>
-                {kpis.totals.percentRecebido}%
+            <div className="p-3 rounded-[12px] bg-[#F8F9FA] border border-border">
+              <div className="text-xs text-muted-foreground">% recebido</div>
+              <div
+                className={cn(
+                  "text-2xl font-bold",
+                  data.percentRecebido >= 80
+                    ? "text-green-700"
+                    : data.percentRecebido >= 50
+                    ? "text-teal-700"
+                    : "text-red-700"
+                )}
+              >
+                {data.percentRecebido}%
               </div>
             </div>
-            <div className="p-3 rounded-md bg-muted/40 border border-border">
-              <div className="text-xs text-muted-foreground">Pendências financeiras</div>
-              <div className={cn("text-2xl font-bold", kpis.alerts.hasPendencias ? "text-red-700" : "text-green-700")}>
-                {kpis.alerts.hasPendencias ? "Ativas" : "Nenhuma"}
+            <div className="p-3 rounded-[12px] bg-[#F8F9FA] border border-border">
+              <div className="text-xs text-muted-foreground">Pendências</div>
+              <div className={cn("text-2xl font-bold", data.totalEmAberto > 0 ? "text-red-700" : "text-green-700")}>
+                {data.totalEmAberto > 0 ? "Ativas" : "Nenhuma"}
               </div>
             </div>
           </CardContent>
         </Card>
-      </div>
 
-      {/* KPIs complementares com status (explicam o card principal) */}
-      <div className="px-6 grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
-        {/* Total faturado */}
-        <Card className="shadow-sm hover:shadow-md transition-all">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Total faturado</CardTitle>
-            <span className={cn(
-              "text-xs px-2 py-0.5 rounded-full",
-              kpis.status.faturado === "ok" && "bg-green-100 text-green-800",
-              kpis.status.faturado === "normal" && "bg-gray-100 text-gray-700",
-              kpis.status.faturado === "atenção" && "bg-yellow-100 text-yellow-800"
-            )}>
-              {kpis.status.faturado === "ok" ? "ok" : kpis.status.faturado === "atenção" ? "atenção" : "normal"}
-            </span>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(kpis.totals.totalFaturado)}
-            </div>
-            <p className="text-xs text-muted-foreground">Vendas no período.</p>
-          </CardContent>
-        </Card>
+        {/* Top Bar: KPIs menores com ícones lineares */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+          <Card className={cardClass}>
+            <CardContent className="p-4 flex items-center justify-between">
+              <div>
+                <div className="text-xs text-muted-foreground">Total Faturado</div>
+                <div className="text-xl font-bold text-foreground">
+                  {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(data.totalFaturado)}
+                </div>
+              </div>
+              <DollarSign className="h-5 w-5 text-teal-700" />
+            </CardContent>
+          </Card>
+          <Card className={cardClass}>
+            <CardContent className="p-4 flex items-center justify-between">
+              <div>
+                <div className="text-xs text-muted-foreground">Total Recebido</div>
+                <div className="text-xl font-bold text-green-700">
+                  {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(data.totalRecebido)}
+                </div>
+              </div>
+              <CheckCircle className="h-5 w-5 text-green-700" />
+            </CardContent>
+          </Card>
+          <Card className={cardClass}>
+            <CardContent className="p-4 flex items-center justify-between">
+              <div>
+                <div className="text-xs text-muted-foreground">Em Aberto</div>
+                <div className={cn("text-xl font-bold", data.totalEmAberto > 0 ? "text-red-700" : "text-green-700")}>
+                  {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(data.totalEmAberto)}
+                </div>
+              </div>
+              <AlertCircle className={cn("h-5 w-5", data.totalEmAberto > 0 ? "text-red-700" : "text-green-700")} />
+            </CardContent>
+          </Card>
+          <Card className={cardClass}>
+            <CardContent className="p-4 flex items-center justify-between">
+              <div>
+                <div className="text-xs text-muted-foreground">Ticket Médio</div>
+                <div className="text-xl font-bold text-foreground">
+                  {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(data.ticketMedio)}
+                </div>
+              </div>
+              <Tag className="h-5 w-5 text-teal-700" />
+            </CardContent>
+          </Card>
+        </div>
 
-        {/* Total recebido */}
-        <Card className="shadow-sm hover:shadow-md transition-all">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Total recebido</CardTitle>
-            <span className={cn(
-              "text-xs px-2 py-0.5 rounded-full",
-              kpis.status.recebido === "ok" && "bg-green-100 text-green-800",
-              kpis.status.recebido === "normal" && "bg-gray-100 text-gray-700",
-              kpis.status.recebido === "atenção" && "bg-yellow-100 text-yellow-800"
-            )}>
-              {kpis.status.recebido}
-            </span>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600 dark:text-green-400">
-              {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(kpis.totals.totalRecebido)}
-            </div>
-            <p className="text-xs text-muted-foreground">Baixas/recebimentos do período.</p>
-          </CardContent>
-        </Card>
+        {/* Main Content: Gráfico (esquerda) + Últimas transações (direita) */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <Card className={cardClass + " lg:col-span-2"}>
+            <CardHeader className="pb-2 flex items-center justify-between">
+              <CardTitle className="text-sm font-medium flex items-center gap-2">
+                <TrendingUp className="h-4 w-4 text-teal-700" /> Receita no período
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-0">
+              {data.series.length > 0 ? (
+                <Chart points={data.series} />
+              ) : (
+                <div className="h-[140px] flex items-center justify-center bg-[#F8F9FA] rounded-[12px] border border-border relative">
+                  <PawPrint className="absolute h-20 w-20 text-muted-foreground/10" />
+                  <p className="text-xs text-muted-foreground">Sem dados de vendas no período.</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
-        {/* Em aberto */}
-        <Card className="shadow-sm hover:shadow-md transition-all">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Em aberto</CardTitle>
-            <span className={cn(
-              "text-xs px-2 py-0.5 rounded-full",
-              kpis.status.emAberto === "ok" && "bg-green-100 text-green-800",
-              kpis.status.emAberto === "atenção" && "bg-yellow-100 text-yellow-800"
-            )}>
-              {kpis.status.emAberto}
-            </span>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-yellow-700">
-              {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(kpis.totals.totalEmAberto)}
-            </div>
-            <p className="text-xs text-muted-foreground">Saldo a receber das vendas do período.</p>
-          </CardContent>
-        </Card>
+          <Card className={cardClass}>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium flex items-center gap-2">
+                <Clock className="h-4 w-4 text-teal-700" /> Últimas transações
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {data.lastTransactions.length > 0 ? (
+                data.lastTransactions.map((t) => (
+                  <div
+                    key={t.id}
+                    className="p-3 bg-[#F8F9FA] rounded-[12px] border border-border flex items-center justify-between"
+                  >
+                    <div className="flex flex-col">
+                      <span className="text-xs text-muted-foreground">{formatDateTime(t.date, t.time)}</span>
+                      <span className="text-sm font-medium text-foreground">{t.description}</span>
+                    </div>
+                    <div
+                      className={cn(
+                        "text-sm font-bold",
+                        t.type === "income" ? "text-green-700" : "text-red-700"
+                      )}
+                    >
+                      {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(t.amount)}
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="p-3 bg-[#F8F9FA] rounded-[12px] border border-border text-xs text-muted-foreground">
+                  Nenhuma transação neste período.
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
 
-        {/* Vendas pendentes */}
-        <Card className="shadow-sm hover:shadow-md transition-all">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Vendas pendentes</CardTitle>
-            <span className={cn(
-              "text-xs px-2 py-0.5 rounded-full",
-              kpis.status.pendentes === "ok" && "bg-green-100 text-green-800",
-              kpis.status.pendentes === "atenção" && "bg-yellow-100 text-yellow-800"
-            )}>
-              {kpis.status.pendentes}
-            </span>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{kpis.totals.vendasPendentes}</div>
-            <p className="text-xs text-muted-foreground">Quantidade com saldo.</p>
-          </CardContent>
-        </Card>
+        {/* Status e Alertas (discreto) */}
+        <div className="mt-4">
+          <Card className="rounded-[12px] bg-[#F8F9FA] border border-border">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">Status e Alertas</CardTitle>
+            </CardHeader>
+            <CardContent className="text-xs text-muted-foreground space-y-1">
+              {data.totalEmAberto > 0 || data.vendasPendentes > 0 ? (
+                <>
+                  <div>• Existem pendências financeiras no período.</div>
+                  <div>
+                    • Vendas pendentes: {data.vendasPendentes} | Em aberto:{" "}
+                    {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(data.totalEmAberto)}
+                  </div>
+                </>
+              ) : (
+                <div>• Tudo em dia. Nenhuma pendência financeira ativa.</div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
 
-        {/* Ticket médio */}
-        <Card className="shadow-sm hover:shadow-md transition-all">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Ticket médio</CardTitle>
-            <span className={cn(
-              "text-xs px-2 py-0.5 rounded-full",
-              kpis.status.ticketMedio === "ok" && "bg-green-100 text-green-800",
-              kpis.status.ticketMedio === "normal" && "bg-gray-100 text-gray-700"
-            )}>
-              {kpis.status.ticketMedio}
-            </span>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(kpis.totals.ticketMedio)}
-            </div>
-            <p className="text-xs text-muted-foreground">Média por venda.</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Status e Alertas (discreto, leitura rápida) */}
-      <div className="px-6 mt-4">
-        <Card className="border border-border rounded-md bg-muted/30">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Status e Alertas</CardTitle>
-          </CardHeader>
-          <CardContent className="text-xs text-muted-foreground space-y-1">
-            {kpis.alerts.hasPendencias ? (
-              <>
-                <div>• Existem pendências financeiras ativas no período.</div>
-                <div>• Vendas pendentes: {kpis.totals.vendasPendentes} | Em aberto: {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(kpis.totals.totalEmAberto)}</div>
-              </>
-            ) : (
-              <div>• Todas as vendas do período estão quitadas.</div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Próximos passos naturais (atalhos inteligentes) */}
-      <div className="px-6 mt-4 grid grid-cols-1 sm:grid-cols-3 gap-2">
-        <Link to="/financial/accounts-receivable">
-          <button
-            className={cn(
-              "w-full h-10 border border-border rounded-md text-sm font-medium bg-card hover:bg-muted transition-colors",
-              kpis.alerts.hasPendencias && "border-red-300"
-            )}
-          >
-            Contas a Receber {kpis.alerts.hasPendencias && <span className="ml-2 text-red-600">(pendências)</span>}
-          </button>
-        </Link>
-        <Link to="/financial/receipts">
-          <button className="w-full h-10 border border-border rounded-md text-sm font-medium bg-card hover:bg-muted transition-colors">
-            Recebimentos do período
-          </button>
-        </Link>
-        <Link to="/financial/cash-movements">
-          <button className="w-full h-10 border border-border rounded-md text-sm font-medium bg-card hover:bg-muted transition-colors">
-            Caixa / Movimentações
-          </button>
-        </Link>
+        {/* Próximos passos naturais (atalhos inteligentes conectados ao contexto) */}
+        <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-2">
+          <Link to="/financial/accounts-receivable">
+            <button
+              className={cn(
+                "w-full h-10 border border-border rounded-[12px] text-sm font-medium bg-white hover:bg-[#F0F2F5] transition-colors",
+                data.totalEmAberto > 0 && "border-red-300"
+              )}
+            >
+              Contas a Receber {data.totalEmAberto > 0 && <span className="ml-2 text-red-700">(pendências)</span>}
+            </button>
+          </Link>
+          <Link to="/financial/receipts">
+            <button className="w-full h-10 border border-border rounded-[12px] text-sm font-medium bg-white hover:bg-[#F0F2F5] transition-colors">
+              Recebimentos do período
+            </button>
+          </Link>
+          <Link to="/financial/cash-movements">
+            <button className="w-full h-10 border border-border rounded-[12px] text-sm font-medium bg-white hover:bg-[#F0F2F5] transition-colors">
+              Caixa / Movimentações
+            </button>
+          </Link>
+        </div>
       </div>
     </div>
   );
