@@ -1,11 +1,14 @@
 "use client";
 
 import React from "react";
-import { Document, Page, Text, View, StyleSheet, Image } from "@react-pdf/renderer";
+import { Document, Page, Text, View, StyleSheet, Image, Font } from "@react-pdf/renderer";
 import { Budget } from "@/mockData/budgets";
 import { mockCompanySettings, mockUserSettings } from "@/mockData/settings";
 import { mockClients } from "@/mockData/clients";
 import { findCatalogItem } from "@/mockData/catalog";
+
+// ADDED: desativa hifenização global para evitar quebras como "pagamen-to"
+Font.registerHyphenationCallback((word) => [word]);
 
 const styles = StyleSheet.create({
   page: {
@@ -115,12 +118,18 @@ const styles = StyleSheet.create({
   },
   totalsSpacer: { flexGrow: 1 },
   totalsRight: {
-    width: 100, // igual ao thSubtotal/tdSubtotal
+    width: 220, // antes: 100 — mantém borda direita alinhada com a tabela e evita quebra
     alignItems: "flex-end",
   },
   totalLabel: { fontSize: 10, color: "#6B7280" },
   totalValue: { fontSize: 16, fontWeight: "bold", color: "#111827", marginTop: 2 },
-  validityPayment: { fontSize: 9, color: "#374151", marginTop: 4, textAlign: "right", lineHeight: 1.2 },
+  validityPayment: {
+    fontSize: 9,
+    color: "#374151",
+    marginTop: 4,
+    textAlign: "right",
+    lineHeight: 1.0, // antes: 1.2 — compacta sem forçar quebra
+  },
 
   // Assinaturas
   signatureBlock: {
@@ -225,8 +234,12 @@ const BudgetReportPdfContent: React.FC<BudgetReportPdfContentProps> = ({ budget 
           <View style={styles.totalsRight}>
             <Text style={styles.totalLabel}>Total</Text>
             <Text style={styles.totalValue}>{formatBRL(total)}</Text>
-            <Text style={styles.validityPayment}>Validade do Orçamento: {validityDays} dia(s)</Text>
-            <Text style={styles.validityPayment}>{paymentTerms}</Text>
+            <Text style={styles.validityPayment} wrap={false}>
+              Validade do Orçamento: {validityDays} dia(s)
+            </Text>
+            <Text style={styles.validityPayment} wrap={false}>
+              {paymentTerms}
+            </Text>
           </View>
         </View>
 
