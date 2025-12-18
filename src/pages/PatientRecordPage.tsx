@@ -1658,222 +1658,227 @@ const PatientRecordPage = () => {
 
                   {/* Aba Vendas - lista de vendas do paciente com botão de adicionar */}
                   <TabsContent value="vendas">
-                    <div className="flex justify-end mb-3">
-                      <Button
-                        size="sm"
-                        onClick={() => { setSaleResponsible(""); setSaleModalOpen(true); }}
-                        className="rounded-md bg-[#0F4C5C] text-white hover:bg-[#0d3f4b] font-semibold transition-all duration-200 shadow-sm hover:shadow-md"
-                      >
-                        <FaPlus className="h-4 w-4 mr-2" /> Adicionar Venda
-                      </Button>
-                    </div>
-                    {patientSales.length > 0 ? (
-                      <div className="space-y-4">
-                        {patientSales.map((sale) => {
-                          const paid = getPaidForSale(sale.id);
-                          const saldo = Math.max(0, sale.total - paid);
-                          const finStatus = getFinancialStatusForSale(sale.id, sale.total);
-                          const app = animalAppointments.find(a => a.id === sale.appointmentId);
-                          return (
-                            <Card key={sale.id} className="p-4 bg-white rounded-[12px] shadow-sm border-0">
-                              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-2 gap-3">
-                                <div className="flex items-center gap-3">
-                                  <Badge className={cn(
-                                    "px-3 py-1 text-sm font-bold rounded-full",
-                                    sale.saleStatus === "open" ? "bg-orange-600 text-white shadow-sm" : "bg-gray-200 text-gray-800"
-                                  )}>
-                                    {sale.saleStatus === "open" ? "Venda Aberta" : "Venda Finalizada"} {sale.origin === "orcamento" ? "• (de orçamento)" : ""}
-                                  </Badge>
-                                  <p className="text-lg font-semibold text-foreground">
-                                    {app ? `${app.type} • ${app.vet}` : `Atendimento ${sale.appointmentId}`}
-                                  </p>
-                                </div>
-                                <div className="flex items-center gap-6">
-                                  <div className="text-right">
-                                    <div className="text-xs text-muted-foreground">Total</div>
-                                    <div className="text-xl font-bold text-green-600 dark:text-green-400">
-                                      {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(sale.total)}
-                                    </div>
-                                  </div>
-                                  <div className="text-right">
-                                    <div className="text-xs text-muted-foreground">Pago</div>
-                                    <div className="text-xl font-bold">
-                                      {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(paid)}
-                                    </div>
-                                  </div>
-                                  <div className="text-right">
-                                    <div className="text-xs text-muted-foreground">Saldo</div>
-                                    <div className="text-xl font-bold">
-                                      {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(saldo)}
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                              <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-sm text-muted-foreground">
-                                <div className="flex items-center gap-1">
-                                  <FaCalendarAlt className="h-3 w-3" /> {formatDateTime(sale.date)}
-                                </div>
-                                <div className="flex items-center gap-1">
-                                  <FaTag className="h-3 w-3" /> Status financeiro: {finStatus === "paid" ? "Pago" : finStatus === "partial" ? "Parcial" : "Pendente"}
-                                </div>
-                                <div className="flex items-center gap-1">
-                                  <FaStethoscope className="h-3 w-3" /> Atendimento: {sale.appointmentId}
-                                </div>
-                              </div>
-                              <div className="flex items-center justify-between mt-3">
-                                <div className="flex gap-2">
-                                  <Button
-                                    size="sm"
-                                    className="rounded-md bg-[#0F4C5C] text-white hover:bg-[#0d3f4b] font-semibold transition-all duration-200 shadow-sm hover:shadow-md"
-                                    onClick={() => handlePayShortcut(sale.id)}
-                                    disabled={!canRegisterPayment(sale.id)}
-                                  >
-                                    Pagar
-                                  </Button>
-                                  <Button variant="outline" size="sm" onClick={() => updateSaleStatus(sale.id, sale.saleStatus === "open" ? "finalized" : "open")}>
-                                    {sale.saleStatus === "open" ? "Finalizar venda" : "Reabrir venda"}
-                                  </Button>
-                                </div>
-                                <Button variant="ghost" size="sm" onClick={() => toggleExpanded(sale.id)}>
-                                  {expandedSales[sale.id] ? "Ocultar detalhes" : "Ver detalhes"}
-                                </Button>
-                              </div>
-                              {expandedSales[sale.id] && (
-                                <div className="mt-3">
-                                  <Table>
-                                    <TableHeader>
-                                      <TableRow>
-                                        <TableHead>Item</TableHead>
-                                        <TableHead>Tipo</TableHead>
-                                        <TableHead>Qtd</TableHead>
-                                        <TableHead>Preço</TableHead>
-                                        <TableHead className="text-right">Subtotal</TableHead>
-                                      </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                      {sale.items.map((it, idx) => (
-                                        <TableRow key={`${sale.id}-${it.itemId}-${idx}`}>
-                                          <TableCell className="font-medium">{it.name}</TableCell>
-                                          <TableCell className="capitalize">{it.type}</TableCell>
-                                          <TableCell>{it.qty}</TableCell>
-                                          <TableCell>{new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(it.unitPrice)}</TableCell>
-                                          <TableCell className="text-right">
-                                            {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(it.qty * it.unitPrice)}
-                                          </TableCell>
-                                        </TableRow>
-                                      ))}
-                                    </TableBody>
-                                  </Table>
-                                </div>
-                              )}
-                            </Card>
-                          );
-                        })}
+                    {/* NOVO: área principal com fundo cinza para destacar cards brancos */}
+                    <div className="bg-[#F5F7FA] p-4 rounded-[12px]">
+                      <div className="flex justify-end mb-3">
+                        <Button
+                          size="sm"
+                          onClick={() => { setSaleResponsible(""); setSaleModalOpen(true); }}
+                          className="rounded-md bg-[#0F4C5C] text-white hover:bg-[#0d3f4b] font-semibold transition-all duration-200 shadow-sm hover:shadow-md"
+                        >
+                          <FaPlus className="h-4 w-4 mr-2" /> Adicionar Venda
+                        </Button>
                       </div>
-                    ) : (
-                      <p className="text-muted-foreground">Nenhuma venda registrada para este paciente.</p>
-                    )}
+                      {patientSales.length > 0 ? (
+                        <div className="space-y-4">
+                          {patientSales.map((sale) => {
+                            const paid = getPaidForSale(sale.id);
+                            const saldo = Math.max(0, sale.total - paid);
+                            const finStatus = getFinancialStatusForSale(sale.id, sale.total);
+                            const app = animalAppointments.find(a => a.id === sale.appointmentId);
+                            return (
+                              // AJUSTE: card branco com borda fina e sombra suave
+                              <Card key={sale.id} className="p-4 bg-white rounded-[12px] shadow-sm border border-[#E2E8F0]">
+                                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-2 gap-3">
+                                  <div className="flex items-center gap-3">
+                                    {/* AJUSTE: badges de status com alto contraste */}
+                                    <Badge className={cn(
+                                      "px-3 py-1 text-sm font-bold rounded-full",
+                                      sale.saleStatus === "open" ? "bg-orange-600 text-white" : "bg-green-600 text-white"
+                                    )}>
+                                      {sale.saleStatus === "open" ? "Venda Aberta" : "Venda Finalizada"} {sale.origin === "orcamento" ? "• (de orçamento)" : ""}
+                                    </Badge>
+                                    <p className="text-lg font-semibold text-foreground">
+                                      {app ? `${app.type} • ${app.vet}` : `Atendimento ${sale.appointmentId}`}
+                                    </p>
+                                  </div>
+                                  {/* Coluna de valores à direita com fonte maior e bold */}
+                                  <div className="flex items-center gap-6">
+                                    <div className="text-right">
+                                      <div className="text-xs text-muted-foreground">Total</div>
+                                      <div className="text-xl font-bold text-green-600 dark:text-green-400">
+                                        {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(sale.total)}
+                                      </div>
+                                    </div>
+                                    <div className="text-right">
+                                      <div className="text-xs text-muted-foreground">Pago</div>
+                                      <div className="text-xl font-bold">
+                                        {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(paid)}
+                                      </div>
+                                    </div>
+                                    <div className="text-right">
+                                      <div className="text-xs text-muted-foreground">Saldo</div>
+                                      <div className="text-xl font-bold">
+                                        {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(saldo)}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-sm text-muted-foreground">
+                                  <div className="flex items-center gap-1">
+                                    <FaCalendarAlt className="h-3 w-3" /> {formatDateTime(sale.date)}
+                                  </div>
+                                  <div className="flex items-center gap-1">
+                                    <FaTag className="h-3 w-3" /> Status financeiro: {finStatus === "paid" ? "Pago" : finStatus === "partial" ? "Parcial" : "Pendente"}
+                                  </div>
+                                  <div className="flex items-center gap-1">
+                                    <FaStethoscope className="h-3 w-3" /> Atendimento: {sale.appointmentId}
+                                  </div>
+                                </div>
+                                <div className="flex items-center justify-between mt-3">
+                                  <div className="flex gap-2">
+                                    {/* Mantém Finalizar como ação secundária */}
+                                    <Button variant="outline" size="sm" onClick={() => updateSaleStatus(sale.id, sale.saleStatus === "open" ? "finalized" : "open")}>
+                                      {sale.saleStatus === "open" ? "Finalizar venda" : "Reabrir venda"}
+                                    </Button>
+                                  </div>
+                                  <Button variant="ghost" size="sm" onClick={() => toggleExpanded(sale.id)}>
+                                    {expandedSales[sale.id] ? "Ocultar detalhes" : "Ver detalhes"}
+                                  </Button>
+                                </div>
+                                {expandedSales[sale.id] && (
+                                  <div className="mt-3">
+                                    <Table>
+                                      <TableHeader>
+                                        <TableRow>
+                                          <TableHead>Item</TableHead>
+                                          <TableHead>Tipo</TableHead>
+                                          <TableHead>Qtd</TableHead>
+                                          <TableHead>Preço</TableHead>
+                                          <TableHead className="text-right">Subtotal</TableHead>
+                                        </TableRow>
+                                      </TableHeader>
+                                      <TableBody>
+                                        {sale.items.map((it, idx) => (
+                                          <TableRow key={`${sale.id}-${it.itemId}-${idx}`}>
+                                            <TableCell className="font-medium">{it.name}</TableCell>
+                                            <TableCell className="capitalize">{it.type}</TableCell>
+                                            <TableCell>{it.qty}</TableCell>
+                                            <TableCell>{new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(it.unitPrice)}</TableCell>
+                                            <TableCell className="text-right">
+                                              {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(it.qty * it.unitPrice)}
+                                            </TableCell>
+                                          </TableRow>
+                                        ))}
+                                      </TableBody>
+                                    </Table>
+                                  </div>
+                                )}
+                              </Card>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <p className="text-muted-foreground">Nenhuma venda registrada para este paciente.</p>
+                      )}
+                    </div>
                   </TabsContent>
 
                   {/* Aba Financeiro - formulário de pagamento e listagem */}
                   <TabsContent value="financeiro">
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                      <Card className="bg-white rounded-[12px] shadow-sm border-0">
-                        <CardHeader className="pb-2">
-                          <CardTitle className="text-base">Registrar pagamento</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-3">
-                          <div>
-                            <Label>Venda</Label>
-                            <Select value={paymentSaleId || ""} onValueChange={(v) => setPaymentSaleId(v)}>
-                              <SelectTrigger className="bg-input border border-border rounded-md h-9"><SelectValue placeholder="Selecione a venda" /></SelectTrigger>
-                              <SelectContent>
-                                {patientSales.map(s => {
-                                  const paid = getPaidForSale(s.id);
-                                  const saldo = Math.max(0, s.total - paid);
-                                  const app = animalAppointments.find(a => a.id === s.appointmentId);
-                                  return (
-                                    <SelectItem key={s.id} value={s.id}>
-                                      {app ? `${app.type} • ${app.vet}` : `Atendimento ${s.appointmentId}`} — Total {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(s.total)} • Saldo {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(saldo)}
-                                    </SelectItem>
-                                  );
-                                })}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div className="grid grid-cols-2 gap-2">
+                    {/* NOVO: área principal com fundo cinza e cards brancos destacados */}
+                    <div className="bg-[#F5F7FA] p-4 rounded-[12px]">
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                        {/* Card do formulário com borda fina e sombra suave */}
+                        <Card className="bg-white rounded-[12px] shadow-sm border border-[#E2E8F0]">
+                          <CardHeader className="pb-2">
+                            <CardTitle className="text-base">Registrar pagamento</CardTitle>
+                          </CardHeader>
+                          <CardContent className="space-y-3">
                             <div>
-                              <Label>Data</Label>
-                              <Input type="date" value={paymentDate} onChange={(e)=>setPaymentDate(e.target.value)} className="h-9 bg-input border border-border rounded-md" />
+                              <Label>Venda</Label>
+                              {/* AJUSTE: ocultar vendas com saldo zero no seletor */}
+                              <Select value={paymentSaleId || ""} onValueChange={(v) => setPaymentSaleId(v)}>
+                                <SelectTrigger className="bg-input border border-border rounded-md h-9"><SelectValue placeholder="Selecione a venda" /></SelectTrigger>
+                                <SelectContent>
+                                  {patientSales
+                                    .filter(s => getPaidForSale(s.id) < s.total)
+                                    .map(s => {
+                                      const paid = getPaidForSale(s.id);
+                                      const saldo = Math.max(0, s.total - paid);
+                                      const app = animalAppointments.find(a => a.id === s.appointmentId);
+                                      return (
+                                        <SelectItem key={s.id} value={s.id}>
+                                          {app ? `${app.type} • ${app.vet}` : `Atendimento ${s.appointmentId}`} — Total {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(s.total)} • Saldo {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(saldo)}
+                                        </SelectItem>
+                                      );
+                                    })}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2">
+                              <div>
+                                <Label>Data</Label>
+                                <Input type="date" value={paymentDate} onChange={(e)=>setPaymentDate(e.target.value)} className="h-9 bg-input border border-border rounded-md" />
+                              </div>
+                              <div>
+                                <Label>Hora</Label>
+                                <Input value={paymentTime} onChange={(e)=>setPaymentTime(e.target.value)} className="h-9 bg-input border border-border rounded-md" />
+                              </div>
                             </div>
                             <div>
-                              <Label>Hora</Label>
-                              <Input value={paymentTime} onChange={(e)=>setPaymentTime(e.target.value)} className="h-9 bg-input border border-border rounded-md" />
+                              <Label>Valor</Label>
+                              <CurrencyInput value={paymentAmount} onValueChange={setPaymentAmount} className="h-9 w-full border border-border rounded-md" />
                             </div>
-                          </div>
-                          <div>
-                            <Label>Valor</Label>
-                            <CurrencyInput value={paymentAmount} onValueChange={setPaymentAmount} className="h-9 w-full border border-border rounded-md" />
-                          </div>
-                          <div>
-                            <Label>Método de pagamento</Label>
-                            <Select value={paymentMethodId || ""} onValueChange={setPaymentMethodId}>
-                              <SelectTrigger className="bg-input border border-border rounded-md h-9"><SelectValue placeholder="Selecione" /></SelectTrigger>
-                              <SelectContent>
-                                {pmRegistry.map(pm => (
-                                  <SelectItem key={pm.id} value={pm.id}>{pm.name}</SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div>
-                            <Label>Observações</Label>
-                            <Textarea value={paymentObservations} onChange={(e)=>setPaymentObservations(e.target.value)} className="bg-input border border-border rounded-md" />
-                          </div>
-                          <div className="flex justify-end">
-                            <Button onClick={handleAddPayment} className="rounded-md bg-[#0F4C5C] text-white hover:bg-[#0d3f4b] font-semibold transition-colors shadow-sm hover:shadow-md">
-                              Registrar pagamento
-                            </Button>
-                          </div>
-                        </CardContent>
-                      </Card>
+                            <div>
+                              <Label>Método de pagamento</Label>
+                              <Select value={paymentMethodId || ""} onValueChange={setPaymentMethodId}>
+                                <SelectTrigger className="bg-input border border-border rounded-md h-9"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                                <SelectContent>
+                                  {pmRegistry.map(pm => (
+                                    <SelectItem key={pm.id} value={pm.id}>{pm.name}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div>
+                              <Label>Observações</Label>
+                              <Textarea value={paymentObservations} onChange={(e)=>setPaymentObservations(e.target.value)} className="bg-input border border-border rounded-md" />
+                            </div>
+                            <div className="flex justify-end">
+                              <Button onClick={handleAddPayment} className="rounded-md bg-[#0F4C5C] text-white hover:bg-[#0d3f4b] font-semibold transition-colors shadow-sm hover:shadow-md">
+                                Registrar pagamento
+                              </Button>
+                            </div>
+                          </CardContent>
+                        </Card>
 
-                      <Card className="bg-white rounded-[12px] shadow-sm border-0">
-                        <CardHeader className="pb-2">
-                          <CardTitle className="text-base">Pagamentos registrados</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                          {patientPayments.length === 0 ? (
-                            <p className="text-muted-foreground">Nenhum pagamento registrado.</p>
-                          ) : (
-                            <Table>
-                              <TableHeader>
-                                <TableRow>
-                                  <TableHead>Venda</TableHead>
-                                  <TableHead>Data</TableHead>
-                                  <TableHead>Hora</TableHead>
-                                  <TableHead>Método</TableHead>
-                                  <TableHead className="text-right">Valor</TableHead>
-                                </TableRow>
-                              </TableHeader>
-                              <TableBody>
-                                {patientPayments.map(p => {
-                                  const app = patientSales.find(s => s.id === p.saleId)?.appointmentId;
-                                  return (
-                                    <TableRow key={p.id}>
-                                      <TableCell className="font-medium">{p.saleId}{app ? ` • Atend. ${app}` : ""}</TableCell>
-                                      <TableCell>{formatDateTime(p.date)}</TableCell>
-                                      <TableCell>{p.time}</TableCell>
-                                      <TableCell>{p.paymentMethod || "-"}</TableCell>
-                                      <TableCell className="text-right">{new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(p.amount)}</TableCell>
-                                    </TableRow>
-                                  );
-                                })}
-                              </TableBody>
-                            </Table>
-                          )}
-                        </CardContent>
-                      </Card>
+                        {/* Card da lista com borda fina, sombra e tabela moderna com zebra stripes */}
+                        <Card className="bg-white rounded-[12px] shadow-sm border border-[#E2E8F0]">
+                          <CardHeader className="pb-2">
+                            <CardTitle className="text-base">Pagamentos registrados</CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            {patientPayments.length === 0 ? (
+                              <p className="text-muted-foreground">Nenhum pagamento registrado.</p>
+                            ) : (
+                              <Table>
+                                <TableHeader>
+                                  <TableRow>
+                                    <TableHead>Venda</TableHead>
+                                    <TableHead>Data</TableHead>
+                                    <TableHead className="text-right">Valor</TableHead>
+                                    <TableHead>Método</TableHead>
+                                  </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                  {patientPayments.map((p, index) => {
+                                    const app = patientSales.find(s => s.id === p.saleId)?.appointmentId;
+                                    return (
+                                      <TableRow key={p.id} className={cn(index % 2 === 1 && "bg-[#F9FAFB]")}>
+                                        <TableCell className="font-medium">{p.saleId}{app ? ` • Atend. ${app}` : ""}</TableCell>
+                                        <TableCell>{formatDateTime(p.date)}</TableCell>
+                                        <TableCell className="text-right font-bold">{new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(p.amount)}</TableCell>
+                                        <TableCell>{p.paymentMethod || "-"}</TableCell>
+                                      </TableRow>
+                                    );
+                                  })}
+                                </TableBody>
+                              </Table>
+                            )}
+                          </CardContent>
+                        </Card>
+                      </div>
                     </div>
                   </TabsContent>
                 </Tabs>
