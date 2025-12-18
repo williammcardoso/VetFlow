@@ -20,41 +20,20 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
-    marginBottom: 12,
+    marginBottom: 10,
   },
-  logo: {
-    width: 64,
-    height: 64,
-  },
-  clinicInfoBlock: {
-    flexDirection: "column",
-    alignItems: "flex-end",
-    flexGrow: 1,
-  },
-  clinicName: {
-    fontSize: 16,
-    fontWeight: "bold",
-    color: "#111827",
-  },
-  clinicInfo: {
-    fontSize: 10,
-    color: "#374151",
-    marginTop: 2,
-    textAlign: "right",
-  },
-  divider: {
-    height: 2,
-    backgroundColor: "#E5E7EB",
-    marginTop: 12,
-    marginBottom: 16,
-  },
+  logo: { width: 64, height: 64 },
+  clinicInfoBlock: { flexDirection: "column", alignItems: "flex-end", flexGrow: 1 },
+  clinicName: { fontSize: 16, fontWeight: "bold", color: "#111827" },
+  clinicInfo: { fontSize: 10, color: "#374151", marginTop: 2, textAlign: "right" },
+  divider: { height: 2, backgroundColor: "#E5E7EB", marginTop: 10, marginBottom: 14 },
 
-  // Identificação do orçamento e dados
+  // Título e identificação
   docTitleRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "baseline",
-    marginBottom: 18, // mais respiro antes do grid
+    marginBottom: 10, // compactado
   },
   docTitle: {
     fontSize: 18,
@@ -63,55 +42,35 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     color: "#111827",
   },
-  docNumber: {
-    fontSize: 10,
-    color: "#6B7280",
-  },
+  docNumber: { fontSize: 10, color: "#6B7280" },
 
-  // Grid de dados (duas colunas)
+  // Grid de dados principais (duas colunas)
   dataGrid: {
     flexDirection: "row",
     justifyContent: "space-between",
-    gap: 16,
-    marginBottom: 8,
+    gap: 12, // menor gap
+    marginBottom: 6, // compactado
   },
-  dataCol: {
-    flex: 1,
-  },
-  metaLabel: {
-    fontSize: 9,
-    color: "#6B7280",
-  },
+  dataCol: { flex: 1 },
+  metaLabel: { fontSize: 9, color: "#6B7280" },
   metaValue: {
     fontSize: 11,
     color: "#111827",
     fontWeight: "bold",
     marginTop: 2,
-    marginBottom: 8,
+    marginBottom: 4, // menos respiro
   },
 
-  // Linha dedicada do Veterinário
-  vetRow: {
-    marginBottom: 12,
-  },
-  vetLabel: {
-    fontSize: 9,
-    color: "#6B7280",
-  },
-  vetValue: {
-    fontSize: 11,
-    color: "#111827",
-    fontWeight: "bold",
-    marginTop: 2,
-  },
+  // Linha dedicada para Veterinário
+  vetRow: { marginBottom: 8 }, // compactado
+  vetLabel: { fontSize: 9, color: "#6B7280" },
+  vetValue: { fontSize: 11, color: "#111827", fontWeight: "bold", marginTop: 2 },
 
   // Tabela de itens
-  tableWrapper: {
-    marginTop: 6,
-  },
+  tableWrapper: { marginTop: 6 },
   tableHeader: {
     flexDirection: "row",
-    backgroundColor: "#F1F5F9", // cinza muito sutil
+    backgroundColor: "#F1F5F9",
     paddingVertical: 8,
     paddingHorizontal: 10,
     borderTopWidth: 1,
@@ -127,7 +86,7 @@ const styles = StyleSheet.create({
   tableRow: {
     flexDirection: "row",
     paddingVertical: 8,
-    paddingHorizontal: 10, // padding interno para não encostar nas linhas
+    paddingHorizontal: 10,
     borderBottomWidth: 1,
     borderColor: "#E5E7EB",
   },
@@ -141,91 +100,57 @@ const styles = StyleSheet.create({
     textAlign: "center",
     paddingVertical: 2,
   },
-  tdTagProduct: {
-    color: "#1D4ED8",
-    backgroundColor: "#DBEAFE",
-  },
+  tdTagProduct: { color: "#1D4ED8", backgroundColor: "#DBEAFE" },
   tdQty: { width: 50, textAlign: "center", fontSize: 11, color: "#111827" },
   tdPrice: { width: 90, textAlign: "right", fontSize: 11, color: "#111827" },
   tdSubtotal: { width: 100, textAlign: "right", fontSize: 11, color: "#111827", fontWeight: "bold" },
 
-  // Totais (alinhados ao Subtotal)
+  // Totais alinhados ao Subtotal e com linhas separadas
   totalsRow: {
     flexDirection: "row",
     justifyContent: "flex-end",
     alignItems: "flex-end",
-    marginTop: 12,
+    paddingHorizontal: 10, // igual à tabela para alinhar
+    marginTop: 10,
   },
-  totalsSpacer: {
-    flexGrow: 1,
-  },
+  totalsSpacer: { flexGrow: 1 },
   totalsRight: {
-    width: 100, // exatamente a largura da coluna Subtotal
+    width: 100, // igual ao thSubtotal/tdSubtotal
     alignItems: "flex-end",
   },
-  totalLabel: {
-    fontSize: 10,
-    color: "#6B7280",
-  },
-  totalValue: {
-    fontSize: 16,
-    fontWeight: "bold",
-    color: "#111827",
-    marginTop: 4,
-  },
-  validityPayment: {
-    fontSize: 10,
-    color: "#374151",
-    marginTop: 6,
-    textAlign: "right",
-  },
+  totalLabel: { fontSize: 10, color: "#6B7280" },
+  totalValue: { fontSize: 16, fontWeight: "bold", color: "#111827", marginTop: 2 },
+  validityPayment: { fontSize: 10, color: "#374151", marginTop: 6, textAlign: "right" },
 
-  // Campo de observações com borda tracejada
+  // Campo de Observações com altura reduzida
   notesBox: {
-    marginTop: 14,
+    marginTop: 10,
     borderWidth: 1,
     borderColor: "#9CA3AF",
     borderStyle: "dashed",
     padding: 8,
+    height: 60, // altura reduzida para não empurrar assinaturas
   },
-  notesLabel: {
-    fontSize: 9,
-    color: "#6B7280",
-    marginBottom: 4,
-  },
-  notesText: {
-    fontSize: 10,
-    color: "#374151",
-  },
+  notesLabel: { fontSize: 9, color: "#6B7280", marginBottom: 4 },
+  notesText: { fontSize: 10, color: "#374151" },
 
   // Assinaturas
   signatureBlock: {
-    marginTop: 24,
+    marginTop: 18, // compacto
     flexDirection: "row",
     justifyContent: "space-between",
   },
-  signatureArea: {
-    width: "48%",
-  },
-  signatureLine: {
-    height: 1,
-    backgroundColor: "#9CA3AF",
-    marginTop: 24,
-    marginBottom: 4,
-  },
-  signatureLabel: {
-    fontSize: 10,
-    color: "#6B7280",
-    textAlign: "center",
-  },
+  signatureArea: { width: "48%" },
+  signatureLine: { height: 1, backgroundColor: "#9CA3AF", marginTop: 18, marginBottom: 4 },
+  signatureLabel: { fontSize: 10, color: "#6B7280", textAlign: "center" },
 });
 
 interface BudgetReportPdfContentProps {
   budget: Budget;
 }
 
-const formatBRL = (v: number) =>
-  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
+const formatBRL = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
+const truncate = (text: string, max = 250) => (text.length > max ? text.slice(0, max) + "…" : text);
 
 const BudgetReportPdfContent: React.FC<BudgetReportPdfContentProps> = ({ budget }) => {
   const company = mockCompanySettings;
@@ -234,14 +159,9 @@ const BudgetReportPdfContent: React.FC<BudgetReportPdfContentProps> = ({ budget 
   const animal = budget.animalId ? client?.animals.find(a => a.id === budget.animalId) : undefined;
   const total = budget.items.reduce((sum, it) => sum + it.qty * it.price, 0);
 
-  const displayCnpj =
-    (company as any).cnpj ||
-    (company as any).taxId ||
-    "";
-
+  const displayCnpj = (company as any).cnpj || (company as any).taxId || "";
   const validityDays = (budget as any).validityDays ?? 15;
   const paymentTerms = (budget as any).paymentTerms ?? "Condições de pagamento: A combinar";
-
   const phone = client?.mainPhoneContact || "-";
 
   return (
@@ -252,15 +172,9 @@ const BudgetReportPdfContent: React.FC<BudgetReportPdfContentProps> = ({ budget 
           <Image src="/favicon.ico" style={styles.logo} />
           <View style={styles.clinicInfoBlock}>
             <Text style={styles.clinicName}>{company.companyName}</Text>
-            <Text style={styles.clinicInfo}>
-              CNPJ {displayCnpj ? displayCnpj : "-"} • CRMV {company.crmv} • MAPA {company.mapaRegistration}
-            </Text>
-            <Text style={styles.clinicInfo}>
-              {company.address} • {company.city} • CEP {company.zipCode}
-            </Text>
-            <Text style={styles.clinicInfo}>
-              {company.phone} • {company.email}
-            </Text>
+            <Text style={styles.clinicInfo}>CNPJ {displayCnpj ? displayCnpj : "-"} • CRMV {company.crmv} • MAPA {company.mapaRegistration}</Text>
+            <Text style={styles.clinicInfo}>{company.address} • {company.city} • CEP {company.zipCode}</Text>
+            <Text style={styles.clinicInfo}>{company.phone} • {company.email}</Text>
           </View>
         </View>
         <View style={styles.divider} />
@@ -271,7 +185,7 @@ const BudgetReportPdfContent: React.FC<BudgetReportPdfContentProps> = ({ budget 
           <Text style={styles.docNumber}>Documento Nº {budget.id}</Text>
         </View>
 
-        {/* Grid de dados principais */}
+        {/* Grid de dados principais compactado */}
         <View style={styles.dataGrid}>
           <View style={styles.dataCol}>
             <Text style={styles.metaLabel}>Tutor</Text>
@@ -283,13 +197,11 @@ const BudgetReportPdfContent: React.FC<BudgetReportPdfContentProps> = ({ budget 
             <Text style={styles.metaLabel}>Nome do Pet</Text>
             <Text style={styles.metaValue}>{animal?.name || "-"}</Text>
             <Text style={styles.metaLabel}>Espécie/Raça</Text>
-            <Text style={styles.metaValue}>
-              {animal ? `${animal.species} / ${animal.breed}` : "-"}
-            </Text>
+            <Text style={styles.metaValue}>{animal ? `${animal.species} / ${animal.breed}` : "-"}</Text>
           </View>
         </View>
 
-        {/* Linha dedicada para Veterinário Responsável */}
+        {/* Veterinário Responsável */}
         <View style={styles.vetRow}>
           <Text style={styles.vetLabel}>Veterinário Responsável</Text>
           <Text style={styles.vetValue}>{user.userName}</Text>
@@ -307,10 +219,7 @@ const BudgetReportPdfContent: React.FC<BudgetReportPdfContentProps> = ({ budget 
           {budget.items.map((it, idx) => {
             const cat = findCatalogItem(it.itemId);
             const isProduct = cat?.type === "product";
-            const tagStyle = [
-              styles.tdTag,
-              isProduct ? styles.tdTagProduct : undefined,
-            ];
+            const tagStyle = [styles.tdTag, isProduct ? styles.tdTagProduct : undefined];
             return (
               <View key={`${it.itemId}-${idx}`} style={styles.tableRow}>
                 <Text style={styles.tdName}>{it.name}</Text>
@@ -323,23 +232,21 @@ const BudgetReportPdfContent: React.FC<BudgetReportPdfContentProps> = ({ budget 
           })}
         </View>
 
-        {/* Totais alinhados ao Subtotal */}
+        {/* Totais alinhados ao Subtotal, com linhas separadas e sem sobreposição */}
         <View style={styles.totalsRow}>
           <View style={styles.totalsSpacer} />
           <View style={styles.totalsRight}>
             <Text style={styles.totalLabel}>Total</Text>
             <Text style={styles.totalValue}>{formatBRL(total)}</Text>
-            <Text style={styles.validityPayment}>
-              Validade do Orçamento: {validityDays} dia(s)
-            </Text>
+            <Text style={styles.validityPayment}>Validade do Orçamento: {validityDays} dia(s)</Text>
             <Text style={styles.validityPayment}>{paymentTerms}</Text>
           </View>
         </View>
 
-        {/* Campo de Observações com borda tracejada */}
+        {/* Observações com altura reduzida (sem empurrar assinaturas) */}
         <View style={styles.notesBox}>
           <Text style={styles.notesLabel}>Observações</Text>
-          <Text style={styles.notesText}>{budget.notes || " "}</Text>
+          <Text style={styles.notesText}>{budget.notes ? truncate(budget.notes) : " "}</Text>
         </View>
 
         {/* Assinaturas */}
