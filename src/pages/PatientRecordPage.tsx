@@ -277,6 +277,8 @@ const PatientRecordPage = () => {
     { id: "o2", date: "2024-01-05", time: "15:00", observation: "Recomendado check-up anual em 6 meses." },
   ]);
   const [newObservation, setNewObservation] = useState<string>("");
+  // ADDED: mover o estado para dentro do componente
+  const [newObservationAlert, setNewObservationAlert] = useState<boolean>(false);
 
   // State para a lista de exames e o modal de adição
   const [examsList, setExamsList] = useState<ExamEntry[]>(mockExams.filter(exam => exam.id.startsWith('exam'))); // Inicialmente vazio, pois a adição é feita em outra página
