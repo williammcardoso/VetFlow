@@ -49,12 +49,12 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
 
-  // Identificação do orçamento e dados do cliente/paciente
+  // Identificação do orçamento e dados
   docTitleRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "baseline",
-    marginBottom: 8,
+    marginBottom: 18, // mais respiro antes do grid
   },
   docTitle: {
     fontSize: 18,
@@ -67,12 +67,15 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: "#6B7280",
   },
-  metaRow: {
+
+  // Grid de dados (duas colunas)
+  dataGrid: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginBottom: 12,
+    gap: 16,
+    marginBottom: 8,
   },
-  metaCol: {
+  dataCol: {
     flex: 1,
   },
   metaLabel: {
@@ -80,6 +83,22 @@ const styles = StyleSheet.create({
     color: "#6B7280",
   },
   metaValue: {
+    fontSize: 11,
+    color: "#111827",
+    fontWeight: "bold",
+    marginTop: 2,
+    marginBottom: 8,
+  },
+
+  // Linha dedicada do Veterinário
+  vetRow: {
+    marginBottom: 12,
+  },
+  vetLabel: {
+    fontSize: 9,
+    color: "#6B7280",
+  },
+  vetValue: {
     fontSize: 11,
     color: "#111827",
     fontWeight: "bold",
@@ -92,29 +111,29 @@ const styles = StyleSheet.create({
   },
   tableHeader: {
     flexDirection: "row",
-    backgroundColor: "#F8F9FA",
-    paddingVertical: 6,
-    paddingHorizontal: 8,
+    backgroundColor: "#F1F5F9", // cinza muito sutil
+    paddingVertical: 8,
+    paddingHorizontal: 10,
     borderTopWidth: 1,
     borderBottomWidth: 1,
     borderColor: "#E5E7EB",
   },
-  thName: { flex: 1, fontSize: 10, fontWeight: "bold", color: "#374151" },
-  thTag: { width: 90, fontSize: 10, fontWeight: "bold", color: "#374151" },
-  thQty: { width: 60, textAlign: "right", fontSize: 10, fontWeight: "bold", color: "#374151" },
-  thPrice: { width: 90, textAlign: "right", fontSize: 10, fontWeight: "bold", color: "#374151" },
-  thSubtotal: { width: 100, textAlign: "right", fontSize: 10, fontWeight: "bold", color: "#374151" },
+  thName: { flex: 1, fontSize: 9, fontWeight: "bold", color: "#374151", textTransform: "uppercase" },
+  thTag: { width: 80, fontSize: 9, fontWeight: "bold", color: "#374151", textTransform: "uppercase" },
+  thQty: { width: 50, textAlign: "center", fontSize: 9, fontWeight: "bold", color: "#374151", textTransform: "uppercase" },
+  thPrice: { width: 90, textAlign: "right", fontSize: 9, fontWeight: "bold", color: "#374151", textTransform: "uppercase" },
+  thSubtotal: { width: 100, textAlign: "right", fontSize: 9, fontWeight: "bold", color: "#374151", textTransform: "uppercase" },
 
   tableRow: {
     flexDirection: "row",
-    paddingVertical: 6,
-    paddingHorizontal: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 10, // padding interno para não encostar nas linhas
     borderBottomWidth: 1,
     borderColor: "#E5E7EB",
   },
   tdName: { flex: 1, fontSize: 11, color: "#111827" },
   tdTag: {
-    width: 90,
+    width: 80,
     fontSize: 9,
     color: "#0F766E",
     backgroundColor: "#D1FAE5",
@@ -126,19 +145,22 @@ const styles = StyleSheet.create({
     color: "#1D4ED8",
     backgroundColor: "#DBEAFE",
   },
-  tdQty: { width: 60, textAlign: "right", fontSize: 11, color: "#111827" },
+  tdQty: { width: 50, textAlign: "center", fontSize: 11, color: "#111827" },
   tdPrice: { width: 90, textAlign: "right", fontSize: 11, color: "#111827" },
   tdSubtotal: { width: 100, textAlign: "right", fontSize: 11, color: "#111827", fontWeight: "bold" },
 
-  // Totais e validade
-  totalsBlock: {
-    marginTop: 12,
+  // Totais (alinhados ao Subtotal)
+  totalsRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
+    justifyContent: "flex-end",
     alignItems: "flex-end",
+    marginTop: 12,
+  },
+  totalsSpacer: {
+    flexGrow: 1,
   },
   totalsRight: {
-    minWidth: 220,
+    width: 100, // exatamente a largura da coluna Subtotal
     alignItems: "flex-end",
   },
   totalLabel: {
@@ -158,12 +180,25 @@ const styles = StyleSheet.create({
     textAlign: "right",
   },
 
-  // Observações e assinaturas
-  notes: {
+  // Campo de observações com borda tracejada
+  notesBox: {
+    marginTop: 14,
+    borderWidth: 1,
+    borderColor: "#9CA3AF",
+    borderStyle: "dashed",
+    padding: 8,
+  },
+  notesLabel: {
+    fontSize: 9,
+    color: "#6B7280",
+    marginBottom: 4,
+  },
+  notesText: {
     fontSize: 10,
     color: "#374151",
-    marginTop: 14,
   },
+
+  // Assinaturas
   signatureBlock: {
     marginTop: 24,
     flexDirection: "row",
@@ -207,6 +242,8 @@ const BudgetReportPdfContent: React.FC<BudgetReportPdfContentProps> = ({ budget 
   const validityDays = (budget as any).validityDays ?? 15;
   const paymentTerms = (budget as any).paymentTerms ?? "Condições de pagamento: A combinar";
 
+  const phone = client?.mainPhoneContact || "-";
+
   return (
     <Document>
       <Page size="A4" style={styles.page}>
@@ -234,26 +271,28 @@ const BudgetReportPdfContent: React.FC<BudgetReportPdfContentProps> = ({ budget 
           <Text style={styles.docNumber}>Documento Nº {budget.id}</Text>
         </View>
 
-        {/* Dados do Cliente/Paciente */}
-        <View style={styles.metaRow}>
-          <View style={styles.metaCol}>
+        {/* Grid de dados principais */}
+        <View style={styles.dataGrid}>
+          <View style={styles.dataCol}>
             <Text style={styles.metaLabel}>Tutor</Text>
             <Text style={styles.metaValue}>{client?.name || "-"}</Text>
+            <Text style={styles.metaLabel}>Telefone</Text>
+            <Text style={styles.metaValue}>{phone}</Text>
           </View>
-          <View style={styles.metaCol}>
-            <Text style={styles.metaLabel}>Pet</Text>
+          <View style={styles.dataCol}>
+            <Text style={styles.metaLabel}>Nome do Pet</Text>
             <Text style={styles.metaValue}>{animal?.name || "-"}</Text>
-          </View>
-          <View style={styles.metaCol}>
             <Text style={styles.metaLabel}>Espécie/Raça</Text>
             <Text style={styles.metaValue}>
               {animal ? `${animal.species} / ${animal.breed}` : "-"}
             </Text>
           </View>
-          <View style={styles.metaCol}>
-            <Text style={styles.metaLabel}>Veterinário Responsável</Text>
-            <Text style={styles.metaValue}>{user.userName}</Text>
-          </View>
+        </View>
+
+        {/* Linha dedicada para Veterinário Responsável */}
+        <View style={styles.vetRow}>
+          <Text style={styles.vetLabel}>Veterinário Responsável</Text>
+          <Text style={styles.vetValue}>{user.userName}</Text>
         </View>
 
         {/* Tabela de itens */}
@@ -284,11 +323,11 @@ const BudgetReportPdfContent: React.FC<BudgetReportPdfContentProps> = ({ budget 
           })}
         </View>
 
-        {/* Totais e validade */}
-        <View style={styles.totalsBlock}>
-          <View />
+        {/* Totais alinhados ao Subtotal */}
+        <View style={styles.totalsRow}>
+          <View style={styles.totalsSpacer} />
           <View style={styles.totalsRight}>
-            <Text style={styles.totalLabel}>Valor Total</Text>
+            <Text style={styles.totalLabel}>Total</Text>
             <Text style={styles.totalValue}>{formatBRL(total)}</Text>
             <Text style={styles.validityPayment}>
               Validade do Orçamento: {validityDays} dia(s)
@@ -297,10 +336,11 @@ const BudgetReportPdfContent: React.FC<BudgetReportPdfContentProps> = ({ budget 
           </View>
         </View>
 
-        {/* Observações */}
-        {budget.notes && (
-          <Text style={styles.notes}>Observações: {budget.notes}</Text>
-        )}
+        {/* Campo de Observações com borda tracejada */}
+        <View style={styles.notesBox}>
+          <Text style={styles.notesLabel}>Observações</Text>
+          <Text style={styles.notesText}>{budget.notes || " "}</Text>
+        </View>
 
         {/* Assinaturas */}
         <View style={styles.signatureBlock}>
