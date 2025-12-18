@@ -4,10 +4,11 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
-import CurrencyInput from "@/components/CurrencyInput";
 import { mockFinancialTransactions, addMockFinancialTransaction } from "@/mockData/financial";
 import { getRegistryList } from "@/mockData/registry";
 import { formatDateTime } from "@/lib/utils";
+import { toast } from "sonner";
+import CurrencyInput from "@/components/CurrencyInput";
 
 const withinRange = (dateStr: string, from?: string, to?: string) => {
   const dt = new Date(`${dateStr}T00:00`);
@@ -28,6 +29,16 @@ const CashMovementsPage: React.FC = () => {
   const [outMethodId, setOutMethodId] = useState<string | undefined>(undefined);
   const paymentMethods = getRegistryList("paymentMethods");
 
+  // Validações obrigatórias
+  const expenseErrors = {
+    outAmount: outAmount <= 0 ? "Informe um valor maior que zero." : "",
+    outDate: !outDate ? "Informe a data." : "",
+    outDescription: !outDescription.trim() ? "Informe a descrição." : "",
+    outCategory: !outCategory.trim() ? "Informe a categoria." : "",
+    outMethodId: !outMethodId ? "Selecione a forma de pagamento." : "",
+  };
+  const isExpenseValid = Object.values(expenseErrors).every((e) => e === "");
+
   const receipts = useMemo(() => {
     return mockFinancialTransactions
       .filter(t => t.type === "income" && t.category === "Recebimento")
@@ -47,7 +58,10 @@ const CashMovementsPage: React.FC = () => {
   }, [receipts, manualExpenses]);
 
   const handleAddExpense = () => {
-    if (!outDescription.trim() || outAmount <= 0) return;
+    if (!isExpenseValid) {
+      toast.error("Preencha corretamente os campos obrigatórios para registrar a movimentação.");
+      return;
+    }
     const pmName = outMethodId ? (paymentMethods.find(pm => pm.id === outMethodId)?.name || undefined) : undefined;
     addMockFinancialTransaction({
       date: outDate,
@@ -58,6 +72,7 @@ const CashMovementsPage: React.FC = () => {
       category: outCategory || "Despesa",
       paymentMethod: pmName,
     });
+    toast.success("Saída registrada com sucesso.");
     setOutDescription("");
     setOutCategory("Ajuste");
     setOutAmount(0);
@@ -66,6 +81,7 @@ const CashMovementsPage: React.FC = () => {
 
   return (
     <div className="flex flex-col min-h-screen bg-background">
+      {/* Cabeçalho */}
       <div className="bg-gradient-to-r from-background via-card to-background p-6 pb-4 border-b border-border">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-semibold flex items-center gap-3 text-foreground">
@@ -75,6 +91,7 @@ const CashMovementsPage: React.FC = () => {
         <p className="text-sm text-muted-foreground">Painel &gt; Financeiro &gt; Caixa / Movimentações</p>
       </div>
 
+      {/* Filtros de período */}
       <div className="p-6 grid grid-cols-1 md:grid-cols-4 gap-3">
         <div>
           <label className="text-xs text-muted-foreground">De</label>
@@ -84,32 +101,72 @@ const CashMovementsPage: React.FC = () => {
           <label className="text-xs text-muted-foreground">Até</label>
           <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="h-9 bg-input border border-border rounded-md" />
         </div>
-        <div className="md:col-span-2 flex items-end">
-          <div className="text-sm bg-muted px-3 py-2 rounded-md">
-            <div className="flex items-center gap-1"><FaArrowUp className="text-green-600" /> Entradas: {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(totals.income)}</div>
-            <div className="flex items-center gap-1"><FaArrowDown className="text-red-600" /> Saídas: {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(totals.expense)}</div>
-            <div>Saldo: {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(totals.net)}</div>
-          </div>
-        </div>
       </div>
 
+      {/* Resumo financeiro destacado */}
+      <div className="px-6 grid gap-4 grid-cols-1 md:grid-cols-3 mb-4">
+        <Card className="shadow-sm hover:shadow-md transition-all">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Entradas (Recebimentos)</CardTitle>
+            <FaArrowUp className="h-5 w-5 text-green-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-600 dark:text-green-400">
+              {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(totals.income)}
+            </div>
+            <p className="text-xs text-muted-foreground">Somatório de recebimentos automáticos do período.</p>
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-sm hover:shadow-md transition-all">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Saídas (Ajustes)</CardTitle>
+            <FaArrowDown className="h-5 w-5 text-red-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-red-600 dark:text-red-400">
+              {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(totals.expense)}
+            </div>
+            <p className="text-xs text-muted-foreground">Saídas manuais registradas no período.</p>
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-sm hover:shadow-md transition-all">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Saldo</CardTitle>
+            <FaWallet className="h-5 w-5 text-primary" />
+          </CardHeader>
+          <CardContent>
+            <div className={`text-2xl font-bold ${totals.net >= 0 ? "text-primary" : "text-destructive"}`}>
+              {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(totals.net)}
+            </div>
+            <p className="text-xs text-muted-foreground">Entradas menos saídas no período selecionado.</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Formulário de saída/ajuste + Lista de movimentações */}
       <div className="px-6 grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Formulário com validações obrigatórias */}
         <Card className="border border-border">
           <CardHeader className="pb-2">
-            <CardTitle className="text-base">Nova saída/ajuste</CardTitle>
+            <CardTitle className="text-base">Nova saída / ajuste administrativo</CardTitle>
           </CardHeader>
           <CardContent className="grid grid-cols-1 md:grid-cols-5 gap-2 items-end">
             <div>
               <label className="text-xs text-muted-foreground">Data</label>
               <Input type="date" value={outDate} onChange={(e) => setOutDate(e.target.value)} className="h-9 bg-input border border-border rounded-md" />
+              {expenseErrors.outDate && <p className="text-xs text-destructive mt-1">{expenseErrors.outDate}</p>}
             </div>
             <div className="md:col-span-2">
               <label className="text-xs text-muted-foreground">Descrição</label>
               <Input value={outDescription} onChange={(e) => setOutDescription(e.target.value)} className="h-9 bg-input border border-border rounded-md" placeholder="Ex.: Ajuste de caixa" />
+              {expenseErrors.outDescription && <p className="text-xs text-destructive mt-1">{expenseErrors.outDescription}</p>}
             </div>
             <div>
               <label className="text-xs text-muted-foreground">Categoria</label>
               <Input value={outCategory} onChange={(e) => setOutCategory(e.target.value)} className="h-9 bg-input border border-border rounded-md" placeholder="Ex.: Despesa" />
+              {expenseErrors.outCategory && <p className="text-xs text-destructive mt-1">{expenseErrors.outCategory}</p>}
             </div>
             <div>
               <label className="text-xs text-muted-foreground">Forma de pagamento</label>
@@ -125,17 +182,23 @@ const CashMovementsPage: React.FC = () => {
                   )}
                 </SelectContent>
               </Select>
+              {expenseErrors.outMethodId && <p className="text-xs text-destructive mt-1">{expenseErrors.outMethodId}</p>}
             </div>
             <div className="md:col-span-5">
               <label className="text-xs text-muted-foreground">Valor</label>
               <CurrencyInput value={outAmount} onValueChange={setOutAmount} className="h-9 w-full border border-border rounded-md" />
+              {expenseErrors.outAmount && <p className="text-xs text-destructive mt-1">{expenseErrors.outAmount}</p>}
             </div>
             <div className="md:col-span-5 flex justify-end">
-              <Button onClick={handleAddExpense} className="h-9 px-4">Registrar saída</Button>
+              <Button onClick={handleAddExpense} className="h-9 px-4" disabled={!isExpenseValid}>Registrar saída</Button>
+            </div>
+            <div className="md:col-span-5 text-xs text-muted-foreground">
+              Movimentações automáticas (recebimentos de vendas) não podem ser editadas nem excluídas.
             </div>
           </CardContent>
         </Card>
 
+        {/* Lista de movimentações com origem e diferenciação visual */}
         <Card className="border border-border">
           <CardHeader className="pb-2">
             <CardTitle className="text-base">Movimentações</CardTitle>
@@ -143,26 +206,33 @@ const CashMovementsPage: React.FC = () => {
           <CardContent className="space-y-3">
             {[...receipts, ...manualExpenses]
               .sort((a, b) => new Date(`${b.date}T${b.time}`).getTime() - new Date(`${a.date}T${a.time}`).getTime())
-              .map(mov => (
-                <Card key={mov.id} className="p-4 bg-card border border-border">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className={`px-2 py-0.5 text-xs rounded-full ${mov.type === "income" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}>
-                        {mov.type === "income" ? "Entrada" : "Saída"}
-                      </span>
-                      <span className="text-sm">{mov.description}</span>
+              .map(mov => {
+                const isAutomatic = mov.type === "income" && (mov.category === "Recebimento" || !!mov.saleId);
+                const originLabel = isAutomatic
+                  ? `Automática${mov.saleId ? ` • Venda ${mov.saleId}` : ""}`
+                  : "Ajuste administrativo";
+                return (
+                  <Card key={mov.id} className="p-4 bg-card border border-border">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${mov.type === "income" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}>
+                          {mov.type === "income" ? "Entrada" : "Saída"}
+                        </span>
+                        <span className="text-sm">{mov.description}</span>
+                      </div>
+                      <div className={`text-sm font-semibold ${mov.type === "income" ? "text-green-600" : "text-red-600"}`}>
+                        {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(mov.amount)}
+                      </div>
                     </div>
-                    <div className={`text-sm font-semibold ${mov.type === "income" ? "text-green-600" : "text-red-600"}`}>
-                      {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(mov.amount)}
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mt-2 text-sm text-muted-foreground">
+                      <div className="flex items-center gap-1"><FaCalendarAlt className="h-3 w-3" /> {formatDateTime(mov.date, mov.time)}</div>
+                      <div className="flex items-center gap-1"><FaTag className="h-3 w-3" /> Categoria: {mov.category}</div>
+                      <div className="flex items-center gap-1"><FaTag className="h-3 w-3" /> Pagamento: {mov.paymentMethod || "N/A"}</div>
+                      <div className="flex items-center gap-1"><FaTag className="h-3 w-3" /> Origem: {originLabel}</div>
                     </div>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mt-2 text-sm text-muted-foreground">
-                    <div className="flex items-center gap-1"><FaCalendarAlt className="h-3 w-3" /> {formatDateTime(mov.date, mov.time)}</div>
-                    <div className="flex items-center gap-1"><FaTag className="h-3 w-3" /> {mov.category}</div>
-                    <div className="flex items-center gap-1"><FaTag className="h-3 w-3" /> Pagamento: {mov.paymentMethod || "N/A"}</div>
-                  </div>
-                </Card>
-              ))}
+                  </Card>
+                );
+              })}
           </CardContent>
         </Card>
       </div>
