@@ -171,6 +171,7 @@ import { getRegistryList } from "@/mockData/registry";
 const PatientRecordPage = () => {
   const { clientId, animalId } = useParams<{ clientId: string; animalId: string }>();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   // Usar um estado para o cliente e animal para que possam ser atualizados
   const [currentClient, setCurrentClient] = useState<Client | undefined>(
@@ -627,6 +628,27 @@ const PatientRecordPage = () => {
 
     toast.success("Orçamento convertido em venda.");
     return true;
+  };
+
+  // NOVO: estado controlado para sub-abas de Financeiro
+  const [financeTab, setFinanceTab] = useState<'orcamentos'|'vendas'|'financeiro'>('orcamentos');
+
+  // NOVO: ler parâmetros para pré-seleção de pagamento
+  useEffect(() => {
+    const paySaleId = searchParams.get('paySaleId');
+    if (paySaleId) {
+      setActiveTab('financial');
+      setFinanceTab('financeiro');
+      setPaymentSaleId(paySaleId);
+    }
+  }, [searchParams]);
+
+  // NOVO: atalho "Pagar" vindo do card de venda
+  const handlePayShortcut = (saleId: string) => {
+    setActiveTab('financial');
+    setFinanceTab('financeiro');
+    setPaymentSaleId(saleId);
+    setSearchParams({ paySaleId: saleId });
   };
 
   if (!currentClient || !currentAnimal) {
@@ -1563,14 +1585,15 @@ const PatientRecordPage = () => {
 
           <TabsContent value="financial" className="mt-4">
             {/* SUB-ABAS: Orçamentos, Vendas e Financeiro dentro do Financeiro do prontuário */}
-            <Card className="bg-card shadow-sm border border-border rounded-md">
+            <Card className="bg-white rounded-[12px] shadow-sm border-0">
               <CardHeader className="flex flex-row items-center justify-between pb-3">
                 <CardTitle className="flex items-center gap-2 text-lg font-semibold text-foreground">
                   <FaMoneyBillWave className="h-5 w-5 text-primary" /> Financeiro
                 </CardTitle>
               </CardHeader>
               <CardContent className="pt-0">
-                <Tabs defaultValue="orcamentos" className="w-full">
+                {/* Controla as sub-abas */}
+                <Tabs value={financeTab} onValueChange={setFinanceTab} className="w-full">
                   <TabsList className="grid grid-cols-3 w-full mb-4">
                     <TabsTrigger value="orcamentos">Orçamentos</TabsTrigger>
                     <TabsTrigger value="vendas">Vendas</TabsTrigger>
@@ -1580,11 +1603,11 @@ const PatientRecordPage = () => {
                   {/* Aba Orçamentos - lista e ações */}
                   <TabsContent value="orcamentos">
                     <div className="flex justify-end mb-3">
-                      <Button size="sm" onClick={() => setBudgetModalOpen(true)} className="rounded-md bg-primary text-primary-foreground hover:bg-primary/90 font-semibold transition-all duration-200 shadow-md hover:shadow-lg">
+                      <Button size="sm" onClick={() => setBudgetModalOpen(true)} className="rounded-md bg-primary text-primary-foreground hover:bg-primary/90 font-semibold transition-all duration-200 shadow-sm hover:shadow-md">
                         <FaPlus className="h-4 w-4 mr-2" /> Novo Orçamento
                       </Button>
                     </div>
-                    <Card className="border border-border">
+                    <Card className="bg-white rounded-[12px] shadow-sm border-0">
                       <CardHeader className="pb-2"><CardTitle className="text-base">Orçamentos</CardTitle></CardHeader>
                       <CardContent>
                         {patientBudgets.length === 0 ? (
@@ -1602,7 +1625,7 @@ const PatientRecordPage = () => {
                                 statusDisplay === "cancelado" ? "bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-gray-100" :
                                 "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200";
                               return (
-                                <Card key={b.id} className="p-4 bg-input border border-border">
+                                <Card key={b.id} className="p-4 bg-white rounded-[12px] shadow-sm border-0">
                                   <div className="flex items-center justify-between">
                                     <div className="flex items-center gap-2">
                                       <Badge className={`px-2 py-0.5 text-xs rounded-full ${badgeClass}`}>
@@ -1639,7 +1662,7 @@ const PatientRecordPage = () => {
                       <Button
                         size="sm"
                         onClick={() => { setSaleResponsible(""); setSaleModalOpen(true); }}
-                        className="rounded-md bg-primary text-primary-foreground hover:bg-primary/90 font-semibold transition-all duration-200 shadow-md hover:shadow-lg"
+                        className="rounded-md bg-[#0F4C5C] text-white hover:bg-[#0d3f4b] font-semibold transition-all duration-200 shadow-sm hover:shadow-md"
                       >
                         <FaPlus className="h-4 w-4 mr-2" /> Adicionar Venda
                       </Button>
@@ -1652,32 +1675,35 @@ const PatientRecordPage = () => {
                           const finStatus = getFinancialStatusForSale(sale.id, sale.total);
                           const app = animalAppointments.find(a => a.id === sale.appointmentId);
                           return (
-                            <Card key={sale.id} className="p-4 bg-input shadow-sm border border-border">
-                              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-2 gap-2">
-                                <div className="flex items-center gap-2">
-                                  <Badge className={`px-2 py-0.5 text-xs font-medium rounded-full ${finStatus === "paid" ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200" : "bg-muted"}`}>
+                            <Card key={sale.id} className="p-4 bg-white rounded-[12px] shadow-sm border-0">
+                              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-2 gap-3">
+                                <div className="flex items-center gap-3">
+                                  <Badge className={cn(
+                                    "px-3 py-1 text-sm font-bold rounded-full",
+                                    sale.saleStatus === "open" ? "bg-orange-600 text-white shadow-sm" : "bg-gray-200 text-gray-800"
+                                  )}>
                                     {sale.saleStatus === "open" ? "Venda Aberta" : "Venda Finalizada"} {sale.origin === "orcamento" ? "• (de orçamento)" : ""}
                                   </Badge>
                                   <p className="text-lg font-semibold text-foreground">
                                     {app ? `${app.type} • ${app.vet}` : `Atendimento ${sale.appointmentId}`}
                                   </p>
                                 </div>
-                                <div className="flex items-center gap-3">
+                                <div className="flex items-center gap-6">
                                   <div className="text-right">
                                     <div className="text-xs text-muted-foreground">Total</div>
-                                    <div className="text-lg font-bold text-green-600 dark:text-green-400">
+                                    <div className="text-xl font-bold text-green-600 dark:text-green-400">
                                       {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(sale.total)}
                                     </div>
                                   </div>
                                   <div className="text-right">
                                     <div className="text-xs text-muted-foreground">Pago</div>
-                                    <div className="text-lg font-bold">
+                                    <div className="text-xl font-bold">
                                       {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(paid)}
                                     </div>
                                   </div>
                                   <div className="text-right">
                                     <div className="text-xs text-muted-foreground">Saldo</div>
-                                    <div className="text-lg font-bold">
+                                    <div className="text-xl font-bold">
                                       {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(saldo)}
                                     </div>
                                   </div>
@@ -1694,10 +1720,20 @@ const PatientRecordPage = () => {
                                   <FaStethoscope className="h-3 w-3" /> Atendimento: {sale.appointmentId}
                                 </div>
                               </div>
-                              <div className="flex justify-between mt-3">
-                                <Button variant="outline" size="sm" onClick={() => updateSaleStatus(sale.id, sale.saleStatus === "open" ? "finalized" : "open")}>
-                                  {sale.saleStatus === "open" ? "Finalizar venda" : "Reabrir venda"}
-                                </Button>
+                              <div className="flex items-center justify-between mt-3">
+                                <div className="flex gap-2">
+                                  <Button
+                                    size="sm"
+                                    className="rounded-md bg-[#0F4C5C] text-white hover:bg-[#0d3f4b] font-semibold transition-all duration-200 shadow-sm hover:shadow-md"
+                                    onClick={() => handlePayShortcut(sale.id)}
+                                    disabled={!canRegisterPayment(sale.id)}
+                                  >
+                                    Pagar
+                                  </Button>
+                                  <Button variant="outline" size="sm" onClick={() => updateSaleStatus(sale.id, sale.saleStatus === "open" ? "finalized" : "open")}>
+                                    {sale.saleStatus === "open" ? "Finalizar venda" : "Reabrir venda"}
+                                  </Button>
+                                </div>
                                 <Button variant="ghost" size="sm" onClick={() => toggleExpanded(sale.id)}>
                                   {expandedSales[sale.id] ? "Ocultar detalhes" : "Ver detalhes"}
                                 </Button>
@@ -1742,7 +1778,7 @@ const PatientRecordPage = () => {
                   {/* Aba Financeiro - formulário de pagamento e listagem */}
                   <TabsContent value="financeiro">
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                      <Card className="border border-border">
+                      <Card className="bg-white rounded-[12px] shadow-sm border-0">
                         <CardHeader className="pb-2">
                           <CardTitle className="text-base">Registrar pagamento</CardTitle>
                         </CardHeader>
@@ -1795,12 +1831,14 @@ const PatientRecordPage = () => {
                             <Textarea value={paymentObservations} onChange={(e)=>setPaymentObservations(e.target.value)} className="bg-input border border-border rounded-md" />
                           </div>
                           <div className="flex justify-end">
-                            <Button onClick={handleAddPayment}>Registrar pagamento</Button>
+                            <Button onClick={handleAddPayment} className="rounded-md bg-[#0F4C5C] text-white hover:bg-[#0d3f4b] font-semibold transition-colors shadow-sm hover:shadow-md">
+                              Registrar pagamento
+                            </Button>
                           </div>
                         </CardContent>
                       </Card>
 
-                      <Card className="border border-border">
+                      <Card className="bg-white rounded-[12px] shadow-sm border-0">
                         <CardHeader className="pb-2">
                           <CardTitle className="text-base">Pagamentos registrados</CardTitle>
                         </CardHeader>
