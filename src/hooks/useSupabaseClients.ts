@@ -99,6 +99,12 @@ function mapDbClientToClient(c: DbClient, animals: Animal[]): Client {
 }
 
 async function fetchClientsWithAnimals(): Promise<Client[]> {
+  // NEW: não chama Supabase sem sessão
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) {
+    return [];
+  }
+
   const { data: clientsData, error: clientsError } = await supabase
     .from("clients")
     .select("id, name, client_type, nationality, gender, identification_number, secondary_identification, birthday, profession, accept_email, accept_whatsapp, accept_sms, main_email_contact, main_phone_contact, notes, cep, street, number, complement, neighborhood, city, state")
@@ -127,6 +133,12 @@ async function fetchClientsWithAnimals(): Promise<Client[]> {
 }
 
 async function fetchClientWithAnimals(clientId: string): Promise<Client | undefined> {
+  // NEW: não chama Supabase sem sessão
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) {
+    return undefined;
+  }
+
   const { data: clientRows, error: clientError } = await supabase
     .from("clients")
     .select("id, name, client_type, nationality, gender, identification_number, secondary_identification, birthday, profession, accept_email, accept_whatsapp, accept_sms, main_email_contact, main_phone_contact, notes, cep, street, number, complement, neighborhood, city, state")

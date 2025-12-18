@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
 import { mockFinancialTransactions, addMockFinancialTransaction } from "@/mockData/financial";
 import { getRegistryList } from "@/mockData/registry";
-import { formatDateTime } from "@/lib/utils";
+import { cn, formatDateTime } from "@/lib/utils";
 import { toast } from "sonner";
 import CurrencyInput from "@/components/CurrencyInput";
 import { Wallet, ArrowUpRight, ArrowDownRight, TrendingUp, Pill, Home, Package, Syringe, Stethoscope } from "lucide-react";
