@@ -1602,58 +1602,71 @@ const PatientRecordPage = () => {
 
                   {/* Aba Orçamentos - lista e ações */}
                   <TabsContent value="orcamentos">
-                    <div className="flex justify-end mb-3">
-                      <Button size="sm" onClick={() => setBudgetModalOpen(true)} className="rounded-md bg-primary text-primary-foreground hover:bg-primary/90 font-semibold transition-all duration-200 shadow-sm hover:shadow-md">
-                        <FaPlus className="h-4 w-4 mr-2" /> Novo Orçamento
-                      </Button>
+                    {/* Área principal com fundo cinza para destacar cards brancos */}
+                    <div className="bg-[#F5F7FA] p-4 rounded-[12px]">
+                      <div className="flex justify-end mb-3">
+                        <Button
+                          size="sm"
+                          onClick={() => setBudgetModalOpen(true)}
+                          className="rounded-md bg-[#0F4C5C] text-white hover:bg-[#0d3f4b] font-semibold transition-all duration-200 shadow-sm hover:shadow-md"
+                        >
+                          <FaPlus className="h-4 w-4 mr-2" /> Novo Orçamento
+                        </Button>
+                      </div>
+                      {/* Lista de orçamentos com card branco, borda fina e sombra suave */}
+                      <Card className="bg-white rounded-[12px] shadow-sm border border-[#E2E8F0]">
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-base">Orçamentos</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          {patientBudgets.length === 0 ? (
+                            <p className="text-muted-foreground">Nenhum orçamento registrado.</p>
+                          ) : (
+                            <div className="space-y-3">
+                              {patientBudgets.map(b => {
+                                const expired = isBudgetExpired(b);
+                                const statusDisplay = expired && b.status !== "convertido" && b.status !== "cancelado" ? "expirado" : b.status;
+                                const canConvert = !expired && b.status !== "cancelado" && b.status !== "convertido";
+                                const badgeClass =
+                                  statusDisplay === "convertido" ? "bg-indigo-600 text-white" :
+                                  statusDisplay === "aprovado" ? "bg-emerald-600 text-white" :
+                                  statusDisplay === "expirado" ? "bg-red-600 text-white" :
+                                  statusDisplay === "cancelado" ? "bg-gray-300 text-gray-900" :
+                                  "bg-blue-600 text-white";
+                                return (
+                                  // Cards de cada orçamento com borda e sombra
+                                  <Card key={b.id} className="p-4 bg-white rounded-[12px] shadow-sm border border-[#E2E8F0]">
+                                    <div className="flex items-center justify-between">
+                                      <div className="flex items-center gap-2">
+                                        <Badge className={`px-2 py-0.5 text-xs rounded-full ${badgeClass}`}>
+                                          {statusDisplay}
+                                        </Badge>
+                                      </div>
+                                      <div className="text-sm font-semibold text-green-700">
+                                        {new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(b.total)}
+                                      </div>
+                                    </div>
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mt-2 text-sm text-muted-foreground">
+                                      <div className="flex items-center gap-1"><FaCalendarAlt className="h-3 w-3" /> {formatDateTime(b.date)}</div>
+                                      <div className="flex items-center gap-1"><FaTag className="h-3 w-3" /> Validade: {b.validityDays} dia(s)</div>
+                                      {b.observations && <div className="flex items-center gap-1"><FaTag className="h-3 w-3" /> Obs.: {b.observations}</div>}
+                                    </div>
+                                    <div className="flex justify-end gap-2 mt-2">
+                                      <Button variant="outline" size="sm" onClick={()=>approveBudget(b.id)} disabled={statusDisplay==="convertido" || statusDisplay==="cancelado"}>Aprovar</Button>
+                                      <Button variant="outline" size="sm" onClick={()=>cancelBudget(b.id)} disabled={statusDisplay==="convertido" || statusDisplay==="cancelado"}>Cancelar</Button>
+                                      <Button variant="outline" size="sm" onClick={()=>printBudget(b)}>Imprimir</Button>
+                                      <Button size="sm" onClick={()=>openConvertModal(b.id)} disabled={!canConvert} className="rounded-md bg-[#0F4C5C] text-white hover:bg-[#0d3f4b]">
+                                        Converter em venda
+                                      </Button>
+                                    </div>
+                                  </Card>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
                     </div>
-                    <Card className="bg-white rounded-[12px] shadow-sm border-0">
-                      <CardHeader className="pb-2"><CardTitle className="text-base">Orçamentos</CardTitle></CardHeader>
-                      <CardContent>
-                        {patientBudgets.length === 0 ? (
-                          <p className="text-muted-foreground">Nenhum orçamento registrado.</p>
-                        ) : (
-                          <div className="space-y-3">
-                            {patientBudgets.map(b => {
-                              const expired = isBudgetExpired(b);
-                              const statusDisplay = expired && b.status !== "convertido" && b.status !== "cancelado" ? "expirado" : b.status;
-                              const canConvert = !expired && b.status !== "cancelado" && b.status !== "convertido";
-                              const badgeClass =
-                                statusDisplay === "convertido" ? "bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200" :
-                                statusDisplay === "aprovado" ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200" :
-                                statusDisplay === "expirado" ? "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200" :
-                                statusDisplay === "cancelado" ? "bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-gray-100" :
-                                "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200";
-                              return (
-                                <Card key={b.id} className="p-4 bg-white rounded-[12px] shadow-sm border-0">
-                                  <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-2">
-                                      <Badge className={`px-2 py-0.5 text-xs rounded-full ${badgeClass}`}>
-                                        {statusDisplay}
-                                      </Badge>
-                                    </div>
-                                    <div className="text-sm font-semibold text-green-700 dark:text-green-300">
-                                      {new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(b.total)}
-                                    </div>
-                                  </div>
-                                  <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mt-2 text-sm text-muted-foreground">
-                                    <div className="flex items-center gap-1"><FaCalendarAlt className="h-3 w-3" /> {formatDateTime(b.date)}</div>
-                                    <div className="flex items-center gap-1"><FaTag className="h-3 w-3" /> Validade: {b.validityDays} dia(s)</div>
-                                    {b.observations && <div className="flex items-center gap-1"><FaTag className="h-3 w-3" /> Obs.: {b.observations}</div>}
-                                  </div>
-                                  <div className="flex justify-end gap-2 mt-2">
-                                    <Button variant="outline" size="sm" onClick={()=>approveBudget(b.id)} disabled={statusDisplay==="convertido" || statusDisplay==="cancelado"}>Aprovar</Button>
-                                    <Button variant="outline" size="sm" onClick={()=>cancelBudget(b.id)} disabled={statusDisplay==="convertido" || statusDisplay==="cancelado"}>Cancelar</Button>
-                                    <Button variant="outline" size="sm" onClick={()=>printBudget(b)}>Imprimir</Button>
-                                    <Button size="sm" onClick={()=>openConvertModal(b.id)} disabled={!canConvert}>Converter em venda</Button>
-                                  </div>
-                                </Card>
-                              );
-                            })}
-                          </div>
-                        )}
-                      </CardContent>
-                    </Card>
                   </TabsContent>
 
                   {/* Aba Vendas - lista de vendas do paciente com botão de adicionar */}
