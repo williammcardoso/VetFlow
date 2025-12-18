@@ -277,7 +277,7 @@ const PatientRecordPage = () => {
     { id: "o2", date: "2024-01-05", time: "15:00", observation: "Recomendado check-up anual em 6 meses." },
   ]);
   const [newObservation, setNewObservation] = useState<string>("");
-  // ADDED: mover o estado para dentro do componente
+  // ADDED: estado dentro do componente (correto)
   const [newObservationAlert, setNewObservationAlert] = useState<boolean>(false);
 
   // State para a lista de exames e o modal de adição
