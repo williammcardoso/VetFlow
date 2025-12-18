@@ -2,6 +2,17 @@
 @tailwind components;
 @tailwind utilities;
 
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+/* Fonte global */
+html, body, #root {
+  font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, 'Helvetica Neue', Arial, 'Noto Sans', 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', sans-serif;
+}
+/* Fundo geral para profundidade dos cards */
+body {
+  background-color: #F8F9FA;
+}
+
 @layer base {
   :root {
     --background: 0 0% 98%; /* Very light grey, almost white */

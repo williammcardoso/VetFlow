@@ -954,7 +954,7 @@ const PatientRecordPage = () => {
     .reduce((sum, t) => sum + t.amount, 0);
 
   return (
-    <div className="flex flex-col min-h-screen bg-background">
+    <div className="flex flex-col min-h-screen bg-[#F8F9FA]">
       {/* Header da Página com Gradiente e Breadcrumb */}
       <div className="bg-gradient-to-r from-background via-card to-background p-6 pb-4 border-b border-border">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-2 gap-4 sm:gap-2">
@@ -989,84 +989,85 @@ const PatientRecordPage = () => {
 
       <div className="flex-1 p-6">
         <div className="mb-6">
-          <Card className="bg-card shadow-sm border border-border rounded-md">
+          <Card className="bg-white rounded-2xl shadow-sm border-0">
             <CardHeader className="flex flex-row items-center justify-between pb-3">
-              <CardTitle className="flex items-center gap-2 text-lg font-semibold text-foreground">
-                <FaHeart className="h-5 w-5 text-primary" /> Informações do Paciente
+              <CardTitle className="flex items-center gap-2 text-2xl font-bold text-[#0F4C5C]">
+                {currentAnimal.name}
               </CardTitle>
-              <Button variant="outline" size="sm" onClick={handleEditAnimal} className="rounded-md border-border text-foreground hover:bg-muted hover:text-foreground transition-colors duration-200">
-                <FaEdit className="mr-2 h-4 w-4" /> Editar Animal
-              </Button>
-            </CardHeader>
-            <CardContent className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4 pt-0">
-              {/* Coluna 1: Animal Info & Details */}
-              <div className="flex flex-col gap-4">
-                <div className="flex items-center gap-3">
-                  <Avatar className="h-12 w-12">
-                    {/* Usar FaPaw como fallback para o avatar do animal */}
-                    <AvatarFallback className="bg-primary text-primary-foreground text-lg font-bold">
-                      <FaPaw className="h-6 w-6 text-white" /> {/* Adicionado text-white explicitamente */}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <p className="text-xl font-bold text-foreground">{currentAnimal.name}</p>
-                    <p className="text-sm text-muted-foreground">{currentAnimal.species} • {currentAnimal.breed}</p>
-                  </div>
-                </div>
-                <Badge className={cn(
-                  "px-3 py-1 rounded-full text-xs font-medium w-fit",
-                  currentAnimal.status === 'Ativo' ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200" : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
-                )}>
-                  {currentAnimal.status}
-                </Badge>
-                <div className="grid grid-cols-2 gap-y-2 text-sm text-muted-foreground">
-                  <div className="flex items-center gap-2">
-                    <FaCalendarAlt className="h-4 w-4 text-muted-foreground" />
-                    <p>Idade: <span className="font-normal text-foreground">{calculateAge(currentAnimal.birthday)}</span></p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <FaBalanceScale className="h-4 w-4 text-muted-foreground" />
-                    <p>Peso: <span className="font-normal text-foreground">{currentAnimal.weight.toFixed(1)} kg</span> {currentAnimal.lastWeightSource && <span className="text-xs italic">({currentAnimal.lastWeightSource})</span>}</p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {currentAnimal.gender === "Macho" ? <FaMale className="h-4 w-4 text-muted-foreground" /> : <FaUser className="h-4 w-4 text-muted-foreground" />}
-                    <p>Sexo: <span className="font-normal text-foreground">{currentAnimal.gender}</span></p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <FaCalendarAlt className="h-4 w-4 text-muted-foreground" />
-                    <p>Última consulta: <span className="font-normal text-foreground">{formatDateTime(currentAnimal.lastConsultationDate || '')}</span></p>
-                  </div>
-                </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button variant="outline" className="rounded-lg border-[#E2E8F0] text-[#374151] hover:bg-[#F3F4F6]">
+                  <FaPrint className="mr-2 h-4 w-4" /> Imprimir PDF
+                </Button>
+                <Button variant="outline" onClick={handleEditAnimal} className="rounded-lg border-[#E2E8F0] text-[#374151] hover:bg-[#F3F4F6]">
+                  <FaEdit className="mr-2 h-4 w-4" /> Editar
+                </Button>
               </div>
-
-              {/* Coluna 2: Tutor e Financeiro */}
-              <div className="flex flex-col gap-4">
-                <div>
-                  <p className="text-base font-semibold text-foreground mb-1">Tutor Responsável</p>
-                  <p className="text-sm text-muted-foreground">Nome: <span className="font-normal text-foreground">{currentClient.name}</span></p>
-                  <p className="text-sm text-muted-foreground">Telefone: <span className="font-normal text-foreground">{currentClient.mainPhoneContact}</span></p>
+            </CardHeader>
+            <CardContent className="pt-0">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Perfil do Pet */}
+                <div className="flex items-center gap-4">
+                  <div className="relative">
+                    <Avatar className="h-16 w-16 rounded-full ring-2 ring-white shadow-sm">
+                      <AvatarImage src={undefined} />
+                      <AvatarFallback className="bg-[#0F4C5C] text-white text-lg font-bold">
+                        <FaPaw className="h-6 w-6" />
+                      </AvatarFallback>
+                    </Avatar>
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex flex-wrap gap-2">
+                      <span className="px-3 py-1 rounded-full text-xs font-medium bg-[#F5F7FA] text-[#374151] border border-[#E5E7EB]">
+                        Espécie: <span className="font-semibold text-[#111827]">{currentAnimal.species}</span>
+                      </span>
+                      <span className="px-3 py-1 rounded-full text-xs font-medium bg-[#F5F7FA] text-[#374151] border border-[#E5E7EB]">
+                        Raça: <span className="font-semibold text-[#111827]">{currentAnimal.breed}</span>
+                      </span>
+                      <span className="px-3 py-1 rounded-full text-xs font-medium bg-[#F5F7FA] text-[#374151] border border-[#E5E7EB]">
+                        Idade: <span className="font-semibold text-[#111827]">{calculateAge(currentAnimal.birthday)}</span>
+                      </span>
+                      <span className="px-3 py-1 rounded-full text-xs font-medium bg-[#F5F7FA] text-[#374151] border border-[#E5E7EB]">
+                        Peso: <span className="font-semibold text-[#111827]">{currentAnimal.weight.toFixed(1)} kg</span>
+                      </span>
+                    </div>
+                  </div>
                 </div>
-                <div className="bg-muted/50 dark:bg-muted/30 p-3 rounded-md border border-border">
-                  <p className="text-base font-semibold text-foreground mb-2">Resumo Financeiro</p>
+
+                {/* Resumo Financeiro com mini-cards pastéis */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   {(() => {
                     const income = mockFinancialTransactions.filter(t => t.relatedAnimalId === animalId && t.type === 'income').reduce((s, t) => s + t.amount, 0);
                     const expense = mockFinancialTransactions.filter(t => t.relatedAnimalId === animalId && t.type === 'expense').reduce((s, t) => s + t.amount, 0);
                     const net = income - expense;
+                    const pending = Math.max(0, patientSales.reduce((sum, s) => sum + s.total, 0) - patientPayments.reduce((sum, p) => sum + p.amount, 0));
+
                     return (
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                        <div className="p-3 rounded-md bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
-                          <span className="text-xs text-green-700 dark:text-green-300 font-medium flex items-center gap-2"><FaArrowUp className="h-4 w-4" /> Receitas</span>
-                          <div className="text-lg font-semibold text-green-700 dark:text-green-300 mt-1">R$ {income.toFixed(2).replace('.', ',')}</div>
-                        </div>
-                        <div className="p-3 rounded-md bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
-                          <span className="text-xs text-red-700 dark:text-red-300 font-medium flex items-center gap-2"><FaArrowDown className="h-4 w-4" /> Despesas</span>
-                          <div className="text-lg font-semibold text-red-700 dark:text-red-300 mt-1">R$ {expense.toFixed(2).replace('.', ',')}</div>
-                        </div>
-                        <div className="p-3 rounded-md bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
-                          <span className="text-xs text-blue-700 dark:text-blue-300 font-medium flex items-center gap-2"><FaBalanceScale className="h-4 w-4" /> Saldo</span>
-                          <div className={`text-lg font-semibold mt-1 ${net >= 0 ? "text-blue-700 dark:text-blue-300" : "text-yellow-700 dark:text-yellow-300"}`}>R$ {net.toFixed(2).replace('.', ',')}</div>
-                        </div>
-                      </div>
+                      <>
+                        <Card className="bg-[#ECFDF5] rounded-xl border-0 shadow-sm">
+                          <CardContent className="pt-4">
+                            <div className="text-xs text-[#065F46]">Pago</div>
+                            <div className="text-xl font-bold text-[#065F46]">
+                              {new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(income)}
+                            </div>
+                          </CardContent>
+                        </Card>
+                        <Card className="bg-[#FEF2F2] rounded-xl border-0 shadow-sm">
+                          <CardContent className="pt-4">
+                            <div className="text-xs text-[#991B1B]">Pendências</div>
+                            <div className="text-xl font-bold text-[#991B1B]">
+                              {new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(pending)}
+                            </div>
+                          </CardContent>
+                        </Card>
+                        <Card className="bg-[#EFF6FF] rounded-xl border-0 shadow-sm">
+                          <CardContent className="pt-4">
+                            <div className="text-xs text-[#1D4ED8]">Saldo</div>
+                            <div className={cn("text-xl font-bold", net >= 0 ? "text-[#1D4ED8]" : "text-[#D97706]")}>
+                              {new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(net)}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </>
                     );
                   })()}
                 </div>
@@ -1076,84 +1077,88 @@ const PatientRecordPage = () => {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full mt-6">
-          <TabsList className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-10 h-auto flex-wrap bg-card shadow-sm border border-border rounded-md p-2">
-            <TabsTrigger value="timeline" className="rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-colors duration-200 text-muted-foreground data-[state=active]:dark:bg-primary flex items-center">
-              <FaClock className="h-4 w-4 mr-2" /> <span className="whitespace-nowrap">Linha do Tempo</span>
+          <TabsList className="flex flex-wrap gap-4 bg-transparent border-b border-[#E5E7EB] rounded-none p-0">
+            <TabsTrigger value="timeline" className="relative -mb-px pb-3 text-[#6B7280] data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold data-[state=active]:after:content-[''] data-[state=active]:after:absolute data-[state=active]:after:left-0 data-[state=active]:after:right-0 data-[state=active]:after:-bottom-[1px] data-[state=active]:after:h-[2px] data-[state=active]:after:bg-[#0F4C5C]">
+              <FaClock className="h-4 w-4 mr-2" /> Linha do Tempo
             </TabsTrigger>
-            <TabsTrigger value="appointments" className="rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-colors duration-200 text-muted-foreground data-[state=active]:dark:bg-primary flex items-center">
-              <FaStethoscope className="h-4 w-4 mr-2" /> <span className="whitespace-nowrap">Atendimento</span>
+            <TabsTrigger value="appointments" className="relative -mb-px pb-3 text-[#6B7280] data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold data-[state=active]:after:content-[''] data-[state=active]:after:absolute data-[state=active]:after:left-0 data-[state=active]:after:right-0 data-[state=active]:after:-bottom-[1px] data-[state=active]:after:h-[2px] data-[state=active]:after:bg-[#0F4C5C]">
+              <FaStethoscope className="h-4 w-4 mr-2" /> Atendimento
             </TabsTrigger>
-            <TabsTrigger value="exams" className="rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-colors duration-200 text-muted-foreground data-[state=active]:dark:bg-primary flex items-center">
-              <FaFlask className="h-4 w-4 mr-2" /> <span className="whitespace-nowrap">Exames</span>
+            <TabsTrigger value="exams" className="relative -mb-px pb-3 text-[#6B7280] data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold data-[state=active]:after:content-[''] data-[state=active]:after:absolute data-[state=active]:after:left-0 data-[state=active]:after:right-0 data-[state=active]:after:-bottom-[1px] data-[state=active]:after:h-[2px] data-[state=active]:after:bg-[#0F4C5C]">
+              <FaFlask className="h-4 w-4 mr-2" /> Exames
             </TabsTrigger>
-            <TabsTrigger value="vaccines" className="rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-colors duration-200 text-muted-foreground data-[state=active]:dark:bg-primary flex items-center">
-              <FaSyringe className="h-4 w-4 mr-2" /> <span className="whitespace-nowrap">Vacinas</span>
+            <TabsTrigger value="vaccines" className="relative -mb-px pb-3 text-[#6B7280] data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold data-[state=active]:after:content-[''] data-[state=active]:after:absolute data-[state=active]:after:left-0 data-[state=active]:after:right-0 data-[state=active]:after:-bottom-[1px] data-[state=active]:after:h-[2px] data-[state=active]:after:bg-[#0F4C5C]">
+              <FaSyringe className="h-4 w-4 mr-2" /> Vacinas
             </TabsTrigger>
-            <TabsTrigger value="weight" className="rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-colors duration-200 text-muted-foreground data-[state=active]:dark:bg-primary flex items-center">
-              <FaWeightHanging className="h-4 w-4 mr-2" /> <span className="whitespace-nowrap">Peso</span>
+            <TabsTrigger value="weight" className="relative -mb-px pb-3 text-[#6B7280] data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold data-[state=active]:after:content-[''] data-[state=active]:after:absolute data-[state=active]:after:left-0 data-[state=active]:after:right-0 data-[state=active]:after:-bottom-[1px] data-[state=active]:after:h-[2px] data-[state=active]:after:bg-[#0F4C5C]">
+              <FaWeightHanging className="h-4 w-4 mr-2" /> Peso
             </TabsTrigger>
-            <TabsTrigger value="documents" className="rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-colors duration-200 text-muted-foreground data-[state=active]:dark:bg-primary flex items-center">
-              <FaFileAlt className="h-4 w-4 mr-2" /> <span className="whitespace-nowrap">Documentos</span>
+            <TabsTrigger value="documents" className="relative -mb-px pb-3 text-[#6B7280] data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold data-[state=active]:after:content-[''] data-[state=active]:after:absolute data-[state=active]:after:left-0 data-[state=active]:after:right-0 data-[state=active]:after:-bottom-[1px] data-[state=active]:after:h-[2px] data-[state=active]:after:bg-[#0F4C5C]">
+              <FaFileAlt className="h-4 w-4 mr-2" /> Documentos
             </TabsTrigger>
-            <TabsTrigger value="prescriptions" className="rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-colors duration-200 text-muted-foreground data-[state=active]:dark:bg-primary flex items-center">
-              <FaPrescriptionBottleAlt className="h-4 w-4 mr-2" /> <span className="whitespace-nowrap">Receitas</span>
+            <TabsTrigger value="prescriptions" className="relative -mb-px pb-3 text-[#6B7280] data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold data-[state=active]:after:content-[''] data-[state=active]:after:absolute data-[state=active]:after:left-0 data-[state=active]:after:right-0 data-[state=active]:after:-bottom-[1px] data-[state=active]:after:h-[2px] data-[state=active]:after:bg-[#0F4C5C]">
+              <FaPrescriptionBottleAlt className="h-4 w-4 mr-2" /> Receitas
             </TabsTrigger>
-            <TabsTrigger value="observations" className="rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-colors duration-200 text-muted-foreground data-[state=active]:dark:bg-primary flex items-center">
-              <FaCommentAlt className="h-4 w-4 mr-2" /> <span className="whitespace-nowrap">Observações</span>
+            <TabsTrigger value="observations" className="relative -mb-px pb-3 text-[#6B7280] data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold data-[state=active]:after:content-[''] data-[state=active]:after:absolute data-[state=active]:after:left-0 data-[state=active]:after:right-0 data-[state=active]:after:-bottom-[1px] data-[state=active]:after:h-[2px] data-[state=active]:after:bg-[#0F4C5C]">
+              <FaCommentAlt className="h-4 w-4 mr-2" /> Observações
             </TabsTrigger>
-            <TabsTrigger value="financial" className="rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-colors duration-200 text-muted-foreground data-[state=active]:dark:bg-primary flex items-center">
-              <FaMoneyBillWave className="h-4 w-4 mr-2" /> <span className="whitespace-nowrap">Financeiro</span>
+            <TabsTrigger value="financial" className="relative -mb-px pb-3 text-[#6B7280] data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold data-[state=active]:after:content-[''] data-[state=active]:after:absolute data-[state=active]:after:left-0 data-[state=active]:after:right-0 data-[state=active]:after:-bottom-[1px] data-[state=active]:after:h-[2px] data-[state=active]:after:bg-[#0F4C5C]">
+              <FaMoneyBillWave className="h-4 w-4 mr-2" /> Financeiro
             </TabsTrigger>
           </TabsList>
 
           {/* Nova Aba: Linha do Tempo */}
           <TabsContent value="timeline" className="mt-4">
-            <Card className="bg-card shadow-sm border border-border rounded-md">
+            <Card className="bg-white rounded-2xl shadow-sm border-0">
               <CardHeader className="pb-3">
-                <CardTitle className="flex items-center gap-2 text-lg font-semibold text-foreground">
-                  <FaClock className="h-5 w-5 text-primary" /> Linha do Tempo do Paciente
+                <CardTitle className="flex items-center gap-2 text-lg font-semibold text-[#0F4C5C]">
+                  <FaClock className="h-5 w-5" /> Linha do Tempo do Paciente
                 </CardTitle>
               </CardHeader>
               <CardContent className="pt-0">
                 {sortedTimelineEvents.length > 0 ? (
-                  <div className="space-y-4">
-                    {sortedTimelineEvents.map((event) => (
-                      <Card key={event.id} className="p-4 bg-input shadow-sm border border-border">
-                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-2 gap-2">
-                          <div className="flex items-center gap-2">
-                            {React.createElement(event.icon, { className: "h-4 w-4 text-muted-foreground" })}
-                            <Badge className={cn(
-                              "px-2 py-0.5 text-xs font-medium rounded-full",
-                              event.badgeColor || "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200"
-                            )}>
-                              {event.type}
-                            </Badge>
-                            <p className="text-lg font-semibold text-foreground">
-                              {event.description}
-                            </p>
-                          </div>
-                          {event.link && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => {
-                                if (event.link.startsWith("http") || event.link.startsWith("blob:")) {
-                                  window.open(event.link, "_blank");
-                                } else {
-                                  navigate(event.link);
-                                }
-                              }}
-                              className="rounded-md hover:bg-muted hover:text-foreground transition-colors duration-200"
-                            >
-                              <FaEye className="h-4 w-4" />
-                            </Button>
-                          )}
+                  <div className="relative">
+                    <div className="absolute left-3 top-0 bottom-0 w-px bg-[#E5E7EB]" />
+                    <div className="space-y-4">
+                      {sortedTimelineEvents.map((event) => (
+                        <div key={event.id} className="relative pl-8">
+                          <span className="absolute left-0 top-4 h-3 w-3 rounded-full bg-[#0F4C5C] shadow-sm" />
+                          <Card className="p-4 bg-white rounded-xl shadow-sm border border-[#E5E7EB]">
+                            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-2 gap-2">
+                              <div className="flex items-center gap-2">
+                                {React.createElement(event.icon, { className: "h-4 w-4 text-[#6B7280]" })}
+                                <Badge className={cn("px-2 py-0.5 text-xs font-medium rounded-full",
+                                  event.badgeColor || "bg-[#F3F4F6] text-[#374151]")}>
+                                  {event.type}
+                                </Badge>
+                                <p className="text-lg font-semibold text-[#111827]">
+                                  {event.description}
+                                </p>
+                              </div>
+                              {event.link && (
+                                <Button
+                                  variant="outline"
+                                  size="icon"
+                                  onClick={() => {
+                                    if (event.link.startsWith("http") || event.link.startsWith("blob:")) {
+                                      window.open(event.link, "_blank");
+                                    } else {
+                                      navigate(event.link);
+                                    }
+                                  }}
+                                  className="rounded-lg border-[#E2E8F0] text-[#374151] hover:bg-[#F3F4F6]"
+                                >
+                                  <FaEye className="h-4 w-4" />
+                                </Button>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-1 text-sm text-[#6B7280]">
+                              <FaCalendarAlt className="h-3 w-3" /> {formatDateTime(event.date, event.time)}
+                            </div>
+                          </Card>
                         </div>
-                        <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                          <FaCalendarAlt className="h-3 w-3" /> {formatDateTime(event.date, event.time)}
-                        </div>
-                      </Card>
-                    ))}
+                      ))}
+                    </div>
                   </div>
                 ) : (
                   <p className="text-muted-foreground py-4">Nenhum evento registrado para este paciente.</p>
