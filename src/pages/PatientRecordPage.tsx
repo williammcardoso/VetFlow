@@ -168,6 +168,9 @@ import CurrencyInput from "@/components/CurrencyInput";
 import { getCatalog, findCatalogItem, adjustStock } from "@/mockData/catalog";
 import { getRegistryList } from "@/mockData/registry";
 
+// ADDED: importar o conteúdo de PDF de orçamento
+import BudgetReportPdfContent from "@/components/BudgetReportPdfContent";
+
 const PatientRecordPage = () => {
   const { clientId, animalId } = useParams<{ clientId: string; animalId: string }>();
   const navigate = useNavigate();
@@ -541,29 +544,35 @@ const PatientRecordPage = () => {
     const next = patientBudgets.map(b => b.id === id ? { ...b, status: "cancelado" } : b);
     setPatientBudgets(next); writePatientBudgets(animalId, next);
   };
-  const printBudget = (b: PatientBudgetMeta) => {
-    const win = window.open("", "_blank");
-    if (!win) return;
-    const html = `
-      <html><head><title>Orçamento</title></head><body style="font-family: sans-serif; padding:16px">
-      <h2>Orçamento</h2>
-      <p><strong>Data:</strong> ${formatDateTime(b.date)}</p>
-      <table border="1" cellspacing="0" cellpadding="6" width="100%">
-        <tr><th>Item</th><th>Tipo</th><th>Qtd</th><th>Preço</th><th>Subtotal</th></tr>
-        ${b.items.map(i => `<tr>
-          <td>${i.name}</td><td>${i.type}</td><td>${i.qty}</td>
-          <td>${new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(i.unitPrice)}</td>
-          <td>${new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(i.qty*i.unitPrice)}</td>
-        </tr>`).join("")}
-      </table>
-      <p style="text-align:right"><strong>Total:</strong> ${new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(b.total)}</p>
-      <p><strong>Validade (dias):</strong> ${b.validityDays}</p>
-      ${b.observations ? `<p><strong>Observações:</strong> ${b.observations}</p>` : ""}
-      </body></html>`;
-    win.document.write(html);
-    win.document.close();
-    win.focus();
-    win.print();
+  const printBudget = async (b: PatientBudgetMeta) => {
+    if (!currentClient || !currentAnimal) {
+      toast.error("Cliente/animal não encontrados para impressão.");
+      return;
+    }
+    const budgetForPdf: any = {
+      id: b.id,
+      date: b.date,
+      status: b.status,
+      clientId: currentClient.id,
+      animalId: currentAnimal.id,
+      items: b.items.map(it => ({
+        itemId: it.itemId,
+        name: it.name,
+        qty: it.qty,
+        price: it.unitPrice,
+      })),
+      notes: b.observations,
+      validityDays: b.validityDays,
+    };
+
+    const newWin = window.open("", "_blank");
+    const blob = await pdf(<BudgetReportPdfContent budget={budgetForPdf} />).toBlob();
+    const url = URL.createObjectURL(blob);
+    if (newWin) {
+      newWin.location.href = url;
+    } else {
+      window.open(url, "_blank");
+    }
   };
 
   // Conversão: pedir atendimento na hora de converter
