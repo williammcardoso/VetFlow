@@ -27,6 +27,9 @@ import { mockPrescriptions } from "@/mockData/prescriptions";
 import { cn, formatDateTime } from "@/lib/utils"; // Importar formatDateTime
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+// NEW: importar Alert e Checkbox
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -188,6 +191,9 @@ const getNodeColorClass = (badge?: string) => {
   if (c.includes("gray")) return "bg-gray-400";
   return "bg-[#0F4C5C]";
 };
+
+// ADDED: estado para alerta em observações
+const [newObservationAlert, setNewObservationAlert] = useState<boolean>(false);
 
 const PatientRecordPage = () => {
   const { clientId, animalId } = useParams<{ clientId: string; animalId: string }>();
@@ -742,12 +748,15 @@ const PatientRecordPage = () => {
       const now = new Date();
       const newEntry: ObservationEntry = {
         id: String(observations.length + 1),
-        date: now.toISOString().split('T')[0], // Usar a data atual para a observação
+        date: now.toISOString().split('T')[0],
         time: now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
         observation: newObservation.trim(),
-      };
+        // NEW: exibir alerta no prontuário
+        displayAsAlert: newObservationAlert as any,
+      } as any;
       setObservations([...observations, newEntry]);
       setNewObservation("");
+      setNewObservationAlert(false);
     }
   };
 
@@ -1020,6 +1029,19 @@ const PatientRecordPage = () => {
         </p>
       </div>
 
+      {/* NEW: Banner de Alerta flutuante no topo do prontuário (se houver observação marcada) */}
+      {(() => {
+        const alertObservation = observations.find((o: any) => o.displayAsAlert);
+        return alertObservation ? (
+          <div className="px-6 pt-4">
+            <Alert className="bg-amber-50 border-amber-200 text-amber-900 rounded-xl shadow-sm">
+              <AlertTitle className="font-semibold">Alerta do Prontuário</AlertTitle>
+              <AlertDescription className="text-sm">{alertObservation.observation}</AlertDescription>
+            </Alert>
+          </div>
+        ) : null;
+      })()}
+
       <div className="flex-1 p-6">
         <div className="mb-6">
           <Card className="bg-white rounded-2xl shadow-sm border-0">
@@ -1028,18 +1050,14 @@ const PatientRecordPage = () => {
                 {currentAnimal.name}
               </CardTitle>
               <div className="flex flex-wrap items-center gap-2">
-                <Button variant="outline" className="rounded-lg border-[#E2E8F0] text-[#374151] hover:bg-[#F3F4F6]">
-                  <FaPrint className="mr-2 h-4 w-4" /> Imprimir PDF
-                </Button>
                 <Button variant="outline" onClick={handleEditAnimal} className="rounded-lg border-[#E2E8F0] text-[#374151] hover:bg-[#F3F4F6]">
-                  <FaEdit className="mr-2 h-4 w-4" /> Editar
+                  <FaEdit className="mr-2 h-4 w-4" /> Editar Paciente
                 </Button>
               </div>
             </CardHeader>
             <CardContent className="pt-0">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Perfil do Pet + chips e dados compactos */}
-                <div className="flex items-start gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="flex items-start gap-4 md:col-span-1">
                   <Avatar className="h-16 w-16 rounded-full ring-2 ring-white shadow-sm">
                     <AvatarImage src={undefined} />
                     <AvatarFallback className="bg-[#0F4C5C] text-white text-lg font-bold">
@@ -1048,129 +1066,122 @@ const PatientRecordPage = () => {
                   </Avatar>
                   <div className="flex-1">
                     <div className="flex flex-wrap gap-2 mb-2">
-                      <span className="px-3 py-1 rounded-full text-xs font-medium bg-[#F5F7FA] text-[#374151] border border-[#E5E7EB]">
+                      <span className="px-3 py-1 rounded-full text-xs font-medium bg-[#F5F7FA] text-[#374151] border border-[#E5E7EB] whitespace-nowrap">
                         Espécie: <span className="font-semibold text-[#111827]">{currentAnimal.species}</span>
                       </span>
-                      <span className="px-3 py-1 rounded-full text-xs font-medium bg-[#F5F7FA] text-[#374151] border border-[#E5E7EB]">
+                      <span className="px-3 py-1 rounded-full text-xs font-medium bg-[#F5F7FA] text-[#374151] border border-[#E5E7EB] whitespace-nowrap">
                         Raça: <span className="font-semibold text-[#111827]">{currentAnimal.breed}</span>
                       </span>
-                      <span className="px-3 py-1 rounded-full text-xs font-medium bg-[#F5F7FA] text-[#374151] border border-[#E5E7EB]">
+                      <span className="px-3 py-1 rounded-full text-xs font-medium bg-[#F5F7FA] text-[#374151] border border-[#E5E7EB] whitespace-nowrap">
                         Idade: <span className="font-semibold text-[#111827]">{calculateAge(currentAnimal.birthday)}</span>
                       </span>
-                      <span className="px-3 py-1 rounded-full text-xs font-medium bg-[#F5F7FA] text-[#374151] border border-[#E5E7EB]">
+                      <span className="px-3 py-1 rounded-full text-xs font-medium bg-[#F5F7FA] text-[#374151] border border-[#E5E7EB] whitespace-nowrap">
                         Peso: <span className="font-semibold text-[#111827]">{currentAnimal.weight.toFixed(1)} kg</span>
                       </span>
-                    </div>
-                    {/* Linha adicional: Sexo, Nascimento, Alergias */}
-                    <div className="flex flex-wrap gap-2">
-                      <span className="px-2 py-1 rounded-full text-xs bg-[#F3F4F6] text-[#374151] border border-[#E5E7EB]">
+                      <span className="px-3 py-1 rounded-full text-xs font-medium bg-[#F5F7FA] text-[#374151] border border-[#E5E7EB] whitespace-nowrap">
                         Sexo: <span className="font-semibold text-[#111827]">{currentAnimal.gender}</span>
                       </span>
-                      <span className="px-2 py-1 rounded-full text-xs bg-[#F3F4F6] text-[#374151] border border-[#E5E7EB]">
+                      <span className="px-3 py-1 rounded-full text-xs font-medium bg-[#F5F7FA] text-[#374151] border border-[#E5E7EB] whitespace-nowrap">
                         Nasc.: <span className="font-semibold text-[#111827]">{formatDateTime(currentAnimal.birthday || '')}</span>
-                      </span>
-                      <span className={cn(
-                        "px-2 py-1 rounded-full text-xs border",
-                        currentAnimal.notes && currentAnimal.notes.length > 0
-                          ? "bg-[#FEF2F2] text-[#991B1B] border-[#FCA5A5] font-semibold"
-                          : "bg-[#F3F4F6] text-[#374151] border-[#E5E7EB]"
-                      )}>
-                        Alergias: {currentAnimal.notes && currentAnimal.notes.length > 0 ? "Ver observações" : "Nenhuma"}
                       </span>
                     </div>
                   </div>
                 </div>
 
-                {/* Coluna do Tutor ao lado da foto */}
-                <div className="space-y-2">
+                <div className="space-y-2 md:mr-6">
                   <p className="text-sm text-[#6B7280]">Tutor Responsável</p>
                   <div className="p-3 bg-[#F9FAFB] rounded-lg border border-[#E5E7EB]">
                     <p className="text-sm"><span className="font-semibold text-[#111827]">Nome:</span> {currentClient.name}</p>
-                    <p className="text-sm"><span className="font-semibold text-[#111827]">{currentClient.clientType === "physical" ? "CPF" : "CNPJ"}:</span> {currentClient.identificationNumber}</p>
-                    <p className="text-sm"><span className="font-semibold text-[#111827]">Telefone:</span> {currentClient.mainPhoneContact}</p>
+                    <p className="text-sm flex items-center gap-2">
+                      <FaIdCard className="h-3 w-3 text-[#6B7280]" />
+                      <span className="font-semibold text-[#111827]">{currentClient.clientType === "physical" ? "CPF" : "CNPJ"}:</span> {currentClient.identificationNumber}
+                    </p>
+                    <p className="text-sm flex items-center gap-2">
+                      <FaPhone className="h-3 w-3 text-[#6B7280]" />
+                      <span className="font-semibold text-[#111827]">Telefone:</span> {currentClient.mainPhoneContact}
+                    </p>
                   </div>
                 </div>
-              </div>
 
-              {/* Resumo financeiro pastel (mantido) */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                {(() => {
-                  const income = mockFinancialTransactions.filter(t => t.relatedAnimalId === animalId && t.type === 'income').reduce((s, t) => s + t.amount, 0);
-                  const expense = mockFinancialTransactions.filter(t => t.relatedAnimalId === animalId && t.type === 'expense').reduce((s, t) => s + t.amount, 0);
-                  const net = income - expense;
-                  const pending = Math.max(0, patientSales.reduce((sum, s) => sum + s.total, 0) - patientPayments.reduce((sum, p) => sum + p.amount, 0));
+                <div className="grid grid-cols-1 gap-3 md:col-span-1">
+                  {(() => {
+                    const income = mockFinancialTransactions.filter(t => t.relatedAnimalId === animalId && t.type === 'income').reduce((s, t) => s + t.amount, 0);
+                    const expense = mockFinancialTransactions.filter(t => t.relatedAnimalId === animalId && t.type === 'expense').reduce((s, t) => s + t.amount, 0);
+                    const net = income - expense;
+                    const pending = Math.max(0, patientSales.reduce((sum, s) => sum + s.total, 0) - patientPayments.reduce((sum, p) => sum + p.amount, 0));
 
-                  return (
-                    <>
-                      <Card className="bg-[#ECFDF5] rounded-xl border-0 shadow-sm">
-                        <CardContent className="pt-4">
-                          <div className="text-xs text-[#065F46]">Pago</div>
-                          <div className="text-xl font-bold text-[#065F46]">
-                            {new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(income)}
-                          </div>
-                        </CardContent>
-                      </Card>
-                      <Card className="bg-[#FEF2F2] rounded-xl border-0 shadow-sm">
-                        <CardContent className="pt-4">
-                          <div className="text-xs text-[#991B1B]">Pendências</div>
-                          <div className="text-xl font-bold text-[#991B1B]">
-                            {new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(pending)}
-                          </div>
-                        </CardContent>
-                      </Card>
-                      <Card className="bg-[#EFF6FF] rounded-xl border-0 shadow-sm">
-                        <CardContent className="pt-4">
-                          <div className="text-xs text-[#1D4ED8]">Saldo</div>
-                          <div className={cn("text-xl font-bold", net >= 0 ? "text-[#1D4ED8]" : "text-[#D97706]")}>
-                            {new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(net)}
-                          </div>
-                        </CardContent>
-                      </Card>
-                    </>
-                  );
-                })()}
+                    return (
+                      <>
+                        <Card className="bg-[#ECFDF5] rounded-xl border-0 shadow-sm">
+                          <CardContent className="pt-4">
+                            <div className="text-xs text-[#065F46]">Pago</div>
+                            <div className="text-xl font-bold text-[#065F46]">
+                              {new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(income)}
+                            </div>
+                          </CardContent>
+                        </Card>
+                        <Card className="bg-[#FEF2F2] rounded-xl border-0 shadow-sm">
+                          <CardContent className="pt-4">
+                            <div className="text-xs text-[#991B1B]">Pendências</div>
+                            <div className="text-xl font-bold text-[#991B1B]">
+                              {new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(pending)}
+                            </div>
+                          </CardContent>
+                        </Card>
+                        <Card className="bg-[#EFF6FF] rounded-xl border-0 shadow-sm">
+                          <CardContent className="pt-4">
+                            <div className="text-xs text-[#1D4ED8]">Saldo</div>
+                            <div className={cn("text-xl font-bold", net >= 0 ? "text-[#1D4ED8]" : "text-[#D97706]")}>
+                              {new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(net)}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </>
+                    );
+                  })()}
+                </div>
               </div>
             </CardContent>
           </Card>
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full mt-6">
-          <TabsList className="flex flex-wrap gap-4 bg-transparent border-b border-[#E5E7EB] rounded-none p-0">
-            <TabsTrigger value="timeline" className="relative -mb-px pb-3 text-[#6B7280] data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold data-[state=active]:after:content-[''] data-[state=active]:after:absolute data-[state=active]:after:left-0 data-[state=active]:after:right-0 data-[state=active]:after:-bottom-[1px] data-[state=active]:after:h-[2px] data-[state=active]:after:bg-[#0F4C5C]">
+          <TabsList className="flex flex-nowrap gap-3 overflow-x-auto bg-transparent border-b border-[#E5E7EB] rounded-none p-0">
+            <TabsTrigger value="timeline" className="relative -mb-px pb-2 px-2 whitespace-nowrap text-[#6B7280] data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold data-[state=active]:after:content-[''] data-[state=active]:after:absolute data-[state=active]:after:left-0 data-[state=active]:after:right-0 data-[state=active]:after:-bottom-[1px] data-[state=active]:after:h-[2px] data-[state=active]:after:bg-[#0F4C5C]">
               <FaClock className="h-4 w-4 mr-2" /> Linha do Tempo
-              <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[10px] bg-[#F3F4F6] text-[#374151]">{sortedTimelineEvents.length}</span>
+              <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[9px] bg-[#F3F4F6] text-[#374151]">{sortedTimelineEvents.length}</span>
             </TabsTrigger>
-            <TabsTrigger value="appointments" className="relative -mb-px pb-3 text-[#6B7280] data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold data-[state=active]:after:content-[''] data-[state=active]:after:absolute data-[state=active]:after:left-0 data-[state=active]:after:right-0 data-[state=active]:after:-bottom-[1px] data-[state=active]:after:h-[2px] data-[state=active]:after:bg-[#0F4C5C]">
+            <TabsTrigger value="appointments" className="relative -mb-px pb-2 px-2 whitespace-nowrap text-[#6B7280] data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold data-[state=active]:after:content-[''] data-[state=active]:after:absolute data-[state=active]:after:left-0 data-[state=active]:after:right-0 data-[state=active]:after:-bottom-[1px] data-[state=active]:after:h-[2px] data-[state=active]:after:bg-[#0F4C5C]">
               <FaStethoscope className="h-4 w-4 mr-2" /> Atendimento
-              <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[10px] bg-[#F3F4F6] text-[#374151]">{animalAppointments.length}</span>
+              <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[9px] bg-[#F3F4F6] text-[#374151]">{animalAppointments.length}</span>
             </TabsTrigger>
-            <TabsTrigger value="exams" className="relative -mb-px pb-3 text-[#6B7280] data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold data-[state=active]:after:content-[''] data-[state=active]:after:absolute data-[state=active]:after:left-0 data-[state=active]:after:right-0 data-[state=active]:after:-bottom-[1px] data-[state=active]:after:h-[2px] data-[state=active]:after:bg-[#0F4C5C]">
+            <TabsTrigger value="exams" className="relative -mb-px pb-2 px-2 whitespace-nowrap text-[#6B7280] data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold data-[state=active]:after:content-[''] data-[state=active]:after:absolute data-[state=active]:after:left-0 data-[state=active]:after:right-0 data-[state=active]:after:-bottom-[1px] data-[state=active]:after:h-[2px] data-[state=active]:after:bg-[#0F4C5C]">
               <FaFlask className="h-4 w-4 mr-2" /> Exames
-              <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[10px] bg-[#F3F4F6] text-[#374151]">{examsList.length}</span>
+              <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[9px] bg-[#F3F4F6] text-[#374151]">{examsList.length}</span>
             </TabsTrigger>
-            <TabsTrigger value="vaccines" className="relative -mb-px pb-3 text-[#6B7280] data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold data-[state=active]:after:content-[''] data-[state=active]:after:absolute data-[state=active]:after:left-0 data-[state=active]:after:right-0 data-[state=active]:after:-bottom-[1px] data-[state=active]:after:h-[2px] data-[state=active]:after:bg-[#0F4C5C]">
+            <TabsTrigger value="vaccines" className="relative -mb-px pb-2 px-2 whitespace-nowrap text-[#6B7280] data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold data-[state=active]:after:content-[''] data-[state=active]:after:absolute data-[state=active]:after:left-0 data-[state=active]:after:right-0 data-[state=active]:after:-bottom-[1px] data-[state=active]:after:h-[2px] data-[state=active]:after:bg-[#0F4C5C]">
               <FaSyringe className="h-4 w-4 mr-2" /> Vacinas
-              <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[10px] bg-[#F3F4F6] text-[#374151]">{vaccines.length}</span>
+              <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[9px] bg-[#F3F4F6] text-[#374151]">{vaccines.length}</span>
             </TabsTrigger>
-            <TabsTrigger value="weight" className="relative -mb-px pb-3 text-[#6B7280] data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold data-[state=active]:after:content-[''] data-[state=active]:after:absolute data-[state=active]:after:left-0 data-[state=active]:after:right-0 data-[state=active]:after:-bottom-[1px] data-[state=active]:after:h-[2px] data-[state=active]:after:bg-[#0F4C5C]">
+            <TabsTrigger value="weight" className="relative -mb-px pb-2 px-2 whitespace-nowrap text-[#6B7280] data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold data-[state=active]:after:content-[''] data-[state=active]:after:absolute data-[state=active]:after:left-0 data-[state=active]:after:right-0 data-[state=active]:after:-bottom-[1px] data-[state=active]:after:h-[2px] data-[state=active]:after:bg-[#0F4C5C]">
               <FaWeightHanging className="h-4 w-4 mr-2" /> Peso
-              <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[10px] bg-[#F3F4F6] text-[#374151]">{weightHistory.length}</span>
+              <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[9px] bg-[#F3F4F6] text-[#374151]">{weightHistory.length}</span>
             </TabsTrigger>
-            <TabsTrigger value="documents" className="relative -mb-px pb-3 text-[#6B7280] data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold data-[state=active]:after:content-[''] data-[state=active]:after:absolute data-[state=active]:after:left-0 data-[state=active]:after:right-0 data-[state=active]:after:-bottom-[1px] data-[state=active]:after:h-[2px] data-[state=active]:after:bg-[#0F4C5C]">
+            <TabsTrigger value="documents" className="relative -mb-px pb-2 px-2 whitespace-nowrap text-[#6B7280] data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold data-[state=active]:after:content-[''] data-[state=active]:after:absolute data-[state=active]:after:left-0 data-[state=active]:after:right-0 data-[state=active]:after:-bottom-[1px] data-[state=active]:after:h-[2px] data-[state=active]:after:bg-[#0F4C5C]">
               <FaFileAlt className="h-4 w-4 mr-2" /> Documentos
-              <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[10px] bg-[#F3F4F6] text-[#374151]">{documents.length}</span>
+              <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[9px] bg-[#F3F4F6] text-[#374151]">{documents.length}</span>
             </TabsTrigger>
-            <TabsTrigger value="prescriptions" className="relative -mb-px pb-3 text-[#6B7280] data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold data-[state=active]:after:content-[''] data-[state=active]:after:absolute data-[state=active]:after:left-0 data-[state=active]:after:right-0 data-[state=active]:after:-bottom-[1px] data-[state=active]:after:h-[2px] data-[state=active]:after:bg-[#0F4C5C]">
+            <TabsTrigger value="prescriptions" className="relative -mb-px pb-2 px-2 whitespace-nowrap text-[#6B7280] data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold data-[state=active]:after:content-[''] data-[state=active]:after:absolute data-[state=active]:after:left-0 data-[state=active]:after:right-0 data-[state=active]:after:-bottom-[1px] data-[state=active]:after:h-[2px] data-[state=active]:after:bg-[#0F4C5C]">
               <FaPrescriptionBottleAlt className="h-4 w-4 mr-2" /> Receitas
-              <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[10px] bg-[#F3F4F6] text-[#374151]">{prescriptions.length}</span>
+              <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[9px] bg-[#F3F4F6] text-[#374151]">{prescriptions.length}</span>
             </TabsTrigger>
-            <TabsTrigger value="observations" className="relative -mb-px pb-3 text-[#6B7280] data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold data-[state=active]:after:content-[''] data-[state=active]:after:absolute data-[state=active]:after:left-0 data-[state=active]:after:right-0 data-[state=active]:after:-bottom-[1px] data-[state=active]:after:h-[2px] data-[state=active]:after:bg-[#0F4C5C]">
+            <TabsTrigger value="observations" className="relative -mb-px pb-2 px-2 whitespace-nowrap text-[#6B7280] data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold data-[state=active]:after:content-[''] data-[state=active]:after:absolute data-[state=active]:after:left-0 data-[state=active]:after:right-0 data-[state=active]:after:-bottom-[1px] data-[state=active]:after:h-[2px] data-[state=active]:after:bg-[#0F4C5C]">
               <FaCommentAlt className="h-4 w-4 mr-2" /> Observações
-              <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[10px] bg-[#F3F4F6] text-[#374151]">{observations.length}</span>
+              <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[9px] bg-[#F3F4F6] text-[#374151]">{observations.length}</span>
             </TabsTrigger>
-            <TabsTrigger value="financial" className="relative -mb-px pb-3 text-[#6B7280] data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold data-[state=active]:after:content-[''] data-[state=active]:after:absolute data-[state=active]:after:left-0 data-[state=active]:after:right-0 data-[state=active]:after:-bottom-[1px] data-[state=active]:after:h-[2px] data-[state=active]:after:bg-[#0F4C5C]">
+            <TabsTrigger value="financial" className="relative -mb-px pb-2 px-2 whitespace-nowrap text-[#6B7280] data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold data-[state=active]:after:content-[''] data-[state=active]:after:absolute data-[state=active]:after:left-0 data-[state=active]:after:right-0 data-[state=active]:after:-bottom-[1px] data-[state=active]:after:h-[2px] data-[state=active]:after:bg-[#0F4C5C]">
               <FaMoneyBillWave className="h-4 w-4 mr-2" /> Financeiro
-              <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[10px] bg-[#F3F4F6] text-[#374151]">{patientSales.length}</span>
+              <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[9px] bg-[#F3F4F6] text-[#374151]">{patientSales.length}</span>
             </TabsTrigger>
           </TabsList>
 
@@ -1636,13 +1647,17 @@ const PatientRecordPage = () => {
                 </Button>
               </CardHeader>
               <CardContent className="pt-0">
-                <div className="mb-4">
+                <div className="mb-4 space-y-3">
                   <Textarea
                     placeholder="Adicione uma nova observação..."
                     value={newObservation}
                     onChange={(e) => setNewObservation(e.target.value)}
                     className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200"
                   />
+                  <label className="flex items-center gap-2 text-sm text-[#374151]">
+                    <Checkbox checked={newObservationAlert} onCheckedChange={(v) => setNewObservationAlert(!!v)} />
+                    Exibir como Alerta no Prontuário
+                  </label>
                 </div>
                 {observations.length > 0 ? (
                   <div className="space-y-4">
