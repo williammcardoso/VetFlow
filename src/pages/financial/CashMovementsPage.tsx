@@ -9,12 +9,54 @@ import { getRegistryList } from "@/mockData/registry";
 import { formatDateTime } from "@/lib/utils";
 import { toast } from "sonner";
 import CurrencyInput from "@/components/CurrencyInput";
+import { Wallet, ArrowUpRight, ArrowDownRight, TrendingUp, Pill, Home, Package, Syringe, Stethoscope } from "lucide-react";
 
 const withinRange = (dateStr: string, from?: string, to?: string) => {
   const dt = new Date(`${dateStr}T00:00`);
   const f = from ? new Date(`${from}T00:00`) : undefined;
   const t = to ? new Date(`${to}T23:59`) : undefined;
   return (!f || dt >= f) && (!t || dt <= t);
+};
+
+const Sparkline = ({ points = [], color = "#0ea5a3" }: { points: number[]; color?: string }) => {
+  const width = 120;
+  const height = 36;
+  const padding = 6;
+  const max = Math.max(1, ...points);
+  const step = points.length > 1 ? (width - padding * 2) / (points.length - 1) : 0;
+
+  const path = points
+    .map((v, i) => {
+      const x = padding + i * step;
+      const y = height - padding - (v / max) * (height - padding * 2);
+      return `${i === 0 ? "M" : "L"} ${x} ${y}`;
+    })
+    .join(" ");
+
+  return (
+    <svg width={width} height={height} className="w-[120px] h-[36px]">
+      <path d={path} stroke={color} strokeWidth={2} fill="none" />
+    </svg>
+  );
+};
+
+const seriesByDay = (items: { date: string; amount: number }[]) => {
+  const map: Record<string, number> = {};
+  items.forEach((i) => {
+    map[i.date] = (map[i.date] || 0) + i.amount;
+  });
+  const keys = Object.keys(map).sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
+  return keys.map((k) => map[k]);
+};
+
+const categoryIcon = (category?: string) => {
+  const c = (category || "").toLowerCase();
+  if (c.includes("medic")) return Pill;
+  if (c.includes("aluguel") || c.includes("fixa")) return Home;
+  if (c.includes("estoque")) return Package;
+  if (c.includes("vacina")) return Syringe;
+  if (c.includes("atendimento")) return Stethoscope;
+  return Wallet;
 };
 
 const CashMovementsPage: React.FC = () => {
@@ -51,6 +93,10 @@ const CashMovementsPage: React.FC = () => {
       .filter(t => withinRange(t.date, dateFrom, dateTo));
   }, [dateFrom, dateTo]);
 
+  // ADD: séries para sparklines
+  const incomeSeries = useMemo(() => seriesByDay(receipts.map(r => ({ date: r.date, amount: r.amount }))), [receipts]);
+  const expenseSeries = useMemo(() => seriesByDay(manualExpenses.map(e => ({ date: e.date, amount: e.amount }))), [manualExpenses]);
+
   const totals = useMemo(() => {
     const income = receipts.reduce((s, t) => s + t.amount, 0);
     const expense = manualExpenses.reduce((s, t) => s + t.amount, 0);
@@ -80,80 +126,87 @@ const CashMovementsPage: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-background">
-      {/* Cabeçalho */}
-      <div className="bg-gradient-to-r from-background via-card to-background p-6 pb-4 border-b border-border">
+    <div className="flex flex-col min-h-screen bg-[#F8F9FC]">
+      {/* Header Modern */}
+      <div className="p-6 pb-4 border-b border-border bg-[#F8F9FC]">
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-semibold flex items-center gap-3 text-foreground">
-            <FaWallet className="h-5 w-5 text-muted-foreground" /> Caixa / Movimentações
+          <h1 className="text-2xl font-bold flex items-center gap-3 text-foreground">
+            <Wallet className="h-5 w-5 text-muted-foreground" /> Caixa / Movimentações
           </h1>
+          {/* Ações rápidas visuais (opcional) */}
         </div>
         <p className="text-sm text-muted-foreground">Painel &gt; Financeiro &gt; Caixa / Movimentações</p>
       </div>
 
-      {/* Filtros de período */}
+      {/* Filtros compactos */}
       <div className="p-6 grid grid-cols-1 md:grid-cols-4 gap-3">
         <div>
           <label className="text-xs text-muted-foreground">De</label>
-          <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="h-9 bg-input border border-border rounded-md" />
+          <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="h-9 bg-white border border-border rounded-md" />
         </div>
         <div>
           <label className="text-xs text-muted-foreground">Até</label>
-          <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="h-9 bg-input border border-border rounded-md" />
+          <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="h-9 bg-white border border-border rounded-md" />
         </div>
       </div>
 
-      {/* Resumo financeiro destacado */}
+      {/* KPI Cards com glassmorphism leve e sparklines */}
       <div className="px-6 grid gap-4 grid-cols-1 md:grid-cols-3 mb-4">
-        <Card className="shadow-sm hover:shadow-md transition-all">
+        <Card className="bg-white/90 backdrop-blur-sm rounded-[12px] shadow-sm hover:shadow-md transition-all border-0">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Entradas (Recebimentos)</CardTitle>
-            <FaArrowUp className="h-5 w-5 text-green-500" />
+            <CardTitle className="text-sm font-medium">Entradas</CardTitle>
+            <ArrowUpRight className="h-5 w-5 text-emerald-600" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600 dark:text-green-400">
-              {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(totals.income)}
+          <CardContent className="pt-0">
+            <div className="flex items-center justify-between">
+              <div className="text-2xl font-bold text-emerald-700">
+                {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(totals.income)}
+              </div>
+              <Sparkline points={incomeSeries} color="#059669" />
             </div>
-            <p className="text-xs text-muted-foreground">Somatório de recebimentos automáticos do período.</p>
+            <p className="text-xs text-muted-foreground mt-1">Recebimentos no período</p>
           </CardContent>
         </Card>
 
-        <Card className="shadow-sm hover:shadow-md transition-all">
+        <Card className="bg-white/90 backdrop-blur-sm rounded-[12px] shadow-sm hover:shadow-md transition-all border-0">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Saídas (Ajustes)</CardTitle>
-            <FaArrowDown className="h-5 w-5 text-red-500" />
+            <CardTitle className="text-sm font-medium">Saídas</CardTitle>
+            <ArrowDownRight className="h-5 w-5 text-red-600" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-red-600 dark:text-red-400">
-              {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(totals.expense)}
+          <CardContent className="pt-0">
+            <div className="flex items-center justify-between">
+              <div className="text-2xl font-bold text-red-700">
+                {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(totals.expense)}
+              </div>
+              <Sparkline points={expenseSeries} color="#dc2626" />
             </div>
-            <p className="text-xs text-muted-foreground">Saídas manuais registradas no período.</p>
+            <p className="text-xs text-muted-foreground mt-1">Ajustes/saídas registradas</p>
           </CardContent>
         </Card>
 
-        <Card className="shadow-sm hover:shadow-md transition-all">
+        <Card className={cn("rounded-[12px] shadow-sm hover:shadow-md transition-all border-0", totals.net >= 0 ? "bg-emerald-50" : "bg-red-50")}>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Saldo</CardTitle>
-            <FaWallet className="h-5 w-5 text-primary" />
+            <TrendingUp className={cn("h-5 w-5", totals.net >= 0 ? "text-emerald-600" : "text-red-600")} />
           </CardHeader>
-          <CardContent>
-            <div className={`text-2xl font-bold ${totals.net >= 0 ? "text-primary" : "text-destructive"}`}>
+          <CardContent className="pt-0">
+            <div className={cn("text-2xl font-bold", totals.net >= 0 ? "text-emerald-700" : "text-red-700")}>
               {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(totals.net)}
             </div>
-            <p className="text-xs text-muted-foreground">Entradas menos saídas no período selecionado.</p>
+            <div className={cn("mt-2 h-2 rounded-l-[6px]", totals.net >= 0 ? "bg-emerald-200" : "bg-red-200")}></div>
+            <p className="text-xs text-muted-foreground mt-1">Entradas - Saídas</p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Formulário de saída/ajuste + Lista de movimentações */}
+      {/* Main: Formulário e Feed de Movimentações */}
       <div className="px-6 grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Formulário com validações obrigatórias */}
-        <Card className="border border-border">
+        {/* Formulário compacto com botão primário arredondado */}
+        <Card className="bg-white rounded-[12px] shadow-sm border border-border">
           <CardHeader className="pb-2">
             <CardTitle className="text-base">Nova saída / ajuste administrativo</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {/* Linha 1: Data + Categoria (agrupados) */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
               <div>
                 <label className="text-xs text-muted-foreground">Data</label>
@@ -161,7 +214,7 @@ const CashMovementsPage: React.FC = () => {
                   type="date"
                   value={outDate}
                   onChange={(e) => setOutDate(e.target.value)}
-                  className="h-9 bg-input border border-border rounded-md"
+                  className="h-9 bg-white border border-border rounded-md"
                 />
                 <div className="min-h-4">
                   {expenseErrors.outDate && <p className="text-xs text-destructive mt-1">{expenseErrors.outDate}</p>}
@@ -172,7 +225,7 @@ const CashMovementsPage: React.FC = () => {
                 <Input
                   value={outCategory}
                   onChange={(e) => setOutCategory(e.target.value)}
-                  className="h-9 bg-input border border-border rounded-md"
+                  className="h-9 bg-white border border-border rounded-md"
                   placeholder="Ex.: Despesa"
                 />
                 <div className="min-h-4">
@@ -181,13 +234,12 @@ const CashMovementsPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Linha 2: Descrição (destaque) */}
             <div>
               <label className="text-xs text-muted-foreground">Descrição</label>
               <Input
                 value={outDescription}
                 onChange={(e) => setOutDescription(e.target.value)}
-                className="h-10 bg-input border border-border rounded-md"
+                className="h-10 bg-white border border-border rounded-md"
                 placeholder="Ex.: Ajuste de caixa"
               />
               <div className="min-h-4">
@@ -195,7 +247,6 @@ const CashMovementsPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Linha 3: Valor (prioritário) + Forma de pagamento (alinhada) */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2 items-end">
               <div>
                 <label className="text-xs text-muted-foreground">Valor</label>
@@ -211,7 +262,7 @@ const CashMovementsPage: React.FC = () => {
               <div>
                 <label className="text-xs text-muted-foreground">Forma de pagamento</label>
                 <Select value={outMethodId} onValueChange={setOutMethodId}>
-                  <SelectTrigger className="h-11 bg-input border border-border rounded-md">
+                  <SelectTrigger className="h-11 bg-white border border-border rounded-md">
                     <SelectValue placeholder="Selecione" />
                   </SelectTrigger>
                   <SelectContent>
@@ -228,9 +279,8 @@ const CashMovementsPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Ação claramente associada ao formulário */}
             <div className="flex justify-end">
-              <Button onClick={handleAddExpense} className="h-9 px-4" disabled={!isExpenseValid}>
+              <Button onClick={handleAddExpense} className="h-10 px-5 rounded-lg bg-teal-600 hover:bg-teal-700 text-white font-semibold transition-colors" disabled={!isExpenseValid}>
                 Registrar saída
               </Button>
             </div>
@@ -241,8 +291,8 @@ const CashMovementsPage: React.FC = () => {
           </CardContent>
         </Card>
 
-        {/* Lista de movimentações com origem e diferenciação visual */}
-        <Card className="border border-border">
+        {/* Feed de atividades limpo com ícones circulares por categoria */}
+        <Card className="bg-white rounded-[12px] shadow-sm border border-border">
           <CardHeader className="pb-2">
             <CardTitle className="text-base">Movimentações</CardTitle>
           </CardHeader>
@@ -250,44 +300,32 @@ const CashMovementsPage: React.FC = () => {
             {[...receipts, ...manualExpenses]
               .sort((a, b) => new Date(`${b.date}T${b.time}`).getTime() - new Date(`${a.date}T${a.time}`).getTime())
               .map(mov => {
-                const isAutomatic = mov.type === "income" && (mov.category === "Recebimento" || !!mov.saleId);
-                const originLabel = isAutomatic ? `Automática${mov.saleId ? ` • Venda ${mov.saleId}` : ""}` : "Ajuste administrativo";
-
+                const Icon = categoryIcon(mov.category);
+                const isIncome = mov.type === "income";
                 return (
-                  <Card key={mov.id} className="p-4 bg-card border border-border">
-                    {/* Linha 1: Tipo + Valor (valor destacado) */}
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${mov.type === "income" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}>
-                          {mov.type === "income" ? "Entrada" : "Saída"}
+                  <div key={mov.id} className="p-3 bg-[#F8F9FA] rounded-[12px] border border-border flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className={cn("h-8 w-8 rounded-full flex items-center justify-center", isIncome ? "bg-emerald-100" : "bg-red-100")}>
+                        <Icon className={cn("h-4 w-4", isIncome ? "text-emerald-700" : "text-red-700")} />
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-sm font-semibold text-foreground">{mov.description}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {formatDateTime(mov.date, mov.time)} • {mov.category} • {mov.paymentMethod || "N/A"}
                         </span>
                       </div>
-                      <div className={`text-xl font-bold ${mov.type === "income" ? "text-green-600" : "text-red-600"}`}>
-                        {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(mov.amount)}
-                      </div>
                     </div>
-
-                    {/* Linha 2: Descrição principal */}
-                    <div className="mt-1">
-                      <p className="text-sm font-medium text-foreground">{mov.description}</p>
+                    <div className={cn("text-sm font-bold", isIncome ? "text-emerald-700" : "text-red-700")}>
+                      {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(mov.amount)}
                     </div>
-
-                    {/* Linha 3: Data e hora */}
-                    <div className="mt-1 text-xs text-muted-foreground">
-                      {formatDateTime(mov.date, mov.time)}
-                    </div>
-
-                    {/* Linha 4: Metadados agrupados (categoria, forma de pagamento, origem) */}
-                    <div className="mt-2 text-xs text-muted-foreground">
-                      <div className="flex flex-wrap gap-x-4 gap-y-1">
-                        <span>Categoria: {mov.category}</span>
-                        <span>Pagamento: {mov.paymentMethod || "N/A"}</span>
-                        <span>Origem: {originLabel}</span>
-                      </div>
-                    </div>
-                  </Card>
+                  </div>
                 );
               })}
+            {([...receipts, ...manualExpenses].length === 0) && (
+              <div className="p-3 bg-[#F8F9FA] rounded-[12px] border border-border text-xs text-muted-foreground">
+                Nenhuma movimentação no período selecionado.
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
