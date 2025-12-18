@@ -175,6 +175,20 @@ import { getRegistryList } from "@/mockData/registry";
 // ADDED: importar o conteúdo de PDF de orçamento
 import BudgetReportPdfContent from "@/components/BudgetReportPdfContent";
 
+// Helper para cor da bolinha baseado na cor do badge da timeline
+const getNodeColorClass = (badge?: string) => {
+  const c = (badge || "").toLowerCase();
+  if (c.includes("green")) return "bg-green-500";
+  if (c.includes("red")) return "bg-red-500";
+  if (c.includes("purple")) return "bg-purple-500";
+  if (c.includes("yellow")) return "bg-yellow-500";
+  if (c.includes("blue")) return "bg-blue-500";
+  if (c.includes("teal")) return "bg-teal-500";
+  if (c.includes("orange")) return "bg-orange-500";
+  if (c.includes("gray")) return "bg-gray-400";
+  return "bg-[#0F4C5C]";
+};
+
 const PatientRecordPage = () => {
   const { clientId, animalId } = useParams<{ clientId: string; animalId: string }>();
   const navigate = useNavigate();
