@@ -26,14 +26,14 @@ const styles = StyleSheet.create({
   clinicInfoBlock: { flexDirection: "column", alignItems: "flex-end", flexGrow: 1 },
   clinicName: { fontSize: 16, fontWeight: "bold", color: "#111827" },
   clinicInfo: { fontSize: 10, color: "#374151", marginTop: 2, textAlign: "right" },
-  divider: { height: 2, backgroundColor: "#E5E7EB", marginTop: 10, marginBottom: 14 },
+  divider: { height: 2, backgroundColor: "#E5E7EB", marginTop: 10, marginBottom: 12 },
 
   // Título e identificação
   docTitleRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "baseline",
-    marginBottom: 10, // compactado
+    marginBottom: 8, // compactado
   },
   docTitle: {
     fontSize: 18,
@@ -44,12 +44,12 @@ const styles = StyleSheet.create({
   },
   docNumber: { fontSize: 10, color: "#6B7280" },
 
-  // Grid de dados principais (duas colunas)
+  // Grid de dados principais (duas colunas) - compacto
   dataGrid: {
     flexDirection: "row",
     justifyContent: "space-between",
-    gap: 12, // menor gap
-    marginBottom: 6, // compactado
+    gap: 12,
+    marginBottom: 6,
   },
   dataCol: { flex: 1 },
   metaLabel: { fontSize: 9, color: "#6B7280" },
@@ -58,11 +58,11 @@ const styles = StyleSheet.create({
     color: "#111827",
     fontWeight: "bold",
     marginTop: 2,
-    marginBottom: 4, // menos respiro
+    marginBottom: 4,
   },
 
   // Linha dedicada para Veterinário
-  vetRow: { marginBottom: 8 }, // compactado
+  vetRow: { marginBottom: 8 },
   vetLabel: { fontSize: 9, color: "#6B7280" },
   vetValue: { fontSize: 11, color: "#111827", fontWeight: "bold", marginTop: 2 },
 
@@ -70,7 +70,7 @@ const styles = StyleSheet.create({
   tableWrapper: { marginTop: 6 },
   tableHeader: {
     flexDirection: "row",
-    backgroundColor: "#F1F5F9",
+    backgroundColor: "#F1F5F9", // cinza muito sutil
     paddingVertical: 8,
     paddingHorizontal: 10,
     borderTopWidth: 1,
@@ -105,13 +105,13 @@ const styles = StyleSheet.create({
   tdPrice: { width: 90, textAlign: "right", fontSize: 11, color: "#111827" },
   tdSubtotal: { width: 100, textAlign: "right", fontSize: 11, color: "#111827", fontWeight: "bold" },
 
-  // Totais alinhados ao Subtotal e com linhas separadas
+  // Totais alinhados ao Subtotal, com linhas separadas e sem quebra/overlap
   totalsRow: {
     flexDirection: "row",
     justifyContent: "flex-end",
     alignItems: "flex-end",
     paddingHorizontal: 10, // igual à tabela para alinhar
-    marginTop: 10,
+    marginTop: 8,
   },
   totalsSpacer: { flexGrow: 1 },
   totalsRight: {
@@ -120,28 +120,16 @@ const styles = StyleSheet.create({
   },
   totalLabel: { fontSize: 10, color: "#6B7280" },
   totalValue: { fontSize: 16, fontWeight: "bold", color: "#111827", marginTop: 2 },
-  validityPayment: { fontSize: 10, color: "#374151", marginTop: 6, textAlign: "right" },
-
-  // Campo de Observações com altura reduzida
-  notesBox: {
-    marginTop: 10,
-    borderWidth: 1,
-    borderColor: "#9CA3AF",
-    borderStyle: "dashed",
-    padding: 8,
-    height: 60, // altura reduzida para não empurrar assinaturas
-  },
-  notesLabel: { fontSize: 9, color: "#6B7280", marginBottom: 4 },
-  notesText: { fontSize: 10, color: "#374151" },
+  validityPayment: { fontSize: 9, color: "#374151", marginTop: 4, textAlign: "right", lineHeight: 1.2 },
 
   // Assinaturas
   signatureBlock: {
-    marginTop: 18, // compacto
+    marginTop: 16, // compacto
     flexDirection: "row",
     justifyContent: "space-between",
   },
   signatureArea: { width: "48%" },
-  signatureLine: { height: 1, backgroundColor: "#9CA3AF", marginTop: 18, marginBottom: 4 },
+  signatureLine: { height: 1, backgroundColor: "#9CA3AF", marginTop: 16, marginBottom: 4 },
   signatureLabel: { fontSize: 10, color: "#6B7280", textAlign: "center" },
 });
 
@@ -150,7 +138,6 @@ interface BudgetReportPdfContentProps {
 }
 
 const formatBRL = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
-const truncate = (text: string, max = 250) => (text.length > max ? text.slice(0, max) + "…" : text);
 
 const BudgetReportPdfContent: React.FC<BudgetReportPdfContentProps> = ({ budget }) => {
   const company = mockCompanySettings;
@@ -167,7 +154,7 @@ const BudgetReportPdfContent: React.FC<BudgetReportPdfContentProps> = ({ budget 
   return (
     <Document>
       <Page size="A4" style={styles.page}>
-        {/* Cabeçalho profissional */}
+        {/* Cabeçalho */}
         <View style={styles.header}>
           <Image src="/favicon.ico" style={styles.logo} />
           <View style={styles.clinicInfoBlock}>
@@ -179,13 +166,13 @@ const BudgetReportPdfContent: React.FC<BudgetReportPdfContentProps> = ({ budget 
         </View>
         <View style={styles.divider} />
 
-        {/* Identificação do orçamento */}
+        {/* Título e identificação */}
         <View style={styles.docTitleRow}>
           <Text style={styles.docTitle}>ORÇAMENTO</Text>
           <Text style={styles.docNumber}>Documento Nº {budget.id}</Text>
         </View>
 
-        {/* Grid de dados principais compactado */}
+        {/* Grid de dados principais compacto */}
         <View style={styles.dataGrid}>
           <View style={styles.dataCol}>
             <Text style={styles.metaLabel}>Tutor</Text>
@@ -232,7 +219,7 @@ const BudgetReportPdfContent: React.FC<BudgetReportPdfContentProps> = ({ budget 
           })}
         </View>
 
-        {/* Totais alinhados ao Subtotal, com linhas separadas e sem sobreposição */}
+        {/* Totais alinhados ao Subtotal, linhas separadas e estáveis */}
         <View style={styles.totalsRow}>
           <View style={styles.totalsSpacer} />
           <View style={styles.totalsRight}>
@@ -243,11 +230,7 @@ const BudgetReportPdfContent: React.FC<BudgetReportPdfContentProps> = ({ budget 
           </View>
         </View>
 
-        {/* Observações com altura reduzida (sem empurrar assinaturas) */}
-        <View style={styles.notesBox}>
-          <Text style={styles.notesLabel}>Observações</Text>
-          <Text style={styles.notesText}>{budget.notes ? truncate(budget.notes) : " "}</Text>
-        </View>
+        {/* REMOVIDO: Campo de Observações para evitar quebras e excesso de altura */}
 
         {/* Assinaturas */}
         <View style={styles.signatureBlock}>
