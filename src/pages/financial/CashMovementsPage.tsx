@@ -152,47 +152,90 @@ const CashMovementsPage: React.FC = () => {
           <CardHeader className="pb-2">
             <CardTitle className="text-base">Nova saída / ajuste administrativo</CardTitle>
           </CardHeader>
-          <CardContent className="grid grid-cols-1 md:grid-cols-5 gap-2 items-end">
-            <div>
-              <label className="text-xs text-muted-foreground">Data</label>
-              <Input type="date" value={outDate} onChange={(e) => setOutDate(e.target.value)} className="h-9 bg-input border border-border rounded-md" />
-              {expenseErrors.outDate && <p className="text-xs text-destructive mt-1">{expenseErrors.outDate}</p>}
+          <CardContent className="space-y-3">
+            {/* Linha 1: Data + Categoria (agrupados) */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              <div>
+                <label className="text-xs text-muted-foreground">Data</label>
+                <Input
+                  type="date"
+                  value={outDate}
+                  onChange={(e) => setOutDate(e.target.value)}
+                  className="h-9 bg-input border border-border rounded-md"
+                />
+                <div className="min-h-4">
+                  {expenseErrors.outDate && <p className="text-xs text-destructive mt-1">{expenseErrors.outDate}</p>}
+                </div>
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground">Categoria</label>
+                <Input
+                  value={outCategory}
+                  onChange={(e) => setOutCategory(e.target.value)}
+                  className="h-9 bg-input border border-border rounded-md"
+                  placeholder="Ex.: Despesa"
+                />
+                <div className="min-h-4">
+                  {expenseErrors.outCategory && <p className="text-xs text-destructive mt-1">{expenseErrors.outCategory}</p>}
+                </div>
+              </div>
             </div>
-            <div className="md:col-span-2">
+
+            {/* Linha 2: Descrição (destaque) */}
+            <div>
               <label className="text-xs text-muted-foreground">Descrição</label>
-              <Input value={outDescription} onChange={(e) => setOutDescription(e.target.value)} className="h-9 bg-input border border-border rounded-md" placeholder="Ex.: Ajuste de caixa" />
-              {expenseErrors.outDescription && <p className="text-xs text-destructive mt-1">{expenseErrors.outDescription}</p>}
+              <Input
+                value={outDescription}
+                onChange={(e) => setOutDescription(e.target.value)}
+                className="h-10 bg-input border border-border rounded-md"
+                placeholder="Ex.: Ajuste de caixa"
+              />
+              <div className="min-h-4">
+                {expenseErrors.outDescription && <p className="text-xs text-destructive mt-1">{expenseErrors.outDescription}</p>}
+              </div>
             </div>
-            <div>
-              <label className="text-xs text-muted-foreground">Categoria</label>
-              <Input value={outCategory} onChange={(e) => setOutCategory(e.target.value)} className="h-9 bg-input border border-border rounded-md" placeholder="Ex.: Despesa" />
-              {expenseErrors.outCategory && <p className="text-xs text-destructive mt-1">{expenseErrors.outCategory}</p>}
+
+            {/* Linha 3: Valor (prioritário) + Forma de pagamento (alinhada) */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 items-end">
+              <div>
+                <label className="text-xs text-muted-foreground">Valor</label>
+                <CurrencyInput
+                  value={outAmount}
+                  onValueChange={setOutAmount}
+                  className="h-11 w-full border border-border rounded-md text-lg font-semibold"
+                />
+                <div className="min-h-4">
+                  {expenseErrors.outAmount && <p className="text-xs text-destructive mt-1">{expenseErrors.outAmount}</p>}
+                </div>
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground">Forma de pagamento</label>
+                <Select value={outMethodId} onValueChange={setOutMethodId}>
+                  <SelectTrigger className="h-11 bg-input border border-border rounded-md">
+                    <SelectValue placeholder="Selecione" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {paymentMethods.length > 0 ? paymentMethods.map(pm => (
+                      <SelectItem key={pm.id} value={pm.id}>{pm.name}</SelectItem>
+                    )) : (
+                      <SelectItem value="none" disabled>Cadastre formas em Vendas &gt; Formas de Recebimento</SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
+                <div className="min-h-4">
+                  {expenseErrors.outMethodId && <p className="text-xs text-destructive mt-1">{expenseErrors.outMethodId}</p>}
+                </div>
+              </div>
             </div>
-            <div>
-              <label className="text-xs text-muted-foreground">Forma de pagamento</label>
-              <Select value={outMethodId} onValueChange={setOutMethodId}>
-                <SelectTrigger className="h-9 bg-input border border-border rounded-md">
-                  <SelectValue placeholder="Selecione" />
-                </SelectTrigger>
-                <SelectContent>
-                  {paymentMethods.length > 0 ? paymentMethods.map(pm => (
-                    <SelectItem key={pm.id} value={pm.id}>{pm.name}</SelectItem>
-                  )) : (
-                    <SelectItem value="none" disabled>Cadastre formas em Vendas &gt; Formas de Recebimento</SelectItem>
-                  )}
-                </SelectContent>
-              </Select>
-              {expenseErrors.outMethodId && <p className="text-xs text-destructive mt-1">{expenseErrors.outMethodId}</p>}
+
+            {/* Ação claramente associada ao formulário */}
+            <div className="flex justify-end">
+              <Button onClick={handleAddExpense} className="h-9 px-4" disabled={!isExpenseValid}>
+                Registrar saída
+              </Button>
             </div>
-            <div className="md:col-span-5">
-              <label className="text-xs text-muted-foreground">Valor</label>
-              <CurrencyInput value={outAmount} onValueChange={setOutAmount} className="h-9 w-full border border-border rounded-md" />
-              {expenseErrors.outAmount && <p className="text-xs text-destructive mt-1">{expenseErrors.outAmount}</p>}
-            </div>
-            <div className="md:col-span-5 flex justify-end">
-              <Button onClick={handleAddExpense} className="h-9 px-4" disabled={!isExpenseValid}>Registrar saída</Button>
-            </div>
-            <div className="md:col-span-5 text-xs text-muted-foreground">
+
+            <div className="text-xs text-muted-foreground">
               Movimentações automáticas (recebimentos de vendas) não podem ser editadas nem excluídas.
             </div>
           </CardContent>
@@ -208,27 +251,39 @@ const CashMovementsPage: React.FC = () => {
               .sort((a, b) => new Date(`${b.date}T${b.time}`).getTime() - new Date(`${a.date}T${a.time}`).getTime())
               .map(mov => {
                 const isAutomatic = mov.type === "income" && (mov.category === "Recebimento" || !!mov.saleId);
-                const originLabel = isAutomatic
-                  ? `Automática${mov.saleId ? ` • Venda ${mov.saleId}` : ""}`
-                  : "Ajuste administrativo";
+                const originLabel = isAutomatic ? `Automática${mov.saleId ? ` • Venda ${mov.saleId}` : ""}` : "Ajuste administrativo";
+
                 return (
                   <Card key={mov.id} className="p-4 bg-card border border-border">
+                    {/* Linha 1: Tipo + Valor (valor destacado) */}
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${mov.type === "income" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}>
                           {mov.type === "income" ? "Entrada" : "Saída"}
                         </span>
-                        <span className="text-sm">{mov.description}</span>
                       </div>
-                      <div className={`text-sm font-semibold ${mov.type === "income" ? "text-green-600" : "text-red-600"}`}>
+                      <div className={`text-xl font-bold ${mov.type === "income" ? "text-green-600" : "text-red-600"}`}>
                         {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(mov.amount)}
                       </div>
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mt-2 text-sm text-muted-foreground">
-                      <div className="flex items-center gap-1"><FaCalendarAlt className="h-3 w-3" /> {formatDateTime(mov.date, mov.time)}</div>
-                      <div className="flex items-center gap-1"><FaTag className="h-3 w-3" /> Categoria: {mov.category}</div>
-                      <div className="flex items-center gap-1"><FaTag className="h-3 w-3" /> Pagamento: {mov.paymentMethod || "N/A"}</div>
-                      <div className="flex items-center gap-1"><FaTag className="h-3 w-3" /> Origem: {originLabel}</div>
+
+                    {/* Linha 2: Descrição principal */}
+                    <div className="mt-1">
+                      <p className="text-sm font-medium text-foreground">{mov.description}</p>
+                    </div>
+
+                    {/* Linha 3: Data e hora */}
+                    <div className="mt-1 text-xs text-muted-foreground">
+                      {formatDateTime(mov.date, mov.time)}
+                    </div>
+
+                    {/* Linha 4: Metadados agrupados (categoria, forma de pagamento, origem) */}
+                    <div className="mt-2 text-xs text-muted-foreground">
+                      <div className="flex flex-wrap gap-x-4 gap-y-1">
+                        <span>Categoria: {mov.category}</span>
+                        <span>Pagamento: {mov.paymentMethod || "N/A"}</span>
+                        <span>Origem: {originLabel}</span>
+                      </div>
                     </div>
                   </Card>
                 );
