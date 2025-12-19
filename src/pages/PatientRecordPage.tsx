@@ -998,9 +998,9 @@ const PatientRecordPage = () => {
     .reduce((sum, t) => sum + t.amount, 0);
 
   return (
-    <div className="flex flex-col min-h-screen bg-[#F8F9FA] overflow-x-hidden">
+    <div className="flex flex-col min-h-screen bg-[#F8F9FA]">
       {/* Header da Página com Gradiente e Breadcrumb */}
-      <div className="bg-gradient-to-r from-background via-card to-background p-6 pb-4 border-b border-border">
+      <div className="bg-gradient-to-r from-background via-card to-background p-6 pb-4 border-b border-border mx-auto w-full max-w-7xl">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-2 gap-4 sm:gap-2">
           <div className="flex items-center gap-4">
             <div>
@@ -1035,7 +1035,7 @@ const PatientRecordPage = () => {
       {(() => {
         const alertObservation = observations.find((o: any) => o.displayAsAlert);
         return alertObservation ? (
-          <div className="px-6 pt-4">
+          <div className="px-6 pt-4 mx-auto w-full max-w-7xl">
             <Alert className="bg-amber-50 border-amber-200 text-amber-900 rounded-xl shadow-sm">
               <AlertTitle className="font-semibold">Alerta do Prontuário</AlertTitle>
               <AlertDescription className="text-sm">{alertObservation.observation}</AlertDescription>
@@ -1044,7 +1044,7 @@ const PatientRecordPage = () => {
         ) : null;
       })()}
 
-      <div className="flex-1 p-6">
+      <div className="flex-1 p-6 mx-auto w-full max-w-7xl">
         <div className="mb-6">
           <Card className="bg-white rounded-2xl shadow-sm border-0">
             <CardHeader className="flex flex-row items-center justify-between pb-3">
@@ -1068,22 +1068,22 @@ const PatientRecordPage = () => {
                   </Avatar>
                   <div className="flex-1">
                     <div className="flex flex-wrap gap-2 mb-2">
-                      <span className="px-3 py-1 rounded-full text-xs font-medium bg-teal-50 text-teal-700 border border-teal-200 whitespace-nowrap">
+                      <span className="px-2 sm:px-3 py-1 rounded-full text-xs font-medium bg-teal-50 text-teal-700 border border-teal-200 sm:whitespace-nowrap whitespace-normal">
                         Espécie: <span className="font-semibold text-teal-800">{currentAnimal.species}</span>
                       </span>
-                      <span className="px-3 py-1 rounded-full text-xs font-medium bg-sky-50 text-sky-700 border border-sky-200 whitespace-nowrap">
+                      <span className="px-2 sm:px-3 py-1 rounded-full text-xs font-medium bg-sky-50 text-sky-700 border border-sky-200 sm:whitespace-nowrap whitespace-normal">
                         Raça: <span className="font-semibold text-sky-800">{currentAnimal.breed}</span>
                       </span>
-                      <span className="px-3 py-1 rounded-full text-xs font-medium bg-indigo-50 text-indigo-700 border border-indigo-200 whitespace-nowrap">
+                      <span className="px-2 sm:px-3 py-1 rounded-full text-xs font-medium bg-indigo-50 text-indigo-700 border border-indigo-200 sm:whitespace-nowrap whitespace-normal">
                         Idade: <span className="font-semibold text-indigo-800">{calculateAge(currentAnimal.birthday)}</span>
                       </span>
-                      <span className="px-3 py-1 rounded-full text-xs font-medium bg-purple-50 text-purple-700 border border-purple-200 whitespace-nowrap">
+                      <span className="px-2 sm:px-3 py-1 rounded-full text-xs font-medium bg-purple-50 text-purple-700 border border-purple-200 sm:whitespace-nowrap whitespace-normal">
                         Peso: <span className="font-semibold text-purple-800">{currentAnimal.weight.toFixed(1)} kg</span>
                       </span>
-                      <span className="px-3 py-1 rounded-full text-xs font-medium bg-pink-50 text-pink-700 border border-pink-200 whitespace-nowrap">
+                      <span className="px-2 sm:px-3 py-1 rounded-full text-xs font-medium bg-pink-50 text-pink-700 border border-pink-200 sm:whitespace-nowrap whitespace-normal">
                         Sexo: <span className="font-semibold text-pink-800">{currentAnimal.gender}</span>
                       </span>
-                      <span className="px-3 py-1 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200 whitespace-nowrap">
+                      <span className="px-2 sm:px-3 py-1 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200 sm:whitespace-nowrap whitespace-normal">
                         Nasc.: <span className="font-semibold text-amber-800">{formatDateTime(currentAnimal.birthday || '')}</span>
                       </span>
                     </div>
@@ -1148,7 +1148,7 @@ const PatientRecordPage = () => {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full mt-6">
-          <TabsList className="flex flex-nowrap gap-3 overflow-x-auto no-scrollbar scroll-smooth bg-transparent border-b border-[#E5E7EB] rounded-none p-0">
+          <TabsList className="flex flex-nowrap gap-2 sm:gap-3 overflow-x-auto no-scrollbar scroll-smooth bg-transparent border-b border-[#E5E7EB] rounded-none p-0">
             <TabsTrigger value="timeline" className="relative -mb-px pb-2 px-2 whitespace-nowrap text-[#6B7280] data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold data-[state=active]:after:content-[''] data-[state=active]:after:absolute data-[state=active]:after:left-0 data-[state=active]:after:right-0 data-[state=active]:after:-bottom-[1px] data-[state=active]:after:h-[2px] data-[state=active]:after:bg-[#0F4C5C]">
               <FaClock className="h-4 w-4 mr-2" /> Linha do Tempo
               <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[9px] bg-[#F3F4F6] text-[#374151]">{sortedTimelineEvents.length}</span>
@@ -1198,14 +1198,14 @@ const PatientRecordPage = () => {
               <CardContent className="pt-0">
                 {sortedTimelineEvents.length > 0 ? (
                   <div className="relative">
-                    {/* Linha vertical com leve gradiente para profundidade */}
-                    <div className="absolute left-3 top-0 bottom-0 w-[2px] bg-gradient-to-b from-[#E5E7EB] via-[#D1D5DB] to-[#E5E7EB]" />
+                    {/* Ajuste da linha vertical para não empurrar layout */}
+                    <div className="absolute left-2 sm:left-3 top-0 bottom-0 w-[2px] bg-gradient-to-b from-[#E5E7EB] via-[#D1D5DB] to-[#E5E7EB]" />
                     <div className="space-y-4">
                       {sortedTimelineEvents.map((event) => {
                         const nodeColor = getNodeColorClass(event.badgeColor);
                         return (
-                          <div key={event.id} className="relative pl-8">
-                            <span className={cn("absolute left-2.5 top-4 h-4 w-4 rounded-full shadow-sm", nodeColor)} />
+                          <div key={event.id} className="relative pl-6 sm:pl-8">
+                            <span className={cn("absolute left-1.5 sm:left-2.5 top-4 h-4 w-4 rounded-full shadow-sm", nodeColor)} />
                             <Card className="p-4 bg-white rounded-xl shadow-sm border border-[#E5E7EB]">
                               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-2 gap-2">
                                 <div className="flex items-center gap-2">
