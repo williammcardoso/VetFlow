@@ -192,9 +192,7 @@ const getNodeColorClass = (badge?: string) => {
   return "bg-[#0F4C5C]";
 };
 
-// ADDED: estado para alerta em observações
-const [newObservationAlert, setNewObservationAlert] = useState<boolean>(false);
-
+// PatientRecordPage
 const PatientRecordPage = () => {
   const { clientId, animalId } = useParams<{ clientId: string; animalId: string }>();
   const navigate = useNavigate();
