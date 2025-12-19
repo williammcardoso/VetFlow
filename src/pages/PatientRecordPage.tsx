@@ -274,8 +274,11 @@ const PatientRecordPage = () => {
     { id: "o1", date: "2023-09-20", time: "10:00", observation: "Animal apresentou melhora significativa após tratamento." },
     { id: "o2", date: "2024-01-05", time: "15:00", observation: "Recomendado check-up anual em 6 meses." },
   ]);
-  // ADDED: Estado corretamente dentro do componente
+  const [newObservation, setNewObservation] = useState<string>("");
   const [newObservationAlert, setNewObservationAlert] = useState<boolean>(false);
+
+  // Guardas seguros para uso em JSX
+  const isObservationEmpty = !newObservation || newObservation.trim().length === 0;
 
   // State para a lista de exames e o modal de adição
   const [examsList, setExamsList] = useState<ExamEntry[]>(mockExams.filter(exam => exam.id.startsWith('exam'))); // Inicialmente vazio, pois a adição é feita em outra página
@@ -1641,7 +1644,7 @@ const PatientRecordPage = () => {
                 <CardTitle className="flex items-center gap-2 text-lg font-semibold text-foreground">
                   <FaCommentAlt className="h-5 w-5 text-primary" /> Observações Gerais
                 </CardTitle>
-                <Button size="sm" onClick={handleAddObservation} disabled={!newObservation.trim()} className="rounded-md bg-primary text-primary-foreground hover:bg-primary/90 font-semibold transition-all duration-200 shadow-md hover:shadow-lg">
+                <Button size="sm" onClick={handleAddObservation} disabled={isObservationEmpty} className="rounded-md bg-primary text-primary-foreground hover:bg-primary/90 font-semibold transition-all duration-200 shadow-md hover:shadow-lg">
                     <FaPlus className="h-4 w-4 mr-2" /> Adicionar Observação
                 </Button>
               </CardHeader>
@@ -1649,7 +1652,7 @@ const PatientRecordPage = () => {
                 <div className="mb-4 space-y-3">
                   <Textarea
                     placeholder="Adicione uma nova observação..."
-                    value={newObservation}
+                    value={newObservation ?? ""}
                     onChange={(e) => setNewObservation(e.target.value)}
                     className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200"
                   />
