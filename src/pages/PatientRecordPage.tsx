@@ -998,7 +998,7 @@ const PatientRecordPage = () => {
     .reduce((sum, t) => sum + t.amount, 0);
 
   return (
-    <div className="flex flex-col min-h-screen bg-[#F8F9FA]">
+    <div className="flex flex-col min-h-screen bg-[#F8F9FA] overflow-x-hidden">
       {/* Header da Página com Gradiente e Breadcrumb */}
       <div className="bg-gradient-to-r from-background via-card to-background p-6 pb-4 border-b border-border">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-2 gap-4 sm:gap-2">
@@ -1068,23 +1068,23 @@ const PatientRecordPage = () => {
                   </Avatar>
                   <div className="flex-1">
                     <div className="flex flex-wrap gap-2 mb-2">
-                      <span className="px-3 py-1 rounded-full text-xs font-medium bg-[#F5F7FA] text-[#374151] border border-[#E5E7EB] whitespace-nowrap">
-                        Espécie: <span className="font-semibold text-[#111827]">{currentAnimal.species}</span>
+                      <span className="px-3 py-1 rounded-full text-xs font-medium bg-teal-50 text-teal-700 border border-teal-200 whitespace-nowrap">
+                        Espécie: <span className="font-semibold text-teal-800">{currentAnimal.species}</span>
                       </span>
-                      <span className="px-3 py-1 rounded-full text-xs font-medium bg-[#F5F7FA] text-[#374151] border border-[#E5E7EB] whitespace-nowrap">
-                        Raça: <span className="font-semibold text-[#111827]">{currentAnimal.breed}</span>
+                      <span className="px-3 py-1 rounded-full text-xs font-medium bg-sky-50 text-sky-700 border border-sky-200 whitespace-nowrap">
+                        Raça: <span className="font-semibold text-sky-800">{currentAnimal.breed}</span>
                       </span>
-                      <span className="px-3 py-1 rounded-full text-xs font-medium bg-[#F5F7FA] text-[#374151] border border-[#E5E7EB] whitespace-nowrap">
-                        Idade: <span className="font-semibold text-[#111827]">{calculateAge(currentAnimal.birthday)}</span>
+                      <span className="px-3 py-1 rounded-full text-xs font-medium bg-indigo-50 text-indigo-700 border border-indigo-200 whitespace-nowrap">
+                        Idade: <span className="font-semibold text-indigo-800">{calculateAge(currentAnimal.birthday)}</span>
                       </span>
-                      <span className="px-3 py-1 rounded-full text-xs font-medium bg-[#F5F7FA] text-[#374151] border border-[#E5E7EB] whitespace-nowrap">
-                        Peso: <span className="font-semibold text-[#111827]">{currentAnimal.weight.toFixed(1)} kg</span>
+                      <span className="px-3 py-1 rounded-full text-xs font-medium bg-purple-50 text-purple-700 border border-purple-200 whitespace-nowrap">
+                        Peso: <span className="font-semibold text-purple-800">{currentAnimal.weight.toFixed(1)} kg</span>
                       </span>
-                      <span className="px-3 py-1 rounded-full text-xs font-medium bg-[#F5F7FA] text-[#374151] border border-[#E5E7EB] whitespace-nowrap">
-                        Sexo: <span className="font-semibold text-[#111827]">{currentAnimal.gender}</span>
+                      <span className="px-3 py-1 rounded-full text-xs font-medium bg-pink-50 text-pink-700 border border-pink-200 whitespace-nowrap">
+                        Sexo: <span className="font-semibold text-pink-800">{currentAnimal.gender}</span>
                       </span>
-                      <span className="px-3 py-1 rounded-full text-xs font-medium bg-[#F5F7FA] text-[#374151] border border-[#E5E7EB] whitespace-nowrap">
-                        Nasc.: <span className="font-semibold text-[#111827]">{formatDateTime(currentAnimal.birthday || '')}</span>
+                      <span className="px-3 py-1 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200 whitespace-nowrap">
+                        Nasc.: <span className="font-semibold text-amber-800">{formatDateTime(currentAnimal.birthday || '')}</span>
                       </span>
                     </div>
                   </div>
@@ -1148,7 +1148,7 @@ const PatientRecordPage = () => {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full mt-6">
-          <TabsList className="flex flex-nowrap gap-3 overflow-x-auto bg-transparent border-b border-[#E5E7EB] rounded-none p-0">
+          <TabsList className="flex flex-nowrap gap-3 overflow-x-auto no-scrollbar scroll-smooth bg-transparent border-b border-[#E5E7EB] rounded-none p-0">
             <TabsTrigger value="timeline" className="relative -mb-px pb-2 px-2 whitespace-nowrap text-[#6B7280] data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold data-[state=active]:after:content-[''] data-[state=active]:after:absolute data-[state=active]:after:left-0 data-[state=active]:after:right-0 data-[state=active]:after:-bottom-[1px] data-[state=active]:after:h-[2px] data-[state=active]:after:bg-[#0F4C5C]">
               <FaClock className="h-4 w-4 mr-2" /> Linha do Tempo
               <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[9px] bg-[#F3F4F6] text-[#374151]">{sortedTimelineEvents.length}</span>

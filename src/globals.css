@@ -7,6 +7,7 @@
 /* Fonte global */
 html, body, #root {
   font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, 'Helvetica Neue', Arial, 'Noto Sans', 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', sans-serif;
+  overflow-x: hidden;
 }
 /* Fundo geral para profundidade dos cards */
 body {
@@ -116,4 +117,13 @@ body {
 .hide-scrollbar {
   -ms-overflow-style: none;  /* Para IE e Edge */
   scrollbar-width: none;  /* Para Firefox */
+}
+
+/* Utilitário para esconder scrollbar em containers com overflow-x-auto */
+.no-scrollbar {
+  -ms-overflow-style: none; /* IE e Edge */
+  scrollbar-width: none;    /* Firefox */
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;            /* Chrome, Safari */
 }
