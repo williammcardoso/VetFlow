@@ -132,11 +132,10 @@ async function fetchClientsWithAnimals(): Promise<Client[]> {
   });
 }
 
-async function fetchClientWithAnimals(clientId: string): Promise<Client | undefined> {
-  // NEW: não chama Supabase sem sessão
+async function fetchClientWithAnimals(clientId: string): Promise<Client | null> {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) {
-    return undefined;
+    return null;
   }
 
   const { data: clientRows, error: clientError } = await supabase
@@ -147,7 +146,7 @@ async function fetchClientWithAnimals(clientId: string): Promise<Client | undefi
 
   if (clientError) throw clientError;
   const client = (clientRows as DbClient[])[0];
-  if (!client) return undefined;
+  if (!client) return null;
 
   const { data: animalsRows, error: animalsError } = await supabase
     .from("animals")
@@ -171,7 +170,7 @@ export function useClientsList() {
 export function useClientWithAnimals(clientId: string | undefined) {
   return useQuery({
     queryKey: ["client-with-animals", clientId],
-    queryFn: () => (clientId ? fetchClientWithAnimals(clientId) : Promise.resolve(undefined)),
+    queryFn: () => (clientId ? fetchClientWithAnimals(clientId) : Promise.resolve(null)),
     enabled: !!clientId,
     staleTime: 1000 * 60,
   });
