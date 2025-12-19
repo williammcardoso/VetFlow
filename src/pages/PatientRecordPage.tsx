@@ -998,7 +998,7 @@ const PatientRecordPage = () => {
     .reduce((sum, t) => sum + t.amount, 0);
 
   return (
-    <div className="flex flex-col min-h-screen bg-[#F8F9FA]">
+    <div className="flex flex-col min-h-screen bg-[#F8F9FA] overflow-x-hidden">
       {/* Header da Página com Gradiente e Breadcrumb */}
       <div className="bg-gradient-to-r from-background via-card to-background p-6 pb-4 border-b border-border mx-auto w-full max-w-7xl">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-2 gap-4 sm:gap-2">
@@ -1148,7 +1148,7 @@ const PatientRecordPage = () => {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full mt-6">
-          <TabsList className="flex flex-nowrap gap-2 sm:gap-3 overflow-x-auto no-scrollbar scroll-smooth bg-transparent border-b border-[#E5E7EB] rounded-none p-0">
+          <TabsList className="flex flex-nowrap gap-2 sm:gap-3 overflow-x-auto no-scrollbar scroll-smooth bg-transparent border-b border-[#E5E7EB] rounded-none p-0 max-w-full">
             <TabsTrigger value="timeline" className="relative -mb-px pb-2 px-2 whitespace-nowrap text-[#6B7280] data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold data-[state=active]:after:content-[''] data-[state=active]:after:absolute data-[state=active]:after:left-0 data-[state=active]:after:right-0 data-[state=active]:after:-bottom-[1px] data-[state=active]:after:h-[2px] data-[state=active]:after:bg-[#0F4C5C]">
               <FaClock className="h-4 w-4 mr-2" /> Linha do Tempo
               <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[9px] bg-[#F3F4F6] text-[#374151]">{sortedTimelineEvents.length}</span>
@@ -1198,7 +1198,6 @@ const PatientRecordPage = () => {
               <CardContent className="pt-0">
                 {sortedTimelineEvents.length > 0 ? (
                   <div className="relative">
-                    {/* Ajuste da linha vertical para não empurrar layout */}
                     <div className="absolute left-2 sm:left-3 top-0 bottom-0 w-[2px] bg-gradient-to-b from-[#E5E7EB] via-[#D1D5DB] to-[#E5E7EB]" />
                     <div className="space-y-4">
                       {sortedTimelineEvents.map((event) => {
@@ -1214,7 +1213,7 @@ const PatientRecordPage = () => {
                                     event.badgeColor || "bg-[#F3F4F6] text-[#374151]")}>
                                     {event.type}
                                   </Badge>
-                                  <p className="text-lg font-semibold text-[#111827]">
+                                  <p className="text-lg font-semibold text-[#111827] break-words">
                                     {event.description}
                                   </p>
                                 </div>
@@ -1235,15 +1234,13 @@ const PatientRecordPage = () => {
                                   </Button>
                                 )}
                               </div>
-                              {/* Resumo/observação rápida */}
                               {event.summary && (
-                                <p className="text-sm text-[#6B7280] mb-2">{event.summary}</p>
+                                <p className="text-sm text-[#6B7280] mb-2 break-words">{event.summary}</p>
                               )}
                               <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-1 text-sm text-[#6B7280]">
                                   <FaCalendarAlt className="h-3 w-3" /> {formatDateTime(event.date, event.time)}
                                 </div>
-                                {/* Autor no canto inferior direito */}
                                 <div className="text-xs text-[#6B7280]">
                                   {event.author ? `Profissional: ${event.author}` : ""}
                                 </div>
@@ -1862,7 +1859,7 @@ const PatientRecordPage = () => {
                                   </Button>
                                 </div>
                                 {expandedSales[sale.id] && (
-                                  <div className="mt-3">
+                                  <div className="mt-3 overflow-x-auto">
                                     <Table>
                                       <TableHeader>
                                         <TableRow>
@@ -1977,29 +1974,31 @@ const PatientRecordPage = () => {
                             {patientPayments.length === 0 ? (
                               <p className="text-muted-foreground">Nenhum pagamento registrado.</p>
                             ) : (
-                              <Table>
-                                <TableHeader>
-                                  <TableRow>
-                                    <TableHead>Venda</TableHead>
-                                    <TableHead>Data</TableHead>
-                                    <TableHead className="text-right">Valor</TableHead>
-                                    <TableHead>Método</TableHead>
-                                  </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                  {patientPayments.map((p, index) => {
-                                    const app = patientSales.find(s => s.id === p.saleId)?.appointmentId;
-                                    return (
-                                      <TableRow key={p.id} className={cn(index % 2 === 1 && "bg-[#F9FAFB]")}>
-                                        <TableCell className="font-medium">{p.saleId}{app ? ` • Atend. ${app}` : ""}</TableCell>
-                                        <TableCell>{formatDateTime(p.date)}</TableCell>
-                                        <TableCell className="text-right font-bold">{new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(p.amount)}</TableCell>
-                                        <TableCell>{p.paymentMethod || "-"}</TableCell>
-                                      </TableRow>
-                                    );
-                                  })}
-                                </TableBody>
-                              </Table>
+                              <div className="overflow-x-auto">
+                                <Table>
+                                  <TableHeader>
+                                    <TableRow>
+                                      <TableHead>Venda</TableHead>
+                                      <TableHead>Data</TableHead>
+                                      <TableHead className="text-right">Valor</TableHead>
+                                      <TableHead>Método</TableHead>
+                                    </TableRow>
+                                  </TableHeader>
+                                  <TableBody>
+                                    {patientPayments.map((p, index) => {
+                                      const app = patientSales.find(s => s.id === p.saleId)?.appointmentId;
+                                      return (
+                                        <TableRow key={p.id} className={cn(index % 2 === 1 && "bg-[#F9FAFB]")}>
+                                          <TableCell className="font-medium">{p.saleId}{app ? ` • Atend. ${app}` : ""}</TableCell>
+                                          <TableCell>{formatDateTime(p.date)}</TableCell>
+                                          <TableCell className="text-right font-bold">{new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(p.amount)}</TableCell>
+                                          <TableCell>{p.paymentMethod || "-"}</TableCell>
+                                        </TableRow>
+                                      );
+                                    })}
+                                  </TableBody>
+                                </Table>
+                              </div>
                             )}
                           </CardContent>
                         </Card>
@@ -2049,7 +2048,7 @@ const PatientRecordPage = () => {
                   </div>
 
                   {budgetItems.length > 0 && (
-                    <div>
+                    <div className="overflow-x-auto">
                       <Table>
                         <TableHeader>
                           <TableRow>
