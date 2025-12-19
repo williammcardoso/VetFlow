@@ -1059,7 +1059,8 @@ const PatientRecordPage = () => {
             </CardHeader>
             <CardContent className="pt-0">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="flex items-start gap-4 md:col-span-1">
+                {/* Coluna esquerda: avatar + badges */}
+                <div className="flex items-start gap-4 md:col-span-1 min-w-0">
                   <Avatar className="h-16 w-16 rounded-full ring-2 ring-white shadow-sm">
                     <AvatarImage src={undefined} />
                     <AvatarFallback className="bg-[#0F4C5C] text-white text-lg font-bold">
@@ -1090,7 +1091,8 @@ const PatientRecordPage = () => {
                   </div>
                 </div>
 
-                <div className="space-y-2 md:mr-6">
+                {/* Coluna central: tutor */}
+                <div className="space-y-2 min-w-0">
                   <p className="text-sm text-[#6B7280]">Tutor Responsável</p>
                   <div className="p-3 bg-[#F9FAFB] rounded-lg border border-[#E5E7EB]">
                     <p className="text-sm"><span className="font-semibold text-[#111827]">Nome:</span> {currentClient.name}</p>
@@ -1105,13 +1107,13 @@ const PatientRecordPage = () => {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 gap-3 md:col-span-1">
+                {/* Coluna direita: cards financeiros */}
+                <div className="grid grid-cols-1 gap-3 md:col-span-1 min-w-0">
                   {(() => {
                     const income = mockFinancialTransactions.filter(t => t.relatedAnimalId === animalId && t.type === 'income').reduce((s, t) => s + t.amount, 0);
                     const expense = mockFinancialTransactions.filter(t => t.relatedAnimalId === animalId && t.type === 'expense').reduce((s, t) => s + t.amount, 0);
                     const net = income - expense;
                     const pending = Math.max(0, patientSales.reduce((sum, s) => sum + s.total, 0) - patientPayments.reduce((sum, p) => sum + p.amount, 0));
-
                     return (
                       <>
                         <Card className="bg-[#ECFDF5] rounded-xl border-0 shadow-sm">
