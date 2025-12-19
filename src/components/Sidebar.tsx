@@ -140,7 +140,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, onCloseMobile, isDeskto
         className={cn(
           "bg-sidebar text-sidebar-foreground h-screen fixed left-0 top-0 overflow-y-auto border-r border-sidebar-border p-4 shadow-lg transition-all duration-300 ease-in-out z-50 hide-scrollbar",
           isMobileOpen ? "translate-x-0 w-64" : "-translate-x-full",
-          isDesktopOpen ? "lg:translate-x-0 lg:w-64" : "lg:-translate-x-full lg:w-16" // Ajuste para desktop
+          isDesktopOpen ? "lg:translate-x-0 lg:w-64" : "lg:translate-x-0 lg:w-16"
         )}
       >
         <div className={cn(

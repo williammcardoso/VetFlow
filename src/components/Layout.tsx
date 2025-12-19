@@ -26,18 +26,17 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   };
 
   const sidebarWidthClass = isDesktopSidebarOpen ? "lg:w-64" : "lg:w-16";
-  const mainContentMarginClass = isDesktopSidebarOpen ? "lg:ml-64" : "lg:ml-16";
-
+  const containerPaddingClass = isDesktopSidebarOpen ? "lg:pl-64" : "lg:pl-16";
 
   return (
-    <div className="flex min-h-screen bg-background">
+    <div className={`flex min-h-screen bg-background ${containerPaddingClass} overflow-x-hidden`}>
       <Sidebar 
         isMobileOpen={isSidebarOpen} 
         onCloseMobile={handleCloseMobileSidebar} 
         isDesktopOpen={isDesktopSidebarOpen}
         onToggleDesktop={handleToggleDesktopSidebar}
       />
-      <div className={`flex flex-col flex-1 ${mainContentMarginClass} transition-all duration-300 ease-in-out`}>
+      <div className={`flex flex-col flex-1 transition-all duration-300 ease-in-out`}>
         <Header 
           onToggleMobileSidebar={handleToggleMobileSidebar} 
           onToggleDesktopSidebar={handleToggleDesktopSidebar}
