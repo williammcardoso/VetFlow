@@ -49,6 +49,8 @@ import { ExamEntry, ExamReportData, HemogramReference, HemogramReferenceValue } 
 import { mockExams } from "@/mockData/exams";
 import { hemogramReferences } from "@/constants/examReferences";
 import { mockUserSettings } from "@/mockData/settings";
+// NOVO: hook de scroll horizontal para TabViewer
+import { useHorizontalScroll } from "@/hooks/use-horizontal-scroll";
 
 // Mock data para tipos de exame e veterinários
 const mockExamTypes = [
@@ -227,6 +229,9 @@ const PatientRecordPage = () => {
       localStorage.setItem(`patientRecordActiveTab-${animalId}`, activeTab);
     }
   }, [activeTab, animalId]);
+
+  // NOVO: ref para scroll horizontal da barra de abas
+  const tabScrollRef = useHorizontalScroll<HTMLDivElement>();
 
   // State para os atendimentos do animal
   const [animalAppointments, setAnimalAppointments] = useState<AppointmentEntry[]>(
@@ -1149,47 +1154,115 @@ const PatientRecordPage = () => {
           </Card>
         </div>
 
+        {/* Wrapper com scroll horizontal "natural" para a barra de abas */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full mt-6">
-          <TabsList className="flex flex-nowrap gap-2 sm:gap-3 overflow-x-auto no-scrollbar scroll-smooth bg-transparent border-b border-[#E5E7EB] rounded-none p-0 max-w-full">
-            <TabsTrigger value="timeline" className="relative -mb-px pb-2 px-2 whitespace-nowrap text-[#6B7280] data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold data-[state=active]:after:content-[''] data-[state=active]:after:absolute data-[state=active]:after:left-0 data-[state=active]:after:right-0 data-[state=active]:after:-bottom-[1px] data-[state=active]:after:h-[2px] data-[state=active]:after:bg-[#0F4C5C]">
-              <FaClock className="h-4 w-4 mr-2" /> Linha do Tempo
-              <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[9px] bg-[#F3F4F6] text-[#374151]">{sortedTimelineEvents.length}</span>
-            </TabsTrigger>
-            <TabsTrigger value="appointments" className="relative -mb-px pb-2 px-2 whitespace-nowrap text-[#6B7280] data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold data-[state=active]:after:content-[''] data-[state=active]:after:absolute data-[state=active]:after:left-0 data-[state=active]:after:right-0 data-[state=active]:after:-bottom-[1px] data-[state=active]:after:h-[2px] data-[state=active]:after:bg-[#0F4C5C]">
-              <FaStethoscope className="h-4 w-4 mr-2" /> Atendimento
-              <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[9px] bg-[#F3F4F6] text-[#374151]">{animalAppointments.length}</span>
-            </TabsTrigger>
-            <TabsTrigger value="exams" className="relative -mb-px pb-2 px-2 whitespace-nowrap text-[#6B7280] data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold data-[state=active]:after:content-[''] data-[state=active]:after:absolute data-[state=active]:after:left-0 data-[state=active]:after:right-0 data-[state=active]:after:-bottom-[1px] data-[state=active]:after:h-[2px] data-[state=active]:after:bg-[#0F4C5C]">
-              <FaFlask className="h-4 w-4 mr-2" /> Exames
-              <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[9px] bg-[#F3F4F6] text-[#374151]">{examsList.length}</span>
-            </TabsTrigger>
-            <TabsTrigger value="vaccines" className="relative -mb-px pb-2 px-2 whitespace-nowrap text-[#6B7280] data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold data-[state=active]:after:content-[''] data-[state=active]:after:absolute data-[state=active]:after:left-0 data-[state=active]:after:right-0 data-[state=active]:after:-bottom-[1px] data-[state=active]:after:h-[2px] data-[state=active]:after:bg-[#0F4C5C]">
-              <FaSyringe className="h-4 w-4 mr-2" /> Vacinas
-              <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[9px] bg-[#F3F4F6] text-[#374151]">{vaccines.length}</span>
-            </TabsTrigger>
-            <TabsTrigger value="weight" className="relative -mb-px pb-2 px-2 whitespace-nowrap text-[#6B7280] data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold data-[state=active]:after:content-[''] data-[state=active]:after:absolute data-[state=active]:after:left-0 data-[state=active]:after:right-0 data-[state=active]:after:-bottom-[1px] data-[state=active]:after:h-[2px] data-[state=active]:after:bg-[#0F4C5C]">
-              <FaWeightHanging className="h-4 w-4 mr-2" /> Peso
-              <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[9px] bg-[#F3F4F6] text-[#374151]">{weightHistory.length}</span>
-            </TabsTrigger>
-            <TabsTrigger value="documents" className="relative -mb-px pb-2 px-2 whitespace-nowrap text-[#6B7280] data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold data-[state=active]:after:content-[''] data-[state=active]:after:absolute data-[state=active]:after:left-0 data-[state=active]:after:right-0 data-[state=active]:after:-bottom-[1px] data-[state=active]:after:h-[2px] data-[state=active]:after:bg-[#0F4C5C]">
-              <FaFileAlt className="h-4 w-4 mr-2" /> Documentos
-              <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[9px] bg-[#F3F4F6] text-[#374151]">{documents.length}</span>
-            </TabsTrigger>
-            <TabsTrigger value="prescriptions" className="relative -mb-px pb-2 px-2 whitespace-nowrap text-[#6B7280] data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold data-[state=active]:after:content-[''] data-[state=active]:after:absolute data-[state=active]:after:left-0 data-[state=active]:after:right-0 data-[state=active]:after:-bottom-[1px] data-[state=active]:after:h-[2px] data-[state=active]:after:bg-[#0F4C5C]">
-              <FaPrescriptionBottleAlt className="h-4 w-4 mr-2" /> Receitas
-              <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[9px] bg-[#F3F4F6] text-[#374151]">{prescriptions.length}</span>
-            </TabsTrigger>
-            <TabsTrigger value="observations" className="relative -mb-px pb-2 px-2 whitespace-nowrap text-[#6B7280] data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold data-[state=active]:after:content-[''] data-[state=active]:after:absolute data-[state=active]:after:left-0 data-[state=active]:after:right-0 data-[state=active]:after:-bottom-[1px] data-[state=active]:after:h-[2px] data-[state=active]:after:bg-[#0F4C5C]">
-              <FaCommentAlt className="h-4 w-4 mr-2" /> Observações
-              <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[9px] bg-[#F3F4F6] text-[#374151]">{observations.length}</span>
-            </TabsTrigger>
-            <TabsTrigger value="financial" className="relative -mb-px pb-2 px-2 whitespace-nowrap text-[#6B7280] data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold data-[state=active]:after:content-[''] data-[state=active]:after:absolute data-[state=active]:after:left-0 data-[state=active]:after:right-0 data-[state=active]:after:-bottom-[1px] data-[state=active]:after:h-[2px] data-[state=active]:after:bg-[#0F4C5C]">
-              <FaMoneyBillWave className="h-4 w-4 mr-2" /> Financeiro
-              <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[9px] bg-[#F3F4F6] text-[#374151]">{patientSales.length}</span>
-            </TabsTrigger>
-          </TabsList>
+          <div
+            ref={tabScrollRef}
+            className="relative w-full overflow-x-auto overflow-y-hidden no-scrollbar scroll-smooth cursor-grab active:cursor-grabbing select-none"
+          >
+            <TabsList className="inline-flex w-max items-center whitespace-nowrap border-b border-[#E5E7EB] bg-transparent p-0 rounded-none">
+              <TabsTrigger
+                value="timeline"
+                className="relative -mb-px pb-2 px-2 md:px-3 shrink-0 text-sm md:text-[0.95rem] text-[#6B7280] data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold data-[state=active]:after:content-[''] data-[state=active]:after:absolute data-[state=active]:after:left-0 data-[state=active]:after:right-0 data-[state=active]:after:-bottom-[1px] data-[state=active]:after:h-[2px] data-[state=active]:after:bg-[#0F4C5C]"
+              >
+                <FaClock className="h-4 w-4 mr-1.5 md:mr-2" />
+                <span className="max-w-[9.5rem] md:max-w-none truncate">Linha do Tempo</span>
+                <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[9px] bg-[#F3F4F6] text-[#374151]">
+                  {sortedTimelineEvents.length}
+                </span>
+              </TabsTrigger>
 
-          {/* Nova Aba: Linha do Tempo */}
+              <TabsTrigger
+                value="appointments"
+                className="relative -mb-px pb-2 px-2 md:px-3 shrink-0 text-sm md:text-[0.95rem] text-[#6B7280] data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold data-[state=active]:after:content-[''] data-[state=active]:after:absolute data-[state=active]:after:left-0 data-[state=active]:after:right-0 data-[state=active]:after:-bottom-[1px] data-[state=active]:after:h-[2px] data-[state=active]:after:bg-[#0F4C5C]"
+              >
+                <FaStethoscope className="h-4 w-4 mr-1.5 md:mr-2" />
+                <span className="max-w-[9.5rem] md:max-w-none truncate">Atendimento</span>
+                <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[9px] bg-[#F3F4F6] text-[#374151]">
+                  {animalAppointments.length}
+                </span>
+              </TabsTrigger>
+
+              <TabsTrigger
+                value="exams"
+                className="relative -mb-px pb-2 px-2 md:px-3 shrink-0 text-sm md:text-[0.95rem] text-[#6B7280] data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold data-[state=active]:after:content-[''] data-[state=active]:after:absolute data-[state=active]:after:left-0 data-[state=active]:after:right-0 data-[state=active]:after:-bottom-[1px] data-[state=active]:after:h-[2px] data-[state=active]:after:bg-[#0F4C5C]"
+              >
+                <FaFlask className="h-4 w-4 mr-1.5 md:mr-2" />
+                <span className="max-w-[9.5rem] md:max-w-none truncate">Exames</span>
+                <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[9px] bg-[#F3F4F6] text-[#374151]">
+                  {examsList.length}
+                </span>
+              </TabsTrigger>
+
+              <TabsTrigger
+                value="vaccines"
+                className="relative -mb-px pb-2 px-2 md:px-3 shrink-0 text-sm md:text-[0.95rem] text-[#6B7280] data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold data-[state=active]:after:content-[''] data-[state=active]:after:absolute data-[state=active]:after:left-0 data-[state=active]:after:right-0 data-[state=active]:after:-bottom-[1px] data-[state=active]:after:h-[2px] data-[state=active]:after:bg-[#0F4C5C]"
+              >
+                <FaSyringe className="h-4 w-4 mr-1.5 md:mr-2" />
+                <span className="max-w-[9.5rem] md:max-w-none truncate">Vacinas</span>
+                <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[9px] bg-[#F3F4F6] text-[#374151]">
+                  {vaccines.length}
+                </span>
+              </TabsTrigger>
+
+              <TabsTrigger
+                value="weight"
+                className="relative -mb-px pb-2 px-2 md:px-3 shrink-0 text-sm md:text-[0.95rem] text-[#6B7280] data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold data-[state=active]:after:content-[''] data-[state=active]:after:absolute data-[state=active]:after:left-0 data-[state=active]:after:right-0 data-[state=active]:after:-bottom-[1px] data-[state=active]:after:h-[2px] data-[state=active]:after:bg-[#0F4C5C]"
+              >
+                <FaWeightHanging className="h-4 w-4 mr-1.5 md:mr-2" />
+                <span className="max-w-[9.5rem] md:max-w-none truncate">Peso</span>
+                <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[9px] bg-[#F3F4F6] text-[#374151]">
+                  {weightHistory.length}
+                </span>
+              </TabsTrigger>
+
+              <TabsTrigger
+                value="documents"
+                className="relative -mb-px pb-2 px-2 md:px-3 shrink-0 text-sm md:text-[0.95rem] text-[#6B7280] data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold data-[state=active]:after:content-[''] data-[state=active]:after:absolute data-[state=active]:after:left-0 data-[state=active]:after:right-0 data-[state=active]:after:-bottom-[1px] data-[state=active]:after:h-[2px] data-[state=active]:after:bg-[#0F4C5C]"
+              >
+                <FaFileAlt className="h-4 w-4 mr-1.5 md:mr-2" />
+                <span className="max-w-[9.5rem] md:max-w-none truncate">Documentos</span>
+                <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[9px] bg-[#F3F4F6] text-[#374151]">
+                  {documents.length}
+                </span>
+              </TabsTrigger>
+
+              <TabsTrigger
+                value="prescriptions"
+                className="relative -mb-px pb-2 px-2 md:px-3 shrink-0 text-sm md:text-[0.95rem] text-[#6B7280] data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold data-[state=active]:after:content-[''] data-[state=active]:after:absolute data-[state=active]:after:left-0 data-[state=active]:after:right-0 data-[state=active]:after:-bottom-[1px] data-[state=active]:after:h-[2px] data-[state=active]:after:bg-[#0F4C5C]"
+              >
+                <FaPrescriptionBottleAlt className="h-4 w-4 mr-1.5 md:mr-2" />
+                <span className="max-w-[9.5rem] md:max-w-none truncate">Receitas</span>
+                <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[9px] bg-[#F3F4F6] text-[#374151]">
+                  {prescriptions.length}
+                </span>
+              </TabsTrigger>
+
+              <TabsTrigger
+                value="observations"
+                className="relative -mb-px pb-2 px-2 md:px-3 shrink-0 text-sm md:text-[0.95rem] text-[#6B7280] data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold data-[state=active]:after:content-[''] data-[state=active]:after:absolute data-[state=active]:after:left-0 data-[state=active]:after:right-0 data-[state=active]:after:-bottom-[1px] data-[state=active]:after:h-[2px] data-[state=active]:after:bg-[#0F4C5C]"
+              >
+                <FaCommentAlt className="h-4 w-4 mr-1.5 md:mr-2" />
+                <span className="max-w-[9.5rem] md:max-w-none truncate">Observações</span>
+                <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[9px] bg-[#F3F4F6] text-[#374151]">
+                  {observations.length}
+                </span>
+              </TabsTrigger>
+
+              <TabsTrigger
+                value="financial"
+                className="relative -mb-px pb-2 px-2 md:px-3 shrink-0 text-sm md:text-[0.95rem] text-[#6B7280] data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold data-[state=active]:after:content-[''] data-[state=active]:after:absolute data-[state=active]:after:left-0 data-[state=active]:after:right-0 data-[state=active]:after:-bottom-[1px] data-[state=active]:after:h-[2px] data-[state=active]:after:bg-[#0F4C5C]"
+              >
+                <FaMoneyBillWave className="h-4 w-4 mr-1.5 md:mr-2" />
+                <span className="max-w-[9.5rem] md:max-w-none truncate">Financeiro</span>
+                <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[9px] bg-[#F3F4F6] text-[#374151]">
+                  {patientSales.length}
+                </span>
+              </TabsTrigger>
+            </TabsList>
+          </div>
+
+          {/* Conteúdo das abas (inalterado) */}
           <TabsContent value="timeline" className="mt-4">
             <Card className="bg-white rounded-2xl shadow-sm border-0">
               <CardHeader className="pb-3">
