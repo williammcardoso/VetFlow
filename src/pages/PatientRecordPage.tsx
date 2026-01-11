@@ -674,6 +674,11 @@ const PatientRecordPage = () => {
     return `${text} kg`;
   };
 
+  // ADDED: Navegar para a edição do animal
+  const handleEditAnimal = () => {
+    navigate(`/clients/${clientId}/animals/${animalId}/edit`);
+  };
+
   if (!currentClient || !currentAnimal) {
     return (
       <div className="p-6 text-center">
