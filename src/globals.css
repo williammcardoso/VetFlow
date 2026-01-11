@@ -260,9 +260,24 @@ body {
 
 /* Marcador menor exclusivo para eventos de Peso */
 .timeline-dot-sm {
-  height: 0.7rem; /* levemente menor que o padrão */
+  height: 0.7rem;
   width: 0.7rem;
 }
+
+/* Clamp de 2 linhas para descrições curtas */
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Variações sutis em verde para Receitas (mantendo base verde) */
+.badge-soft-green-variant1 { background-color: rgba(52,211,153,0.20); color: #065f46; }
+.badge-soft-green-variant2 { background-color: rgba(52,211,153,0.28); color: #064e3b; }
+
+/* Neutro cinza/azulado suave para Exames */
+.badge-soft-slate { background-color: rgba(100,116,139,0.18); color: #1f2937; }
 
 /* Identidade por tipo (apenas bolinha colorida; cores suaves e consistentes) */
 .timeline-dot-blue { background-color: #93c5fd; }      /* Atendimento */
