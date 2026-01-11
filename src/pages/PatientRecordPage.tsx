@@ -4,8 +4,7 @@ import React, { useState, useEffect } from "react";
 import { Link, useParams, useNavigate, useSearchParams } from "react-router-dom";
 import {
   FaArrowLeft, FaUsers, FaPaw, FaPlus, FaEye, FaStethoscope, FaCalendarAlt, FaDollarSign, FaSyringe, FaWeightHanging, FaFileAlt, FaClipboardList, FaCommentAlt, FaHeart, FaMale, FaUser, FaPrint, FaDownload, FaTimes, FaSave, FaBalanceScale, FaFileMedical, FaExclamationTriangle, FaFlask, FaTag, FaBox, FaClock, FaMoneyBillWave, FaArrowUp, FaArrowDown, FaTrashAlt, FaPrescriptionBottleAlt, FaEdit, FaIdCard, FaPhone
-} from "react-icons/fa"; // Importar ícones de react-icons
-// ADDED: ícone de localização para endereço do tutor
+} from "react-icons/fa";
 import { FaMapMarkerAlt } from "react-icons/fa";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -26,10 +25,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { toast } from "sonner";
 import { PrescriptionEntry } from "@/types/medication";
 import { mockPrescriptions } from "@/mockData/prescriptions";
-import { cn, formatDateTime } from "@/lib/utils"; // Importar formatDateTime
+import { cn, formatDateTime } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-// NEW: importar Alert e Checkbox
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -37,38 +35,47 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"; // Importar DropdownMenu
-import { pdf } from "@react-pdf/renderer"; // Importar pdf para impressão
-import { PrescriptionPdfContent } from "@/components/PrescriptionPdfContent"; // Importar o componente de conteúdo do PDF
-// ADDED: Import do conteúdo de PDF do exame
+} from "@/components/ui/dropdown-menu";
+import { pdf } from "@react-pdf/renderer";
+import { PrescriptionPdfContent } from "@/components/PrescriptionPdfContent";
 import { ExamReportPdfContent } from "@/components/ExamReportPdfContent";
-import { FinancialTransaction, mockFinancialTransactions, addMockFinancialTransaction } from "@/mockData/financial"; // Importar mock data financeiro
-import { AppointmentEntry, BaseAppointmentDetails, ConsultationDetails } from "@/types/appointment"; // Importar a nova interface de atendimento
-import { mockClients, updateAnimalDetails } from "@/mockData/clients"; // Importar o mock de clientes centralizado e updateAnimalDetails
-import { Client, Animal, WeightEntry } from "@/types/client"; // Importar as interfaces Client, Animal e WeightEntry
-import { mockAppointments } from "@/pages/AddAppointmentPage"; // Importar mockAppointments do AddAppointmentPage
-import { ExamEntry, ExamReportData, HemogramReference, HemogramReferenceValue } from "@/types/exam"; // Importar a interface ExamEntry e ExamReportData, e as interfaces de referência
+import { mockFinancialTransactions, addMockFinancialTransaction } from "@/mockData/financial";
+import { AppointmentEntry, BaseAppointmentDetails } from "@/types/appointment";
+import { mockClients, updateAnimalDetails } from "@/mockData/clients";
+import { Client, Animal, WeightEntry } from "@/types/client";
+import { mockAppointments } from "@/pages/AddAppointmentPage";
+import { ExamEntry } from "@/types/exam";
 import { mockExams } from "@/mockData/exams";
 import { hemogramReferences } from "@/constants/examReferences";
 import { mockUserSettings } from "@/mockData/settings";
-// NOVO: hook de scroll horizontal para TabViewer
 import { useHorizontalScroll } from "@/hooks/use-horizontal-scroll";
+import AutocompleteSelect from "@/components/AutocompleteSelect";
+import CurrencyInput from "@/components/CurrencyInput";
+import { getCatalog, findCatalogItem, adjustStock } from "@/mockData/catalog";
+import { getRegistryList } from "@/mockData/registry";
+import BudgetReportPdfContent from "@/components/BudgetReportPdfContent";
 
-// Mock data para tipos de exame e veterinários
-const mockExamTypes = [
-  { id: "1", name: "Hemograma Completo" },
-  { id: "2", name: "Exame de Fezes" },
-  { id: "3", name: "Urinálise" },
-  { id: "4", name: "Raio-X" },
-];
+// Tipos locais para documentos e observações
+interface DocumentEntry {
+  id: string;
+  date: string;
+  time: string;
+  name: string;
+  fileUrl: string;
+}
+interface ObservationEntry {
+  id: string;
+  date: string;
+  time: string;
+  observation: string;
+  displayAsAlert?: boolean;
+}
 
-const mockVets = [
-  { id: "1", name: "Dr. Silva" },
-  { id: "2", name: "Dra. Costa" },
-  { id: "3", "name": "Dr. Souza" },
-];
+// Helpers de storage ausentes
+const salesStorageKey = (aid?: string) => `patient:sales:${aid || "unknown"}`;
+const paymentsStorageKey = (aid?: string) => `patient:payments:${aid || "unknown"}`;
 
-// Mock data para vacinas (base inicial; gerida via estado)
+// Mock data para vacinas
 const mockVaccines = [
   { id: "vac1", date: "2024-03-10", time: "11:00", type: "V8", nextDue: "2025-03-10", vet: "Dra. Costa" },
 ];
@@ -77,13 +84,12 @@ const mockVaccines = [
 interface TimelineEvent {
   id: string;
   date: string;
-  time: string; // Adicionado campo de hora
+  time: string;
   type: 'Atendimento' | 'Exame' | 'Receita' | 'Peso' | 'Observação' | 'Venda' | 'Vacina' | 'Documento';
   description: string;
   icon: React.ElementType;
-  link?: string; // Opcional, para navegar para detalhes
-  badgeColor?: string; // Opcional, para customizar a cor do badge
-  // NEW:
+  link?: string;
+  badgeColor?: string;
   summary?: string;
   author?: string;
 }
@@ -100,7 +106,7 @@ const calculateAge = (birthday: string) => {
   return age > 0 ? `${age} ano(s)` : 'Menos de 1 ano';
 };
 
-// Tipagens locais e storage para vendas e pagamentos no prontuário
+// Tipagens locais e storage para vendas e pagamentos
 type SaleStatusLocal = "open" | "finalized";
 type SaleItemMeta = { itemId: string; name: string; type: "product" | "service"; qty: number; unitPrice: number };
 type PatientSaleMeta = {
@@ -124,7 +130,7 @@ type PatientPaymentMeta = {
   observations?: string;
 };
 
-// NOVO: orçamento no prontuário (sem atendimento na criação)
+// Orçamentos locais
 type BudgetStatusLocal = "aberto" | "aprovado" | "convertido" | "expirado" | "cancelado";
 type PatientBudgetMeta = {
   id: string;
@@ -173,16 +179,7 @@ const writePatientPayments = (aid: string | undefined, list: PatientPaymentMeta[
   localStorage.setItem(paymentsStorageKey(aid), JSON.stringify(list));
 };
 
-// Mock data para catalogo de produtos e serviços
-import AutocompleteSelect from "@/components/AutocompleteSelect";
-import CurrencyInput from "@/components/CurrencyInput";
-import { getCatalog, findCatalogItem, adjustStock } from "@/mockData/catalog";
-import { getRegistryList } from "@/mockData/registry";
-
-// ADDED: importar o conteúdo de PDF de orçamento
-import BudgetReportPdfContent from "@/components/BudgetReportPdfContent";
-
-// Helper para identidade visual por tipo de evento (dot + badge suaves)
+// Helper para identidade visual por tipo de evento
 const EVENT_STYLES: Record<string, { dot: string; badge: string }> = {
   'Atendimento': { dot: 'timeline-dot-blue', badge: 'badge-soft-blue' },
   'Exame': { dot: 'timeline-dot-purple', badge: 'badge-soft-purple' },
@@ -195,7 +192,7 @@ const EVENT_STYLES: Record<string, { dot: string; badge: string }> = {
 };
 const getEventStyle = (type: string) => EVENT_STYLES[type] || { dot: 'timeline-dot-gray', badge: 'badge-soft-gray' };
 
-// NOVO: classe do ícone por tipo (cores consistentes apenas no ícone)
+// Classe do ícone por tipo
 const getEventIconClass = (type: string) => {
   switch (type) {
     case 'Atendimento': return 'icon-soft-blue';
@@ -210,27 +207,12 @@ const getEventIconClass = (type: string) => {
   }
 };
 
-// Helper para cor da bolinha baseado na cor do badge da timeline
-const getNodeColorClass = (badge?: string) => {
-  const c = (badge || "").toLowerCase();
-  if (c.includes("green")) return "bg-green-500";
-  if (c.includes("red")) return "bg-red-500";
-  if (c.includes("purple")) return "bg-purple-500";
-  if (c.includes("yellow")) return "bg-yellow-500";
-  if (c.includes("blue")) return "bg-blue-500";
-  if (c.includes("teal")) return "bg-teal-500";
-  if (c.includes("orange")) return "bg-orange-500";
-  if (c.includes("gray")) return "bg-gray-400";
-  return "bg-[#0F4C5C]";
-};
-
 // PatientRecordPage
 const PatientRecordPage = () => {
   const { clientId, animalId } = useParams<{ clientId: string; animalId: string }>();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  // Usar um estado para o cliente e animal para que possam ser atualizados
   const [currentClient, setCurrentClient] = useState<Client | undefined>(
     mockClients.find(c => c.id === clientId)
   );
@@ -238,55 +220,43 @@ const PatientRecordPage = () => {
     currentClient?.animals.find(a => a.id === animalId)
   );
 
-  // Efeito para atualizar currentClient e currentAnimal quando mockClients muda
   useEffect(() => {
     const updatedClient = mockClients.find(c => c.id === clientId);
     setCurrentClient(updatedClient);
     setCurrentAnimal(updatedClient?.animals.find(a => a.id === animalId));
-  }, [mockClients, clientId, animalId]); // Dependência em mockClients para re-renderizar quando ele é alterado
+  }, [mockClients, clientId, animalId]);
 
-  // State para a aba ativa, com valor inicial do localStorage ou 'appointments'
   const [activeTab, setActiveTab] = useState<string>(() => {
     if (typeof window !== 'undefined') {
-      return localStorage.getItem(`patientRecordActiveTab-${animalId}`) || 'timeline'; // Default para timeline
+      return localStorage.getItem(`patientRecordActiveTab-${animalId}`) || 'timeline';
     }
     return 'timeline';
   });
 
-  // Efeito para salvar a aba ativa no localStorage sempre que ela mudar
   useEffect(() => {
     if (typeof window !== 'undefined' && animalId) {
       localStorage.setItem(`patientRecordActiveTab-${animalId}`, activeTab);
     }
   }, [activeTab, animalId]);
 
-  // NOVO: ref para scroll horizontal da barra de abas
   const tabScrollRef = useHorizontalScroll<HTMLDivElement>();
 
-  // State para os atendimentos do animal
   const [animalAppointments, setAnimalAppointments] = useState<AppointmentEntry[]>(
     mockAppointments.filter(app => app.animalId === animalId)
   );
-  
-  // Use useEffect to update the state if mockAppointments changes (e.e., after a save)
-  // This is a simple way to "refresh" the list when returning to the page.
   useEffect(() => {
     setAnimalAppointments(mockAppointments.filter(app => app.animalId === animalId));
   }, [mockAppointments, animalId]);
 
-
-  // State para as novas abas
   const [weightHistory, setWeightHistory] = useState<WeightEntry[]>(currentAnimal?.weightHistory || []);
   const [newWeight, setNewWeight] = useState<string>("");
   const [newWeightDate, setNewWeightDate] = useState<string>(new Date().toISOString().split('T')[0]);
 
-  // Atualizar weightHistory quando o animal mudar (ex: após edição ou adição de peso via atendimento)
   useEffect(() => {
     if (currentAnimal?.weightHistory) {
       setWeightHistory(currentAnimal.weightHistory);
     }
   }, [currentAnimal?.weightHistory]);
-
 
   const [documents, setDocuments] = useState<DocumentEntry[]>([
     { id: "d1", date: "2023-05-01", time: "10:00", name: "Termo de Adoção", fileUrl: "#" },
@@ -295,15 +265,10 @@ const PatientRecordPage = () => {
   const [newDocumentName, setNewDocumentName] = useState<string>("");
   const [newDocumentFile, setNewDocumentFile] = useState<File | null>(null);
 
-  // A lista de prescrições aqui representa as receitas FINALIZADAS
   const [prescriptions, setPrescriptions] = useState<PrescriptionEntry[]>(mockPrescriptions);
-
-  // Use useEffect to update the state if mockPrescriptions changes (e.e., after a save)
-  // This is a simple way to "refresh" the list when returning to the page.
   useEffect(() => {
-    setPrescriptions([...mockPrescriptions]); // Create a new array reference to trigger re-render
-  }, [location.pathname]); // Re-run when the path changes (e.g., returning from add/edit page)
-
+    setPrescriptions([...mockPrescriptions]);
+  }, [location.pathname]);
 
   const [observations, setObservations] = useState<ObservationEntry[]>([
     { id: "o1", date: "2023-09-20", time: "10:00", observation: "Animal apresentou melhora significativa após tratamento." },
@@ -311,19 +276,13 @@ const PatientRecordPage = () => {
   ]);
   const [newObservation, setNewObservation] = useState<string>("");
   const [newObservationAlert, setNewObservationAlert] = useState<boolean>(false);
-
-  // Guardas seguros para uso em JSX
   const isObservationEmpty = !newObservation || newObservation.trim().length === 0;
 
-  // State para a lista de exames e o modal de adição
-  const [examsList, setExamsList] = useState<ExamEntry[]>(mockExams.filter(exam => exam.id.startsWith('exam'))); // Inicialmente vazio, pois a adição é feita em outra página
-  
-  // Use useEffect to update the state if mockExams changes (e.e., after a save)
+  const [examsList, setExamsList] = useState<ExamEntry[]>(mockExams.filter(exam => exam.id.startsWith('exam')));
   useEffect(() => {
-    setExamsList([...mockExams]); // Create a new array reference to trigger re-render
-  }, [mockExams, animalId]); // Dependência em mockExams para re-renderizar quando ele é alterado
+    setExamsList([...mockExams]);
+  }, [mockExams, animalId]);
 
-  // Estado de Vacinas e diálogos
   const [vaccines, setVaccines] = useState(mockVaccines);
   const [vaccineAddOpen, setVaccineAddOpen] = useState(false);
   const [vaccineViewOpen, setVaccineViewOpen] = useState(false);
@@ -336,46 +295,36 @@ const PatientRecordPage = () => {
     vet: "",
   });
 
-  // Modal: Observação
   const [observationModalOpen, setObservationModalOpen] = useState(false);
   const [selectedObservation, setSelectedObservation] = useState<ObservationEntry | null>(null);
 
-  // Modal: Peso
   const [weightModalOpen, setWeightModalOpen] = useState(false);
   const [selectedWeight, setSelectedWeight] = useState<WeightEntry | null>(null);
 
-  // Filtrar transações financeiras relacionadas a este animal
   const animalFinancialTransactions = mockFinancialTransactions.filter(
     (t) =>
       t.relatedAnimalId === animalId &&
-      !(t.type === 'income' && t.category === 'Venda de Produtos') // EXCLUI vendas para não duplicar com a aba Vendas
+      !(t.type === 'income' && t.category === 'Venda de Produtos')
   );
 
-  // Filtrar transações de vendas relacionadas a este animal (para linha do tempo e exibição)
   const animalSalesTransactions = mockFinancialTransactions.filter(
     (t) => t.relatedAnimalId === animalId && t.type === 'income' && t.category === 'Venda de Produtos'
   );
 
-  // Estado e form para lançamento financeiro
   const [financeModalOpen, setFinanceModalOpen] = useState(false);
   const [financeForm, setFinanceForm] = useState({ description: "", amount: "", type: "income" as "income" | "expense", category: "", paymentMethod: "" });
 
-  // Estado para gerenciamento de vendas locais (único; consolidado)
   const [patientSales, setPatientSales] = useState<PatientSaleMeta[]>(readPatientSales(animalId));
   useEffect(() => { setPatientSales(readPatientSales(animalId)); }, [animalId]);
 
-  // Estado para pagamentos locais
   const [patientPayments, setPatientPayments] = useState<PatientPaymentMeta[]>(readPatientPayments(animalId));
   useEffect(() => { setPatientPayments(readPatientPayments(animalId)); }, [animalId]);
 
-  // NOVO: estado para orçamentos do prontuário
   const [patientBudgets, setPatientBudgets] = useState<PatientBudgetMeta[]>(readPatientBudgets(animalId));
   useEffect(() => { setPatientBudgets(readPatientBudgets(animalId)); }, [animalId]);
 
-  // Catálogo para itens (orçamentos e vendas)
   const catalogItems = getCatalog().filter(i => i.active);
 
-  // Substituir conteúdo da aba Vendas para aplicar bordas, máscara, itens e modal mais largo
   const [saleModalOpen, setSaleModalOpen] = useState(false);
   const [saleDate, setSaleDate] = useState<string>(new Date().toISOString().split("T")[0]);
   const [saleAppointmentId, setSaleAppointmentId] = useState<string>("");
@@ -383,7 +332,6 @@ const PatientRecordPage = () => {
   const [saleObservations, setSaleObservations] = useState<string>("");
   const [saleStatusLocal, setSaleStatusLocal] = useState<SaleStatusLocal>("open");
 
-  // Itens da venda
   const [saleSelectedItemId, setSaleSelectedItemId] = useState<string>("");
   const [saleQty, setSaleQty] = useState<number>(1);
   const [saleUnitPrice, setSaleUnitPrice] = useState<number>(0);
@@ -439,7 +387,7 @@ const PatientRecordPage = () => {
       items: saleItems,
       total: saleTotal,
       saleStatus: saleStatusLocal,
-      origin: "manual", // NOVO
+      origin: "manual",
       responsible: saleResponsible || animalAppointments.find(a => a.id === saleAppointmentId)?.vet || undefined,
       observations: saleObservations || undefined,
     };
@@ -457,7 +405,6 @@ const PatientRecordPage = () => {
     setPatientSales(updated); writePatientSales(animalId, updated);
   };
 
-  // Cálculo financeiro por venda
   const getPaidForSale = (saleId: string): number => patientPayments.filter(p => p.saleId === saleId).reduce((sum, p) => sum + p.amount, 0);
   const getFinancialStatusForSale = (saleId: string, saleAmount: number): "paid" | "partial" | "pending" => {
     const paid = getPaidForSale(saleId);
@@ -466,7 +413,6 @@ const PatientRecordPage = () => {
     return "pending";
   };
 
-  // Pagamentos (aba Financeiro)
   const pmRegistry = getRegistryList("paymentMethods");
   const [paymentSaleId, setPaymentSaleId] = useState<string | undefined>(undefined);
   const [paymentDate, setPaymentDate] = useState<string>(new Date().toISOString().split("T")[0]);
@@ -475,7 +421,6 @@ const PatientRecordPage = () => {
   const [paymentMethodId, setPaymentMethodId] = useState<string | undefined>(undefined);
   const [paymentObservations, setPaymentObservations] = useState<string>("");
 
-  // BLOQUEIO: não permitir baixar se já estiver pago
   const canRegisterPayment = (saleId: string): boolean => {
     const sale = patientSales.find(s => s.id === saleId);
     if (!sale) return false;
@@ -537,14 +482,11 @@ const PatientRecordPage = () => {
     toast.success("Pagamento registrado!");
   };
 
-  // EXPANSÍVEL: controlar exibição de itens por venda
   const [expandedSales, setExpandedSales] = useState<Record<string, boolean>>({});
   const toggleExpanded = (saleId: string) => setExpandedSales(prev => ({ ...prev, [saleId]: !prev[saleId] }));
 
-  // -------- Orçamentos: modal e lógica --------
   const [budgetModalOpen, setBudgetModalOpen] = useState(false);
   const [budgetDate, setBudgetDate] = useState<string>(new Date().toISOString().split("T")[0]);
-  // orçamento sem atendimento na criação
   const [budgetSelectedItemId, setBudgetSelectedItemId] = useState<string>("");
   const [budgetQty, setBudgetQty] = useState<number>(1);
   const [budgetUnitPrice, setBudgetUnitPrice] = useState<number>(0);
@@ -591,7 +533,6 @@ const PatientRecordPage = () => {
     };
     const next = [...patientBudgets, newBudget];
     setPatientBudgets(next); writePatientBudgets(animalId, next);
-    // reset
     setBudgetDate(new Date().toISOString().split("T")[0]);
     setBudgetItems([]); setBudgetQty(1); setBudgetUnitPrice(0); setBudgetValidityDays(15); setBudgetObservations("");
     setBudgetModalOpen(false);
@@ -636,7 +577,6 @@ const PatientRecordPage = () => {
     }
   };
 
-  // Conversão: pedir atendimento na hora de converter
   const [convertModalOpen, setConvertModalOpen] = useState(false);
   const [convertTargetBudgetId, setConvertTargetBudgetId] = useState<string | null>(null);
   const [convertAppointmentId, setConvertAppointmentId] = useState<string>("");
@@ -700,10 +640,8 @@ const PatientRecordPage = () => {
     return true;
   };
 
-  // NOVO: estado controlado para sub-abas de Financeiro
   const [financeTab, setFinanceTab] = useState<'orcamentos'|'vendas'|'financeiro'>('orcamentos');
 
-  // NOVO: ler parâmetros para pré-seleção de pagamento
   useEffect(() => {
     const paySaleId = searchParams.get('paySaleId');
     if (paySaleId) {
@@ -713,7 +651,6 @@ const PatientRecordPage = () => {
     }
   }, [searchParams]);
 
-  // NOVO: atalho "Pagar" vindo do card de venda
   const handlePayShortcut = (saleId: string) => {
     setActiveTab('financial');
     setFinanceTab('financeiro');
@@ -721,7 +658,6 @@ const PatientRecordPage = () => {
     setSearchParams({ paySaleId: saleId });
   };
 
-  // ADDED: Helpers de formatação clínica para idade/peso (uso apenas no topo)
   const formatAgeLabel = (birthday?: string) => {
     if (!birthday) return "-";
     const birthDate = new Date(birthday);
@@ -751,160 +687,8 @@ const PatientRecordPage = () => {
     );
   }
 
-  // Handlers para as novas funcionalidades
-  const handleAddWeight = () => {
-    if (newWeight.trim() && newWeightDate) {
-      const now = new Date();
-      const newEntry: WeightEntry = {
-        id: `wh-${Date.now()}`,
-        date: newWeightDate,
-        time: now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-        weight: parseFloat(newWeight),
-        source: "Manual", // Origem manual
-      };
-      // Usar a função updateAnimalDetails para adicionar ao histórico e atualizar o peso atual
-      const success = updateAnimalDetails(clientId, animalId, {
-        weight: parseFloat(newWeight),
-        lastWeightSource: "Manual",
-      });
-
-      if (success) {
-        setNewWeight("");
-        setNewWeightDate(new Date().toISOString().split('T')[0]);
-        toast.success("Peso adicionado ao histórico!");
-        // O useEffect que observa mockClients se encarregará de atualizar currentAnimal e weightHistory
-      } else {
-        toast.error("Erro ao adicionar peso.");
-      }
-    }
-  };
-
-  const handleAddDocument = () => {
-    if (newDocumentName.trim() && newDocumentFile) {
-      const now = new Date();
-      // In a real application, you would upload the file and get a URL
-      const newEntry: DocumentEntry = {
-        id: String(documents.length + 1),
-        date: now.toISOString().split('T')[0],
-        time: now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-        name: newDocumentName.trim(),
-        fileUrl: URL.createObjectURL(newDocumentFile), // Placeholder URL
-      };
-      setDocuments([...documents, newEntry]);
-      setNewDocumentName("");
-      setNewDocumentFile(null);
-      toast.success("Anexo adicionado!");
-    }
-  };
-
-  const handleAddObservation = () => {
-    if (newObservation.trim()) {
-      const now = new Date();
-      const newEntry: ObservationEntry = {
-        id: String(observations.length + 1),
-        date: now.toISOString().split('T')[0],
-        time: now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-        observation: newObservation.trim(),
-        // NEW: exibir alerta no prontuário
-        displayAsAlert: newObservationAlert as any,
-      } as any;
-      setObservations([...observations, newEntry]);
-      setNewObservation("");
-      setNewObservationAlert(false);
-    }
-  };
-
-  // Handlers para Atendimentos (atualizados para a nova página)
-  const handleAddAppointmentClick = () => {
-    navigate(`/clients/${clientId}/animals/${animalId}/add-appointment`);
-  };
-
-  const handleViewAppointmentClick = (appointment: AppointmentEntry) => {
-    navigate(`/clients/${clientId}/animals/${animalId}/view-appointment/${appointment.id}`);
-  };
-
-  const handleDeleteAppointment = (id: string) => {
-    // Remove from mockAppointments directly
-    const index = mockAppointments.findIndex(app => app.id === id);
-    if (index > -1) {
-      mockAppointments.splice(index, 1);
-      setAnimalAppointments(mockAppointments.filter(app => app.animalId === animalId)); // Update local state
-      toast.info("Atendimento excluído.");
-    }
-  };
-
-  const handleEditAnimal = () => {
-    navigate(`/clients/${clientId}/animals/${animalId}/edit`);
-  };
-
-  const handlePrintSinglePrescription = async (rx: PrescriptionEntry) => {
-    if (!currentClient || !currentAnimal) {
-      toast.error("Erro: Dados do cliente ou animal não disponíveis para impressão.");
-      return;
-    }
-
-    const blob = await pdf(
-      PrescriptionPdfContent({
-        animalName: currentAnimal.name,
-        animalId: currentAnimal.id,
-        animalSpecies: currentAnimal.species,
-        tutorName: currentClient.name,
-        tutorAddress: currentClient.address.street + ", " + currentClient.address.number + " - " + currentClient.address.city + " - " + currentClient.address.state,
-        medications: rx.medications || [], // Passar array vazio se for manipulada
-        generalObservations: rx.instructions,
-        showElectronicSignatureText: false,
-        prescriptionType: rx.type,
-        pharmacistName: "Farmacêutico(a) Responsável", // Mock data for pharmacist
-        pharmacistCpf: "CPF: 000.000.000-00",
-        pharmacistCfr: "CRF: 00000",
-        pharmacistAddress: "Endereço da Farmácia, 000 - Cidade - UF",
-        pharmacistPhone: "Telefone: (00) 00000-0000",
-        manipulatedPrescription: rx.manipulatedPrescription, // Passar dados da manipulada
-      })
-    ).toBlob();
-
-    const url = URL.createObjectURL(blob);
-    window.open(url, '_blank');
-    URL.revokeObjectURL(url);
-    toast.success("Receita enviada para impressão!");
-  };
-
-  const handlePrintExam = async (exam: ExamEntry) => {
-    if (!currentClient || !currentAnimal) {
-      toast.error("Erro: Dados do cliente ou animal não disponíveis para impressão.");
-      return;
-    }
-
-    const tutorAddress = `${currentClient.address.street}, ${currentClient.address.number} - ${currentClient.address.city} - ${currentClient.address.state}`;
-
-    const blob = await pdf(
-      <ExamReportPdfContent
-        animalName={currentAnimal.name}
-        animalId={currentAnimal.id}
-        animalSpecies={currentAnimal.species}
-        tutorName={currentClient.name}
-        tutorAddress={tutorAddress}
-        exam={exam}
-        hemogramReferences={hemogramReferences}
-      />
-    ).toBlob();
-
-    const url = URL.createObjectURL(blob);
-    window.open(url, '_blank');
-    URL.revokeObjectURL(url);
-    toast.success("Laudo de exame enviado para impressão!");
-  };
-
-  const handleEditExam = (examId: string) => {
-    // UPDATED: Navegar para a página de edição de exame
-    navigate(`/clients/${clientId}/animals/${animalId}/edit-exam/${examId}`);
-  };
-
-
-  // Lógica para a Linha do Tempo
   const allTimelineEvents: TimelineEvent[] = [];
 
-  // Adicionar Atendimentos
   animalAppointments.forEach(app => {
     const appDetails = app.details as BaseAppointmentDetails;
     const description = appDetails.suspeitaDiagnostica || appDetails.condutaTratamento || app.observacoesGerais || `Atendimento de ${app.type}`;
@@ -922,7 +706,6 @@ const PatientRecordPage = () => {
     });
   });
 
-  // Adicionar Exames
   examsList.forEach(exam => {
     allTimelineEvents.push({
       id: `exam-${exam.id}`,
@@ -937,7 +720,6 @@ const PatientRecordPage = () => {
     });
   });
 
-  // Adicionar Receitas
   prescriptions.forEach(rx => {
     const description = rx.treatmentDescription || rx.medicationName || "Receita sem descrição";
     let badgeColor = "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200";
@@ -958,7 +740,6 @@ const PatientRecordPage = () => {
     });
   });
 
-  // Adicionar Pesos
   weightHistory.forEach(entry => {
     allTimelineEvents.push({
       id: `weight-${entry.id}`,
@@ -973,7 +754,6 @@ const PatientRecordPage = () => {
     });
   });
 
-  // Adicionar Observações
   observations.forEach(obs => {
     allTimelineEvents.push({
       id: `obs-${obs.id}`,
@@ -988,7 +768,6 @@ const PatientRecordPage = () => {
     });
   });
 
-  // Adicionar Vendas
   animalSalesTransactions.forEach(sale => {
     allTimelineEvents.push({
       id: `sale-${sale.id}`,
@@ -1003,7 +782,6 @@ const PatientRecordPage = () => {
     });
   });
 
-  // Adicionar Vacinas
   vaccines.forEach(vaccine => {
     allTimelineEvents.push({
       id: `vaccine-${vaccine.id}`,
@@ -1018,7 +796,6 @@ const PatientRecordPage = () => {
     });
   });
 
-  // Adicionar Documentos
   documents.forEach(doc => {
     allTimelineEvents.push({
       id: `doc-${doc.id}`,
@@ -1034,25 +811,19 @@ const PatientRecordPage = () => {
     });
   });
 
-
-  // Ordenar todos os eventos por data (mais recente primeiro)
   const sortedTimelineEvents = allTimelineEvents.sort((a, b) => {
     const dateTimeA = new Date(`${a.date}T${a.time}`);
     const dateTimeB = new Date(`${b.date}T${b.time}`);
     return dateTimeB.getTime() - dateTimeA.getTime();
   });
 
-
-  // Totais dinâmicos para o resumo no cabeçalho
   const totalAppointments = animalAppointments.length;
   const totalIncome = mockFinancialTransactions
     .filter((t) => t.relatedAnimalId === animalId && t.type === 'income')
     .reduce((sum, t) => sum + t.amount, 0);
 
   return (
-    // Fundo geral com contraste de camadas mais evidente
     <div className="flex flex-col min-h-screen layered-bg-warm overflow-x-hidden font-exo">
-      {/* Header premium com contraste reforçado */}
       <div className="premium-top p-6 pb-4 mx-auto w-full max-w-7xl">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-2 gap-4 sm:gap-2">
           <div className="flex items-center gap-4">
@@ -1082,16 +853,12 @@ const PatientRecordPage = () => {
         </p>
       </div>
 
-      {/* Topo: Paciente/Tutor/Financeiro com card herói e avatar com brilho */}
       <div className="flex-1 p-6 mx-auto w-full max-w-7xl">
         <div className="mb-6">
-          {/* Card do paciente mais compacto e com hierarquia clara */}
           <Card className="premium-card card-hover ring-1 ring-border/50">
             <CardHeader className="pb-0 surface-offwhite rounded-t-[1rem]">
               <div className="grid grid-cols-1 md:grid-cols-[1.5fr_1fr_1fr] gap-5 p-5">
-                {/* Paciente: protagonista, com botão de editar ao lado do nome */}
                 <div className="flex items-start gap-4">
-                  {/* Avatar levemente menor e integrado ao texto */}
                   <Avatar className="h-20 w-20 rounded-full hero-avatar-ring avatar-soft ring-2 ring-white/70">
                     <AvatarImage src={undefined} />
                     <AvatarFallback className="text-[#0F4C5C] text-xl font-bold">
@@ -1111,9 +878,7 @@ const PatientRecordPage = () => {
                         <FaEdit className="mr-2 h-4 w-4" /> Editar
                       </Button>
                     </div>
-                    {/* Chips clínicas: dois grupos (identidade / biológicos), menores e discretas, com separação visual clara */}
                     <div className="mt-3">
-                      {/* Grupo: identidade (Espécie, Raça) */}
                       <div className="flex flex-wrap gap-2">
                         <span className="chip-soft bg-teal-50/40 text-foreground/75">
                           Espécie: <span className="font-semibold text-foreground/85">{currentAnimal.species}</span>
@@ -1122,7 +887,6 @@ const PatientRecordPage = () => {
                           Raça: <span className="font-semibold text-foreground/85">{currentAnimal.breed}</span>
                         </span>
                       </div>
-                      {/* Grupo: biológicos (Idade, Peso, Sexo, Nasc.) com separação sutil */}
                       <div className="flex flex-wrap gap-2 pt-2 mt-2 border-t border-border/50">
                         <span className="chip-soft bg-indigo-50/40 text-foreground/75">
                           Idade: <span className="font-semibold text-foreground/85">{formatAgeLabel(currentAnimal.birthday)}</span>
@@ -1141,7 +905,6 @@ const PatientRecordPage = () => {
                   </div>
                 </div>
 
-                {/* Tutor: secundário, limpo e legível (com endereço resumido) */}
                 <div>
                   <div className="premium-card premium-card--soft p-5">
                     <p className="text-xs uppercase tracking-wide text-foreground/75">Tutor Responsável</p>
@@ -1166,7 +929,6 @@ const PatientRecordPage = () => {
                   </div>
                 </div>
 
-                {/* Financeiro: status silencioso (menos altura, cor só no valor) */}
                 <div>
                   {(() => {
                     const income = mockFinancialTransactions.filter(t => t.relatedAnimalId === animalId && t.type === 'income').reduce((s, t) => s + t.amount, 0);
@@ -1208,11 +970,9 @@ const PatientRecordPage = () => {
           </Card>
         </div>
 
-        {/* Tabs modernas com scroll horizontal invisível */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full mt-6">
           <div ref={tabScrollRef} className="relative w-full overflow-x-auto overflow-y-hidden no-scrollbar scroll-smooth select-none">
             <TabsList className="inline-flex w-max items-center whitespace-nowrap border-b border-border/40 bg-transparent p-0 rounded-none gap-1">
-              {/* Estilo segmented control: tipografia leve + linha ativa sutil */}
               <TabsTrigger value="timeline" className="tab-active-line relative -mb-px pb-2 px-2.5 md:px-3.5 shrink-0 text-sm md:text-[0.95rem] text-muted-foreground hover:text-foreground hover:bg-muted/40 rounded-md transition-colors data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold">
                 <FaClock className="h-4 w-4 mr-1.5 md:mr-2 text-muted-foreground" />
                 <span className="max-w-[9.5rem] md:max-w-none truncate">Linha do Tempo</span>
@@ -1261,7 +1021,6 @@ const PatientRecordPage = () => {
             </TabsList>
           </div>
 
-          {/* Timeline neutra com identidade funcional clara (dot + ícone + badge), melhor hierarquia e hover premium do botão ver */}
           <TabsContent value="timeline" className="mt-4">
             <Card className="premium-card card-hover">
               <CardHeader className="pb-4">
@@ -1282,9 +1041,9 @@ const PatientRecordPage = () => {
 
                         const getRecipeVariantClass = () => {
                           const desc = (event.description || "").toLowerCase();
-                          if (desc.includes("controlada")) return "badge-soft-green-variant2"; // um tom um pouco mais forte
-                          if (desc.includes("manipulada")) return "badge-soft-green-variant1"; // tom intermediário
-                          return "badge-soft-green"; // simples
+                          if (desc.includes("controlada")) return "badge-soft-green-variant2";
+                          if (desc.includes("manipulada")) return "badge-soft-green-variant1";
+                          return "badge-soft-green";
                         };
 
                         const getExamName = () => {
@@ -1299,13 +1058,10 @@ const PatientRecordPage = () => {
 
                         return (
                           <div key={event.id} className="relative pl-6 sm:pl-8">
-                            {/* Dot com cor consistente por tipo (Peso: bolinha levemente menor) */}
                             <span className={cn("absolute left-1.5 sm:left-2.5 top-5 timeline-dot", styles.dot, isWeight && "timeline-dot-sm")} />
-                            
                             <Card className={cn("premium-card", isWeight ? "p-5" : (event.type === 'Exame' || event.type === 'Documento') ? "p-5" : "p-7")}>
                               {isWeight ? (
                                 <>
-                                  {/* Cabeçalho compacto com ícone discreto e badge âmbar */}
                                   <div className="flex items-start justify-between mb-2">
                                     <div className="flex items-center gap-2">
                                       {React.createElement(event.icon, { className: cn("h-4 w-4", iconClass) })}
@@ -1314,8 +1070,6 @@ const PatientRecordPage = () => {
                                       </Badge>
                                     </div>
                                   </div>
-
-                                  {/* Valor do peso como elemento principal (alta hierarquia visual) */}
                                   <div className="flex items-center gap-2 mb-1">
                                     <p className="text-[1.6rem] leading-tight font-extrabold text-amber-700 dark:text-amber-400">
                                       {weightEntry
@@ -1323,13 +1077,9 @@ const PatientRecordPage = () => {
                                         : (event.description?.match(/(\d+[.,]?\d*)\s*kg/i)?.[1] ? `${event.description.match(/(\d+[.,]?\d*)\s*kg/i)![1]} kg` : "")}
                                     </p>
                                   </div>
-
-                                  {/* Texto secundário enxuto: "Peso registrado • Origem: {Manual|...}" */}
                                   <p className="text-xs sm:text-sm text-amber-900/70 dark:text-amber-200/80 mb-2">
                                     Peso registrado • Origem: {weightEntry?.source || (event.summary?.replace(/Origem:\s*/i, '') || '-')}
                                   </p>
-
-                                  {/* Metadados com menor contraste */}
                                   <div className="flex items-center justify-between">
                                     <div className="flex items-center gap-1 metadata-subtle">
                                       <FaCalendarAlt className="h-3 w-3" /> {formatDateTime(event.date, event.time)}
@@ -1341,7 +1091,6 @@ const PatientRecordPage = () => {
                                 </>
                               ) : (
                                 <>
-                                  {/* Outros tipos: aplicar hierarquia e identidade sem mudar estrutura geral */}
                                   {event.type === 'Atendimento' ? (
                                     <>
                                       <div className="flex items-start justify-between mb-3">
@@ -1352,11 +1101,9 @@ const PatientRecordPage = () => {
                                           </Badge>
                                         </div>
                                       </div>
-                                      {/* Protagonista: título do atendimento */}
                                       <p className="text-[1.2rem] font-bold text-foreground mb-1 line-clamp-2">
                                         {event.description}
                                       </p>
-                                      {/* Subtítulo objetivo */}
                                       {event.summary && (
                                         <p className="text-sm metadata-subtle mb-2 line-clamp-2">{event.summary}</p>
                                       )}
@@ -1374,7 +1121,6 @@ const PatientRecordPage = () => {
                                       <div className="flex items-start justify-between mb-2">
                                         <div className="flex items-center gap-2">
                                           {React.createElement(event.icon, { className: cn("h-4 w-4", iconClass) })}
-                                          {/* Protagonista: badge do tipo com variação sutil de verde */}
                                           <Badge className={cn("px-2 py-0.5 text-xs font-semibold rounded-full", getRecipeVariantClass())}>
                                             {(event.description.toLowerCase().includes('controlada') && 'Receita Controlada')
                                               || (event.description.toLowerCase().includes('manipulada') && 'Receita Manipulada')
@@ -1398,7 +1144,6 @@ const PatientRecordPage = () => {
                                           </Button>
                                         )}
                                       </div>
-                                      {/* Título secundário, menor que Atendimento */}
                                       <p className="text-[1.05rem] font-semibold text-foreground mb-1 line-clamp-2">
                                         {event.description.replace(/^Receita\s*(:)?\s*/i, '')}
                                       </p>
@@ -1419,12 +1164,10 @@ const PatientRecordPage = () => {
                                       <div className="flex items-start justify-between mb-2">
                                         <div className="flex items-center gap-2">
                                           {React.createElement(event.icon, { className: cn("h-4 w-4", iconClass) })}
-                                          {/* Neutro: badge cinza/azulado suave */}
                                           <Badge className={cn("px-2 py-0.5 text-xs font-medium rounded-full", "badge-soft-slate")}>
                                             Exame
                                           </Badge>
                                         </div>
-                                        {/* Botão ver detalhes discreto */}
                                         <Button
                                           variant="outline"
                                           size="icon"
@@ -1437,7 +1180,6 @@ const PatientRecordPage = () => {
                                           <FaEye className="h-4 w-4" />
                                         </Button>
                                       </div>
-                                      {/* Nome do exame como foco */}
                                       <p className="text-[1.05rem] font-semibold text-foreground mb-1 line-clamp-2">
                                         {getExamName()}
                                       </p>
@@ -1458,13 +1200,11 @@ const PatientRecordPage = () => {
                                       <div className="flex items-start justify-between mb-2">
                                         <div className="flex items-center gap-2">
                                           {React.createElement(event.icon, { className: cn("h-4 w-4", iconClass) })}
-                                          {/* Evidenciar status como badge */}
                                           <Badge className={cn("px-2 py-0.5 text-xs font-bold rounded-full", styles.badge)}>
                                             Aplicada
                                           </Badge>
                                         </div>
                                       </div>
-                                      {/* Texto secundário com próxima dose */}
                                       <p className="text-[1.05rem] font-semibold text-foreground mb-1 line-clamp-2">
                                         {event.description.replace(/^Vacina\s*/i, '')}
                                       </p>
@@ -1506,32 +1246,8 @@ const PatientRecordPage = () => {
                                           </Button>
                                         )}
                                       </div>
-                                      {/* Card enxuto: nome do documento */}
                                       <p className="text-[1.05rem] font-semibold text-foreground mb-1 line-clamp-2">
                                         {event.description.replace(/^Documento\s*(:)?\s*/i, '')}
-                                      </p>
-                                      <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-1 metadata-subtle">
-                                          <FaCalendarAlt className="h-3 w-3" /> {formatDateTime(event.date, event.time)}
-                                        </div>
-                                        <div className="metadata-subtle">
-                                          {event.author ? `Profissional: ${event.author}` : ""}
-                                        </div>
-                                      </div>
-                                    </>
-                                  ) : event.type === 'Observação' ? (
-                                    <>
-                                      <div className="flex items-start justify-between mb-2">
-                                        <div className="flex items-center gap-2">
-                                          {React.createElement(event.icon, { className: cn("h-4 w-4", iconClass) })}
-                                          <Badge className={cn("px-2 py-0.5 text-xs font-medium rounded-full", styles.badge)}>
-                                            Observação
-                                          </Badge>
-                                        </div>
-                                      </div>
-                                      {/* Visual leve e tipografia menor */}
-                                      <p className="text-sm text-foreground mb-1 line-clamp-2">
-                                        {event.summary || event.description}
                                       </p>
                                       <div className="flex items-center justify-between">
                                         <div className="flex items-center gap-1 metadata-subtle">
@@ -1552,11 +1268,9 @@ const PatientRecordPage = () => {
                                           </Badge>
                                         </div>
                                       </div>
-                                      {/* Valor como protagonista */}
                                       <p className="text-[1.35rem] font-extrabold text-teal-700 dark:text-teal-300 mb-1">
                                         {getSaleAmount() ? `R$ ${getSaleAmount()}` : (event.description?.match(/R\$\s*([\d.,]+)/)?.[0] || "")}
                                       </p>
-                                      {/* Texto secundário discreto */}
                                       <p className="text-sm metadata-subtle mb-2 line-clamp-2">
                                         {event.summary || event.description.replace(/^\s*Venda:\s*/i, '')}
                                       </p>
@@ -1571,7 +1285,6 @@ const PatientRecordPage = () => {
                                     </>
                                   ) : (
                                     <>
-                                      {/* Fallback mantém padrão atual com redução de texto */}
                                       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-3.5 gap-2">
                                         <div className="flex items-center gap-2">
                                           {React.createElement(event.icon, { className: cn("h-4 w-4", iconClass) })}
@@ -1617,7 +1330,7 @@ const PatientRecordPage = () => {
                 <CardTitle className="flex items-center gap-2 text-lg font-semibold text-foreground">
                   <FaStethoscope className="h-5 w-5 text-primary" /> Histórico de Atendimentos
                 </CardTitle>
-                <Button size="sm" onClick={handleAddAppointmentClick} className="rounded-md bg-primary text-primary-foreground hover:bg-primary/90 font-semibold transition-all duration-200 shadow-md hover:shadow-lg">
+                <Button size="sm" onClick={() => navigate(`/clients/${clientId}/animals/${animalId}/add-appointment`)} className="rounded-md bg-primary text-primary-foreground hover:bg-primary/90 font-semibold transition-all duration-200 shadow-md hover:shadow-lg">
                   <FaPlus className="h-4 w-4 mr-2" /> Adicionar Atendimento
                 </Button>
               </CardHeader>
@@ -1625,7 +1338,7 @@ const PatientRecordPage = () => {
                 {animalAppointments.length > 0 ? (
                   <div className="space-y-4">
                     {animalAppointments.map((app) => {
-                      const appDetails = app.details as BaseAppointmentDetails; // Cast para BaseAppointmentDetails
+                      const appDetails = app.details as BaseAppointmentDetails;
                       const displaySummary = appDetails.suspeitaDiagnostica || appDetails.condutaTratamento || app.observacoesGerais || "Sem descrição detalhada.";
                       const retornoInfo = appDetails.retornoRecomendadoEmDias ? `Retorno em ${appDetails.retornoRecomendadoEmDias} dias.` : '';
 
@@ -1641,10 +1354,17 @@ const PatientRecordPage = () => {
                               </p>
                             </div>
                             <div className="flex gap-2">
-                              <Button variant="ghost" size="icon" onClick={() => handleViewAppointmentClick(app)} className="rounded-md hover:bg-muted hover:text-foreground transition-colors duration-200">
+                              <Button variant="ghost" size="icon" onClick={() => navigate(`/clients/${clientId}/animals/${animalId}/view-appointment/${app.id}`)} className="rounded-md hover:bg-muted hover:text-foreground transition-colors duration-200">
                                 <FaEye className="h-4 w-4" />
                               </Button>
-                              <Button variant="ghost" size="icon" onClick={() => handleDeleteAppointment(app.id)} className="rounded-md hover:bg-muted hover:text-foreground transition-colors duration-200">
+                              <Button variant="ghost" size="icon" onClick={() => {
+                                const index = mockAppointments.findIndex(a => a.id === app.id);
+                                if (index > -1) {
+                                  mockAppointments.splice(index, 1);
+                                  setAnimalAppointments(mockAppointments.filter(a => a.animalId === animalId));
+                                  toast.info("Atendimento excluído.");
+                                }
+                              }} className="rounded-md hover:bg-muted hover:text-foreground transition-colors duration-200">
                                 <FaTrashAlt className="h-4 w-4 text-destructive" />
                               </Button>
                             </div>
@@ -1700,10 +1420,28 @@ const PatientRecordPage = () => {
                             </p>
                           </div>
                           <div className="flex gap-2">
-                            <Button variant="ghost" size="icon" onClick={() => handlePrintExam(exam)} className="rounded-md hover:bg-muted hover:text-foreground transition-colors duration-200">
+                            <Button variant="ghost" size="icon" onClick={() => {
+                              const tutorAddress = `${currentClient.address.street}, ${currentClient.address.number} - ${currentClient.address.city} - ${currentClient.address.state}`;
+                              pdf(
+                                <ExamReportPdfContent
+                                  animalName={currentAnimal.name}
+                                  animalId={currentAnimal.id}
+                                  animalSpecies={currentAnimal.species}
+                                  tutorName={currentClient.name}
+                                  tutorAddress={tutorAddress}
+                                  exam={exam}
+                                  hemogramReferences={hemogramReferences}
+                                />
+                              ).toBlob().then((blob) => {
+                                const url = URL.createObjectURL(blob);
+                                window.open(url, '_blank');
+                                URL.revokeObjectURL(url);
+                                toast.success("Laudo de exame enviado para impressão!");
+                              });
+                            }} className="rounded-md hover:bg-muted hover:text-foreground transition-colors duration-200">
                               <FaPrint className="h-4 w-4" />
                             </Button>
-                            <Button variant="ghost" size="icon" onClick={() => handleEditExam(exam.id)} className="rounded-md hover:bg-muted hover:text-foreground transition-colors duration-200">
+                            <Button variant="ghost" size="icon" onClick={() => navigate(`/clients/${clientId}/animals/${animalId}/edit-exam/${exam.id}`)} className="rounded-md hover:bg-muted hover:text-foreground transition-colors duration-200">
                               <FaEdit className="h-4 w-4" />
                             </Button>
                           </div>
@@ -1732,7 +1470,7 @@ const PatientRecordPage = () => {
                 <CardTitle className="flex items-center gap-2 text-lg font-semibold text-foreground">
                   <FaSyringe className="h-5 w-5 text-primary" /> Histórico de Vacinas
                 </CardTitle>
-                <Button size="sm" className="rounded-md bg-primary text-primary-foreground hover:bg-primary/90 font-semibold transition-all duration-200 shadow-md hover:shadow-lg">
+                <Button size="sm" onClick={() => setVaccineAddOpen(true)} className="rounded-md bg-primary text-primary-foreground hover:bg-primary/90 font-semibold transition-all duration-200 shadow-md hover:shadow-lg">
                   <FaPlus className="h-4 w-4 mr-2" /> Adicionar Vacina
                 </Button>
               </CardHeader>
@@ -1777,7 +1515,6 @@ const PatientRecordPage = () => {
             </Card>
           </TabsContent>
 
-          {/* Nova aba: Peso */}
           <TabsContent value="weight" className="mt-4">
             <Card className="bg-card shadow-sm border border-border rounded-md">
               <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between pb-3 gap-2">
@@ -1798,7 +1535,21 @@ const PatientRecordPage = () => {
                     onChange={(e) => setNewWeight(e.target.value)}
                     className="w-full sm:w-[120px] bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200"
                   />
-                  <Button size="sm" onClick={handleAddWeight} disabled={!newWeight.trim()} className="w-full sm:w-auto rounded-md bg-primary text-primary-foreground hover:bg-primary/90 font-semibold transition-all duration-200 shadow-md hover:shadow-lg">
+                  <Button size="sm" onClick={() => {
+                    if (newWeight.trim() && newWeightDate) {
+                      const success = updateAnimalDetails(clientId!, animalId!, {
+                        weight: parseFloat(newWeight),
+                        lastWeightSource: "Manual",
+                      });
+                      if (success) {
+                        setNewWeight("");
+                        setNewWeightDate(new Date().toISOString().split('T')[0]);
+                        toast.success("Peso adicionado ao histórico!");
+                      } else {
+                        toast.error("Erro ao adicionar peso.");
+                      }
+                    }
+                  }} disabled={!newWeight.trim()} className="w-full sm:w-auto rounded-md bg-primary text-primary-foreground hover:bg-primary/90 font-semibold transition-all duration-200 shadow-md hover:shadow-lg">
                     <FaPlus className="h-4 w-4 mr-2" /> Adicionar Peso
                   </Button>
                 </div>
@@ -1815,7 +1566,6 @@ const PatientRecordPage = () => {
                               {entry.weight.toFixed(2)} kg
                             </p>
                           </div>
-                          {/* Ver registro de Peso */}
                           <Button
                             variant="ghost"
                             size="icon"
@@ -1838,7 +1588,6 @@ const PatientRecordPage = () => {
             </Card>
           </TabsContent>
 
-          {/* Nova aba: Documentos */}
           <TabsContent value="documents" className="mt-4">
             <Card className="bg-card shadow-sm border border-border rounded-md">
               <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between pb-3 gap-2">
@@ -1858,7 +1607,22 @@ const PatientRecordPage = () => {
                     onChange={(e) => setNewDocumentFile(e.target.files ? e.target.files[0] : null)}
                     className="w-full sm:w-[200px] bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200"
                   />
-                  <Button size="sm" onClick={handleAddDocument} disabled={!newDocumentName || !newDocumentFile} className="w-full sm:w-auto rounded-md bg-primary text-primary-foreground hover:bg-primary/90 font-semibold transition-all duration-200 shadow-md hover:shadow-lg">
+                  <Button size="sm" onClick={() => {
+                    if (newDocumentName.trim() && newDocumentFile) {
+                      const now = new Date();
+                      const newEntry: DocumentEntry = {
+                        id: String(documents.length + 1),
+                        date: now.toISOString().split('T')[0],
+                        time: now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+                        name: newDocumentName.trim(),
+                        fileUrl: URL.createObjectURL(newDocumentFile),
+                      };
+                      setDocuments([...documents, newEntry]);
+                      setNewDocumentName("");
+                      setNewDocumentFile(null);
+                      toast.success("Anexo adicionado!");
+                    }
+                  }} disabled={!newDocumentName || !newDocumentFile} className="w-full sm:w-auto rounded-md bg-primary text-primary-foreground hover:bg-primary/90 font-semibold transition-all duration-200 shadow-md hover:shadow-lg">
                     <FaPlus className="h-4 w-4 mr-2" /> Adicionar Documento
                   </Button>
                 </div>
@@ -1894,10 +1658,8 @@ const PatientRecordPage = () => {
             </Card>
           </TabsContent>
 
-          {/* Nova aba: Receitas */}
           <TabsContent value="prescriptions" className="mt-4">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-              {/* Card para Receita Simples */}
               <Link to={`/clients/${clientId}/animals/${animalId}/add-prescription?type=simple`}>
                 <Card className="flex flex-col items-center justify-center p-6 text-center bg-card shadow-sm border border-border rounded-md h-full">
                   <FaFileMedical className="h-12 w-12 text-primary mb-3" />
@@ -1905,8 +1667,6 @@ const PatientRecordPage = () => {
                   <p className="text-sm text-muted-foreground mt-1">Medicamentos de uso comum</p>
                 </Card>
               </Link>
-
-              {/* Card para Receita Controlada */}
               <Link to={`/clients/${clientId}/animals/${animalId}/add-prescription?type=controlled`}>
                 <Card className="flex flex-col items-center justify-center p-6 text-center bg-card shadow-sm border border-border rounded-md h-full">
                   <FaExclamationTriangle className="h-12 w-12 text-destructive mb-3" />
@@ -1914,8 +1674,6 @@ const PatientRecordPage = () => {
                   <p className="text-sm text-muted-foreground mt-1">Medicamentos controlados</p>
                 </Card>
               </Link>
-
-              {/* Card para Receita Manipulada */}
               <Link to={`/clients/${clientId}/animals/${animalId}/add-prescription?type=manipulated`}>
                 <Card className="flex flex-col items-center justify-center p-6 text-center bg-card shadow-sm border border-border rounded-md h-full">
                   <FaFlask className="h-12 w-12 text-accent mb-3" />
@@ -1951,10 +1709,39 @@ const PatientRecordPage = () => {
                             </p>
                           </div>
                           <div className="flex items-center gap-2">
-                            <Button variant="ghost" size="icon" onClick={() => handlePrintSinglePrescription(rx)} className="rounded-md hover:bg-muted hover:text-foreground transition-colors duration-200">
+                            <Button variant="ghost" size="icon" onClick={() => {
+                              if (!currentClient || !currentAnimal) {
+                                toast.error("Erro: Dados do cliente ou animal não disponíveis para impressão.");
+                                return;
+                              }
+                              pdf(
+                                PrescriptionPdfContent({
+                                  animalName: currentAnimal.name,
+                                  animalId: currentAnimal.id,
+                                  animalSpecies: currentAnimal.species,
+                                  tutorName: currentClient.name,
+                                  tutorAddress: currentClient.address.street + ", " + currentClient.address.number + " - " + currentClient.address.city + " - " + currentClient.address.state,
+                                  medications: rx.medications || [],
+                                  generalObservations: rx.instructions,
+                                  showElectronicSignatureText: false,
+                                  prescriptionType: rx.type,
+                                  pharmacistName: "Farmacêutico(a) Responsável",
+                                  pharmacistCpf: "CPF: 000.000.000-00",
+                                  pharmacistCfr: "CRF: 00000",
+                                  pharmacistAddress: "Endereço da Farmácia, 000 - Cidade - UF",
+                                  pharmacistPhone: "Telefone: (00) 00000-0000",
+                                  manipulatedPrescription: rx.manipulatedPrescription,
+                                })
+                              ).toBlob().then((blob) => {
+                                const url = URL.createObjectURL(blob);
+                                window.open(url, '_blank');
+                                URL.revokeObjectURL(url);
+                                toast.success("Receita enviada para impressão!");
+                              });
+                            }} className="rounded-md hover:bg-muted hover:text-foreground transition-colors duration-200">
                               <FaPrint className="h-4 w-4" />
                             </Button>
-                            <Link to={`/clients/${clientId}/animals/${animalId}/edit-prescription/${rx.id}?type=${rx.type}`}> {/* Adicionado ?type=${rx.type} */}
+                            <Link to={`/clients/${clientId}/animals/${animalId}/edit-prescription/${rx.id}?type=${rx.type}`}>
                               <Button variant="ghost" size="icon" className="rounded-md hover:bg-muted hover:text-foreground transition-colors duration-200">
                                 <FaEye className="h-4 w-4" />
                               </Button>
@@ -1966,7 +1753,7 @@ const PatientRecordPage = () => {
                             <FaCalendarAlt className="h-3 w-3" /> {formatDateTime(rx.date, rx.time)}
                           </div>
                           <div className="flex items-center gap-1">
-                            <FaStethoscope className="h-3 w-3" /> Dr. William Cardoso {/* Placeholder para o veterinário */}
+                            <FaStethoscope className="h-3 w-3" /> Dr. William Cardoso
                           </div>
                           <div className="flex items-center gap-1 col-span-full">
                             <FaClipboardList className="h-3 w-3" /> {rx.type === 'manipulated' ? (rx.manipulatedPrescription?.formulaComponents?.length || 0) : (rx.medications?.length || 0)} medicamento(s)
@@ -1987,15 +1774,28 @@ const PatientRecordPage = () => {
             </Card>
           </TabsContent>
 
-          {/* Nova aba: Observações */}
           <TabsContent value="observations" className="mt-4">
             <Card className="bg-card shadow-sm border border-border rounded-md">
               <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between pb-3 gap-2">
                 <CardTitle className="flex items-center gap-2 text-lg font-semibold text-foreground">
                   <FaCommentAlt className="h-5 w-5 text-primary" /> Observações Gerais
                 </CardTitle>
-                <Button size="sm" onClick={handleAddObservation} disabled={isObservationEmpty} className="rounded-md bg-primary text-primary-foreground hover:bg-primary/90 font-semibold transition-all duration-200 shadow-md hover:shadow-lg">
-                    <FaPlus className="h-4 w-4 mr-2" /> Adicionar Observação
+                <Button size="sm" onClick={() => {
+                  if (newObservation.trim()) {
+                    const now = new Date();
+                    const newEntry: ObservationEntry = {
+                      id: String(observations.length + 1),
+                      date: now.toISOString().split('T')[0],
+                      time: now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+                      observation: newObservation.trim(),
+                      displayAsAlert: newObservationAlert,
+                    };
+                    setObservations([...observations, newEntry]);
+                    setNewObservation("");
+                    setNewObservationAlert(false);
+                  }
+                }} disabled={isObservationEmpty} className="rounded-md bg-primary text-primary-foreground hover:bg-primary/90 font-semibold transition-all duration-200 shadow-md hover:shadow-lg">
+                  <FaPlus className="h-4 w-4 mr-2" /> Adicionar Observação
                 </Button>
               </CardHeader>
               <CardContent className="pt-0">
@@ -2022,7 +1822,6 @@ const PatientRecordPage = () => {
                               {obs.observation}
                             </p>
                           </div>
-                          {/* Ver Observação */}
                           <Button
                             variant="ghost"
                             size="icon"
@@ -2046,7 +1845,6 @@ const PatientRecordPage = () => {
           </TabsContent>
 
           <TabsContent value="financial" className="mt-4">
-            {/* SUB-ABAS: Orçamentos, Vendas e Financeiro dentro do Financeiro do prontuário */}
             <Card className="bg-white rounded-[12px] shadow-sm border-0">
               <CardHeader className="flex flex-row items-center justify-between pb-3">
                 <CardTitle className="flex items-center gap-2 text-lg font-semibold text-foreground">
@@ -2054,7 +1852,6 @@ const PatientRecordPage = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent className="pt-0">
-                {/* Controla as sub-abas */}
                 <Tabs value={financeTab} onValueChange={setFinanceTab} className="w-full">
                   <TabsList className="grid grid-cols-3 w-full mb-4">
                     <TabsTrigger value="orcamentos">Orçamentos</TabsTrigger>
@@ -2062,9 +1859,7 @@ const PatientRecordPage = () => {
                     <TabsTrigger value="financeiro">Financeiro</TabsTrigger>
                   </TabsList>
 
-                  {/* Aba Orçamentos - lista e ações */}
                   <TabsContent value="orcamentos">
-                    {/* Área principal com fundo cinza para destacar cards brancos */}
                     <div className="bg-[#F5F7FA] p-4 rounded-[12px]">
                       <div className="flex justify-end mb-3">
                         <Button
@@ -2075,7 +1870,6 @@ const PatientRecordPage = () => {
                           <FaPlus className="h-4 w-4 mr-2" /> Novo Orçamento
                         </Button>
                       </div>
-                      {/* Lista de orçamentos com card branco, borda fina e sombra suave */}
                       <Card className="bg-white rounded-[12px] shadow-sm border border-[#E2E8F0]">
                         <CardHeader className="pb-2">
                           <CardTitle className="text-base">Orçamentos</CardTitle>
@@ -2096,7 +1890,6 @@ const PatientRecordPage = () => {
                                   statusDisplay === "cancelado" ? "bg-gray-300 text-gray-900" :
                                   "bg-blue-600 text-white";
                                 return (
-                                  // Cards de cada orçamento com borda e sombra
                                   <Card key={b.id} className="p-4 bg-white rounded-[12px] shadow-sm border border-[#E2E8F0]">
                                     <div className="flex items-center justify-between">
                                       <div className="flex items-center gap-2">
@@ -2131,9 +1924,7 @@ const PatientRecordPage = () => {
                     </div>
                   </TabsContent>
 
-                  {/* Aba Vendas - lista de vendas do paciente com botão de adicionar */}
                   <TabsContent value="vendas">
-                    {/* NOVO: área principal com fundo cinza para destacar cards brancos */}
                     <div className="bg-[#F5F7FA] p-4 rounded-[12px]">
                       <div className="flex justify-end mb-3">
                         <Button
@@ -2152,11 +1943,9 @@ const PatientRecordPage = () => {
                             const finStatus = getFinancialStatusForSale(sale.id, sale.total);
                             const app = animalAppointments.find(a => a.id === sale.appointmentId);
                             return (
-                              // AJUSTE: card branco com borda fina e sombra suave
                               <Card key={sale.id} className="p-4 bg-white rounded-[12px] shadow-sm border border-[#E2E8F0]">
                                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-2 gap-3">
                                   <div className="flex items-center gap-3">
-                                    {/* AJUSTE: badges de status com alto contraste */}
                                     <Badge className={cn(
                                       "px-3 py-1 text-sm font-bold rounded-full",
                                       sale.saleStatus === "open" ? "bg-orange-600 text-white" : "bg-green-600 text-white"
@@ -2167,7 +1956,6 @@ const PatientRecordPage = () => {
                                       {app ? `${app.type} • ${app.vet}` : `Atendimento ${sale.appointmentId}`}
                                     </p>
                                   </div>
-                                  {/* Coluna de valores à direita com fonte maior e bold */}
                                   <div className="flex items-center gap-6">
                                     <div className="text-right">
                                       <div className="text-xs text-muted-foreground">Total</div>
@@ -2202,7 +1990,6 @@ const PatientRecordPage = () => {
                                 </div>
                                 <div className="flex items-center justify-between mt-3">
                                   <div className="flex gap-2">
-                                    {/* Mantém Finalizar como ação secundária */}
                                     <Button variant="outline" size="sm" onClick={() => updateSaleStatus(sale.id, sale.saleStatus === "open" ? "finalized" : "open")}>
                                       {sale.saleStatus === "open" ? "Finalizar venda" : "Reabrir venda"}
                                     </Button>
@@ -2249,12 +2036,9 @@ const PatientRecordPage = () => {
                     </div>
                   </TabsContent>
 
-                  {/* Aba Financeiro - formulário de pagamento e listagem */}
                   <TabsContent value="financeiro">
-                    {/* NOVO: área principal com fundo cinza e cards brancos destacados */}
                     <div className="bg-[#F5F7FA] p-4 rounded-[12px]">
                       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                        {/* Card do formulário com borda fina e sombra suave */}
                         <Card className="bg-white rounded-[12px] shadow-sm border border-[#E2E8F0]">
                           <CardHeader className="pb-2">
                             <CardTitle className="text-base">Registrar pagamento</CardTitle>
@@ -2262,7 +2046,6 @@ const PatientRecordPage = () => {
                           <CardContent className="space-y-3">
                             <div>
                               <Label>Venda</Label>
-                              {/* AJUSTE: ocultar vendas com saldo zero no seletor */}
                               <Select value={paymentSaleId || ""} onValueChange={(v) => setPaymentSaleId(v)}>
                                 <SelectTrigger className="bg-input border border-border rounded-md h-9"><SelectValue placeholder="Selecione a venda" /></SelectTrigger>
                                 <SelectContent>
@@ -2318,7 +2101,6 @@ const PatientRecordPage = () => {
                           </CardContent>
                         </Card>
 
-                        {/* Card da lista com borda fina, sombra e tabela moderna com zebra stripes */}
                         <Card className="bg-white rounded-[12px] shadow-sm border border-[#E2E8F0]">
                           <CardHeader className="pb-2">
                             <CardTitle className="text-base">Pagamentos registrados</CardTitle>
@@ -2362,7 +2144,6 @@ const PatientRecordPage = () => {
               </CardContent>
             </Card>
 
-            {/* Modal: Novo Orçamento */}
             <Dialog open={budgetModalOpen} onOpenChange={setBudgetModalOpen}>
               <DialogContent className="sm:max-w-3xl">
                 <DialogHeader>
@@ -2458,7 +2239,6 @@ const PatientRecordPage = () => {
               </DialogContent>
             </Dialog>
 
-            {/* Modal: Converter Orçamento em Venda */}
             <Dialog open={convertModalOpen} onOpenChange={setConvertModalOpen}>
               <DialogContent>
                 <DialogHeader>
@@ -2488,7 +2268,6 @@ const PatientRecordPage = () => {
         </Tabs>
       </div>
 
-      {/* Dialog: Ver Observação */}
       <Dialog open={observationModalOpen} onOpenChange={setObservationModalOpen}>
         <DialogContent>
           <DialogHeader>
@@ -2504,7 +2283,6 @@ const PatientRecordPage = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Dialog: Ver Peso */}
       <Dialog open={weightModalOpen} onOpenChange={setWeightModalOpen}>
         <DialogContent>
           <DialogHeader>
@@ -2521,7 +2299,6 @@ const PatientRecordPage = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Dialog: Adicionar Vacina */}
       <Dialog open={vaccineAddOpen} onOpenChange={setVaccineAddOpen}>
         <DialogContent>
           <DialogHeader>
@@ -2570,7 +2347,6 @@ const PatientRecordPage = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Dialog: Ver Vacina */}
       <Dialog open={vaccineViewOpen} onOpenChange={setVaccineViewOpen}>
         <DialogContent>
           <DialogHeader>
@@ -2588,7 +2364,6 @@ const PatientRecordPage = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Dialog: Adicionar Venda */}
       <Dialog open={saleModalOpen} onOpenChange={setSaleModalOpen}>
         <DialogContent className="sm:max-w-3xl">
           <DialogHeader>
@@ -2654,4 +2429,51 @@ const PatientRecordPage = () => {
                         <TableCell className="capitalize">{it.type}</TableCell>
                         <TableCell>{it.qty}</TableCell>
                         <TableCell>{new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(it.unitPrice)}</TableCell>
-                        <TableCell className="text-right">{new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(it
+                        <TableCell className="text-right">
+                          {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(it.qty * it.unitPrice)}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button variant="ghost" size="icon" onClick={() => removeSaleItem(it.itemId, idx)}>
+                            <FaTrashAlt className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+                <div className="flex justify-between mt-2 text-sm font-semibold">
+                  <span>Total:</span>
+                  <span>{new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(saleTotal)}</span>
+                </div>
+              </div>
+            )}
+            <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-2 mt-3">
+              <div>
+                <Label>Responsável</Label>
+                <Input
+                  value={saleResponsible}
+                  onChange={(e) => setSaleResponsible(e.target.value)}
+                  className="h-9 bg-input border border-border rounded-md"
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <Label>Observações</Label>
+                <Textarea
+                  value={saleObservations}
+                  onChange={(e) => setSaleObservations(e.target.value)}
+                  className="bg-input border border-border rounded-md"
+                />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSaleModalOpen(false)}>Cancelar</Button>
+            <Button onClick={handleSaveSale}>Salvar Venda</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+};
+
+export default PatientRecordPage;
