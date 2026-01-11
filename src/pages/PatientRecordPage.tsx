@@ -1044,8 +1044,7 @@ const PatientRecordPage = () => {
         ) : null;
       })()}
 
-      {/* Conteúdo principal com min-w-0 para encolher corretamente */}
-      <div className="flex-1 p-6 mx-auto w-full max-w-7xl min-w-0">
+      <div className="flex-1 p-6 mx-auto w-full max-w-7xl">
         <div className="mb-6">
           <Card className="bg-white rounded-2xl shadow-sm border-0">
             <CardHeader className="flex flex-row items-center justify-between pb-3">
@@ -1058,136 +1057,90 @@ const PatientRecordPage = () => {
                 </Button>
               </div>
             </CardHeader>
-
-            {/* Grid 2+1 com min-w-0 nas colunas */}
             <CardContent className="pt-0">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {/* Conteúdo principal (coluna dupla) */}
-                <div className="md:col-span-2 min-w-0">
-                  <div className="flex items-start gap-4">
-                    <Avatar className="h-16 w-16 rounded-full ring-2 ring-white shadow-sm shrink-0">
-                      <AvatarImage src={undefined} />
-                      <AvatarFallback className="bg-[#0F4C5C] text-white text-lg font-bold">
-                        <FaPaw className="h-6 w-6" />
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex flex-wrap gap-2 mb-2">
-                        <span className="px-2 sm:px-3 py-1 rounded-full text-xs font-medium bg-teal-50 text-teal-700 border border-teal-200 sm:whitespace-nowrap whitespace-normal">
-                          Espécie: <span className="font-semibold text-teal-800">{currentAnimal.species}</span>
-                        </span>
-                        <span className="px-2 sm:px-3 py-1 rounded-full text-xs font-medium bg-sky-50 text-sky-700 border border-sky-200 sm:whitespace-nowrap whitespace-normal">
-                          Raça: <span className="font-semibold text-sky-800">{currentAnimal.breed}</span>
-                        </span>
-                        <span className="px-2 sm:px-3 py-1 rounded-full text-xs font-medium bg-indigo-50 text-indigo-700 border border-indigo-200 sm:whitespace-nowrap whitespace-normal">
-                          Idade: <span className="font-semibold text-indigo-800">{calculateAge(currentAnimal.birthday)}</span>
-                        </span>
-                        <span className="px-2 sm:px-3 py-1 rounded-full text-xs font-medium bg-purple-50 text-purple-700 border border-purple-200 sm:whitespace-nowrap whitespace-normal">
-                          Peso: <span className="font-semibold text-purple-800">{currentAnimal.weight.toFixed(1)} kg</span>
-                        </span>
-                        <span className="px-2 sm:px-3 py-1 rounded-full text-xs font-medium bg-pink-50 text-pink-700 border border-pink-200 sm:whitespace-nowrap whitespace-normal">
-                          Sexo: <span className="font-semibold text-pink-800">{currentAnimal.gender}</span>
-                        </span>
-                        <span className="px-2 sm:px-3 py-1 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200 sm:whitespace-nowrap whitespace-normal">
-                          Nasc.: <span className="font-semibold text-amber-800">{formatDateTime(currentAnimal.birthday || "")}</span>
-                        </span>
-                      </div>
+                {/* Coluna esquerda: avatar + badges */}
+                <div className="flex items-start gap-4 md:col-span-1 min-w-0">
+                  <Avatar className="h-16 w-16 rounded-full ring-2 ring-white shadow-sm">
+                    <AvatarImage src={undefined} />
+                    <AvatarFallback className="bg-[#0F4C5C] text-white text-lg font-bold">
+                      <FaPaw className="h-6 w-6" />
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1">
+                    <div className="flex flex-wrap gap-2 mb-2">
+                      <span className="px-2 sm:px-3 py-1 rounded-full text-xs font-medium bg-teal-50 text-teal-700 border border-teal-200 sm:whitespace-nowrap whitespace-normal">
+                        Espécie: <span className="font-semibold text-teal-800">{currentAnimal.species}</span>
+                      </span>
+                      <span className="px-2 sm:px-3 py-1 rounded-full text-xs font-medium bg-sky-50 text-sky-700 border border-sky-200 sm:whitespace-nowrap whitespace-normal">
+                        Raça: <span className="font-semibold text-sky-800">{currentAnimal.breed}</span>
+                      </span>
+                      <span className="px-2 sm:px-3 py-1 rounded-full text-xs font-medium bg-indigo-50 text-indigo-700 border border-indigo-200 sm:whitespace-nowrap whitespace-normal">
+                        Idade: <span className="font-semibold text-indigo-800">{calculateAge(currentAnimal.birthday)}</span>
+                      </span>
+                      <span className="px-2 sm:px-3 py-1 rounded-full text-xs font-medium bg-purple-50 text-purple-700 border border-purple-200 sm:whitespace-nowrap whitespace-normal">
+                        Peso: <span className="font-semibold text-purple-800">{currentAnimal.weight.toFixed(1)} kg</span>
+                      </span>
+                      <span className="px-2 sm:px-3 py-1 rounded-full text-xs font-medium bg-pink-50 text-pink-700 border border-pink-200 sm:whitespace-nowrap whitespace-normal">
+                        Sexo: <span className="font-semibold text-pink-800">{currentAnimal.gender}</span>
+                      </span>
+                      <span className="px-2 sm:px-3 py-1 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200 sm:whitespace-nowrap whitespace-normal">
+                        Nasc.: <span className="font-semibold text-amber-800">{formatDateTime(currentAnimal.birthday || '')}</span>
+                      </span>
                     </div>
                   </div>
                 </div>
 
-                {/* Coluna lateral (direita): Tutor + Financeiro */}
-                <div className="md:col-span-1 min-w-0 space-y-3">
-                  {/* Tutor Responsável - card rico */}
-                  <Card className="bg-[#F9FAFB] rounded-xl border border-[#E5E7EB] shadow-sm">
-                    <CardHeader className="pb-2">
-                      <CardTitle className="flex items-center gap-2 text-base font-semibold text-[#111827]">
-                        <Avatar className="h-7 w-7">
-                          <AvatarFallback className="bg-[#0F4C5C] text-white">
-                            {(currentClient.name || "?").charAt(0)}
-                          </AvatarFallback>
-                        </Avatar>
-                        Tutor Responsável
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-2 pt-0">
-                      <p className="text-sm font-semibold text-[#111827]">{currentClient.name}</p>
-                      <div className="space-y-1 text-sm text-[#374151]">
-                        <div className="flex items-center gap-2">
-                          <FaIdCard className="h-3.5 w-3.5 text-[#6B7280]" />
-                          <span className="font-semibold">{currentClient.clientType === "physical" ? "CPF" : "CNPJ"}:</span>
-                          <span className="truncate">{currentClient.identificationNumber}</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <FaPhone className="h-3.5 w-3.5 text-[#6B7280]" />
-                          <span className="font-semibold">Telefone:</span>
-                          <span className="truncate">{currentClient.mainPhoneContact}</span>
-                        </div>
-                        {currentClient.mainEmailContact && (
-                          <div className="flex items-center gap-2">
-                            {/* reaproveitar ícone de documento para e-mail de forma sutil */}
-                            <FaFileAlt className="h-3.5 w-3.5 text-[#6B7280]" />
-                            <span className="font-semibold">E-mail:</span>
-                            <span className="truncate">{currentClient.mainEmailContact}</span>
-                          </div>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
+                {/* Coluna central: tutor */}
+                <div className="space-y-2 min-w-0">
+                  <p className="text-sm text-[#6B7280]">Tutor Responsável</p>
+                  <div className="p-3 bg-[#F9FAFB] rounded-lg border border-[#E5E7EB]">
+                    <p className="text-sm"><span className="font-semibold text-[#111827]">Nome:</span> {currentClient.name}</p>
+                    <p className="text-sm flex items-center gap-2">
+                      <FaIdCard className="h-3 w-3 text-[#6B7280]" />
+                      <span className="font-semibold text-[#111827]">{currentClient.clientType === "physical" ? "CPF" : "CNPJ"}:</span> {currentClient.identificationNumber}
+                    </p>
+                    <p className="text-sm flex items-center gap-2">
+                      <FaPhone className="h-3 w-3 text-[#6B7280]" />
+                      <span className="font-semibold text-[#111827]">Telefone:</span> {currentClient.mainPhoneContact}
+                    </p>
+                  </div>
+                </div>
 
-                  {/* Cards financeiros - grid responsivo e conteúdo truncado/organizado */}
+                {/* Coluna direita: cards financeiros */}
+                <div className="grid grid-cols-1 gap-3 md:col-span-1 min-w-0">
                   {(() => {
-                    const income = mockFinancialTransactions
-                      .filter(t => t.relatedAnimalId === animalId && t.type === "income")
-                      .reduce((s, t) => s + t.amount, 0);
-                    const expense = mockFinancialTransactions
-                      .filter(t => t.relatedAnimalId === animalId && t.type === "expense")
-                      .reduce((s, t) => s + t.amount, 0);
+                    const income = mockFinancialTransactions.filter(t => t.relatedAnimalId === animalId && t.type === 'income').reduce((s, t) => s + t.amount, 0);
+                    const expense = mockFinancialTransactions.filter(t => t.relatedAnimalId === animalId && t.type === 'expense').reduce((s, t) => s + t.amount, 0);
                     const net = income - expense;
-                    const pending = Math.max(
-                      0,
-                      patientSales.reduce((sum, s) => sum + s.total, 0) -
-                        patientPayments.reduce((sum, p) => sum + p.amount, 0)
-                    );
-
+                    const pending = Math.max(0, patientSales.reduce((sum, s) => sum + s.total, 0) - patientPayments.reduce((sum, p) => sum + p.amount, 0));
                     return (
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                        <Card className="rounded-xl border border-[#E5E7EB] shadow-sm bg-[#F0FDF4]">
-                          <CardContent className="pt-3 pb-3 min-w-0">
-                            <div className="flex items-center gap-2 text-[#166534]">
-                              <FaMoneyBillWave className="h-4 w-4" />
-                              <span className="text-xs font-medium">Pago</span>
-                            </div>
-                            <div className="mt-1 text-sm font-semibold text-[#166534] whitespace-nowrap overflow-hidden text-ellipsis">
-                              {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(income)}
+                      <>
+                        <Card className="bg-[#ECFDF5] rounded-xl border-0 shadow-sm">
+                          <CardContent className="pt-4">
+                            <div className="text-xs text-[#065F46]">Pago</div>
+                            <div className="text-xl font-bold text-[#065F46]">
+                              {new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(income)}
                             </div>
                           </CardContent>
                         </Card>
-
-                        <Card className="rounded-xl border border-[#E5E7EB] shadow-sm bg-[#FEF2F2]">
-                          <CardContent className="pt-3 pb-3 min-w-0">
-                            <div className="flex items-center gap-2 text-[#7F1D1D]">
-                              <FaExclamationTriangle className="h-4 w-4" />
-                              <span className="text-xs font-medium">Pendências</span>
-                            </div>
-                            <div className="mt-1 text-sm font-semibold text-[#7F1D1D] whitespace-nowrap overflow-hidden text-ellipsis">
-                              {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(pending)}
+                        <Card className="bg-[#FEF2F2] rounded-xl border-0 shadow-sm">
+                          <CardContent className="pt-4">
+                            <div className="text-xs text-[#991B1B]">Pendências</div>
+                            <div className="text-xl font-bold text-[#991B1B]">
+                              {new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(pending)}
                             </div>
                           </CardContent>
                         </Card>
-
-                        <Card className="rounded-xl border border-[#E5E7EB] shadow-sm bg-[#EFF6FF]">
-                          <CardContent className="pt-3 pb-3 min-w-0">
-                            <div className="flex items-center gap-2 text-[#1D4ED8]">
-                              <FaBalanceScale className="h-4 w-4" />
-                              <span className="text-xs font-medium">Saldo</span>
-                            </div>
-                            <div className={cn("mt-1 text-sm font-semibold whitespace-nowrap overflow-hidden text-ellipsis", net >= 0 ? "text-[#1D4ED8]" : "text-[#D97706]")}>
-                              {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(net)}
+                        <Card className="bg-[#EFF6FF] rounded-xl border-0 shadow-sm">
+                          <CardContent className="pt-4">
+                            <div className="text-xs text-[#1D4ED8]">Saldo</div>
+                            <div className={cn("text-xl font-bold", net >= 0 ? "text-[#1D4ED8]" : "text-[#D97706]")}>
+                              {new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(net)}
                             </div>
                           </CardContent>
                         </Card>
-                      </div>
+                      </>
                     );
                   })()}
                 </div>
@@ -1196,42 +1149,41 @@ const PatientRecordPage = () => {
           </Card>
         </div>
 
-        {/* Barra de abas com scroll horizontal suave e sticky opcional */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full mt-6 min-w-0">
-          <TabsList className="sticky top-16 z-20 flex flex-nowrap gap-2 sm:gap-3 overflow-x-auto overflow-y-hidden whitespace-nowrap no-scrollbar scroll-smooth bg-white dark:bg-background border-b border-[#E5E7EB] rounded-none p-0">
-            <TabsTrigger value="timeline" className="flex-shrink-0 relative -mb-px pb-2 px-2 whitespace-nowrap text-[#6B7280] data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold data-[state=active]:after:content-[''] data-[state=active]:after:absolute data-[state=active]:after:left-0 data-[state=active]:after:right-0 data-[state=active]:after:-bottom-[1px] data-[state=active]:after:h-[2px] data-[state=active]:after:bg-[#0F4C5C]">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full mt-6">
+          <TabsList className="flex flex-nowrap gap-2 sm:gap-3 overflow-x-auto no-scrollbar scroll-smooth bg-transparent border-b border-[#E5E7EB] rounded-none p-0 max-w-full">
+            <TabsTrigger value="timeline" className="relative -mb-px pb-2 px-2 whitespace-nowrap text-[#6B7280] data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold data-[state=active]:after:content-[''] data-[state=active]:after:absolute data-[state=active]:after:left-0 data-[state=active]:after:right-0 data-[state=active]:after:-bottom-[1px] data-[state=active]:after:h-[2px] data-[state=active]:after:bg-[#0F4C5C]">
               <FaClock className="h-4 w-4 mr-2" /> Linha do Tempo
               <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[9px] bg-[#F3F4F6] text-[#374151]">{sortedTimelineEvents.length}</span>
             </TabsTrigger>
-            <TabsTrigger value="appointments" className="flex-shrink-0 relative -mb-px pb-2 px-2 whitespace-nowrap text-[#6B7280] data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold data-[state=active]:after:content-[''] data-[state=active]:after:absolute data-[state=active]:after:left-0 data-[state=active]:after:right-0 data-[state=active]:after:-bottom-[1px] data-[state=active]:after:h-[2px] data-[state=active]:after:bg-[#0F4C5C]">
+            <TabsTrigger value="appointments" className="relative -mb-px pb-2 px-2 whitespace-nowrap text-[#6B7280] data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold data-[state=active]:after:content-[''] data-[state=active]:after:absolute data-[state=active]:after:left-0 data-[state=active]:after:right-0 data-[state=active]:after:-bottom-[1px] data-[state=active]:after:h-[2px] data-[state=active]:after:bg-[#0F4C5C]">
               <FaStethoscope className="h-4 w-4 mr-2" /> Atendimento
               <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[9px] bg-[#F3F4F6] text-[#374151]">{animalAppointments.length}</span>
             </TabsTrigger>
-            <TabsTrigger value="exams" className="flex-shrink-0 relative -mb-px pb-2 px-2 whitespace-nowrap text-[#6B7280] data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold data-[state=active]:after:content-[''] data-[state=active]:after:absolute data-[state=active]:after:left-0 data-[state=active]:after:right-0 data-[state=active]:after:-bottom-[1px] data-[state=active]:after:h-[2px] data-[state=active]:after:bg-[#0F4C5C]">
+            <TabsTrigger value="exams" className="relative -mb-px pb-2 px-2 whitespace-nowrap text-[#6B7280] data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold data-[state=active]:after:content-[''] data-[state=active]:after:absolute data-[state=active]:after:left-0 data-[state=active]:after:right-0 data-[state=active]:after:-bottom-[1px] data-[state=active]:after:h-[2px] data-[state=active]:after:bg-[#0F4C5C]">
               <FaFlask className="h-4 w-4 mr-2" /> Exames
               <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[9px] bg-[#F3F4F6] text-[#374151]">{examsList.length}</span>
             </TabsTrigger>
-            <TabsTrigger value="vaccines" className="flex-shrink-0 relative -mb-px pb-2 px-2 whitespace-nowrap text-[#6B7280] data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold data-[state=active]:after:content-[''] data-[state=active]:after:absolute data-[state=active]:after:left-0 data-[state=active]:after:right-0 data-[state=active]:after:-bottom-[1px] data-[state=active]:after:h-[2px] data-[state=active]:after:bg-[#0F4C5C]">
+            <TabsTrigger value="vaccines" className="relative -mb-px pb-2 px-2 whitespace-nowrap text-[#6B7280] data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold data-[state=active]:after:content-[''] data-[state=active]:after:absolute data-[state=active]:after:left-0 data-[state=active]:after:right-0 data-[state=active]:after:-bottom-[1px] data-[state=active]:after:h-[2px] data-[state=active]:after:bg-[#0F4C5C]">
               <FaSyringe className="h-4 w-4 mr-2" /> Vacinas
               <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[9px] bg-[#F3F4F6] text-[#374151]">{vaccines.length}</span>
             </TabsTrigger>
-            <TabsTrigger value="weight" className="flex-shrink-0 relative -mb-px pb-2 px-2 whitespace-nowrap text-[#6B7280] data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold data-[state=active]:after:content-[''] data-[state=active]:after:absolute data-[state=active]:after:left-0 data-[state=active]:after:right-0 data-[state=active]:after:-bottom-[1px] data-[state=active]:after:h-[2px] data-[state=active]:after:bg-[#0F4C5C]">
+            <TabsTrigger value="weight" className="relative -mb-px pb-2 px-2 whitespace-nowrap text-[#6B7280] data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold data-[state=active]:after:content-[''] data-[state=active]:after:absolute data-[state=active]:after:left-0 data-[state=active]:after:right-0 data-[state=active]:after:-bottom-[1px] data-[state=active]:after:h-[2px] data-[state=active]:after:bg-[#0F4C5C]">
               <FaWeightHanging className="h-4 w-4 mr-2" /> Peso
               <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[9px] bg-[#F3F4F6] text-[#374151]">{weightHistory.length}</span>
             </TabsTrigger>
-            <TabsTrigger value="documents" className="flex-shrink-0 relative -mb-px pb-2 px-2 whitespace-nowrap text-[#6B7280] data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold data-[state=active]:after:content-[''] data-[state=active]:after:absolute data-[state=active]:after:left-0 data-[state=active]:after:right-0 data-[state=active]:after:-bottom-[1px] data-[state=active]:after:h-[2px] data-[state=active]:after:bg-[#0F4C5C]">
+            <TabsTrigger value="documents" className="relative -mb-px pb-2 px-2 whitespace-nowrap text-[#6B7280] data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold data-[state=active]:after:content-[''] data-[state=active]:after:absolute data-[state=active]:after:left-0 data-[state=active]:after:right-0 data-[state=active]:after:-bottom-[1px] data-[state=active]:after:h-[2px] data-[state=active]:after:bg-[#0F4C5C]">
               <FaFileAlt className="h-4 w-4 mr-2" /> Documentos
               <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[9px] bg-[#F3F4F6] text-[#374151]">{documents.length}</span>
             </TabsTrigger>
-            <TabsTrigger value="prescriptions" className="flex-shrink-0 relative -mb-px pb-2 px-2 whitespace-nowrap text-[#6B7280] data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold data-[state=active]:after:content-[''] data-[state=active]:after:absolute data-[state=active]:after:left-0 data-[state=active]:after:right-0 data-[state=active]:after:-bottom-[1px] data-[state=active]:after:h-[2px] data-[state=active]:after:bg-[#0F4C5C]">
+            <TabsTrigger value="prescriptions" className="relative -mb-px pb-2 px-2 whitespace-nowrap text-[#6B7280] data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold data-[state=active]:after:content-[''] data-[state=active]:after:absolute data-[state=active]:after:left-0 data-[state=active]:after:right-0 data-[state=active]:after:-bottom-[1px] data-[state=active]:after:h-[2px] data-[state=active]:after:bg-[#0F4C5C]">
               <FaPrescriptionBottleAlt className="h-4 w-4 mr-2" /> Receitas
               <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[9px] bg-[#F3F4F6] text-[#374151]">{prescriptions.length}</span>
             </TabsTrigger>
-            <TabsTrigger value="observations" className="flex-shrink-0 relative -mb-px pb-2 px-2 whitespace-nowrap text-[#6B7280] data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold data-[state=active]:after:content-[''] data-[state=active]:after:absolute data-[state=active]:after:left-0 data-[state=active]:after:right-0 data-[state=active]:after:-bottom-[1px] data-[state=active]:after:h-[2px] data-[state=active]:after:bg-[#0F4C5C]">
+            <TabsTrigger value="observations" className="relative -mb-px pb-2 px-2 whitespace-nowrap text-[#6B7280] data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold data-[state=active]:after:content-[''] data-[state=active]:after:absolute data-[state=active]:after:left-0 data-[state=active]:after:right-0 data-[state=active]:after:-bottom-[1px] data-[state=active]:after:h-[2px] data-[state=active]:after:bg-[#0F4C5C]">
               <FaCommentAlt className="h-4 w-4 mr-2" /> Observações
               <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[9px] bg-[#F3F4F6] text-[#374151]">{observations.length}</span>
             </TabsTrigger>
-            <TabsTrigger value="financial" className="flex-shrink-0 relative -mb-px pb-2 px-2 whitespace-nowrap text-[#6B7280] data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold data-[state=active]:after:content-[''] data-[state=active]:after:absolute data-[state=active]:after:left-0 data-[state=active]:after:right-0 data-[state=active]:after:-bottom-[1px] data-[state=active]:after:h-[2px] data-[state=active]:after:bg-[#0F4C5C]">
+            <TabsTrigger value="financial" className="relative -mb-px pb-2 px-2 whitespace-nowrap text-[#6B7280] data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold data-[state=active]:after:content-[''] data-[state=active]:after:absolute data-[state=active]:after:left-0 data-[state=active]:after:right-0 data-[state=active]:after:-bottom-[1px] data-[state=active]:after:h-[2px] data-[state=active]:after:bg-[#0F4C5C]">
               <FaMoneyBillWave className="h-4 w-4 mr-2" /> Financeiro
               <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[9px] bg-[#F3F4F6] text-[#374151]">{patientSales.length}</span>
             </TabsTrigger>

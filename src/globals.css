@@ -7,8 +7,6 @@
 /* Fonte global */
 html, body, #root {
   font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, 'Helvetica Neue', Arial, 'Noto Sans', 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', sans-serif;
-  /* Garantir rolagem padrão no body; evitar travamento */
-  overflow-y: auto;
   overflow-x: hidden;
 }
 /* Fundo geral para profundidade dos cards */

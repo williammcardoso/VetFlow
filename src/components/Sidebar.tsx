@@ -138,12 +138,9 @@ const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, onCloseMobile, isDeskto
 
       <aside
         className={cn(
-          "bg-sidebar text-sidebar-foreground border-r border-sidebar-border p-4 shadow-lg transition-all duration-300 ease-in-out hide-scrollbar",
-          // Mobile: drawer fixo deslizando
-          isMobileOpen ? "fixed inset-y-0 left-0 z-50 translate-x-0 w-64" : "fixed inset-y-0 left-0 z-50 -translate-x-full w-64",
-          // Desktop: sticky com altura total e rolagem interna; largura conforme expandido/colapsado
-          "lg:sticky lg:top-0 lg:h-screen lg:overflow-y-auto lg:overflow-x-hidden lg:z-auto",
-          isDesktopOpen ? "lg:w-[260px]" : "lg:w-[72px]"
+          "bg-sidebar text-sidebar-foreground h-screen fixed left-0 top-0 overflow-y-auto border-r border-sidebar-border p-4 shadow-lg transition-all duration-300 ease-in-out z-50 hide-scrollbar",
+          isMobileOpen ? "translate-x-0 w-64" : "-translate-x-full",
+          isDesktopOpen ? "lg:translate-x-0 lg:w-64" : "lg:translate-x-0 lg:w-16"
         )}
       >
         <div className={cn(

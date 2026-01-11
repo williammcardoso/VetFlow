@@ -10,8 +10,8 @@ interface LayoutProps {
 
 const Layout: React.FC<LayoutProps> = ({ children }) => {
   const isMobile = useIsMobile();
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [isDesktopSidebarOpen, setIsDesktopSidebarOpen] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false); // Mobile sidebar state
+  const [isDesktopSidebarOpen, setIsDesktopSidebarOpen] = useState(true); // Desktop sidebar state
 
   const handleToggleMobileSidebar = () => {
     setIsSidebarOpen(!isSidebarOpen);
@@ -25,25 +25,24 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     setIsDesktopSidebarOpen(!isDesktopSidebarOpen);
   };
 
-  const gridTemplateClass = isDesktopSidebarOpen
-    ? "lg:[grid-template-columns:260px_minmax(0,1fr)]"
-    : "lg:[grid-template-columns:72px_minmax(0,1fr)]";
+  const sidebarWidthClass = isDesktopSidebarOpen ? "lg:w-64" : "lg:w-16";
+  const containerPaddingClass = isDesktopSidebarOpen ? "lg:pl-64" : "lg:pl-16";
 
   return (
-    <div className={`grid grid-cols-1 ${gridTemplateClass} bg-background`}>
+    <div className={`flex min-h-screen bg-background ${containerPaddingClass} overflow-x-hidden`}>
       <Sidebar 
         isMobileOpen={isSidebarOpen} 
         onCloseMobile={handleCloseMobileSidebar} 
         isDesktopOpen={isDesktopSidebarOpen}
         onToggleDesktop={handleToggleDesktopSidebar}
       />
-      <div className={`flex flex-col min-w-0 transition-all duration-300 ease-in-out`}>
+      <div className={`flex flex-col flex-1 transition-all duration-300 ease-in-out`}>
         <Header 
           onToggleMobileSidebar={handleToggleMobileSidebar} 
           onToggleDesktopSidebar={handleToggleDesktopSidebar}
           isDesktopSidebarOpen={isDesktopSidebarOpen}
         />
-        <main className="flex-1 p-4 sm:px-6 sm:py-0 min-w-0 overflow-x-hidden">
+        <main className="flex-1 p-4 sm:px-6 sm:py-0">
           {children}
         </main>
         <MadeWithDyad />
