@@ -258,6 +258,12 @@ body {
   box-shadow: 0 2px 6px rgba(0,0,0,0.14);
 }
 
+/* Marcador menor exclusivo para eventos de Peso */
+.timeline-dot-sm {
+  height: 0.7rem; /* levemente menor que o padrão */
+  width: 0.7rem;
+}
+
 /* Identidade por tipo (apenas bolinha colorida; cores suaves e consistentes) */
 .timeline-dot-blue { background-color: #93c5fd; }      /* Atendimento */
 .timeline-dot-purple { background-color: #c4b5fd; }    /* Exame */
