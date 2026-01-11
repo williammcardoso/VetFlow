@@ -128,6 +128,7 @@ body {
   display: none;            /* Chrome, Safari */
 }
 
+/* Tipografia premium já aplicada anteriormente via Exo; mantemos e ampliamos uso */
 @font-face {
   font-family: 'Exo';
   src: url('/fonts/Exo-Regular.ttf') format('truetype');
@@ -135,7 +136,6 @@ body {
   font-style: normal;
   font-display: swap;
 }
-
 @font-face {
   font-family: 'Exo';
   src: url('/fonts/Exo-SemiBold.ttf') format('truetype');
@@ -143,31 +143,79 @@ body {
   font-style: normal;
   font-display: swap;
 }
-
-/* Utilitário para aplicar tipografia premium apenas onde necessário */
 .font-exo {
   font-family: 'Exo', 'Inter', system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif;
 }
 
-/* Cartão premium com borda quase imperceptível e sombra suave */
-.premium-card {
-  background-color: hsl(var(--card));
-  border: 1px solid hsl(var(--border) / 0.35);
-  border-radius: 1rem;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
+/* Camada visual de fundo suave */
+.layered-bg {
+  background:
+    radial-gradient(1000px 400px at 10% -10%, rgba(32, 109, 229, 0.06), transparent 60%),
+    radial-gradient(800px 300px at 90% -10%, rgba(16, 170, 144, 0.05), transparent 60%),
+    hsl(var(--background));
 }
 
-/* Linha ativa sutil para tabs modernas */
+/* Card premium (flutuante) com borda quase invisível e sombra suave */
+.premium-card {
+  background-color: hsl(var(--card));
+  border: 1px solid hsl(var(--border) / 0.28);
+  border-radius: 1rem;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.07);
+}
+
+/* Variantes menores de sombra, para status */
+.premium-card--soft {
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.06);
+}
+
+/* Avatar com anel suave */
+.hero-avatar-ring {
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+  outline: 6px solid rgba(255, 255, 255, 0.65);
+}
+
+/* Chips/tags informativas com estilo pastel unificado */
+.chip-soft {
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 0.25rem 0.6rem;
+  line-height: 1;
+  border: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  box-shadow: 0 1px 0 rgba(0,0,0,0.02) inset;
+}
+
+/* Linha ativa sutil em tabs (segmented control) */
 .tab-active-line {
   position: relative;
 }
 .tab-active-line[data-state="active"]::after {
   content: "";
   position: absolute;
-  left: .25rem;
-  right: .25rem;
+  left: .35rem;
+  right: .35rem;
   bottom: -1px;
   height: 2px;
   background: hsl(var(--primary));
+  opacity: 0.9;
   border-radius: 1px;
+}
+
+/* Metadados discretos (quase somem se não buscados) */
+.metadata-subtle {
+  color: hsl(var(--muted-foreground) / 0.8);
+  font-size: 12px;
+}
+
+/* Header/topo com sensação premium */
+.premium-top {
+  backdrop-filter: blur(6px);
+  border: 1px solid hsl(var(--border) / 0.35);
+  border-radius: 1.25rem;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.05);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.85), hsl(var(--card) / 0.95));
 }

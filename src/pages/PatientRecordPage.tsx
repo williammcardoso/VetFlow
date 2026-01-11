@@ -1003,18 +1003,16 @@ const PatientRecordPage = () => {
     .reduce((sum, t) => sum + t.amount, 0);
 
   return (
-    <div className="flex flex-col min-h-screen bg-[#F8F9FA] overflow-x-hidden font-exo">
-      {/* Header da Página com Gradiente e Breadcrumb */}
-      <div className="bg-gradient-to-r from-card/80 via-background to-card/80 p-6 pb-4 border-b border-border/40 mx-auto w-full max-w-7xl backdrop-blur-sm rounded-2xl shadow-sm">
+    <div className="flex flex-col min-h-screen layered-bg overflow-x-hidden font-exo">
+      {/* Header da Página com sensação premium */}
+      <div className="premium-top p-6 pb-4 mx-auto w-full max-w-7xl">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-2 gap-4 sm:gap-2">
           <div className="flex items-center gap-4">
             <div>
               <h1 className="text-[1.85rem] leading-tight font-semibold flex items-center gap-3 text-foreground">
                 <FaUser className="h-5 w-5 text-muted-foreground" /> Prontuário Consolidado
               </h1>
-              <p className="text-sm text-muted-foreground mt-1 mb-4">
-                Visão completa do histórico médico
-              </p>
+              <p className="text-sm text-muted-foreground mt-1 mb-4">Visão completa do histórico médico</p>
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -1036,235 +1034,159 @@ const PatientRecordPage = () => {
         </p>
       </div>
 
-      {/* NEW: Banner de Alerta flutuante no topo do prontuário (se houver observação marcada) */}
-      {(() => {
-        const alertObservation = observations.find((o: any) => o.displayAsAlert);
-        return alertObservation ? (
-          <div className="px-6 pt-4 mx-auto w-full max-w-7xl">
-            <Alert className="bg-amber-50 border-amber-200 text-amber-900 rounded-xl shadow-sm">
-              <AlertTitle className="font-semibold">Alerta do Prontuário</AlertTitle>
-              <AlertDescription className="text-sm">{alertObservation.observation}</AlertDescription>
-            </Alert>
-          </div>
-        ) : null;
-      })()}
-
+      {/* Topo: Paciente/Tutor/Financeiro com hierarquia FORÇADA */}
       <div className="flex-1 p-6 mx-auto w-full max-w-7xl">
         <div className="mb-6">
           <Card className="premium-card">
-            <CardHeader className="flex flex-row items-center justify-between pb-5">
-              <CardTitle className="flex items-center gap-2 text-[1.75rem] font-semibold text-[#0F4C5C] tracking-tight">
-                {currentAnimal.name}
-              </CardTitle>
-              <div className="flex flex-wrap items-center gap-2">
-                <Button variant="outline" onClick={handleEditAnimal} className="rounded-lg border-border/40 text-foreground hover:bg-muted/50">
-                  <FaEdit className="mr-2 h-4 w-4" /> Editar Paciente
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent className="pt-0">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {/* Coluna esquerda: avatar + badges */}
-                <div className="flex items-start gap-4 md:col-span-1 min-w-0">
-                  <Avatar className="h-24 w-24 rounded-full ring-4 ring-white/70 shadow-md bg-muted">
+            <CardHeader className="pb-0">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-4">
+                {/* Prioridade 1: Paciente (nome + avatar) */}
+                <div className="flex items-start gap-4 md:col-span-1">
+                  <Avatar className="h-28 w-28 rounded-full hero-avatar-ring bg-teal-50/60">
                     <AvatarImage src={undefined} />
-                    <AvatarFallback className="bg-[#0F4C5C]/90 text-white text-2xl font-bold">
+                    <AvatarFallback className="text-[#0F4C5C] text-2xl font-bold">
                       <FaPaw className="h-8 w-8" />
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex-1">
+                    <h2 className="text-[2rem] leading-none font-semibold tracking-tight text-[#0F4C5C] mb-3">
+                      {currentAnimal.name}
+                    </h2>
+                    {/* Prioridade 2: Chips pastel suaves (informativas) */}
                     <div className="flex flex-wrap gap-2">
-                      <span className="px-2.5 sm:px-3 py-1 rounded-full text-[11px] font-medium bg-teal-50/60 text-teal-800/90 ring-1 ring-teal-100/80">
-                        Espécie: <span className="font-semibold">{currentAnimal.species}</span>
-                      </span>
-                      <span className="px-2.5 sm:px-3 py-1 rounded-full text-[11px] font-medium bg-sky-50/60 text-sky-800/90 ring-1 ring-sky-100/80">
-                        Raça: <span className="font-semibold">{currentAnimal.breed}</span>
-                      </span>
-                      <span className="px-2.5 sm:px-3 py-1 rounded-full text-[11px] font-medium bg-indigo-50/60 text-indigo-800/90 ring-1 ring-indigo-100/80">
-                        Idade: <span className="font-semibold">{calculateAge(currentAnimal.birthday)}</span>
-                      </span>
-                      <span className="px-2.5 sm:px-3 py-1 rounded-full text-[11px] font-medium bg-purple-50/60 text-purple-800/90 ring-1 ring-purple-100/80">
-                        Peso: <span className="font-semibold">{currentAnimal.weight.toFixed(1)} kg</span>
-                      </span>
-                      <span className="px-2.5 sm:px-3 py-1 rounded-full text-[11px] font-medium bg-pink-50/60 text-pink-800/90 ring-1 ring-pink-100/80">
-                        Sexo: <span className="font-semibold">{currentAnimal.gender}</span>
-                      </span>
-                      <span className="px-2.5 sm:px-3 py-1 rounded-full text-[11px] font-medium bg-amber-50/60 text-amber-800/90 ring-1 ring-amber-100/80">
-                        Nasc.: <span className="font-semibold">{formatDateTime(currentAnimal.birthday || '')}</span>
-                      </span>
+                      <span className="chip-soft bg-teal-50/60 text-teal-900/80">Espécie: <span className="font-semibold">{currentAnimal.species}</span></span>
+                      <span className="chip-soft bg-sky-50/60 text-sky-900/80">Raça: <span className="font-semibold">{currentAnimal.breed}</span></span>
+                      <span className="chip-soft bg-indigo-50/60 text-indigo-900/80">Idade: <span className="font-semibold">{calculateAge(currentAnimal.birthday)}</span></span>
+                      <span className="chip-soft bg-purple-50/60 text-purple-900/80">Peso: <span className="font-semibold">{currentAnimal.weight.toFixed(1)} kg</span></span>
+                      <span className="chip-soft bg-pink-50/60 text-pink-900/80">Sexo: <span className="font-semibold">{currentAnimal.gender}</span></span>
+                      <span className="chip-soft bg-amber-50/60 text-amber-900/80">Nasc.: <span className="font-semibold">{formatDateTime(currentAnimal.birthday || '')}</span></span>
                     </div>
                   </div>
                 </div>
 
-                {/* Coluna central: tutor */}
-                <div className="space-y-3 min-w-0">
-                  <p className="text-xs uppercase tracking-wide text-muted-foreground">Tutor Responsável</p>
-                  <div className="premium-card p-5">
-                    <p className="text-base font-semibold text-foreground">{currentClient.name}</p>
+                {/* Prioridade 2: Tutor (profile card) */}
+                <div className="md:col-span-1">
+                  <div className="premium-card premium-card--soft p-5">
+                    <p className="text-sm uppercase tracking-wide metadata-subtle">Tutor Responsável</p>
+                    <p className="text-base font-semibold text-foreground mt-1">{currentClient.name}</p>
                     <div className="mt-2 space-y-2">
-                      <p className="text-sm flex items-center gap-2 text-muted-foreground">
-                        <FaIdCard className="h-3.5 w-3.5 text-muted-foreground/80" />
+                      <p className="text-sm flex items-center gap-2 metadata-subtle">
+                        <FaIdCard className="h-3.5 w-3.5" />
                         <span className="font-medium text-foreground/70">{currentClient.clientType === "physical" ? "CPF" : "CNPJ"}:</span> {currentClient.identificationNumber}
                       </p>
-                      <p className="text-sm flex items-center gap-2 text-muted-foreground">
-                        <FaPhone className="h-3.5 w-3.5 text-muted-foreground/80" />
+                      <p className="text-sm flex items-center gap-2 metadata-subtle">
+                        <FaPhone className="h-3.5 w-3.5" />
                         <span className="font-medium text-foreground/70">Telefone:</span> {currentClient.mainPhoneContact}
                       </p>
                     </div>
                   </div>
                 </div>
 
-                {/* Coluna direita: cards financeiros */}
-                <div className="grid grid-cols-1 gap-3 md:col-span-1 min-w-0">
+                {/* Prioridade 1: Status Financeiro (minimalista e elegante) */}
+                <div className="md:col-span-1">
                   {(() => {
                     const income = mockFinancialTransactions.filter(t => t.relatedAnimalId === animalId && t.type === 'income').reduce((s, t) => s + t.amount, 0);
                     const expense = mockFinancialTransactions.filter(t => t.relatedAnimalId === animalId && t.type === 'expense').reduce((s, t) => s + t.amount, 0);
                     const net = income - expense;
                     const pending = Math.max(0, patientSales.reduce((sum, s) => sum + s.total, 0) - patientPayments.reduce((sum, p) => sum + p.amount, 0));
                     return (
-                      <>
-                        <Card className="premium-card">
+                      <div className="grid grid-cols-1 gap-3">
+                        <Card className="premium-card premium-card--soft">
                           <CardContent className="pt-4">
-                            <div className="text-xs text-emerald-800/70">Pago</div>
+                            <div className="metadata-subtle">Pago</div>
                             <div className="text-[1.6rem] leading-tight font-semibold text-emerald-800">
                               {new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(income)}
                             </div>
                           </CardContent>
                         </Card>
-                        <Card className="premium-card">
+                        <Card className="premium-card premium-card--soft">
                           <CardContent className="pt-4">
-                            <div className="text-xs text-rose-800/70">Pendências</div>
+                            <div className="metadata-subtle">Pendências</div>
                             <div className="text-[1.6rem] leading-tight font-semibold text-rose-800">
                               {new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(pending)}
                             </div>
                           </CardContent>
                         </Card>
-                        <Card className="premium-card">
+                        <Card className="premium-card premium-card--soft">
                           <CardContent className="pt-4">
-                            <div className="text-xs text-blue-800/70">Saldo</div>
+                            <div className="metadata-subtle">Saldo</div>
                             <div className={cn("text-[1.6rem] leading-tight font-semibold", net >= 0 ? "text-blue-800" : "text-amber-800")}>
                               {new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(net)}
                             </div>
                           </CardContent>
                         </Card>
-                      </>
+                      </div>
                     );
                   })()}
                 </div>
+              </div>
+            </CardHeader>
+
+            {/* Ação secundária (editar) alinhada e discreta */}
+            <CardContent className="pt-0 px-6 pb-4">
+              <div className="flex justify-end">
+                <Button variant="outline" onClick={handleEditAnimal} className="rounded-lg border-border/40 text-foreground hover:bg-muted/50">
+                  <FaEdit className="mr-2 h-4 w-4" /> Editar Paciente
+                </Button>
               </div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Wrapper com scroll horizontal "natural" para a barra de abas */}
+        {/* Tabs modernas com scroll horizontal invisível */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full mt-6">
-          <div
-            ref={tabScrollRef}
-            className="relative w-full overflow-x-auto overflow-y-hidden no-scrollbar scroll-smooth select-none"
-          >
+          <div ref={tabScrollRef} className="relative w-full overflow-x-auto overflow-y-hidden no-scrollbar scroll-smooth select-none">
             <TabsList className="inline-flex w-max items-center whitespace-nowrap border-b border-border/40 bg-transparent p-0 rounded-none gap-1">
-              <TabsTrigger
-                value="timeline"
-                className="tab-active-line relative -mb-px pb-2 px-2.5 md:px-3.5 shrink-0 text-sm md:text-[0.95rem] text-muted-foreground hover:text-foreground hover:bg-muted/40 rounded-md transition-colors data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold"
-              >
+              {/* Estilo segmented control: tipografia leve + linha ativa sutil */}
+              <TabsTrigger value="timeline" className="tab-active-line relative -mb-px pb-2 px-2.5 md:px-3.5 shrink-0 text-sm md:text-[0.95rem] text-muted-foreground hover:text-foreground hover:bg-muted/40 rounded-md transition-colors data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold">
                 <FaClock className="h-4 w-4 mr-1.5 md:mr-2 text-muted-foreground" />
                 <span className="max-w-[9.5rem] md:max-w-none truncate">Linha do Tempo</span>
-                <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[10px] bg-muted text-foreground/70">
-                  {sortedTimelineEvents.length}
-                </span>
+                <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[10px] bg-muted text-foreground/70">{sortedTimelineEvents.length}</span>
               </TabsTrigger>
-
-              <TabsTrigger
-                value="appointments"
-                className="tab-active-line relative -mb-px pb-2 px-2.5 md:px-3.5 shrink-0 text-sm md:text-[0.95rem] text-muted-foreground hover:text-foreground hover:bg-muted/40 rounded-md transition-colors data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold"
-              >
+              <TabsTrigger value="appointments" className="tab-active-line relative -mb-px pb-2 px-2.5 md:px-3.5 shrink-0 text-sm md:text-[0.95rem] text-muted-foreground hover:text-foreground hover:bg-muted/40 rounded-md transition-colors data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold">
                 <FaStethoscope className="h-4 w-4 mr-1.5 md:mr-2 text-muted-foreground" />
                 <span className="max-w-[9.5rem] md:max-w-none truncate">Atendimento</span>
-                <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[10px] bg-muted text-foreground/70">
-                  {animalAppointments.length}
-                </span>
+                <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[10px] bg-muted text-foreground/70">{animalAppointments.length}</span>
               </TabsTrigger>
-
-              <TabsTrigger
-                value="exams"
-                className="tab-active-line relative -mb-px pb-2 px-2.5 md:px-3.5 shrink-0 text-sm md:text-[0.95rem] text-muted-foreground hover:text-foreground hover:bg-muted/40 rounded-md transition-colors data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold"
-              >
+              <TabsTrigger value="exams" className="tab-active-line relative -mb-px pb-2 px-2.5 md:px-3.5 shrink-0 text-sm md:text-[0.95rem] text-muted-foreground hover:text-foreground hover:bg-muted/40 rounded-md transition-colors data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold">
                 <FaFlask className="h-4 w-4 mr-1.5 md:mr-2 text-muted-foreground" />
                 <span className="max-w-[9.5rem] md:max-w-none truncate">Exames</span>
-                <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[10px] bg-muted text-foreground/70">
-                  {examsList.length}
-                </span>
+                <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[10px] bg-muted text-foreground/70">{examsList.length}</span>
               </TabsTrigger>
-
-              <TabsTrigger
-                value="vaccines"
-                className="tab-active-line relative -mb-px pb-2 px-2.5 md:px-3.5 shrink-0 text-sm md:text-[0.95rem] text-muted-foreground hover:text-foreground hover:bg-muted/40 rounded-md transition-colors data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold"
-              >
+              <TabsTrigger value="vaccines" className="tab-active-line relative -mb-px pb-2 px-2.5 md:px-3.5 shrink-0 text-sm md:text-[0.95rem] text-muted-foreground hover:text-foreground hover:bg-muted/40 rounded-md transition-colors data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold">
                 <FaSyringe className="h-4 w-4 mr-1.5 md:mr-2 text-muted-foreground" />
                 <span className="max-w-[9.5rem] md:max-w-none truncate">Vacinas</span>
-                <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[10px] bg-muted text-foreground/70">
-                  {vaccines.length}
-                </span>
+                <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[10px] bg-muted text-foreground/70">{vaccines.length}</span>
               </TabsTrigger>
-
-              <TabsTrigger
-                value="weight"
-                className="tab-active-line relative -mb-px pb-2 px-2.5 md:px-3.5 shrink-0 text-sm md:text-[0.95rem] text-muted-foreground hover:text-foreground hover:bg-muted/40 rounded-md transition-colors data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold"
-              >
+              <TabsTrigger value="weight" className="tab-active-line relative -mb-px pb-2 px-2.5 md:px-3.5 shrink-0 text-sm md:text-[0.95rem] text-muted-foreground hover:text-foreground hover:bg-muted/40 rounded-md transition-colors data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold">
                 <FaWeightHanging className="h-4 w-4 mr-1.5 md:mr-2 text-muted-foreground" />
                 <span className="max-w-[9.5rem] md:max-w-none truncate">Peso</span>
-                <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[10px] bg-muted text-foreground/70">
-                  {weightHistory.length}
-                </span>
+                <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[10px] bg-muted text-foreground/70">{weightHistory.length}</span>
               </TabsTrigger>
-
-              <TabsTrigger
-                value="documents"
-                className="tab-active-line relative -mb-px pb-2 px-2.5 md:px-3.5 shrink-0 text-sm md:text-[0.95rem] text-muted-foreground hover:text-foreground hover:bg-muted/40 rounded-md transition-colors data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold"
-              >
+              <TabsTrigger value="documents" className="tab-active-line relative -mb-px pb-2 px-2.5 md:px-3.5 shrink-0 text-sm md:text-[0.95rem] text-muted-foreground hover:text-foreground hover:bg-muted/40 rounded-md transition-colors data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold">
                 <FaFileAlt className="h-4 w-4 mr-1.5 md:mr-2 text-muted-foreground" />
                 <span className="max-w-[9.5rem] md:max-w-none truncate">Documentos</span>
-                <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[10px] bg-muted text-foreground/70">
-                  {documents.length}
-                </span>
+                <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[10px] bg-muted text-foreground/70">{documents.length}</span>
               </TabsTrigger>
-
-              <TabsTrigger
-                value="prescriptions"
-                className="tab-active-line relative -mb-px pb-2 px-2.5 md:px-3.5 shrink-0 text-sm md:text-[0.95rem] text-muted-foreground hover:text-foreground hover:bg-muted/40 rounded-md transition-colors data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold"
-              >
+              <TabsTrigger value="prescriptions" className="tab-active-line relative -mb-px pb-2 px-2.5 md:px-3.5 shrink-0 text-sm md:text-[0.95rem] text-muted-foreground hover:text-foreground hover:bg-muted/40 rounded-md transition-colors data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold">
                 <FaPrescriptionBottleAlt className="h-4 w-4 mr-1.5 md:mr-2 text-muted-foreground" />
                 <span className="max-w-[9.5rem] md:max-w-none truncate">Receitas</span>
-                <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[10px] bg-muted text-foreground/70">
-                  {prescriptions.length}
-                </span>
+                <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[10px] bg-muted text-foreground/70">{prescriptions.length}</span>
               </TabsTrigger>
-
-              <TabsTrigger
-                value="observations"
-                className="tab-active-line relative -mb-px pb-2 px-2.5 md:px-3.5 shrink-0 text-sm md:text-[0.95rem] text-muted-foreground hover:text-foreground hover:bg-muted/40 rounded-md transition-colors data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold"
-              >
+              <TabsTrigger value="observations" className="tab-active-line relative -mb-px pb-2 px-2.5 md:px-3.5 shrink-0 text-sm md:text-[0.95rem] text-muted-foreground hover:text-foreground hover:bg-muted/40 rounded-md transition-colors data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold">
                 <FaCommentAlt className="h-4 w-4 mr-1.5 md:mr-2 text-muted-foreground" />
                 <span className="max-w-[9.5rem] md:max-w-none truncate">Observações</span>
-                <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[10px] bg-muted text-foreground/70">
-                  {observations.length}
-                </span>
+                <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[10px] bg-muted text-foreground/70">{observations.length}</span>
               </TabsTrigger>
-
-              <TabsTrigger
-                value="financial"
-                className="tab-active-line relative -mb-px pb-2 px-2.5 md:px-3.5 shrink-0 text-sm md:text-[0.95rem] text-muted-foreground hover:text-foreground hover:bg-muted/40 rounded-md transition-colors data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold"
-              >
+              <TabsTrigger value="financial" className="tab-active-line relative -mb-px pb-2 px-2.5 md:px-3.5 shrink-0 text-sm md:text-[0.95rem] text-muted-foreground hover:text-foreground hover:bg-muted/40 rounded-md transition-colors data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold">
                 <FaMoneyBillWave className="h-4 w-4 mr-1.5 md:mr-2 text-muted-foreground" />
                 <span className="max-w-[9.5rem] md:max-w-none truncate">Financeiro</span>
-                <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[10px] bg-muted text-foreground/70">
-                  {patientSales.length}
-                </span>
+                <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[10px] bg-muted text-foreground/70">{patientSales.length}</span>
               </TabsTrigger>
             </TabsList>
           </div>
 
-          {/* Conteúdo das abas (inalterado) */}
+          {/* Timeline moderna: cards mais altos, espaçados e metadados discretos */}
           <TabsContent value="timeline" className="mt-4">
             <Card className="premium-card">
               <CardHeader className="pb-4">
@@ -1276,20 +1198,20 @@ const PatientRecordPage = () => {
                 {sortedTimelineEvents.length > 0 ? (
                   <div className="relative">
                     <div className="absolute left-2 sm:left-3 top-0 bottom-0 w-[2px] bg-gradient-to-b from-[#EAEAEA] via-[#DFDFDF] to-[#EAEAEA]" />
-                    <div className="space-y-5">
+                    <div className="space-y-6">
                       {sortedTimelineEvents.map((event) => {
                         const nodeColor = getNodeColorClass(event.badgeColor);
                         return (
                           <div key={event.id} className="relative pl-6 sm:pl-8">
-                            <span className={cn("absolute left-1.5 sm:left-2.5 top-4 h-4 w-4 rounded-full shadow-sm", nodeColor)} />
-                            <Card className="premium-card p-5">
-                              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-2.5 gap-2">
+                            <span className={cn("absolute left-1.5 sm:left-2.5 top-5 h-4 w-4 rounded-full shadow-sm", nodeColor)} />
+                            <Card className="premium-card p-6">
+                              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-3 gap-2">
                                 <div className="flex items-center gap-2">
                                   {React.createElement(event.icon, { className: "h-4 w-4 text-muted-foreground" })}
                                   <Badge className={cn("px-2 py-0.5 text-xs font-medium rounded-full bg-muted text-foreground/80", event.badgeColor && "")}>
                                     {event.type}
                                   </Badge>
-                                  <p className="text-base font-semibold text-foreground break-words">
+                                  <p className="text-[1.05rem] font-semibold text-foreground break-words">
                                     {event.description}
                                   </p>
                                 </div>
@@ -1311,13 +1233,13 @@ const PatientRecordPage = () => {
                                 )}
                               </div>
                               {event.summary && (
-                                <p className="text-sm text-muted-foreground mb-2.5 break-words">{event.summary}</p>
+                                <p className="text-sm metadata-subtle mb-3 break-words">{event.summary}</p>
                               )}
                               <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                <div className="flex items-center gap-1 metadata-subtle">
                                   <FaCalendarAlt className="h-3 w-3" /> {formatDateTime(event.date, event.time)}
                                 </div>
-                                <div className="text-xs text-muted-foreground">
+                                <div className="metadata-subtle">
                                   {event.author ? `Profissional: ${event.author}` : ""}
                                 </div>
                               </div>
