@@ -193,6 +193,21 @@ const EVENT_STYLES: Record<string, { dot: string; badge: string }> = {
 };
 const getEventStyle = (type: string) => EVENT_STYLES[type] || { dot: 'timeline-dot-gray', badge: 'badge-soft-gray' };
 
+// NOVO: classe do ícone por tipo (cores consistentes apenas no ícone)
+const getEventIconClass = (type: string) => {
+  switch (type) {
+    case 'Atendimento': return 'icon-soft-blue';
+    case 'Exame': return 'icon-soft-purple';
+    case 'Receita': return 'icon-soft-green';
+    case 'Peso': return 'icon-soft-amber';
+    case 'Venda':
+    case 'Financeiro': return 'icon-soft-teal';
+    case 'Documento': return 'icon-soft-orange';
+    case 'Observação': return 'icon-soft-gray';
+    default: return 'icon-soft-gray';
+  }
+};
+
 // Helper para cor da bolinha baseado na cor do badge da timeline
 const getNodeColorClass = (badge?: string) => {
   const c = (badge || "").toLowerCase();
@@ -1225,7 +1240,7 @@ const PatientRecordPage = () => {
             </TabsList>
           </div>
 
-          {/* Timeline neutra com identidade funcional clara (dot + ícone), mais espaçamento e metadados mais discretos */}
+          {/* Timeline neutra com identidade funcional clara (dot + ícone + badge), melhor hierarquia e hover premium do botão ver */}
           <TabsContent value="timeline" className="mt-4">
             <Card className="premium-card card-hover">
               <CardHeader className="pb-4">
@@ -1240,16 +1255,21 @@ const PatientRecordPage = () => {
                     <div className="space-y-9">
                       {sortedTimelineEvents.map((event) => {
                         const styles = getEventStyle(event.type);
+                        const iconClass = getEventIconClass(event.type);
                         return (
                           <div key={event.id} className="relative pl-6 sm:pl-8">
+                            {/* Dot com cor consistente por tipo */}
                             <span className={cn("absolute left-1.5 sm:left-2.5 top-5 timeline-dot", styles.dot)} />
                             <Card className="premium-card p-7">
                               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-3.5 gap-2">
                                 <div className="flex items-center gap-2">
-                                  {React.createElement(event.icon, { className: "h-4 w-4 text-primary/60" })}
-                                  {/* Badge neutra (não coloração por tipo) */}
-                                  <span className="badge-soft-neutral">{event.type}</span>
-                                  {/* Título com maior destaque que descrição */}
+                                  {/* Ícone com cor por tipo (apenas o ícone colore) */}
+                                  {React.createElement(event.icon, { className: cn("h-4 w-4", iconClass) })}
+                                  {/* Badge com cor suave por tipo (não colorir o card) */}
+                                  <Badge className={cn("px-2 py-0.5 text-xs font-medium rounded-full", styles.badge)}>
+                                    {event.type}
+                                  </Badge>
+                                  {/* Título em destaque (texto principal) */}
                                   <p className="text-[1.1rem] font-semibold text-foreground break-words">
                                     {event.description}
                                   </p>
@@ -1265,15 +1285,17 @@ const PatientRecordPage = () => {
                                         navigate(event.link);
                                       }
                                     }}
-                                    className="rounded-md border-border/40 text-foreground hover:bg-muted/50"
+                                    className="rounded-md border-border/50 text-foreground hover:bg-muted/40 transition-colors"
                                   >
                                     <FaEye className="h-4 w-4" />
                                   </Button>
                                 )}
                               </div>
+                              {/* Descrição secundária (quando existir) */}
                               {event.summary && (
                                 <p className="text-sm metadata-subtle mb-3 break-words">{event.summary}</p>
                               )}
+                              {/* Metadados discretos e alinhados */}
                               <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-1 metadata-subtle">
                                   <FaCalendarAlt className="h-3 w-3" /> {formatDateTime(event.date, event.time)}

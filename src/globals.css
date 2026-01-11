@@ -307,3 +307,12 @@ body {
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.12);
   border-color: hsl(var(--border) / 0.22);
 }
+
+/* Ícones suaves por tipo (usados na timeline) */
+.icon-soft-blue { color: #1e40af; }    /* Atendimento */
+.icon-soft-purple { color: #5b21b6; }  /* Exame */
+.icon-soft-green { color: #065f46; }   /* Receita */
+.icon-soft-amber { color: #92400e; }   /* Peso */
+.icon-soft-teal { color: #134e4a; }    /* Financeiro/Venda */
+.icon-soft-orange { color: #9a3412; }  /* Documento */
+.icon-soft-gray { color: #374151; }    /* Observação */
