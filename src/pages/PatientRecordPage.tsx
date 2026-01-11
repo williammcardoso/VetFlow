@@ -181,14 +181,15 @@ const writePatientPayments = (aid: string | undefined, list: PatientPaymentMeta[
 
 // Helper para identidade visual por tipo de evento
 const EVENT_STYLES: Record<string, { dot: string; badge: string }> = {
-  'Atendimento': { dot: 'timeline-dot-blue', badge: 'badge-soft-blue' },
-  'Exame': { dot: 'timeline-dot-slate', badge: 'badge-soft-slate' },
-  'Receita': { dot: 'timeline-dot-green', badge: 'badge-soft-green' },
-  'Peso': { dot: 'timeline-dot-amber', badge: 'badge-soft-amber' },
-  'Venda': { dot: 'timeline-dot-teal', badge: 'badge-soft-teal' },
+  'Atendimento': { dot: 'timeline-dot-blue', badge: 'badge-soft-blue' },        // Azul forte
+  'Exame': { dot: 'timeline-dot-purple', badge: 'badge-soft-purple' },          // Roxo
+  'Receita': { dot: 'timeline-dot-green', badge: 'badge-soft-green' },          // Verde base
+  'Peso': { dot: 'timeline-dot-amber', badge: 'badge-soft-amber' },             // Mantém como está
+  'Vacina': { dot: 'timeline-dot-teal', badge: 'badge-soft-teal' },             // Azul/ciano (diferente de Atendimento)
+  'Venda': { dot: 'timeline-dot-teal', badge: 'badge-soft-teal' },              // Verde-água/azul-petróleo
   'Financeiro': { dot: 'timeline-dot-teal', badge: 'badge-soft-teal' },
-  'Documento': { dot: 'timeline-dot-orange', badge: 'badge-soft-orange' },
-  'Observação': { dot: 'timeline-dot-gray', badge: 'badge-soft-gray' },
+  'Documento': { dot: 'timeline-dot-slate', badge: 'badge-soft-slate' },        // Cinza neutro
+  'Observação': { dot: 'timeline-dot-gray', badge: 'badge-soft-gray' },         // Cinza discreto
 };
 const getEventStyle = (type: string) => EVENT_STYLES[type] || { dot: 'timeline-dot-gray', badge: 'badge-soft-gray' };
 
@@ -196,12 +197,13 @@ const getEventStyle = (type: string) => EVENT_STYLES[type] || { dot: 'timeline-d
 const getEventIconClass = (type: string) => {
   switch (type) {
     case 'Atendimento': return 'icon-soft-blue';
-    case 'Exame': return 'icon-soft-slate';
+    case 'Exame': return 'icon-soft-purple';
     case 'Receita': return 'icon-soft-green';
     case 'Peso': return 'icon-soft-amber';
+    case 'Vacina': return 'icon-soft-teal';
     case 'Venda':
     case 'Financeiro': return 'icon-soft-teal';
-    case 'Documento': return 'icon-soft-orange';
+    case 'Documento': return 'icon-soft-slate';
     case 'Observação': return 'icon-soft-gray';
     default: return 'icon-soft-gray';
   }
@@ -1044,11 +1046,12 @@ const PatientRecordPage = () => {
                         const isWeight = event.type === 'Peso';
                         const weightEntry = isWeight ? weightHistory.find(w => `weight-${w.id}` === event.id) : undefined;
 
+                        // Receita nuances de tom (verde claro / verde mais escuro / teal)
                         const getRecipeVariantClass = () => {
                           const desc = (event.description || "").toLowerCase();
-                          if (desc.includes("controlada")) return "badge-soft-green-variant2";
-                          if (desc.includes("manipulada")) return "badge-soft-green-variant1";
-                          return "badge-soft-green";
+                          if (desc.includes("controlada")) return "badge-soft-green-strong";   // verde mais escuro
+                          if (desc.includes("manipulada")) return "badge-soft-teal";          // nuance teal
+                          return "badge-soft-green";                                          // verde claro
                         };
 
                         const getExamName = () => {
@@ -1061,11 +1064,102 @@ const PatientRecordPage = () => {
                           return m ? m[1] : undefined;
                         };
 
+                        // Título protagonista por tipo
+                        const getTitleByType = () => {
+                          if (event.type === 'Atendimento') {
+                            const parts = (event.description || "").split(":");
+                            return (parts[0] || event.description || "Atendimento").trim();
+                          }
+                          if (event.type === 'Receita') {
+                            const d = (event.description || "").toLowerCase();
+                            if (d.includes('controlada')) return 'Receita Controlada';
+                            if (d.includes('manipulada')) return 'Receita Manipulada';
+                            return 'Receita Simples';
+                          }
+                          if (event.type === 'Exame') {
+                            return getExamName();
+                          }
+                          if (event.type === 'Vacina') {
+                            const name = (event.description || "").replace(/^Vacina\s*/i, '').split(".")[0];
+                            return `Vacina ${name}`.trim();
+                          }
+                          if (event.type === 'Documento') {
+                            return (event.description || "").replace(/^Documento\s*(:)?\s*/i, '').trim();
+                          }
+                          if (event.type === 'Observação') {
+                            return (event.summary || event.description || 'Observação').replace(/^Observação\s*(:)?\s*/i, '').trim();
+                          }
+                          if (event.type === 'Venda' || event.type === 'Financeiro') {
+                            return getSaleAmount() ? `R$ ${getSaleAmount()}` : (event.description?.match(/R\$\s*([\d.,]+)/)?.[0] || 'R$ 0,00');
+                          }
+                          return event.type;
+                        };
+
+                        // Descrição curta (máx 1 linha), não protagonista
+                        const getDescByType = () => {
+                          if (event.type === 'Atendimento') {
+                            const parts = (event.description || "").split(":");
+                            const after = parts.slice(1).join(":").trim();
+                            return (event.summary || after || "").trim();
+                          }
+                          if (event.type === 'Receita') {
+                            const parts = (event.description || "").split(":");
+                            const after = parts.slice(1).join(":").trim();
+                            return (event.summary || after || "").trim();
+                          }
+                          if (event.type === 'Exame') {
+                            return (event.summary || "").trim();
+                          }
+                          if (event.type === 'Vacina') {
+                            const next = (event.description || "").match(/Próxima dose:\s*(.*)$/i)?.[1];
+                            return next ? `Próxima dose: ${next}` : (event.summary || "").trim();
+                          }
+                          if (event.type === 'Documento') {
+                            return ""; // manter enxuto
+                          }
+                          if (event.type === 'Observação') {
+                            return ""; // título já comunica
+                          }
+                          if (event.type === 'Venda' || event.type === 'Financeiro') {
+                            return (event.summary || event.description.replace(/^\s*Venda:\s*/i, '')).trim();
+                          }
+                          return (event.summary || "").trim();
+                        };
+
+                        // Ação do botão visualizar
+                        const onView = () => {
+                          if (event.type === 'Exame') {
+                            const examId = (event.id || "").replace(/^exam-/, "");
+                            if (examId) navigate(`/clients/${clientId}/animals/${animalId}/edit-exam/${examId}`);
+                            return;
+                          }
+                          if (event.type === 'Documento' && event.link) {
+                            if (event.link.startsWith("http") || event.link.startsWith("blob:")) {
+                              window.open(event.link, "_blank");
+                            } else {
+                              navigate(event.link);
+                            }
+                            return;
+                          }
+                          if (event.link) {
+                            if (event.link.startsWith("http") || event.link.startsWith("blob:")) {
+                              window.open(event.link, "_blank");
+                            } else {
+                              navigate(event.link);
+                            }
+                          }
+                        };
+
+                        const titleText = getTitleByType();
+                        const descText = getDescByType();
+                        const showViewButton = !!event.link || event.type === 'Exame' || event.type === 'Documento';
+
                         return (
                           <div key={event.id} className="relative pl-6 sm:pl-8">
                             <span className={cn("absolute left-1.5 sm:left-2.5 top-5 timeline-dot", styles.dot, isWeight && "timeline-dot-sm")} />
-                            <Card className={cn("premium-card", isWeight ? "p-5" : (event.type === 'Exame' || event.type === 'Documento') ? "p-5" : "p-7")}>
+                            <Card className={cn("premium-card p-5")}>
                               {isWeight ? (
+                                // MANTER Peso exatamente como está (aprovado)
                                 <>
                                   <div className="flex items-start justify-between mb-2">
                                     <div className="flex items-center gap-2">
@@ -1095,248 +1189,69 @@ const PatientRecordPage = () => {
                                   </div>
                                 </>
                               ) : (
-                                <>
-                                  {event.type === 'Atendimento' ? (
-                                    <>
-                                      <div className="flex items-start justify-between mb-3">
-                                        <div className="flex items-center gap-2">
-                                          {React.createElement(event.icon, { className: cn("h-4 w-4", iconClass) })}
-                                          <Badge className={cn("px-2 py-0.5 text-xs font-medium rounded-full", styles.badge)}>
-                                            Atendimento
-                                          </Badge>
-                                        </div>
-                                      </div>
-                                      <p className="text-[1.2rem] font-bold text-foreground mb-1 line-clamp-2">
-                                        {event.description}
+                                // NOVO LAYOUT PADRONIZADO: esquerda (ícone+badge), centro (título protagonista + descrição curta 1 linha), direita (meta + ver)
+                                <div className="grid grid-cols-[auto_1fr_auto] items-start gap-3">
+                                  {/* Esquerda: ícone + badge */}
+                                  <div className="flex items-center gap-2">
+                                    {React.createElement(event.icon, { className: cn("h-4 w-4", iconClass) })}
+                                    <Badge className={cn(
+                                      "px-2 py-0.5 text-xs font-semibold rounded-full",
+                                      event.type === 'Receita' ? getRecipeVariantClass() : styles.badge
+                                    )}>
+                                      {event.type === 'Receita'
+                                        ? (titleText) // exibe tipo da receita como badge
+                                        : (event.type === 'Vacina' ? 'Aplicada' : event.type)}
+                                    </Badge>
+                                  </div>
+
+                                  {/* Centro: título protagonista + descrição curta (1 linha) */}
+                                  <div className="min-w-0">
+                                    <p className={cn(
+                                      "font-semibold mb-0.5 truncate",
+                                      event.type === 'Atendimento' && "text-[1.2rem] text-foreground",
+                                      event.type === 'Receita' && "text-[1.05rem] text-foreground",
+                                      event.type === 'Exame' && "text-[1.05rem] text-foreground",
+                                      event.type === 'Vacina' && "text-[1.05rem] text-foreground",
+                                      event.type === 'Documento' && "text-[1rem] text-foreground/90",
+                                      event.type === 'Observação' && "text-[0.95rem] text-foreground/75",
+                                      (event.type === 'Venda' || event.type === 'Financeiro') && "text-[1.45rem] font-extrabold text-teal-700 dark:text-teal-300"
+                                    )}>
+                                      {titleText}
+                                    </p>
+                                    {descText && (event.type !== 'Documento' && event.type !== 'Observação') && (
+                                      <p className="text-sm metadata-subtle truncate">
+                                        {descText}
                                       </p>
-                                      {event.summary && (
-                                        <p className="text-sm metadata-subtle mb-2 line-clamp-2">{event.summary}</p>
-                                      )}
-                                      <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-1 metadata-subtle">
-                                          <FaCalendarAlt className="h-3 w-3" /> {formatDateTime(event.date, event.time)}
-                                        </div>
-                                        <div className="metadata-subtle">
-                                          {event.author ? `Profissional: ${event.author}` : ""}
-                                        </div>
-                                      </div>
-                                    </>
-                                  ) : event.type === 'Receita' ? (
-                                    <>
-                                      <div className="flex items-start justify-between mb-2">
-                                        <div className="flex items-center gap-2">
-                                          {React.createElement(event.icon, { className: cn("h-4 w-4", iconClass) })}
-                                          <Badge className={cn("px-2 py-0.5 text-xs font-semibold rounded-full", getRecipeVariantClass())}>
-                                            {(event.description.toLowerCase().includes('controlada') && 'Receita Controlada')
-                                              || (event.description.toLowerCase().includes('manipulada') && 'Receita Manipulada')
-                                              || 'Receita Simples'}
-                                          </Badge>
-                                        </div>
-                                        {event.link && (
-                                          <Button
-                                            variant="outline"
-                                            size="icon"
-                                            onClick={() => {
-                                              if (event.link && (event.link.startsWith("http") || event.link.startsWith("blob:"))) {
-                                                window.open(event.link, "_blank");
-                                              } else if (event.link) {
-                                                navigate(event.link);
-                                              }
-                                            }}
-                                            className="rounded-md border-border/50 text-foreground hover:bg-muted/40 transition-colors"
-                                          >
-                                            <FaEye className="h-4 w-4" />
-                                          </Button>
-                                        )}
-                                      </div>
-                                      <p className="text-[1.05rem] font-semibold text-foreground mb-1 line-clamp-2">
-                                        {event.description.replace(/^Receita\s*(:)?\s*/i, '')}
+                                    )}
+                                    {event.type === 'Observação' && descText === "" && (
+                                      <p className="text-xs text-foreground/70 truncate">
+                                        {/* Observação enxuta sem descrição extra */}
                                       </p>
-                                      {event.summary && (
-                                        <p className="text-sm metadata-subtle mb-2 line-clamp-2">{event.summary}</p>
-                                      )}
-                                      <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-1 metadata-subtle">
-                                          <FaCalendarAlt className="h-3 w-3" /> {formatDateTime(event.date, event.time)}
-                                        </div>
-                                        <div className="metadata-subtle">
-                                          {event.author ? `Profissional: ${event.author}` : ""}
-                                        </div>
+                                    )}
+                                  </div>
+
+                                  {/* Direita: meta + botão visualizar */}
+                                  <div className="flex items-center gap-2">
+                                    <div className="text-right mr-1">
+                                      <div className="flex items-center justify-end gap-1 metadata-subtle">
+                                        <FaCalendarAlt className="h-3 w-3" /> {formatDateTime(event.date, event.time)}
                                       </div>
-                                    </>
-                                  ) : event.type === 'Exame' ? (
-                                    <>
-                                      <div className="flex items-start justify-between mb-2">
-                                        <div className="flex items-center gap-2">
-                                          {React.createElement(event.icon, { className: cn("h-4 w-4", iconClass) })}
-                                          <Badge className={cn("px-2 py-0.5 text-xs font-medium rounded-full", "badge-soft-slate")}>
-                                            Exame
-                                          </Badge>
-                                        </div>
-                                        <Button
-                                          variant="outline"
-                                          size="icon"
-                                          onClick={() => {
-                                            const examId = (event.id || "").replace(/^exam-/, "");
-                                            if (examId) navigate(`/clients/${clientId}/animals/${animalId}/edit-exam/${examId}`);
-                                          }}
-                                          className="rounded-md border-border/50 text-foreground hover:bg-muted/40 transition-colors"
-                                        >
-                                          <FaEye className="h-4 w-4" />
-                                        </Button>
+                                      <div className="metadata-subtle">
+                                        {event.author ? `Profissional: ${event.author}` : ""}
                                       </div>
-                                      <p className="text-[1.05rem] font-semibold text-foreground mb-1 line-clamp-2">
-                                        {getExamName()}
-                                      </p>
-                                      {event.summary && (
-                                        <p className="text-sm metadata-subtle mb-2 line-clamp-2">{event.summary}</p>
-                                      )}
-                                      <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-1 metadata-subtle">
-                                          <FaCalendarAlt className="h-3 w-3" /> {formatDateTime(event.date, event.time)}
-                                        </div>
-                                        <div className="metadata-subtle">
-                                          {event.author ? `Profissional: ${event.author}` : ""}
-                                        </div>
-                                      </div>
-                                    </>
-                                  ) : event.type === 'Vacina' ? (
-                                    <>
-                                      <div className="flex items-start justify-between mb-2">
-                                        <div className="flex items-center gap-2">
-                                          {React.createElement(event.icon, { className: cn("h-4 w-4", iconClass) })}
-                                          <Badge className={cn("px-2 py-0.5 text-xs font-bold rounded-full", styles.badge)}>
-                                            Aplicada
-                                          </Badge>
-                                        </div>
-                                      </div>
-                                      <p className="text-[1.05rem] font-semibold text-foreground mb-1 line-clamp-2">
-                                        {event.description.replace(/^Vacina\s*/i, '')}
-                                      </p>
-                                      {event.summary && (
-                                        <p className="text-sm metadata-subtle mb-2 line-clamp-2">{event.summary}</p>
-                                      )}
-                                      <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-1 metadata-subtle">
-                                          <FaCalendarAlt className="h-3 w-3" /> {formatDateTime(event.date, event.time)}
-                                        </div>
-                                        <div className="metadata-subtle">
-                                          {event.author ? `Profissional: ${event.author}` : ""}
-                                        </div>
-                                      </div>
-                                    </>
-                                  ) : event.type === 'Documento' ? (
-                                    <>
-                                      <div className="flex items-start justify-between mb-2">
-                                        <div className="flex items-center gap-2">
-                                          {React.createElement(event.icon, { className: cn("h-4 w-4", iconClass) })}
-                                          <Badge className={cn("px-2 py-0.5 text-xs font-medium rounded-full", styles.badge)}>
-                                            Documento
-                                          </Badge>
-                                        </div>
-                                        {event.link && (
-                                          <Button
-                                            variant="outline"
-                                            size="icon"
-                                            onClick={() => {
-                                              if (event.link && (event.link.startsWith("http") || event.link.startsWith("blob:"))) {
-                                                window.open(event.link, "_blank");
-                                              } else if (event.link) {
-                                                navigate(event.link);
-                                              }
-                                            }}
-                                            className="rounded-md border-border/50 text-foreground hover:bg-muted/40 transition-colors"
-                                          >
-                                            <FaEye className="h-4 w-4" />
-                                          </Button>
-                                        )}
-                                      </div>
-                                      <p className="text-sm md:text-base font-medium text-foreground/90 mb-1 line-clamp-2">
-                                        {event.description.replace(/^Documento\s*(:)?\s*/i, '')}
-                                      </p>
-                                      <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-1 metadata-subtle">
-                                          <FaCalendarAlt className="h-3 w-3" /> {formatDateTime(event.date, event.time)}
-                                        </div>
-                                        <div className="metadata-subtle">
-                                          {event.author ? `Profissional: ${event.author}` : ""}
-                                        </div>
-                                      </div>
-                                    </>
-                                  ) : (event.type === 'Venda' || event.type === 'Financeiro') ? (
-                                    <>
-                                      <div className="flex items-start justify-between mb-2">
-                                        <div className="flex items-center gap-2">
-                                          {React.createElement(event.icon, { className: cn("h-4 w-4", iconClass) })}
-                                          <Badge className={cn("px-2 py-0.5 text-xs font-medium rounded-full", styles.badge)}>
-                                            {event.type}
-                                          </Badge>
-                                        </div>
-                                      </div>
-                                      <p className="text-[1.35rem] font-extrabold text-teal-700 dark:text-teal-300 mb-1">
-                                        {getSaleAmount() ? `R$ ${getSaleAmount()}` : (event.description?.match(/R\$\s*([\d.,]+)/)?.[0] || "")}
-                                      </p>
-                                      <p className="text-sm metadata-subtle mb-2 line-clamp-2">
-                                        {event.summary || event.description.replace(/^\s*Venda:\s*/i, '')}
-                                      </p>
-                                      <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-1 metadata-subtle">
-                                          <FaCalendarAlt className="h-3 w-3" /> {formatDateTime(event.date, event.time)}
-                                        </div>
-                                        <div className="metadata-subtle">
-                                          {event.author ? `Profissional: ${event.author}` : ""}
-                                        </div>
-                                      </div>
-                                    </>
-                                  ) : event.type === 'Observação' ? (
-                                    <>
-                                      <div className="flex items-start justify-between mb-2">
-                                        <div className="flex items-center gap-2">
-                                          {React.createElement(event.icon, { className: cn("h-4 w-4", iconClass) })}
-                                          <Badge className={cn("px-2 py-0.5 text-[11px] font-medium rounded-full", styles.badge)}>
-                                            Observação
-                                          </Badge>
-                                        </div>
-                                      </div>
-                                      <p className="text-sm text-foreground/80 mb-2 line-clamp-2">
-                                        {event.summary || event.description.replace(/^Observação\s*(:)?\s*/i, '')}
-                                      </p>
-                                      <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-1 metadata-subtle">
-                                          <FaCalendarAlt className="h-3 w-3" /> {formatDateTime(event.date, event.time)}
-                                        </div>
-                                        <div className="metadata-subtle">
-                                          {event.author ? `Profissional: ${event.author}` : ""}
-                                        </div>
-                                      </div>
-                                    </>
-                                  ) : (
-                                    <>
-                                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-3.5 gap-2">
-                                        <div className="flex items-center gap-2">
-                                          {React.createElement(event.icon, { className: cn("h-4 w-4", iconClass) })}
-                                          <Badge className={cn("px-2 py-0.5 text-xs font-medium rounded-full", styles.badge)}>
-                                            {event.type}
-                                          </Badge>
-                                          <p className="text-[1rem] font-semibold text-foreground break-words line-clamp-2">
-                                            {event.description}
-                                          </p>
-                                        </div>
-                                      </div>
-                                      {event.summary && (
-                                        <p className="text-sm metadata-subtle mb-3 break-words line-clamp-2">{event.summary}</p>
-                                      )}
-                                      <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-1 metadata-subtle">
-                                          <FaCalendarAlt className="h-3 w-3" /> {formatDateTime(event.date, event.time)}
-                                        </div>
-                                        <div className="metadata-subtle">
-                                          {event.author ? `Profissional: ${event.author}` : ""}
-                                        </div>
-                                      </div>
-                                    </>
-                                  )}
-                                </>
+                                    </div>
+                                    {showViewButton && (
+                                      <Button
+                                        variant="outline"
+                                        size="icon"
+                                        onClick={onView}
+                                        className="rounded-md border-border/50 text-foreground hover:bg-muted/40 transition-colors"
+                                      >
+                                        <FaEye className="h-4 w-4" />
+                                      </Button>
+                                    )}
+                                  </div>
+                                </div>
                               )}
                             </Card>
                           </div>
