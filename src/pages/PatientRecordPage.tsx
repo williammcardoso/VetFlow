@@ -1051,30 +1051,31 @@ const PatientRecordPage = () => {
       {/* Topo: Paciente/Tutor/Financeiro com card herói e avatar com brilho */}
       <div className="flex-1 p-6 mx-auto w-full max-w-7xl">
         <div className="mb-6">
-          <Card className="premium-card card-hover">
-            {/* Cabeçalho com superfície diferenciada para reforçar camada */}
+          {/* Card do paciente como HERÓI */}
+          <Card className="premium-card premium-card--hero card-hover">
             <CardHeader className="pb-0 surface-offwhite rounded-t-[1rem]">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-6">
-                {/* Paciente: herói da página */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-7">
                 <div className="flex items-start gap-5 md:col-span-1">
-                  <Avatar className="h-28 w-28 rounded-full hero-avatar-ring hero-glow">
+                  {/* Avatar com leve destaque extra */}
+                  <Avatar className="h-28 w-28 rounded-full hero-avatar-ring hero-glow ring-2 ring-white/70">
                     <AvatarImage src={undefined} />
                     <AvatarFallback className="text-[#0F4C5C] text-2xl font-bold">
                       <FaPaw className="h-8 w-8" />
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex-1">
-                    <h2 className="text-[2.3rem] leading-tight font-semibold tracking-tight text-[#0F4C5C] mb-5">
+                    {/* Nome do paciente com mais impacto */}
+                    <h2 className="text-[2.5rem] leading-tight font-extrabold tracking-tight text-[#0F4C5C] mb-6">
                       {currentAnimal.name}
                     </h2>
-                    {/* Chips pastel menores e organizadas em duas linhas com mais respiro vertical */}
-                    <div className="grid grid-cols-2 gap-x-2 gap-y-3">
-                      <span className="chip-soft bg-teal-50/55 text-teal-900/80">Espécie: <span className="font-semibold">{currentAnimal.species}</span></span>
-                      <span className="chip-soft bg-sky-50/55 text-sky-900/80">Raça: <span className="font-semibold">{currentAnimal.breed}</span></span>
-                      <span className="chip-soft bg-indigo-50/55 text-indigo-900/80">Idade: <span className="font-semibold">{calculateAge(currentAnimal.birthday)}</span></span>
-                      <span className="chip-soft bg-purple-50/55 text-purple-900/80">Peso: <span className="font-semibold">{currentAnimal.weight.toFixed(1)} kg</span></span>
-                      <span className="chip-soft bg-pink-50/55 text-pink-900/80">Sexo: <span className="font-semibold">{currentAnimal.gender}</span></span>
-                      <span className="chip-soft bg-amber-50/55 text-amber-900/80">Nasc.: <span className="font-semibold">{formatDateTime(currentAnimal.birthday || '')}</span></span>
+                    {/* Chips: duas linhas claras, cores menos saturadas e mais respiro */}
+                    <div className="grid grid-cols-2 gap-x-2 gap-y-4">
+                      <span className="chip-soft bg-teal-50/45 text-teal-900/75">Espécie: <span className="font-semibold">{currentAnimal.species}</span></span>
+                      <span className="chip-soft bg-sky-50/45 text-sky-900/75">Raça: <span className="font-semibold">{currentAnimal.breed}</span></span>
+                      <span className="chip-soft bg-indigo-50/45 text-indigo-900/75">Idade: <span className="font-semibold">{calculateAge(currentAnimal.birthday)}</span></span>
+                      <span className="chip-soft bg-purple-50/45 text-purple-900/75">Peso: <span className="font-semibold">{currentAnimal.weight.toFixed(1)} kg</span></span>
+                      <span className="chip-soft bg-pink-50/45 text-pink-900/75">Sexo: <span className="font-semibold">{currentAnimal.gender}</span></span>
+                      <span className="chip-soft bg-amber-50/45 text-amber-900/75">Nasc.: <span className="font-semibold">{formatDateTime(currentAnimal.birthday || '')}</span></span>
                     </div>
                   </div>
                 </div>
@@ -1136,9 +1137,8 @@ const PatientRecordPage = () => {
                 </div>
               </div>
             </CardHeader>
-
-            {/* Ação secundária permanece discreta */}
-            <CardContent className="pt-0 px-6 pb-4">
+            {/* Espaçamento interno ligeiramente maior no conteúdo do herói */}
+            <CardContent className="pt-0 px-7 pb-6">
               <div className="flex justify-end">
                 <Button variant="outline" onClick={handleEditAnimal} className="rounded-lg border-border/40 text-foreground hover:bg-muted/50">
                   <FaEdit className="mr-2 h-4 w-4" /> Editar Paciente
@@ -1213,7 +1213,7 @@ const PatientRecordPage = () => {
                 {sortedTimelineEvents.length > 0 ? (
                   <div className="relative">
                     <div className="absolute left-2 sm:left-3 top-0 bottom-0 w-[2px] timeline-line" />
-                    <div className="space-y-7">
+                    <div className="space-y-8">
                       {sortedTimelineEvents.map((event) => {
                         const styles = getEventStyle(event.type);
                         return (
@@ -1222,11 +1222,13 @@ const PatientRecordPage = () => {
                             <Card className="premium-card p-7">
                               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-3.5 gap-2">
                                 <div className="flex items-center gap-2">
-                                  {React.createElement(event.icon, { className: "h-4 w-4 text-muted-foreground" })}
+                                  {/* Ícone levemente mais destacado */}
+                                  {React.createElement(event.icon, { className: "h-4 w-4 text-primary/70" })}
                                   <Badge className={cn("px-2 py-0.5 text-xs font-medium rounded-full", styles.badge)}>
                                     {event.type}
                                   </Badge>
-                                  <p className="text-[1.06rem] font-semibold text-foreground break-words">
+                                  {/* Título com maior destaque que descrição */}
+                                  <p className="text-[1.1rem] font-semibold text-foreground break-words">
                                     {event.description}
                                   </p>
                                 </div>
