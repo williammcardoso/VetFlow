@@ -1037,29 +1037,29 @@ const PatientRecordPage = () => {
       {/* Topo: Paciente/Tutor/Financeiro com hierarquia FORÇADA */}
       <div className="flex-1 p-6 mx-auto w-full max-w-7xl">
         <div className="mb-6">
-          <Card className="premium-card">
-            <CardHeader className="pb-0">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-4">
-                {/* Prioridade 1: Paciente (nome + avatar) */}
+          <Card className="premium-card card-hover">
+            <CardHeader className="pb-0 brand-surface rounded-t-[1rem]">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-5">
+                {/* Paciente: herói dominante */}
                 <div className="flex items-start gap-4 md:col-span-1">
-                  <Avatar className="h-28 w-28 rounded-full hero-avatar-ring bg-teal-50/60">
+                  <Avatar className="h-28 w-28 rounded-full hero-avatar-ring bg-primary/10">
                     <AvatarImage src={undefined} />
                     <AvatarFallback className="text-[#0F4C5C] text-2xl font-bold">
                       <FaPaw className="h-8 w-8" />
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex-1">
-                    <h2 className="text-[2rem] leading-none font-semibold tracking-tight text-[#0F4C5C] mb-3">
+                    <h2 className="text-[2.15rem] leading-tight font-semibold tracking-tight text-[#0F4C5C] mb-4">
                       {currentAnimal.name}
                     </h2>
-                    {/* Prioridade 2: Chips pastel suaves (informativas) */}
-                    <div className="flex flex-wrap gap-2">
-                      <span className="chip-soft bg-teal-50/60 text-teal-900/80">Espécie: <span className="font-semibold">{currentAnimal.species}</span></span>
-                      <span className="chip-soft bg-sky-50/60 text-sky-900/80">Raça: <span className="font-semibold">{currentAnimal.breed}</span></span>
-                      <span className="chip-soft bg-indigo-50/60 text-indigo-900/80">Idade: <span className="font-semibold">{calculateAge(currentAnimal.birthday)}</span></span>
-                      <span className="chip-soft bg-purple-50/60 text-purple-900/80">Peso: <span className="font-semibold">{currentAnimal.weight.toFixed(1)} kg</span></span>
-                      <span className="chip-soft bg-pink-50/60 text-pink-900/80">Sexo: <span className="font-semibold">{currentAnimal.gender}</span></span>
-                      <span className="chip-soft bg-amber-50/60 text-amber-900/80">Nasc.: <span className="font-semibold">{formatDateTime(currentAnimal.birthday || '')}</span></span>
+                    {/* Chips pastel elegantes, menores e organizados em duas linhas */}
+                    <div className="grid grid-cols-2 gap-x-2 gap-y-2">
+                      <span className="chip-soft bg-teal-50/55 text-teal-900/80">Espécie: <span className="font-semibold">{currentAnimal.species}</span></span>
+                      <span className="chip-soft bg-sky-50/55 text-sky-900/80">Raça: <span className="font-semibold">{currentAnimal.breed}</span></span>
+                      <span className="chip-soft bg-indigo-50/55 text-indigo-900/80">Idade: <span className="font-semibold">{calculateAge(currentAnimal.birthday)}</span></span>
+                      <span className="chip-soft bg-purple-50/55 text-purple-900/80">Peso: <span className="font-semibold">{currentAnimal.weight.toFixed(1)} kg</span></span>
+                      <span className="chip-soft bg-pink-50/55 text-pink-900/80">Sexo: <span className="font-semibold">{currentAnimal.gender}</span></span>
+                      <span className="chip-soft bg-amber-50/55 text-amber-900/80">Nasc.: <span className="font-semibold">{formatDateTime(currentAnimal.birthday || '')}</span></span>
                     </div>
                   </div>
                 </div>
@@ -1091,26 +1091,26 @@ const PatientRecordPage = () => {
                     const pending = Math.max(0, patientSales.reduce((sum, s) => sum + s.total, 0) - patientPayments.reduce((sum, p) => sum + p.amount, 0));
                     return (
                       <div className="grid grid-cols-1 gap-3">
-                        <Card className="premium-card premium-card--soft">
+                        <Card className="premium-card premium-card--soft card-hover">
                           <CardContent className="pt-4">
                             <div className="metadata-subtle">Pago</div>
-                            <div className="text-[1.6rem] leading-tight font-semibold text-emerald-800">
+                            <div className="text-[1.5rem] leading-tight font-semibold text-emerald-800">
                               {new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(income)}
                             </div>
                           </CardContent>
                         </Card>
-                        <Card className="premium-card premium-card--soft">
+                        <Card className="premium-card premium-card--soft card-hover">
                           <CardContent className="pt-4">
                             <div className="metadata-subtle">Pendências</div>
-                            <div className="text-[1.6rem] leading-tight font-semibold text-rose-800">
+                            <div className="text-[1.5rem] leading-tight font-semibold text-rose-800">
                               {new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(pending)}
                             </div>
                           </CardContent>
                         </Card>
-                        <Card className="premium-card premium-card--soft">
+                        <Card className="premium-card premium-card--soft card-hover">
                           <CardContent className="pt-4">
                             <div className="metadata-subtle">Saldo</div>
-                            <div className={cn("text-[1.6rem] leading-tight font-semibold", net >= 0 ? "text-blue-800" : "text-amber-800")}>
+                            <div className={cn("text-[1.5rem] leading-tight font-semibold", net >= 0 ? "text-blue-800" : "text-amber-800")}>
                               {new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(net)}
                             </div>
                           </CardContent>
@@ -1188,7 +1188,7 @@ const PatientRecordPage = () => {
 
           {/* Timeline moderna: cards mais altos, espaçados e metadados discretos */}
           <TabsContent value="timeline" className="mt-4">
-            <Card className="premium-card">
+            <Card className="premium-card card-hover">
               <CardHeader className="pb-4">
                 <CardTitle className="flex items-center gap-2 text-lg font-semibold text-[#0F4C5C]">
                   <FaClock className="h-5 w-5 text-muted-foreground" /> Linha do Tempo do Paciente
@@ -1197,14 +1197,14 @@ const PatientRecordPage = () => {
               <CardContent className="pt-0">
                 {sortedTimelineEvents.length > 0 ? (
                   <div className="relative">
-                    <div className="absolute left-2 sm:left-3 top-0 bottom-0 w-[2px] bg-gradient-to-b from-[#EAEAEA] via-[#DFDFDF] to-[#EAEAEA]" />
+                    <div className="absolute left-2 sm:left-3 top-0 bottom-0 w-[2px] bg-gradient-to-b from-[#EDEDED] via-[#E3E3E3] to-[#EDEDED]" />
                     <div className="space-y-6">
                       {sortedTimelineEvents.map((event) => {
                         const nodeColor = getNodeColorClass(event.badgeColor);
                         return (
                           <div key={event.id} className="relative pl-6 sm:pl-8">
-                            <span className={cn("absolute left-1.5 sm:left-2.5 top-5 h-4 w-4 rounded-full shadow-sm", nodeColor)} />
-                            <Card className="premium-card p-6">
+                            <span className={cn("absolute left-1.5 sm:left-2.5 top-5 timeline-dot", nodeColor)} />
+                            <Card className="premium-card p-6 card-hover">
                               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-3 gap-2">
                                 <div className="flex items-center gap-2">
                                   {React.createElement(event.icon, { className: "h-4 w-4 text-muted-foreground" })}

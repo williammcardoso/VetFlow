@@ -155,6 +155,19 @@ body {
     hsl(var(--background));
 }
 
+/* Superfície com identidade (usa cor primária em variações suaves) */
+.brand-surface {
+  background:
+    radial-gradient(800px 320px at 10% 0%, hsl(var(--primary) / 0.06), transparent 60%),
+    radial-gradient(900px 360px at 90% 0%, hsl(var(--primary) / 0.05), transparent 60%),
+    hsl(var(--card));
+}
+
+/* Gradiente sutil para destacar áreas de herói (topo do paciente) */
+.brand-gradient {
+  background: linear-gradient(180deg, hsl(var(--primary) / 0.06), hsl(var(--primary) / 0.03));
+}
+
 /* Card premium (flutuante) com borda quase invisível e sombra suave */
 .premium-card {
   background-color: hsl(var(--card));
@@ -166,6 +179,14 @@ body {
 /* Variantes menores de sombra, para status */
 .premium-card--soft {
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.06);
+}
+
+/* Hover suave em cards (micro interação) */
+.card-hover {
+  transition: box-shadow 200ms ease, transform 200ms ease;
+}
+.card-hover:hover {
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.08);
 }
 
 /* Avatar com anel suave */
@@ -208,6 +229,11 @@ body {
 .metadata-subtle {
   color: hsl(var(--muted-foreground) / 0.8);
   font-size: 12px;
+}
+
+/* Espaçamento vertical confortável entre blocos */
+.rhythm-y {
+  row-gap: 1rem;
 }
 
 /* Header/topo com sensação premium */
