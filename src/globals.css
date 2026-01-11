@@ -191,39 +191,38 @@ body {
     linear-gradient(180deg, hsl(var(--card) / 0.92), hsl(var(--card)));
 }
 
-/* Card flutuante premium (cards principais em branco puro com sombra mais presente) */
+/* Fundo geral claro e levemente quente (desaparece visualmente) */
+.layered-bg-warm {
+  background: hsl(30 20% 97%);
+}
+
+/* Cards principais (branco puro) com sombra suave */
 .premium-card {
-  background-color: hsl(var(--card)); /* branco puro */
-  border: 1px solid hsl(var(--border) / 0.24);
+  background-color: hsl(var(--card));
+  border: 1px solid hsl(var(--border) / 0.22);
   border-radius: 1rem;
-  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
 }
 
-/* Variação de sombra mais suave */
+/* Variação ainda mais leve (status, secundários) */
 .premium-card--soft {
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.07);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.05);
 }
 
-/* Micro-interação: hover suave em cards */
+/* Micro-interação suave (sem dramatizar) */
 .card-hover {
   transition: box-shadow 200ms ease, transform 200ms ease;
 }
 .card-hover:hover {
-  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.08);
 }
 
-/* Avatar herói com brilho sutil na cor de identidade */
-.hero-avatar-ring {
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.1);
-  outline: 6px solid rgba(255, 255, 255, 0.7);
-}
-.hero-glow {
-  background:
-    radial-gradient(120px 80px at 50% 30%, hsl(var(--primary) / 0.18), transparent 60%),
-    hsl(var(--primary) / 0.12);
+/* Avatar com fundo limpo e elegante (sem agressividade) */
+.avatar-soft {
+  background-color: hsl(30 20% 96%);
 }
 
-/* Chips/tags pastel informativas (menores, elegantes) */
+/* Chips/tags clínicas (menores, muito suaves) */
 .chip-soft {
   border-radius: 9999px;
   font-size: 11px;
@@ -235,6 +234,47 @@ body {
   align-items: center;
   gap: 0.25rem;
   box-shadow: 0 1px 0 rgba(0,0,0,0.02) inset;
+}
+
+/* Metadados ainda mais discretos (descansam os olhos) */
+.metadata-subtle {
+  color: hsl(var(--muted-foreground) / 0.5);
+  font-size: 12px;
+}
+
+/* Espaçamento vertical confortável entre blocos */
+.rhythm-y {
+  row-gap: 1rem;
+}
+
+/* Timeline: linha sutil e bolinha visível */
+.timeline-line {
+  background: linear-gradient(180deg, #EFEFEF, #E7E7E7, #EFEFEF);
+}
+.timeline-dot {
+  height: 0.85rem;
+  width: 0.85rem;
+  border-radius: 9999px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.14);
+}
+
+/* Identidade por tipo (apenas bolinha colorida; cores suaves e consistentes) */
+.timeline-dot-blue { background-color: #93c5fd; }      /* Atendimento */
+.timeline-dot-purple { background-color: #c4b5fd; }    /* Exame */
+.timeline-dot-green { background-color: #86efac; }     /* Receita */
+.timeline-dot-amber { background-color: #fcd34d; }     /* Peso */
+.timeline-dot-teal { background-color: #99f6e4; }      /* Financeiro/Venda */
+.timeline-dot-orange { background-color: #fdba74; }    /* Documento */
+.timeline-dot-gray { background-color: #cbd5e1; }      /* Observação */
+
+/* Badge neutra (sem saturação) para timeline */
+.badge-soft-neutral {
+  background-color: rgba(0,0,0,0.04);
+  color: hsl(var(--foreground) / 0.7);
+  border: 1px solid hsl(var(--border) / 0.6);
+  border-radius: 9999px;
+  padding: 2px 8px;
+  font-size: 12px;
 }
 
 /* Linha ativa sutil nas tabs (segmented control) */
@@ -252,37 +292,6 @@ body {
   opacity: 0.9;
   border-radius: 1px;
 }
-
-/* Metadados ainda mais discretos */
-.metadata-subtle {
-  color: hsl(var(--muted-foreground) / 0.55);
-  font-size: 12px;
-}
-
-/* Espaçamento vertical confortável entre blocos */
-.rhythm-y {
-  row-gap: 1rem;
-}
-
-/* Timeline: linha sutil e pontos menores */
-.timeline-line {
-  background: linear-gradient(180deg, #EDEDED, #E4E4E4, #EDEDED);
-}
-.timeline-dot {
-  height: 0.85rem;
-  width: 0.85rem;
-  border-radius: 9999px;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.16);
-}
-
-/* Identidade por tipo (apenas bolinha e badge suaves) */
-.timeline-dot-blue { background-color: #60a5fa; }      /* Atendimento */
-.timeline-dot-purple { background-color: #a78bfa; }    /* Exame */
-.timeline-dot-green { background-color: #34d399; }     /* Receita */
-.timeline-dot-amber { background-color: #f59e0b; }     /* Peso */
-.timeline-dot-teal { background-color: #2dd4bf; }      /* Financeiro/Venda */
-.timeline-dot-orange { background-color: #fb923c; }    /* Documento */
-.timeline-dot-gray { background-color: #9ca3af; }      /* Observação */
 
 /* Badges suaves por tipo (sem saturação alta) */
 .badge-soft-blue { background-color: rgba(96,165,250,0.15); color: #1e40af; }
