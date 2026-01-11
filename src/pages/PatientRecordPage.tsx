@@ -1016,7 +1016,7 @@ const PatientRecordPage = () => {
     .reduce((sum, t) => sum + t.amount, 0);
 
   return (
-    // Fundo geral mais escuro e tipografia premium
+    // Fundo geral com contraste de camadas mais evidente
     <div className="flex flex-col min-h-screen layered-bg-cool overflow-x-hidden font-exo">
       {/* Header premium com contraste reforçado */}
       <div className="premium-top p-6 pb-4 mx-auto w-full max-w-7xl">
@@ -1048,28 +1048,27 @@ const PatientRecordPage = () => {
         </p>
       </div>
 
-      {/* Topo: Paciente/Tutor/Financeiro com flutuação e identidade */}
+      {/* Topo: Paciente/Tutor/Financeiro com card herói e avatar com brilho */}
       <div className="flex-1 p-6 mx-auto w-full max-w-7xl">
         <div className="mb-6">
-          {/* Card principal flutuante */}
           <Card className="premium-card card-hover">
-            {/* Cabeçalho com superfície levemente diferenciada */}
+            {/* Cabeçalho com superfície diferenciada para reforçar camada */}
             <CardHeader className="pb-0 surface-offwhite rounded-t-[1rem]">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-5">
-                {/* Paciente: mais dominante, avatar com fundo de identidade */}
-                <div className="flex items-start gap-4 md:col-span-1">
-                  <Avatar className="h-28 w-28 rounded-full hero-avatar-ring bg-primary/15">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-6">
+                {/* Paciente: herói da página */}
+                <div className="flex items-start gap-5 md:col-span-1">
+                  <Avatar className="h-28 w-28 rounded-full hero-avatar-ring hero-glow">
                     <AvatarImage src={undefined} />
                     <AvatarFallback className="text-[#0F4C5C] text-2xl font-bold">
                       <FaPaw className="h-8 w-8" />
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex-1">
-                    <h2 className="text-[2.15rem] leading-tight font-semibold tracking-tight text-[#0F4C5C] mb-4">
+                    <h2 className="text-[2.3rem] leading-tight font-semibold tracking-tight text-[#0F4C5C] mb-5">
                       {currentAnimal.name}
                     </h2>
-                    {/* Chips pastel menores e organizadas em duas linhas */}
-                    <div className="grid grid-cols-2 gap-x-2 gap-y-2">
+                    {/* Chips pastel menores e organizadas em duas linhas com mais respiro vertical */}
+                    <div className="grid grid-cols-2 gap-x-2 gap-y-3">
                       <span className="chip-soft bg-teal-50/55 text-teal-900/80">Espécie: <span className="font-semibold">{currentAnimal.species}</span></span>
                       <span className="chip-soft bg-sky-50/55 text-sky-900/80">Raça: <span className="font-semibold">{currentAnimal.breed}</span></span>
                       <span className="chip-soft bg-indigo-50/55 text-indigo-900/80">Idade: <span className="font-semibold">{calculateAge(currentAnimal.birthday)}</span></span>
@@ -1080,12 +1079,12 @@ const PatientRecordPage = () => {
                   </div>
                 </div>
 
-                {/* Prioridade 2: Tutor (profile card) */}
+                {/* Tutor: perfil com respiro e metadados discretos */}
                 <div className="md:col-span-1">
-                  <div className="premium-card premium-card--soft p-5">
+                  <div className="premium-card premium-card--soft p-6">
                     <p className="text-sm uppercase tracking-wide metadata-subtle">Tutor Responsável</p>
                     <p className="text-base font-semibold text-foreground mt-1">{currentClient.name}</p>
-                    <div className="mt-2 space-y-2">
+                    <div className="mt-2 space-y-2.5">
                       <p className="text-sm flex items-center gap-2 metadata-subtle">
                         <FaIdCard className="h-3.5 w-3.5" />
                         <span className="font-medium text-foreground/70">{currentClient.clientType === "physical" ? "CPF" : "CNPJ"}:</span> {currentClient.identificationNumber}
@@ -1098,7 +1097,7 @@ const PatientRecordPage = () => {
                   </div>
                 </div>
 
-                {/* Prioridade 1: Status Financeiro (minimalista e elegante) */}
+                {/* Financeiro: status elegante (mais espaço interno e valores medianos) */}
                 <div className="md:col-span-1">
                   {(() => {
                     const income = mockFinancialTransactions.filter(t => t.relatedAnimalId === animalId && t.type === 'income').reduce((s, t) => s + t.amount, 0);
@@ -1108,7 +1107,7 @@ const PatientRecordPage = () => {
                     return (
                       <div className="grid grid-cols-1 gap-3">
                         <Card className="premium-card premium-card--soft card-hover">
-                          <CardContent className="pt-4">
+                          <CardContent className="pt-5 pb-5">
                             <div className="metadata-subtle">Pago</div>
                             <div className="text-[1.5rem] leading-tight font-semibold text-emerald-800">
                               {new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(income)}
@@ -1116,7 +1115,7 @@ const PatientRecordPage = () => {
                           </CardContent>
                         </Card>
                         <Card className="premium-card premium-card--soft card-hover">
-                          <CardContent className="pt-4">
+                          <CardContent className="pt-5 pb-5">
                             <div className="metadata-subtle">Pendências</div>
                             <div className="text-[1.5rem] leading-tight font-semibold text-rose-800">
                               {new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(pending)}
@@ -1124,7 +1123,7 @@ const PatientRecordPage = () => {
                           </CardContent>
                         </Card>
                         <Card className="premium-card premium-card--soft card-hover">
-                          <CardContent className="pt-4">
+                          <CardContent className="pt-5 pb-5">
                             <div className="metadata-subtle">Saldo</div>
                             <div className={cn("text-[1.5rem] leading-tight font-semibold", net >= 0 ? "text-blue-800" : "text-amber-800")}>
                               {new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(net)}
@@ -1138,7 +1137,7 @@ const PatientRecordPage = () => {
               </div>
             </CardHeader>
 
-            {/* Ação secundária discreta permanece */}
+            {/* Ação secundária permanece discreta */}
             <CardContent className="pt-0 px-6 pb-4">
               <div className="flex justify-end">
                 <Button variant="outline" onClick={handleEditAnimal} className="rounded-lg border-border/40 text-foreground hover:bg-muted/50">
@@ -1214,20 +1213,20 @@ const PatientRecordPage = () => {
                 {sortedTimelineEvents.length > 0 ? (
                   <div className="relative">
                     <div className="absolute left-2 sm:left-3 top-0 bottom-0 w-[2px] timeline-line" />
-                    <div className="space-y-6">
+                    <div className="space-y-7">
                       {sortedTimelineEvents.map((event) => {
                         const styles = getEventStyle(event.type);
                         return (
                           <div key={event.id} className="relative pl-6 sm:pl-8">
                             <span className={cn("absolute left-1.5 sm:left-2.5 top-5 timeline-dot", styles.dot)} />
-                            <Card className="premium-card p-6">
-                              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-3 gap-2">
+                            <Card className="premium-card p-7">
+                              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-3.5 gap-2">
                                 <div className="flex items-center gap-2">
                                   {React.createElement(event.icon, { className: "h-4 w-4 text-muted-foreground" })}
                                   <Badge className={cn("px-2 py-0.5 text-xs font-medium rounded-full", styles.badge)}>
                                     {event.type}
                                   </Badge>
-                                  <p className="text-[1.05rem] font-semibold text-foreground break-words">
+                                  <p className="text-[1.06rem] font-semibold text-foreground break-words">
                                     {event.description}
                                   </p>
                                 </div>
