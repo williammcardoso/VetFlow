@@ -1003,13 +1003,13 @@ const PatientRecordPage = () => {
     .reduce((sum, t) => sum + t.amount, 0);
 
   return (
-    <div className="flex flex-col min-h-screen bg-[#F8F9FA] overflow-x-hidden">
+    <div className="flex flex-col min-h-screen bg-[#F8F9FA] overflow-x-hidden font-exo">
       {/* Header da Página com Gradiente e Breadcrumb */}
-      <div className="bg-gradient-to-r from-card/80 via-background to-card/80 p-6 pb-4 border-b border-border/50 mx-auto w-full max-w-7xl backdrop-blur-sm rounded-b-xl shadow-sm">
+      <div className="bg-gradient-to-r from-card/80 via-background to-card/80 p-6 pb-4 border-b border-border/40 mx-auto w-full max-w-7xl backdrop-blur-sm rounded-2xl shadow-sm">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-2 gap-4 sm:gap-2">
           <div className="flex items-center gap-4">
             <div>
-              <h1 className="text-3xl font-semibold flex items-center gap-3 text-foreground group">
+              <h1 className="text-[1.85rem] leading-tight font-semibold flex items-center gap-3 text-foreground">
                 <FaUser className="h-5 w-5 text-muted-foreground" /> Prontuário Consolidado
               </h1>
               <p className="text-sm text-muted-foreground mt-1 mb-4">
@@ -1018,14 +1018,14 @@ const PatientRecordPage = () => {
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <Button variant="outline" className="rounded-md border-border/50 text-foreground hover:bg-muted hover:text-foreground transition-colors duration-200">
+            <Button variant="outline" className="rounded-md border-border/40 text-foreground hover:bg-muted/50 transition-colors duration-200">
               <FaPrint className="mr-2 h-4 w-4" /> Imprimir
             </Button>
-            <Button variant="outline" className="rounded-md border-border/50 text-foreground hover:bg-muted hover:text-foreground transition-colors duration-200">
+            <Button variant="outline" className="rounded-md border-border/40 text-foreground hover:bg-muted/50 transition-colors duration-200">
               <FaDownload className="mr-2 h-4 w-4" /> Exportar PDF
             </Button>
             <Link to={`/clients/${currentClient.id}`}>
-              <Button variant="outline" className="rounded-md border-border/50 text-foreground hover:bg-muted hover:text-foreground transition-colors duration-200">
+              <Button variant="outline" className="rounded-md border-border/40 text-foreground hover:bg-muted/50 transition-colors duration-200">
                 <FaArrowLeft className="mr-2 h-4 w-4" /> Voltar para {currentClient.name}
               </Button>
             </Link>
@@ -1051,13 +1051,13 @@ const PatientRecordPage = () => {
 
       <div className="flex-1 p-6 mx-auto w-full max-w-7xl">
         <div className="mb-6">
-          <Card className="bg-white rounded-2xl shadow-sm border-0">
-            <CardHeader className="flex flex-row items-center justify-between pb-4">
-              <CardTitle className="flex items-center gap-2 text-2xl font-semibold text-[#0F4C5C]">
+          <Card className="premium-card">
+            <CardHeader className="flex flex-row items-center justify-between pb-5">
+              <CardTitle className="flex items-center gap-2 text-[1.75rem] font-semibold text-[#0F4C5C] tracking-tight">
                 {currentAnimal.name}
               </CardTitle>
               <div className="flex flex-wrap items-center gap-2">
-                <Button variant="outline" onClick={handleEditAnimal} className="rounded-lg border-border/50 text-foreground hover:bg-muted">
+                <Button variant="outline" onClick={handleEditAnimal} className="rounded-lg border-border/40 text-foreground hover:bg-muted/50">
                   <FaEdit className="mr-2 h-4 w-4" /> Editar Paciente
                 </Button>
               </div>
@@ -1066,31 +1066,31 @@ const PatientRecordPage = () => {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {/* Coluna esquerda: avatar + badges */}
                 <div className="flex items-start gap-4 md:col-span-1 min-w-0">
-                  <Avatar className="h-20 w-20 rounded-full ring-4 ring-white/60 shadow-md bg-muted">
+                  <Avatar className="h-24 w-24 rounded-full ring-4 ring-white/70 shadow-md bg-muted">
                     <AvatarImage src={undefined} />
-                    <AvatarFallback className="bg-[#0F4C5C]/90 text-white text-xl font-bold">
-                      <FaPaw className="h-7 w-7" />
+                    <AvatarFallback className="bg-[#0F4C5C]/90 text-white text-2xl font-bold">
+                      <FaPaw className="h-8 w-8" />
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex-1">
                     <div className="flex flex-wrap gap-2">
-                      <span className="px-2.5 sm:px-3 py-1 rounded-full text-[11px] font-medium bg-teal-50/70 text-teal-700 ring-1 ring-teal-100 border-0 sm:whitespace-nowrap whitespace-normal">
-                        Espécie: <span className="font-semibold text-teal-800/90">{currentAnimal.species}</span>
+                      <span className="px-2.5 sm:px-3 py-1 rounded-full text-[11px] font-medium bg-teal-50/60 text-teal-800/90 ring-1 ring-teal-100/80">
+                        Espécie: <span className="font-semibold">{currentAnimal.species}</span>
                       </span>
-                      <span className="px-2.5 sm:px-3 py-1 rounded-full text-[11px] font-medium bg-sky-50/70 text-sky-700 ring-1 ring-sky-100 border-0 sm:whitespace-nowrap whitespace-normal">
-                        Raça: <span className="font-semibold text-sky-800/90">{currentAnimal.breed}</span>
+                      <span className="px-2.5 sm:px-3 py-1 rounded-full text-[11px] font-medium bg-sky-50/60 text-sky-800/90 ring-1 ring-sky-100/80">
+                        Raça: <span className="font-semibold">{currentAnimal.breed}</span>
                       </span>
-                      <span className="px-2.5 sm:px-3 py-1 rounded-full text-[11px] font-medium bg-indigo-50/70 text-indigo-700 ring-1 ring-indigo-100 border-0 sm:whitespace-nowrap whitespace-normal">
-                        Idade: <span className="font-semibold text-indigo-800/90">{calculateAge(currentAnimal.birthday)}</span>
+                      <span className="px-2.5 sm:px-3 py-1 rounded-full text-[11px] font-medium bg-indigo-50/60 text-indigo-800/90 ring-1 ring-indigo-100/80">
+                        Idade: <span className="font-semibold">{calculateAge(currentAnimal.birthday)}</span>
                       </span>
-                      <span className="px-2.5 sm:px-3 py-1 rounded-full text-[11px] font-medium bg-purple-50/70 text-purple-700 ring-1 ring-purple-100 border-0 sm:whitespace-nowrap whitespace-normal">
-                        Peso: <span className="font-semibold text-purple-800/90">{currentAnimal.weight.toFixed(1)} kg</span>
+                      <span className="px-2.5 sm:px-3 py-1 rounded-full text-[11px] font-medium bg-purple-50/60 text-purple-800/90 ring-1 ring-purple-100/80">
+                        Peso: <span className="font-semibold">{currentAnimal.weight.toFixed(1)} kg</span>
                       </span>
-                      <span className="px-2.5 sm:px-3 py-1 rounded-full text-[11px] font-medium bg-pink-50/70 text-pink-700 ring-1 ring-pink-100 border-0 sm:whitespace-nowrap whitespace-normal">
-                        Sexo: <span className="font-semibold text-pink-800/90">{currentAnimal.gender}</span>
+                      <span className="px-2.5 sm:px-3 py-1 rounded-full text-[11px] font-medium bg-pink-50/60 text-pink-800/90 ring-1 ring-pink-100/80">
+                        Sexo: <span className="font-semibold">{currentAnimal.gender}</span>
                       </span>
-                      <span className="px-2.5 sm:px-3 py-1 rounded-full text-[11px] font-medium bg-amber-50/70 text-amber-700 ring-1 ring-amber-100 border-0 sm:whitespace-nowrap whitespace-normal">
-                        Nasc.: <span className="font-semibold text-amber-800/90">{formatDateTime(currentAnimal.birthday || '')}</span>
+                      <span className="px-2.5 sm:px-3 py-1 rounded-full text-[11px] font-medium bg-amber-50/60 text-amber-800/90 ring-1 ring-amber-100/80">
+                        Nasc.: <span className="font-semibold">{formatDateTime(currentAnimal.birthday || '')}</span>
                       </span>
                     </div>
                   </div>
@@ -1099,16 +1099,16 @@ const PatientRecordPage = () => {
                 {/* Coluna central: tutor */}
                 <div className="space-y-3 min-w-0">
                   <p className="text-xs uppercase tracking-wide text-muted-foreground">Tutor Responsável</p>
-                  <div className="p-4 bg-card rounded-xl border border-border/40 shadow-sm">
+                  <div className="premium-card p-5">
                     <p className="text-base font-semibold text-foreground">{currentClient.name}</p>
-                    <div className="mt-2 space-y-1.5">
+                    <div className="mt-2 space-y-2">
                       <p className="text-sm flex items-center gap-2 text-muted-foreground">
                         <FaIdCard className="h-3.5 w-3.5 text-muted-foreground/80" />
-                        <span className="font-medium text-foreground/80">{currentClient.clientType === "physical" ? "CPF" : "CNPJ"}:</span> {currentClient.identificationNumber}
+                        <span className="font-medium text-foreground/70">{currentClient.clientType === "physical" ? "CPF" : "CNPJ"}:</span> {currentClient.identificationNumber}
                       </p>
                       <p className="text-sm flex items-center gap-2 text-muted-foreground">
                         <FaPhone className="h-3.5 w-3.5 text-muted-foreground/80" />
-                        <span className="font-medium text-foreground/80">Telefone:</span> {currentClient.mainPhoneContact}
+                        <span className="font-medium text-foreground/70">Telefone:</span> {currentClient.mainPhoneContact}
                       </p>
                     </div>
                   </div>
@@ -1123,26 +1123,26 @@ const PatientRecordPage = () => {
                     const pending = Math.max(0, patientSales.reduce((sum, s) => sum + s.total, 0) - patientPayments.reduce((sum, p) => sum + p.amount, 0));
                     return (
                       <>
-                        <Card className="bg-white rounded-xl border border-border/40 shadow-sm hover:shadow-md transition-shadow">
+                        <Card className="premium-card">
                           <CardContent className="pt-4">
-                            <div className="text-xs text-emerald-700/70">Pago</div>
-                            <div className="text-2xl font-semibold text-emerald-700">
+                            <div className="text-xs text-emerald-800/70">Pago</div>
+                            <div className="text-[1.6rem] leading-tight font-semibold text-emerald-800">
                               {new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(income)}
                             </div>
                           </CardContent>
                         </Card>
-                        <Card className="bg-white rounded-xl border border-border/40 shadow-sm hover:shadow-md transition-shadow">
+                        <Card className="premium-card">
                           <CardContent className="pt-4">
-                            <div className="text-xs text-rose-700/70">Pendências</div>
-                            <div className="text-2xl font-semibold text-rose-700">
+                            <div className="text-xs text-rose-800/70">Pendências</div>
+                            <div className="text-[1.6rem] leading-tight font-semibold text-rose-800">
                               {new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(pending)}
                             </div>
                           </CardContent>
                         </Card>
-                        <Card className="bg-white rounded-xl border border-border/40 shadow-sm hover:shadow-md transition-shadow">
+                        <Card className="premium-card">
                           <CardContent className="pt-4">
-                            <div className="text-xs text-blue-700/70">Saldo</div>
-                            <div className={cn("text-2xl font-semibold", net >= 0 ? "text-blue-700" : "text-amber-700")}>
+                            <div className="text-xs text-blue-800/70">Saldo</div>
+                            <div className={cn("text-[1.6rem] leading-tight font-semibold", net >= 0 ? "text-blue-800" : "text-amber-800")}>
                               {new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(net)}
                             </div>
                           </CardContent>
@@ -1162,10 +1162,10 @@ const PatientRecordPage = () => {
             ref={tabScrollRef}
             className="relative w-full overflow-x-auto overflow-y-hidden no-scrollbar scroll-smooth select-none"
           >
-            <TabsList className="inline-flex w-max items-center whitespace-nowrap border-b border-border/50 bg-transparent p-0 rounded-none gap-1">
+            <TabsList className="inline-flex w-max items-center whitespace-nowrap border-b border-border/40 bg-transparent p-0 rounded-none gap-1">
               <TabsTrigger
                 value="timeline"
-                className="relative -mb-px pb-2 px-2.5 md:px-3.5 shrink-0 text-sm md:text-[0.95rem] text-muted-foreground hover:text-foreground hover:bg-muted/40 rounded-md transition-colors data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold data-[state=active]:after:content-[''] data-[state=active]:after:absolute data-[state=active]:after:left-1 data-[state=active]:after:right-1 data-[state=active]:after:-bottom-[1px] data-[state=active]:after:h-[2px] data-[state=active]:after:bg-[#0F4C5C]"
+                className="tab-active-line relative -mb-px pb-2 px-2.5 md:px-3.5 shrink-0 text-sm md:text-[0.95rem] text-muted-foreground hover:text-foreground hover:bg-muted/40 rounded-md transition-colors data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold"
               >
                 <FaClock className="h-4 w-4 mr-1.5 md:mr-2 text-muted-foreground" />
                 <span className="max-w-[9.5rem] md:max-w-none truncate">Linha do Tempo</span>
@@ -1176,7 +1176,7 @@ const PatientRecordPage = () => {
 
               <TabsTrigger
                 value="appointments"
-                className="relative -mb-px pb-2 px-2.5 md:px-3.5 shrink-0 text-sm md:text-[0.95rem] text-muted-foreground hover:text-foreground hover:bg-muted/40 rounded-md transition-colors data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold data-[state=active]:after:content-[''] data-[state=active]:after:absolute data-[state=active]:after:left-1 data-[state=active]:after:right-1 data-[state=active]:after:-bottom-[1px] data-[state=active]:after:h-[2px] data-[state=active]:after:bg-[#0F4C5C]"
+                className="tab-active-line relative -mb-px pb-2 px-2.5 md:px-3.5 shrink-0 text-sm md:text-[0.95rem] text-muted-foreground hover:text-foreground hover:bg-muted/40 rounded-md transition-colors data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold"
               >
                 <FaStethoscope className="h-4 w-4 mr-1.5 md:mr-2 text-muted-foreground" />
                 <span className="max-w-[9.5rem] md:max-w-none truncate">Atendimento</span>
@@ -1187,7 +1187,7 @@ const PatientRecordPage = () => {
 
               <TabsTrigger
                 value="exams"
-                className="relative -mb-px pb-2 px-2.5 md:px-3.5 shrink-0 text-sm md:text-[0.95rem] text-muted-foreground hover:text-foreground hover:bg-muted/40 rounded-md transition-colors data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold data-[state=active]:after:content-[''] data-[state=active]:after:absolute data-[state=active]:after:left-1 data-[state=active]:after:right-1 data-[state=active]:after:-bottom-[1px] data-[state=active]:after:h-[2px] data-[state=active]:after:bg-[#0F4C5C]"
+                className="tab-active-line relative -mb-px pb-2 px-2.5 md:px-3.5 shrink-0 text-sm md:text-[0.95rem] text-muted-foreground hover:text-foreground hover:bg-muted/40 rounded-md transition-colors data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold"
               >
                 <FaFlask className="h-4 w-4 mr-1.5 md:mr-2 text-muted-foreground" />
                 <span className="max-w-[9.5rem] md:max-w-none truncate">Exames</span>
@@ -1198,7 +1198,7 @@ const PatientRecordPage = () => {
 
               <TabsTrigger
                 value="vaccines"
-                className="relative -mb-px pb-2 px-2.5 md:px-3.5 shrink-0 text-sm md:text-[0.95rem] text-muted-foreground hover:text-foreground hover:bg-muted/40 rounded-md transition-colors data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold data-[state=active]:after:content-[''] data-[state=active]:after:absolute data-[state=active]:after:left-1 data-[state=active]:after:right-1 data-[state=active]:after:-bottom-[1px] data-[state=active]:after:h-[2px] data-[state=active]:after:bg-[#0F4C5C]"
+                className="tab-active-line relative -mb-px pb-2 px-2.5 md:px-3.5 shrink-0 text-sm md:text-[0.95rem] text-muted-foreground hover:text-foreground hover:bg-muted/40 rounded-md transition-colors data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold"
               >
                 <FaSyringe className="h-4 w-4 mr-1.5 md:mr-2 text-muted-foreground" />
                 <span className="max-w-[9.5rem] md:max-w-none truncate">Vacinas</span>
@@ -1209,7 +1209,7 @@ const PatientRecordPage = () => {
 
               <TabsTrigger
                 value="weight"
-                className="relative -mb-px pb-2 px-2.5 md:px-3.5 shrink-0 text-sm md:text-[0.95rem] text-muted-foreground hover:text-foreground hover:bg-muted/40 rounded-md transition-colors data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold data-[state=active]:after:content-[''] data-[state=active]:after:absolute data-[state=active]:after:left-1 data-[state=active]:after:right-1 data-[state=active]:after:-bottom-[1px] data-[state=active]:after:h-[2px] data-[state=active]:after:bg-[#0F4C5C]"
+                className="tab-active-line relative -mb-px pb-2 px-2.5 md:px-3.5 shrink-0 text-sm md:text-[0.95rem] text-muted-foreground hover:text-foreground hover:bg-muted/40 rounded-md transition-colors data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold"
               >
                 <FaWeightHanging className="h-4 w-4 mr-1.5 md:mr-2 text-muted-foreground" />
                 <span className="max-w-[9.5rem] md:max-w-none truncate">Peso</span>
@@ -1220,7 +1220,7 @@ const PatientRecordPage = () => {
 
               <TabsTrigger
                 value="documents"
-                className="relative -mb-px pb-2 px-2.5 md:px-3.5 shrink-0 text-sm md:text-[0.95rem] text-muted-foreground hover:text-foreground hover:bg-muted/40 rounded-md transition-colors data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold data-[state=active]:after:content-[''] data-[state=active]:after:absolute data-[state=active]:after:left-1 data-[state=active]:after:right-1 data-[state=active]:after:-bottom-[1px] data-[state=active]:after:h-[2px] data-[state=active]:after:bg-[#0F4C5C]"
+                className="tab-active-line relative -mb-px pb-2 px-2.5 md:px-3.5 shrink-0 text-sm md:text-[0.95rem] text-muted-foreground hover:text-foreground hover:bg-muted/40 rounded-md transition-colors data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold"
               >
                 <FaFileAlt className="h-4 w-4 mr-1.5 md:mr-2 text-muted-foreground" />
                 <span className="max-w-[9.5rem] md:max-w-none truncate">Documentos</span>
@@ -1231,7 +1231,7 @@ const PatientRecordPage = () => {
 
               <TabsTrigger
                 value="prescriptions"
-                className="relative -mb-px pb-2 px-2.5 md:px-3.5 shrink-0 text-sm md:text-[0.95rem] text-muted-foreground hover:text-foreground hover:bg-muted/40 rounded-md transition-colors data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold data-[state=active]:after:content-[''] data-[state=active]:after:absolute data-[state=active]:after:left-1 data-[state=active]:after:right-1 data-[state=active]:after:-bottom-[1px] data-[state=active]:after:h-[2px] data-[state=active]:after:bg-[#0F4C5C]"
+                className="tab-active-line relative -mb-px pb-2 px-2.5 md:px-3.5 shrink-0 text-sm md:text-[0.95rem] text-muted-foreground hover:text-foreground hover:bg-muted/40 rounded-md transition-colors data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold"
               >
                 <FaPrescriptionBottleAlt className="h-4 w-4 mr-1.5 md:mr-2 text-muted-foreground" />
                 <span className="max-w-[9.5rem] md:max-w-none truncate">Receitas</span>
@@ -1242,7 +1242,7 @@ const PatientRecordPage = () => {
 
               <TabsTrigger
                 value="observations"
-                className="relative -mb-px pb-2 px-2.5 md:px-3.5 shrink-0 text-sm md:text-[0.95rem] text-muted-foreground hover:text-foreground hover:bg-muted/40 rounded-md transition-colors data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold data-[state=active]:after:content-[''] data-[state=active]:after:absolute data-[state=active]:after:left-1 data-[state=active]:after:right-1 data-[state=active]:after:-bottom-[1px] data-[state=active]:after:h-[2px] data-[state=active]:after:bg-[#0F4C5C]"
+                className="tab-active-line relative -mb-px pb-2 px-2.5 md:px-3.5 shrink-0 text-sm md:text-[0.95rem] text-muted-foreground hover:text-foreground hover:bg-muted/40 rounded-md transition-colors data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold"
               >
                 <FaCommentAlt className="h-4 w-4 mr-1.5 md:mr-2 text-muted-foreground" />
                 <span className="max-w-[9.5rem] md:max-w-none truncate">Observações</span>
@@ -1253,7 +1253,7 @@ const PatientRecordPage = () => {
 
               <TabsTrigger
                 value="financial"
-                className="relative -mb-px pb-2 px-2.5 md:px-3.5 shrink-0 text-sm md:text-[0.95rem] text-muted-foreground hover:text-foreground hover:bg-muted/40 rounded-md transition-colors data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold data-[state=active]:after:content-[''] data-[state=active]:after:absolute data-[state=active]:after:left-1 data-[state=active]:after:right-1 data-[state=active]:after:-bottom-[1px] data-[state=active]:after:h-[2px] data-[state=active]:after:bg-[#0F4C5C]"
+                className="tab-active-line relative -mb-px pb-2 px-2.5 md:px-3.5 shrink-0 text-sm md:text-[0.95rem] text-muted-foreground hover:text-foreground hover:bg-muted/40 rounded-md transition-colors data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold"
               >
                 <FaMoneyBillWave className="h-4 w-4 mr-1.5 md:mr-2 text-muted-foreground" />
                 <span className="max-w-[9.5rem] md:max-w-none truncate">Financeiro</span>
@@ -1266,7 +1266,7 @@ const PatientRecordPage = () => {
 
           {/* Conteúdo das abas (inalterado) */}
           <TabsContent value="timeline" className="mt-4">
-            <Card className="bg-white rounded-2xl shadow-sm border-0">
+            <Card className="premium-card">
               <CardHeader className="pb-4">
                 <CardTitle className="flex items-center gap-2 text-lg font-semibold text-[#0F4C5C]">
                   <FaClock className="h-5 w-5 text-muted-foreground" /> Linha do Tempo do Paciente
@@ -1276,14 +1276,14 @@ const PatientRecordPage = () => {
                 {sortedTimelineEvents.length > 0 ? (
                   <div className="relative">
                     <div className="absolute left-2 sm:left-3 top-0 bottom-0 w-[2px] bg-gradient-to-b from-[#EAEAEA] via-[#DFDFDF] to-[#EAEAEA]" />
-                    <div className="space-y-4">
+                    <div className="space-y-5">
                       {sortedTimelineEvents.map((event) => {
                         const nodeColor = getNodeColorClass(event.badgeColor);
                         return (
                           <div key={event.id} className="relative pl-6 sm:pl-8">
                             <span className={cn("absolute left-1.5 sm:left-2.5 top-4 h-4 w-4 rounded-full shadow-sm", nodeColor)} />
-                            <Card className="p-4 bg-white rounded-xl shadow-sm border border-border/40">
-                              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-2 gap-2">
+                            <Card className="premium-card p-5">
+                              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-2.5 gap-2">
                                 <div className="flex items-center gap-2">
                                   {React.createElement(event.icon, { className: "h-4 w-4 text-muted-foreground" })}
                                   <Badge className={cn("px-2 py-0.5 text-xs font-medium rounded-full bg-muted text-foreground/80", event.badgeColor && "")}>
@@ -1304,14 +1304,14 @@ const PatientRecordPage = () => {
                                         navigate(event.link);
                                       }
                                     }}
-                                    className="rounded-md border-border/50 text-foreground hover:bg-muted"
+                                    className="rounded-md border-border/40 text-foreground hover:bg-muted/50"
                                   >
                                     <FaEye className="h-4 w-4" />
                                   </Button>
                                 )}
                               </div>
                               {event.summary && (
-                                <p className="text-sm text-muted-foreground mb-2 break-words">{event.summary}</p>
+                                <p className="text-sm text-muted-foreground mb-2.5 break-words">{event.summary}</p>
                               )}
                               <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-1 text-xs text-muted-foreground">
