@@ -144,13 +144,12 @@ const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, onCloseMobile, isDeskto
         )}
       >
         <div className={cn(
-          "flex items-center h-16 border-b border-sidebar-border mb-4 px-3",
-          isDesktopOpen ? "justify-start" : "justify-center"
+          isDesktopOpen ? "flex items-center h-16 border-b border-sidebar-border mb-4 px-3 justify-start" : "flex items-center h-16 border-b border-sidebar-border mb-4 px-0 justify-center"
         )}>
           {isDesktopOpen ? (
             <SystemVetLogo />
           ) : (
-            <FaStethoscope className="h-6 w-6 text-white" /> // Ícone menor quando recolhido
+            <FaStethoscope className="h-5 w-5 text-white" />
           )}
         </div>
         <nav className="space-y-1">
@@ -161,32 +160,31 @@ const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, onCloseMobile, isDeskto
                   <Link
                     to={item.href}
                     className={cn(
-                      "flex items-center gap-3 rounded-md px-3 py-2 text-sidebar-foreground transition-all hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-                      location.pathname === item.href && "bg-sidebar-primary text-sidebar-primary-foreground font-medium",
-                      !isDesktopOpen && "justify-center" // Centraliza ícone quando recolhido
+                      "flex items-center rounded-md h-11 transition-all hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                      isDesktopOpen ? "px-3 gap-3 justify-start" : "px-0 gap-0 justify-center",
+                      location.pathname === item.href && "bg-sidebar-primary text-sidebar-primary-foreground font-medium"
                     )}
                     onClick={onCloseMobile}
                   >
-                    <item.icon className="h-4 w-4" />
+                    <item.icon className="h-5 w-5" />
                     {isDesktopOpen && item.title}
                   </Link>
                 ) : (
                   <AccordionItem value={`item-${index}`} className="border-b-0">
                     <AccordionTrigger className={cn(
-                      "flex items-center justify-between gap-3 rounded-md px-3 py-2 text-sidebar-foreground transition-all hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-                      // Controla a visibilidade do chevron padrão do AccordionTrigger
+                      "flex items-center rounded-md h-11 transition-all hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
                       isDesktopOpen ? "[&>svg]:block [&[data-state=open]>svg]:rotate-180" : "[&>svg]:hidden",
+                      isDesktopOpen ? "px-3 gap-3 justify-between" : "px-0 gap-0 justify-center",
                       "font-normal",
-                      location.pathname.startsWith(item.subItems?.[0]?.href?.split('/')[1] || "") && "bg-sidebar-accent text-sidebar-accent-foreground font-medium",
-                      !isDesktopOpen && "justify-center" // Centraliza ícone quando recolhido
+                      location.pathname.startsWith(item.subItems?.[0]?.href?.split('/')[1] || "") && "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
                     )}>
-                      <div className={cn("flex items-center gap-3", !isDesktopOpen && "justify-center w-full")}>
-                        <item.icon className="h-4 w-4" />
+                      <div className={cn("flex items-center", isDesktopOpen ? "gap-3" : "gap-0")}>
+                        <item.icon className="h-5 w-5" />
                         {isDesktopOpen && item.title}
                       </div>
                       {/* O chevron padrão do AccordionTrigger agora é controlado pela classe acima */}
                     </AccordionTrigger>
-                    {isDesktopOpen && ( // Renderiza sub-itens apenas se o sidebar estiver aberto
+                    {isDesktopOpen && (
                       <AccordionContent className="pb-0">
                         <div className="ml-6 space-y-1">
                           {item.subItems?.map((subItem) => (
@@ -199,7 +197,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, onCloseMobile, isDeskto
                               )}
                               onClick={onCloseMobile}
                             >
-                              {subItem.icon && <subItem.icon className="h-4 w-4" />}
+                              {subItem.icon && <subItem.icon className="h-5 w-5" />}
                               {subItem.title}
                             </Link>
                           ))}

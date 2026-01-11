@@ -28,6 +28,11 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const sidebarWidthClass = isDesktopSidebarOpen ? "lg:w-64" : "lg:w-16";
   const containerPaddingClass = isDesktopSidebarOpen ? "lg:pl-64" : "lg:pl-16";
 
+  // NOVO: largura máxima do conteúdo considerando a largura efetiva do sidebar (w + padding)
+  const contentMaxWidthClass = isDesktopSidebarOpen
+    ? "lg:max-w-[calc(100vw-18rem)]" // 16rem de largura + 2rem de padding horizontal do sidebar
+    : "lg:max-w-[calc(100vw-6rem)]"; // 4rem de largura + 2rem de padding horizontal
+
   return (
     <div className={`flex min-h-screen bg-background ${containerPaddingClass} overflow-x-hidden`}>
       <Sidebar 
@@ -42,8 +47,11 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           onToggleDesktopSidebar={handleToggleDesktopSidebar}
           isDesktopSidebarOpen={isDesktopSidebarOpen}
         />
-        <main className="flex-1 p-4 sm:px-6 sm:py-0">
-          {children}
+        {/* NOVO: wrapper central que limita a largura conforme o sidebar, evitando overflow */}
+        <main className="flex-1">
+          <div className={`mx-auto w-full ${contentMaxWidthClass} p-4 sm:px-6 sm:py-0`}>
+            {children}
+          </div>
         </main>
         <MadeWithDyad />
       </div>
