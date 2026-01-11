@@ -1044,7 +1044,7 @@ const PatientRecordPage = () => {
         ) : null;
       })()}
 
-      {/* Conteúdo principal com min-w-0 para permitir encolhimento adequado */}
+      {/* Conteúdo principal com min-w-0 para encolher corretamente */}
       <div className="flex-1 p-6 mx-auto w-full max-w-7xl min-w-0">
         <div className="mb-6">
           <Card className="bg-white rounded-2xl shadow-sm border-0">
@@ -1196,7 +1196,7 @@ const PatientRecordPage = () => {
           </Card>
         </div>
 
-        {/* Barra de abas: sticky + scroll horizontal suave e sem corte */}
+        {/* Barra de abas com scroll horizontal suave e sticky opcional */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full mt-6 min-w-0">
           <TabsList className="sticky top-16 z-20 flex flex-nowrap gap-2 sm:gap-3 overflow-x-auto overflow-y-hidden whitespace-nowrap no-scrollbar scroll-smooth bg-white dark:bg-background border-b border-[#E5E7EB] rounded-none p-0">
             <TabsTrigger value="timeline" className="flex-shrink-0 relative -mb-px pb-2 px-2 whitespace-nowrap text-[#6B7280] data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold data-[state=active]:after:content-[''] data-[state=active]:after:absolute data-[state=active]:after:left-0 data-[state=active]:after:right-0 data-[state=active]:after:-bottom-[1px] data-[state=active]:after:h-[2px] data-[state=active]:after:bg-[#0F4C5C]">
