@@ -5,6 +5,8 @@ import { Link, useParams, useNavigate, useSearchParams } from "react-router-dom"
 import {
   FaArrowLeft, FaUsers, FaPaw, FaPlus, FaEye, FaStethoscope, FaCalendarAlt, FaDollarSign, FaSyringe, FaWeightHanging, FaFileAlt, FaClipboardList, FaCommentAlt, FaHeart, FaMale, FaUser, FaPrint, FaDownload, FaTimes, FaSave, FaBalanceScale, FaFileMedical, FaExclamationTriangle, FaFlask, FaTag, FaBox, FaClock, FaMoneyBillWave, FaArrowUp, FaArrowDown, FaTrashAlt, FaPrescriptionBottleAlt, FaEdit, FaIdCard, FaPhone
 } from "react-icons/fa"; // Importar ícones de react-icons
+// ADDED: ícone de localização para endereço do tutor
+import { FaMapMarkerAlt } from "react-icons/fa";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -719,7 +721,7 @@ const PatientRecordPage = () => {
     setSearchParams({ paySaleId: saleId });
   };
 
-  // Helpers de formatação clínica (somente usados no topo)
+  // ADDED: Helpers de formatação clínica para idade/peso (uso apenas no topo)
   const formatAgeLabel = (birthday?: string) => {
     if (!birthday) return "-";
     const birthDate = new Date(birthday);
@@ -1113,33 +1115,52 @@ const PatientRecordPage = () => {
                     <div className="space-y-2 mt-3">
                       {/* Grupo: identificação (Espécie, Raça) */}
                       <div className="flex flex-wrap gap-2">
-                        <span className="chip-soft bg-teal-50/40 text-foreground/70">Espécie: <span className="font-semibold text-foreground/80">{currentAnimal.species}</span></span>
-                        <span className="chip-soft bg-sky-50/40 text-foreground/70">Raça: <span className="font-semibold text-foreground/80">{currentAnimal.breed}</span></span>
+                        <span className="chip-soft bg-teal-50/40 text-foreground/70">
+                          Espécie: <span className="font-semibold text-foreground/80">{currentAnimal.species}</span>
+                        </span>
+                        <span className="chip-soft bg-sky-50/40 text-foreground/70">
+                          Raça: <span className="font-semibold text-foreground/80">{currentAnimal.breed}</span>
+                        </span>
                       </div>
                       {/* Grupo: dados biológicos (Idade, Peso, Sexo, Nasc.) */}
                       <div className="flex flex-wrap gap-2">
-                        <span className="chip-soft bg-indigo-50/40 text-foreground/70">Idade: <span className="font-semibold text-foreground/80">{formatAgeLabel(currentAnimal.birthday)}</span></span>
-                        <span className="chip-soft bg-purple-50/40 text-foreground/70">Peso: <span className="font-semibold text-foreground/80">{formatWeightLabel(currentAnimal.weight)}</span></span>
-                        <span className="chip-soft bg-pink-50/40 text-foreground/70">Sexo: <span className="font-semibold text-foreground/80">{currentAnimal.gender}</span></span>
-                        <span className="chip-soft bg-amber-50/40 text-foreground/70">Nasc.: <span className="font-semibold text-foreground/80">{formatDateTime(currentAnimal.birthday || '')}</span></span>
+                        <span className="chip-soft bg-indigo-50/40 text-foreground/70">
+                          Idade: <span className="font-semibold text-foreground/80">{formatAgeLabel(currentAnimal.birthday)}</span>
+                        </span>
+                        <span className="chip-soft bg-purple-50/40 text-foreground/70">
+                          Peso: <span className="font-semibold text-foreground/80">{formatWeightLabel(currentAnimal.weight)}</span>
+                        </span>
+                        <span className="chip-soft bg-pink-50/40 text-foreground/70">
+                          Sexo: <span className="font-semibold text-foreground/80">{currentAnimal.gender}</span>
+                        </span>
+                        <span className="chip-soft bg-amber-50/40 text-foreground/70">
+                          Nasc.: <span className="font-semibold text-foreground/80">{formatDateTime(currentAnimal.birthday || '')}</span>
+                        </span>
                       </div>
                     </div>
                   </div>
                 </div>
 
-                {/* Tutor: secundário, limpo e legível (contraste moderado) */}
+                {/* Tutor: secundário, limpo e legível (com endereço resumido) */}
                 <div>
                   <div className="premium-card premium-card--soft p-5">
-                    <p className="text-xs uppercase tracking-wide text-foreground/60">Tutor Responsável</p>
+                    <p className="text-xs uppercase tracking-wide text-foreground/65">Tutor Responsável</p>
                     <p className="text-base font-medium text-foreground mt-1">{currentClient.name}</p>
                     <div className="mt-2 space-y-2">
-                      <p className="text-sm flex items-center gap-2 text-foreground/70">
-                        <FaIdCard className="h-3.5 w-3.5 text-foreground/60" />
-                        <span className="text-foreground/80">{currentClient.clientType === "physical" ? "CPF" : "CNPJ"}:</span> {currentClient.identificationNumber}
+                      <p className="text-sm flex items-center gap-2 text-foreground/75">
+                        <FaIdCard className="h-3.5 w-3.5 text-foreground/65" />
+                        <span className="text-foreground/85">{currentClient.clientType === "physical" ? "CPF" : "CNPJ"}:</span> {currentClient.identificationNumber}
                       </p>
-                      <p className="text-sm flex items-center gap-2 text-foreground/70">
-                        <FaPhone className="h-3.5 w-3.5 text-foreground/60" />
-                        <span className="text-foreground/80">Telefone:</span> {currentClient.mainPhoneContact}
+                      <p className="text-sm flex items-center gap-2 text-foreground/75">
+                        <FaPhone className="h-3.5 w-3.5 text-foreground/65" />
+                        <span className="text-foreground/85">Telefone:</span> {currentClient.mainPhoneContact}
+                      </p>
+                      <p className="text-sm flex items-start gap-2 text-foreground/70">
+                        <FaMapMarkerAlt className="mt-0.5 h-3.5 w-3.5 text-foreground/60" />
+                        <span>
+                          {`${currentClient.address.street}, ${currentClient.address.number}`}<br />
+                          {`${currentClient.address.neighborhood} • ${currentClient.address.city} - ${currentClient.address.state}`}
+                        </span>
                       </p>
                     </div>
                   </div>
@@ -1156,7 +1177,7 @@ const PatientRecordPage = () => {
                       <div className="grid grid-cols-1 gap-3">
                         <Card className="premium-card premium-card--soft">
                           <CardContent className="pt-3 pb-3">
-                            <div className="text-foreground/65 text-xs">Pago</div>
+                            <div className="text-foreground/70 text-xs">Pago</div>
                             <div className="text-[1.25rem] leading-tight font-medium text-emerald-700">
                               {new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(income)}
                             </div>
@@ -1164,7 +1185,7 @@ const PatientRecordPage = () => {
                         </Card>
                         <Card className="premium-card premium-card--soft">
                           <CardContent className="pt-3 pb-3">
-                            <div className="text-foreground/65 text-xs">Pendências</div>
+                            <div className="text-foreground/70 text-xs">Pendências</div>
                             <div className="text-[1.25rem] leading-tight font-medium text-rose-700">
                               {new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(pending)}
                             </div>
@@ -1172,7 +1193,7 @@ const PatientRecordPage = () => {
                         </Card>
                         <Card className="premium-card premium-card--soft">
                           <CardContent className="pt-3 pb-3">
-                            <div className="text-foreground/65 text-xs">Saldo</div>
+                            <div className="text-foreground/70 text-xs">Saldo</div>
                             <div className="text-[1.25rem] leading-tight font-medium text-blue-700">
                               {new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(net)}
                             </div>
