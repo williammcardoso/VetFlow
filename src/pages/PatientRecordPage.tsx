@@ -180,6 +180,19 @@ import { getRegistryList } from "@/mockData/registry";
 // ADDED: importar o conteúdo de PDF de orçamento
 import BudgetReportPdfContent from "@/components/BudgetReportPdfContent";
 
+// Helper para identidade visual por tipo de evento (dot + badge suaves)
+const EVENT_STYLES: Record<string, { dot: string; badge: string }> = {
+  'Atendimento': { dot: 'timeline-dot-blue', badge: 'badge-soft-blue' },
+  'Exame': { dot: 'timeline-dot-purple', badge: 'badge-soft-purple' },
+  'Receita': { dot: 'timeline-dot-green', badge: 'badge-soft-green' },
+  'Peso': { dot: 'timeline-dot-amber', badge: 'badge-soft-amber' },
+  'Venda': { dot: 'timeline-dot-teal', badge: 'badge-soft-teal' },
+  'Financeiro': { dot: 'timeline-dot-teal', badge: 'badge-soft-teal' },
+  'Documento': { dot: 'timeline-dot-orange', badge: 'badge-soft-orange' },
+  'Observação': { dot: 'timeline-dot-gray', badge: 'badge-soft-gray' },
+};
+const getEventStyle = (type: string) => EVENT_STYLES[type] || { dot: 'timeline-dot-gray', badge: 'badge-soft-gray' };
+
 // Helper para cor da bolinha baseado na cor do badge da timeline
 const getNodeColorClass = (badge?: string) => {
   const c = (badge || "").toLowerCase();
@@ -1003,8 +1016,9 @@ const PatientRecordPage = () => {
     .reduce((sum, t) => sum + t.amount, 0);
 
   return (
-    <div className="flex flex-col min-h-screen layered-bg overflow-x-hidden font-exo">
-      {/* Header da Página com sensação premium */}
+    // Fundo geral mais escuro e tipografia premium
+    <div className="flex flex-col min-h-screen layered-bg-cool overflow-x-hidden font-exo">
+      {/* Header premium com contraste reforçado */}
       <div className="premium-top p-6 pb-4 mx-auto w-full max-w-7xl">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-2 gap-4 sm:gap-2">
           <div className="flex items-center gap-4">
@@ -1034,15 +1048,17 @@ const PatientRecordPage = () => {
         </p>
       </div>
 
-      {/* Topo: Paciente/Tutor/Financeiro com hierarquia FORÇADA */}
+      {/* Topo: Paciente/Tutor/Financeiro com flutuação e identidade */}
       <div className="flex-1 p-6 mx-auto w-full max-w-7xl">
         <div className="mb-6">
+          {/* Card principal flutuante */}
           <Card className="premium-card card-hover">
-            <CardHeader className="pb-0 brand-surface rounded-t-[1rem]">
+            {/* Cabeçalho com superfície levemente diferenciada */}
+            <CardHeader className="pb-0 surface-offwhite rounded-t-[1rem]">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-5">
-                {/* Paciente: herói dominante */}
+                {/* Paciente: mais dominante, avatar com fundo de identidade */}
                 <div className="flex items-start gap-4 md:col-span-1">
-                  <Avatar className="h-28 w-28 rounded-full hero-avatar-ring bg-primary/10">
+                  <Avatar className="h-28 w-28 rounded-full hero-avatar-ring bg-primary/15">
                     <AvatarImage src={undefined} />
                     <AvatarFallback className="text-[#0F4C5C] text-2xl font-bold">
                       <FaPaw className="h-8 w-8" />
@@ -1052,7 +1068,7 @@ const PatientRecordPage = () => {
                     <h2 className="text-[2.15rem] leading-tight font-semibold tracking-tight text-[#0F4C5C] mb-4">
                       {currentAnimal.name}
                     </h2>
-                    {/* Chips pastel elegantes, menores e organizados em duas linhas */}
+                    {/* Chips pastel menores e organizadas em duas linhas */}
                     <div className="grid grid-cols-2 gap-x-2 gap-y-2">
                       <span className="chip-soft bg-teal-50/55 text-teal-900/80">Espécie: <span className="font-semibold">{currentAnimal.species}</span></span>
                       <span className="chip-soft bg-sky-50/55 text-sky-900/80">Raça: <span className="font-semibold">{currentAnimal.breed}</span></span>
@@ -1122,7 +1138,7 @@ const PatientRecordPage = () => {
               </div>
             </CardHeader>
 
-            {/* Ação secundária (editar) alinhada e discreta */}
+            {/* Ação secundária discreta permanece */}
             <CardContent className="pt-0 px-6 pb-4">
               <div className="flex justify-end">
                 <Button variant="outline" onClick={handleEditAnimal} className="rounded-lg border-border/40 text-foreground hover:bg-muted/50">
@@ -1197,18 +1213,18 @@ const PatientRecordPage = () => {
               <CardContent className="pt-0">
                 {sortedTimelineEvents.length > 0 ? (
                   <div className="relative">
-                    <div className="absolute left-2 sm:left-3 top-0 bottom-0 w-[2px] bg-gradient-to-b from-[#EDEDED] via-[#E3E3E3] to-[#EDEDED]" />
+                    <div className="absolute left-2 sm:left-3 top-0 bottom-0 w-[2px] timeline-line" />
                     <div className="space-y-6">
                       {sortedTimelineEvents.map((event) => {
-                        const nodeColor = getNodeColorClass(event.badgeColor);
+                        const styles = getEventStyle(event.type);
                         return (
                           <div key={event.id} className="relative pl-6 sm:pl-8">
-                            <span className={cn("absolute left-1.5 sm:left-2.5 top-5 timeline-dot", nodeColor)} />
-                            <Card className="premium-card p-6 card-hover">
+                            <span className={cn("absolute left-1.5 sm:left-2.5 top-5 timeline-dot", styles.dot)} />
+                            <Card className="premium-card p-6">
                               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-3 gap-2">
                                 <div className="flex items-center gap-2">
                                   {React.createElement(event.icon, { className: "h-4 w-4 text-muted-foreground" })}
-                                  <Badge className={cn("px-2 py-0.5 text-xs font-medium rounded-full bg-muted text-foreground/80", event.badgeColor && "")}>
+                                  <Badge className={cn("px-2 py-0.5 text-xs font-medium rounded-full", styles.badge)}>
                                     {event.type}
                                   </Badge>
                                   <p className="text-[1.05rem] font-semibold text-foreground break-words">

@@ -9,6 +9,14 @@ html, body, #root {
   font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, 'Helvetica Neue', Arial, 'Noto Sans', 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', sans-serif;
   overflow-x: hidden;
 }
+/* Fundo geral com cinza frio elegante (camadas suaves) */
+.layered-bg-cool {
+  background:
+    radial-gradient(900px 360px at 5% -10%, rgba(32, 109, 229, 0.05), transparent 60%),
+    radial-gradient(900px 360px at 95% -10%, rgba(18, 164, 148, 0.05), transparent 60%),
+    hsl(220 16% 96%); /* cinza frio claro */
+}
+
 /* Fundo geral para profundidade dos cards */
 body {
   background-color: #F8F9FA;
@@ -168,20 +176,35 @@ body {
   background: linear-gradient(180deg, hsl(var(--primary) / 0.06), hsl(var(--primary) / 0.03));
 }
 
-/* Card premium (flutuante) com borda quase invisível e sombra suave */
+/* Superfície off-white para áreas secundárias */
+.surface-offwhite {
+  background-color: hsl(220 16% 98%);
+}
+
+/* Header/topo premium com leve diferenciação do fundo da página */
+.premium-top {
+  backdrop-filter: blur(6px);
+  border: 1px solid hsl(var(--border) / 0.35);
+  border-radius: 1.25rem;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.05);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.92), hsl(var(--card)));
+}
+
+/* Card flutuante premium */
 .premium-card {
-  background-color: hsl(var(--card));
+  background-color: hsl(var(--card)); /* branco puro */
   border: 1px solid hsl(var(--border) / 0.28);
   border-radius: 1rem;
   box-shadow: 0 10px 28px rgba(0, 0, 0, 0.07);
 }
 
-/* Variantes menores de sombra, para status */
+/* Variação de sombra mais suave */
 .premium-card--soft {
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.06);
 }
 
-/* Hover suave em cards (micro interação) */
+/* Micro-interação: hover suave em cards */
 .card-hover {
   transition: box-shadow 200ms ease, transform 200ms ease;
 }
@@ -189,13 +212,13 @@ body {
   box-shadow: 0 14px 36px rgba(0, 0, 0, 0.08);
 }
 
-/* Avatar com anel suave */
+/* Avatar herói com anel suave e fundo de identidade */
 .hero-avatar-ring {
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
   outline: 6px solid rgba(255, 255, 255, 0.65);
 }
 
-/* Chips/tags informativas com estilo pastel unificado */
+/* Chips/tags pastel informativas (menores, elegantes) */
 .chip-soft {
   border-radius: 9999px;
   font-size: 11px;
@@ -209,7 +232,7 @@ body {
   box-shadow: 0 1px 0 rgba(0,0,0,0.02) inset;
 }
 
-/* Linha ativa sutil em tabs (segmented control) */
+/* Linha ativa sutil nas tabs (segmented control) */
 .tab-active-line {
   position: relative;
 }
@@ -225,9 +248,9 @@ body {
   border-radius: 1px;
 }
 
-/* Metadados discretos (quase somem se não buscados) */
+/* Metadados discretos (menos contraste) */
 .metadata-subtle {
-  color: hsl(var(--muted-foreground) / 0.8);
+  color: hsl(var(--muted-foreground) / 0.75);
   font-size: 12px;
 }
 
@@ -236,12 +259,31 @@ body {
   row-gap: 1rem;
 }
 
-/* Header/topo com sensação premium */
-.premium-top {
-  backdrop-filter: blur(6px);
-  border: 1px solid hsl(var(--border) / 0.35);
-  border-radius: 1.25rem;
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.05);
-  background:
-    linear-gradient(180deg, hsl(var(--card) / 0.85), hsl(var(--card) / 0.95));
+/* Timeline: linha sutil e pontos menores */
+.timeline-line {
+  background: linear-gradient(180deg, #EDEDED, #E4E4E4, #EDEDED);
 }
+.timeline-dot {
+  height: 0.75rem;
+  width: 0.75rem;
+  border-radius: 9999px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.16);
+}
+
+/* Identidade por tipo (apenas bolinha e badge suaves) */
+.timeline-dot-blue { background-color: #60a5fa; }      /* Atendimento */
+.timeline-dot-purple { background-color: #a78bfa; }    /* Exame */
+.timeline-dot-green { background-color: #34d399; }     /* Receita */
+.timeline-dot-amber { background-color: #f59e0b; }     /* Peso */
+.timeline-dot-teal { background-color: #2dd4bf; }      /* Financeiro/Venda */
+.timeline-dot-orange { background-color: #fb923c; }    /* Documento */
+.timeline-dot-gray { background-color: #9ca3af; }      /* Observação */
+
+/* Badges suaves por tipo */
+.badge-soft-blue { background-color: rgba(96,165,250,0.15); color: #1e40af; }
+.badge-soft-purple { background-color: rgba(167,139,250,0.15); color: #5b21b6; }
+.badge-soft-green { background-color: rgba(52,211,153,0.15); color: #065f46; }
+.badge-soft-amber { background-color: rgba(245,158,11,0.15); color: #92400e; }
+.badge-soft-teal { background-color: rgba(45,212,191,0.15); color: #134e4a; }
+.badge-soft-orange { background-color: rgba(251,146,60,0.15); color: #9a3412; }
+.badge-soft-gray { background-color: rgba(156,163,175,0.15); color: #374151; }
