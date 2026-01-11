@@ -1086,7 +1086,7 @@ const PatientRecordPage = () => {
       <div className="flex-1 p-6 mx-auto w-full max-w-7xl">
         <div className="mb-6">
           {/* Card do paciente mais compacto e com hierarquia clara */}
-          <Card className="premium-card card-hover">
+          <Card className="premium-card card-hover ring-1 ring-border/50">
             <CardHeader className="pb-0 surface-offwhite rounded-t-[1rem]">
               <div className="grid grid-cols-1 md:grid-cols-[1.5fr_1fr_1fr] gap-5 p-5">
                 {/* Paciente: protagonista, com botão de editar ao lado do nome */}
@@ -1100,7 +1100,7 @@ const PatientRecordPage = () => {
                   </Avatar>
                   <div className="flex-1">
                     <div className="flex items-start justify-between gap-3">
-                      <h2 className="text-[2.3rem] leading-tight font-bold tracking-tight text-[#0F4C5C]">
+                      <h2 className="text-[2.4rem] leading-tight font-bold tracking-tight text-[#0F4C5C]">
                         {currentAnimal.name}
                       </h2>
                       <Button
@@ -1111,30 +1111,30 @@ const PatientRecordPage = () => {
                         <FaEdit className="mr-2 h-4 w-4" /> Editar
                       </Button>
                     </div>
-                    {/* Chips clínicas: dois grupos (identificação / biológicos), menores e discretas, com contraste moderado */}
-                    <div className="space-y-2 mt-3">
-                      {/* Grupo: identificação (Espécie, Raça) */}
+                    {/* Chips clínicas: dois grupos (identidade / biológicos), menores e discretas, com separação visual clara */}
+                    <div className="mt-3">
+                      {/* Grupo: identidade (Espécie, Raça) */}
                       <div className="flex flex-wrap gap-2">
-                        <span className="chip-soft bg-teal-50/40 text-foreground/70">
-                          Espécie: <span className="font-semibold text-foreground/80">{currentAnimal.species}</span>
+                        <span className="chip-soft bg-teal-50/40 text-foreground/75">
+                          Espécie: <span className="font-semibold text-foreground/85">{currentAnimal.species}</span>
                         </span>
-                        <span className="chip-soft bg-sky-50/40 text-foreground/70">
-                          Raça: <span className="font-semibold text-foreground/80">{currentAnimal.breed}</span>
+                        <span className="chip-soft bg-sky-50/40 text-foreground/75">
+                          Raça: <span className="font-semibold text-foreground/85">{currentAnimal.breed}</span>
                         </span>
                       </div>
-                      {/* Grupo: dados biológicos (Idade, Peso, Sexo, Nasc.) */}
-                      <div className="flex flex-wrap gap-2">
-                        <span className="chip-soft bg-indigo-50/40 text-foreground/70">
-                          Idade: <span className="font-semibold text-foreground/80">{formatAgeLabel(currentAnimal.birthday)}</span>
+                      {/* Grupo: biológicos (Idade, Peso, Sexo, Nasc.) com separação sutil */}
+                      <div className="flex flex-wrap gap-2 pt-2 mt-2 border-t border-border/50">
+                        <span className="chip-soft bg-indigo-50/40 text-foreground/75">
+                          Idade: <span className="font-semibold text-foreground/85">{formatAgeLabel(currentAnimal.birthday)}</span>
                         </span>
-                        <span className="chip-soft bg-purple-50/40 text-foreground/70">
-                          Peso: <span className="font-semibold text-foreground/80">{formatWeightLabel(currentAnimal.weight)}</span>
+                        <span className="chip-soft bg-purple-50/40 text-foreground/75">
+                          Peso: <span className="font-semibold text-foreground/85">{formatWeightLabel(currentAnimal.weight)}</span>
                         </span>
-                        <span className="chip-soft bg-pink-50/40 text-foreground/70">
-                          Sexo: <span className="font-semibold text-foreground/80">{currentAnimal.gender}</span>
+                        <span className="chip-soft bg-pink-50/40 text-foreground/75">
+                          Sexo: <span className="font-semibold text-foreground/85">{currentAnimal.gender}</span>
                         </span>
-                        <span className="chip-soft bg-amber-50/40 text-foreground/70">
-                          Nasc.: <span className="font-semibold text-foreground/80">{formatDateTime(currentAnimal.birthday || '')}</span>
+                        <span className="chip-soft bg-amber-50/40 text-foreground/75">
+                          Nasc.: <span className="font-semibold text-foreground/85">{formatDateTime(currentAnimal.birthday || '')}</span>
                         </span>
                       </div>
                     </div>
@@ -1144,19 +1144,19 @@ const PatientRecordPage = () => {
                 {/* Tutor: secundário, limpo e legível (com endereço resumido) */}
                 <div>
                   <div className="premium-card premium-card--soft p-5">
-                    <p className="text-xs uppercase tracking-wide text-foreground/65">Tutor Responsável</p>
+                    <p className="text-xs uppercase tracking-wide text-foreground/75">Tutor Responsável</p>
                     <p className="text-base font-medium text-foreground mt-1">{currentClient.name}</p>
                     <div className="mt-2 space-y-2">
-                      <p className="text-sm flex items-center gap-2 text-foreground/75">
-                        <FaIdCard className="h-3.5 w-3.5 text-foreground/65" />
-                        <span className="text-foreground/85">{currentClient.clientType === "physical" ? "CPF" : "CNPJ"}:</span> {currentClient.identificationNumber}
+                      <p className="text-sm flex items-center gap-2 text-foreground/80">
+                        <FaIdCard className="h-3.5 w-3.5 text-foreground/70" />
+                        <span className="text-foreground/90">{currentClient.clientType === "physical" ? "CPF" : "CNPJ"}:</span> {currentClient.identificationNumber}
                       </p>
-                      <p className="text-sm flex items-center gap-2 text-foreground/75">
-                        <FaPhone className="h-3.5 w-3.5 text-foreground/65" />
-                        <span className="text-foreground/85">Telefone:</span> {currentClient.mainPhoneContact}
+                      <p className="text-sm flex items-center gap-2 text-foreground/80">
+                        <FaPhone className="h-3.5 w-3.5 text-foreground/70" />
+                        <span className="text-foreground/90">Telefone:</span> {currentClient.mainPhoneContact}
                       </p>
                       <p className="text-sm flex items-start gap-2 text-foreground/70">
-                        <FaMapMarkerAlt className="mt-0.5 h-3.5 w-3.5 text-foreground/60" />
+                        <FaMapMarkerAlt className="mt-0.5 h-3.5 w-3.5 text-foreground/65" />
                         <span>
                           {`${currentClient.address.street}, ${currentClient.address.number}`}<br />
                           {`${currentClient.address.neighborhood} • ${currentClient.address.city} - ${currentClient.address.state}`}
