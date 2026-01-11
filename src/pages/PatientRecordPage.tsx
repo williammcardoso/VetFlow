@@ -182,7 +182,7 @@ const writePatientPayments = (aid: string | undefined, list: PatientPaymentMeta[
 // Helper para identidade visual por tipo de evento
 const EVENT_STYLES: Record<string, { dot: string; badge: string }> = {
   'Atendimento': { dot: 'timeline-dot-blue', badge: 'badge-soft-blue' },
-  'Exame': { dot: 'timeline-dot-purple', badge: 'badge-soft-purple' },
+  'Exame': { dot: 'timeline-dot-slate', badge: 'badge-soft-slate' },
   'Receita': { dot: 'timeline-dot-green', badge: 'badge-soft-green' },
   'Peso': { dot: 'timeline-dot-amber', badge: 'badge-soft-amber' },
   'Venda': { dot: 'timeline-dot-teal', badge: 'badge-soft-teal' },
@@ -196,7 +196,7 @@ const getEventStyle = (type: string) => EVENT_STYLES[type] || { dot: 'timeline-d
 const getEventIconClass = (type: string) => {
   switch (type) {
     case 'Atendimento': return 'icon-soft-blue';
-    case 'Exame': return 'icon-soft-purple';
+    case 'Exame': return 'icon-soft-slate';
     case 'Receita': return 'icon-soft-green';
     case 'Peso': return 'icon-soft-amber';
     case 'Venda':
@@ -1251,7 +1251,7 @@ const PatientRecordPage = () => {
                                           </Button>
                                         )}
                                       </div>
-                                      <p className="text-[1.05rem] font-semibold text-foreground mb-1 line-clamp-2">
+                                      <p className="text-sm md:text-base font-medium text-foreground/90 mb-1 line-clamp-2">
                                         {event.description.replace(/^Documento\s*(:)?\s*/i, '')}
                                       </p>
                                       <div className="flex items-center justify-between">
@@ -1288,6 +1288,28 @@ const PatientRecordPage = () => {
                                         </div>
                                       </div>
                                     </>
+                                  ) : event.type === 'Observação' ? (
+                                    <>
+                                      <div className="flex items-start justify-between mb-2">
+                                        <div className="flex items-center gap-2">
+                                          {React.createElement(event.icon, { className: cn("h-4 w-4", iconClass) })}
+                                          <Badge className={cn("px-2 py-0.5 text-[11px] font-medium rounded-full", styles.badge)}>
+                                            Observação
+                                          </Badge>
+                                        </div>
+                                      </div>
+                                      <p className="text-sm text-foreground/80 mb-2 line-clamp-2">
+                                        {event.summary || event.description.replace(/^Observação\s*(:)?\s*/i, '')}
+                                      </p>
+                                      <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-1 metadata-subtle">
+                                          <FaCalendarAlt className="h-3 w-3" /> {formatDateTime(event.date, event.time)}
+                                        </div>
+                                        <div className="metadata-subtle">
+                                          {event.author ? `Profissional: ${event.author}` : ""}
+                                        </div>
+                                      </div>
+                                    </>
                                   ) : (
                                     <>
                                       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-3.5 gap-2">
@@ -1296,7 +1318,7 @@ const PatientRecordPage = () => {
                                           <Badge className={cn("px-2 py-0.5 text-xs font-medium rounded-full", styles.badge)}>
                                             {event.type}
                                           </Badge>
-                                          <p className="text-[1.1rem] font-semibold text-foreground break-words line-clamp-2">
+                                          <p className="text-[1rem] font-semibold text-foreground break-words line-clamp-2">
                                             {event.description}
                                           </p>
                                         </div>
