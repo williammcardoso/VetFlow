@@ -704,6 +704,23 @@ const PatientRecordPage = () => {
     setSearchParams({ paySaleId: saleId });
   };
 
+  // Helpers de formatação clínica (somente usados no topo)
+  const formatAgeLabel = (birthday?: string) => {
+    if (!birthday) return "-";
+    const birthDate = new Date(birthday);
+    const today = new Date();
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const m = today.getMonth() - birthDate.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) age--;
+    if (age <= 0) return "Menos de 1 ano";
+    return age === 1 ? "1 ano" : `${age} anos`;
+  };
+  const formatWeightLabel = (weight?: number) => {
+    if (weight === undefined || weight === null || isNaN(Number(weight))) return "-";
+    const text = Number(weight).toLocaleString("pt-BR", { minimumFractionDigits: 0, maximumFractionDigits: 1 });
+    return `${text} kg`;
+  };
+
   if (!currentClient || !currentAnimal) {
     return (
       <div className="p-6 text-center">
@@ -1051,61 +1068,69 @@ const PatientRecordPage = () => {
       {/* Topo: Paciente/Tutor/Financeiro com card herói e avatar com brilho */}
       <div className="flex-1 p-6 mx-auto w-full max-w-7xl">
         <div className="mb-6">
-          {/* Card do paciente como perfil clínico premium (menos caixa, mais respiro, sombra suave) */}
+          {/* Card do paciente mais compacto e com hierarquia clara */}
           <Card className="premium-card card-hover">
             <CardHeader className="pb-0 surface-offwhite rounded-t-[1rem]">
-              <div className="grid grid-cols-1 md:grid-cols-[1.5fr_1fr_1fr] gap-6 p-6">
-                {/* Paciente: protagonista */}
+              <div className="grid grid-cols-1 md:grid-cols-[1.5fr_1fr_1fr] gap-5 p-5">
+                {/* Paciente: protagonista, com botão de editar ao lado do nome */}
                 <div className="flex items-start gap-4">
                   {/* Avatar levemente menor e integrado ao texto */}
-                  <Avatar className="h-24 w-24 rounded-full hero-avatar-ring avatar-soft ring-2 ring-white/70">
+                  <Avatar className="h-20 w-20 rounded-full hero-avatar-ring avatar-soft ring-2 ring-white/70">
                     <AvatarImage src={undefined} />
                     <AvatarFallback className="text-[#0F4C5C] text-xl font-bold">
                       <FaPaw className="h-7 w-7" />
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex-1">
-                    {/* Nome mais evidente, com menos espaço "sobrando" */}
-                    <h2 className="text-[2.5rem] leading-tight font-bold tracking-tight text-[#0F4C5C] mb-4">
-                      {currentAnimal.name}
-                    </h2>
-                    {/* Chips clínicas: dois grupos (identificação / biológicos), menores e discretas */}
-                    <div className="space-y-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <h2 className="text-[2.3rem] leading-tight font-bold tracking-tight text-[#0F4C5C]">
+                        {currentAnimal.name}
+                      </h2>
+                      <Button
+                        variant="outline"
+                        onClick={handleEditAnimal}
+                        className="rounded-lg h-9 px-3 border-border/50 text-foreground hover:bg-muted/50"
+                      >
+                        <FaEdit className="mr-2 h-4 w-4" /> Editar
+                      </Button>
+                    </div>
+                    {/* Chips clínicas: dois grupos (identificação / biológicos), menores e discretas, com contraste moderado */}
+                    <div className="space-y-2 mt-3">
                       {/* Grupo: identificação (Espécie, Raça) */}
                       <div className="flex flex-wrap gap-2">
-                        <span className="chip-soft bg-teal-50/40 text-teal-900/75">Espécie: <span className="font-semibold">{currentAnimal.species}</span></span>
-                        <span className="chip-soft bg-sky-50/40 text-sky-900/75">Raça: <span className="font-semibold">{currentAnimal.breed}</span></span>
+                        <span className="chip-soft bg-teal-50/40 text-foreground/70">Espécie: <span className="font-semibold text-foreground/80">{currentAnimal.species}</span></span>
+                        <span className="chip-soft bg-sky-50/40 text-foreground/70">Raça: <span className="font-semibold text-foreground/80">{currentAnimal.breed}</span></span>
                       </div>
                       {/* Grupo: dados biológicos (Idade, Peso, Sexo, Nasc.) */}
                       <div className="flex flex-wrap gap-2">
-                        <span className="chip-soft bg-indigo-50/40 text-indigo-900/75">Idade: <span className="font-semibold">{calculateAge(currentAnimal.birthday)}</span></span>
-                        <span className="chip-soft bg-purple-50/40 text-purple-900/75">Peso: <span className="font-semibold">{currentAnimal.weight.toFixed(1)} kg</span></span>
-                        <span className="chip-soft bg-pink-50/40 text-pink-900/75">Sexo: <span className="font-semibold">{currentAnimal.gender}</span></span>
-                        <span className="chip-soft bg-amber-50/40 text-amber-900/75">Nasc.: <span className="font-semibold">{formatDateTime(currentAnimal.birthday || '')}</span></span>
+                        <span className="chip-soft bg-indigo-50/40 text-foreground/70">Idade: <span className="font-semibold text-foreground/80">{formatAgeLabel(currentAnimal.birthday)}</span></span>
+                        <span className="chip-soft bg-purple-50/40 text-foreground/70">Peso: <span className="font-semibold text-foreground/80">{formatWeightLabel(currentAnimal.weight)}</span></span>
+                        <span className="chip-soft bg-pink-50/40 text-foreground/70">Sexo: <span className="font-semibold text-foreground/80">{currentAnimal.gender}</span></span>
+                        <span className="chip-soft bg-amber-50/40 text-foreground/70">Nasc.: <span className="font-semibold text-foreground/80">{formatDateTime(currentAnimal.birthday || '')}</span></span>
                       </div>
                     </div>
                   </div>
                 </div>
 
-                {/* Tutor: secundário, limpo e legível */}
+                {/* Tutor: secundário, limpo e legível (contraste moderado) */}
                 <div>
                   <div className="premium-card premium-card--soft p-5">
-                    <p className="text-xs uppercase tracking-wide metadata-subtle">Tutor Responsável</p>
+                    <p className="text-xs uppercase tracking-wide text-foreground/60">Tutor Responsável</p>
                     <p className="text-base font-medium text-foreground mt-1">{currentClient.name}</p>
                     <div className="mt-2 space-y-2">
-                      <p className="text-sm flex items-center gap-2 metadata-subtle">
-                        <FaIdCard className="h-3.5 w-3.5" />
-                        <span className="text-foreground/70">{currentClient.clientType === "physical" ? "CPF" : "CNPJ"}:</span> {currentClient.identificationNumber}
+                      <p className="text-sm flex items-center gap-2 text-foreground/70">
+                        <FaIdCard className="h-3.5 w-3.5 text-foreground/60" />
+                        <span className="text-foreground/80">{currentClient.clientType === "physical" ? "CPF" : "CNPJ"}:</span> {currentClient.identificationNumber}
                       </p>
-                      <p className="text-sm flex items-center gap-2 metadata-subtle">
-                        <FaPhone className="h-3.5 w-3.5" />
-                        <span className="text-foreground/70">Telefone:</span> {currentClient.mainPhoneContact}
+                      <p className="text-sm flex items-center gap-2 text-foreground/70">
+                        <FaPhone className="h-3.5 w-3.5 text-foreground/60" />
+                        <span className="text-foreground/80">Telefone:</span> {currentClient.mainPhoneContact}
                       </p>
                     </div>
                   </div>
                 </div>
 
-                {/* Financeiro: status silencioso (menos "widget", leitura rápida) */}
+                {/* Financeiro: status silencioso (menos altura, cor só no valor) */}
                 <div>
                   {(() => {
                     const income = mockFinancialTransactions.filter(t => t.relatedAnimalId === animalId && t.type === 'income').reduce((s, t) => s + t.amount, 0);
@@ -1115,25 +1140,25 @@ const PatientRecordPage = () => {
                     return (
                       <div className="grid grid-cols-1 gap-3">
                         <Card className="premium-card premium-card--soft">
-                          <CardContent className="pt-4 pb-4">
-                            <div className="metadata-subtle">Pago</div>
-                            <div className="text-[1.3rem] leading-tight font-medium text-foreground">
+                          <CardContent className="pt-3 pb-3">
+                            <div className="text-foreground/65 text-xs">Pago</div>
+                            <div className="text-[1.25rem] leading-tight font-medium text-emerald-700">
                               {new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(income)}
                             </div>
                           </CardContent>
                         </Card>
                         <Card className="premium-card premium-card--soft">
-                          <CardContent className="pt-4 pb-4">
-                            <div className="metadata-subtle">Pendências</div>
-                            <div className="text-[1.3rem] leading-tight font-medium text-foreground">
+                          <CardContent className="pt-3 pb-3">
+                            <div className="text-foreground/65 text-xs">Pendências</div>
+                            <div className="text-[1.25rem] leading-tight font-medium text-rose-700">
                               {new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(pending)}
                             </div>
                           </CardContent>
                         </Card>
                         <Card className="premium-card premium-card--soft">
-                          <CardContent className="pt-4 pb-4">
-                            <div className="metadata-subtle">Saldo</div>
-                            <div className="text-[1.3rem] leading-tight font-medium text-foreground">
+                          <CardContent className="pt-3 pb-3">
+                            <div className="text-foreground/65 text-xs">Saldo</div>
+                            <div className="text-[1.25rem] leading-tight font-medium text-blue-700">
                               {new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(net)}
                             </div>
                           </CardContent>
@@ -1144,15 +1169,6 @@ const PatientRecordPage = () => {
                 </div>
               </div>
             </CardHeader>
-
-            {/* Conteúdo com ação discreta, mantendo densidade confortável */}
-            <CardContent className="pt-0 px-6 pb-5">
-              <div className="flex justify-end">
-                <Button variant="outline" onClick={handleEditAnimal} className="rounded-lg border-border/40 text-foreground hover:bg-muted/50">
-                  <FaEdit className="mr-2 h-4 w-4" /> Editar Paciente
-                </Button>
-              </div>
-            </CardContent>
           </Card>
         </div>
 
