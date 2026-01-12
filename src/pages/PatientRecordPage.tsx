@@ -729,9 +729,11 @@ const PatientRecordPage = () => {
 
   prescriptions.forEach(rx => {
     const description = rx.treatmentDescription || rx.medicationName || "Receita sem descrição";
-    let badgeColor = "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200";
-    if (rx.type === 'controlled') badgeColor = "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200";
-    if (rx.type === 'manipulated') badgeColor = "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200";
+    let badgeColor = "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"; // simples
+    if (rx.type === 'manipulated') badgeColor = "bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-200";
+    if (rx.type === 'controlled') badgeColor = "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200";
+
+    const rxIcon = rx.type === 'manipulated' ? FaFlask : rx.type === 'controlled' ? FaExclamationTriangle : FaPrescriptionBottleAlt;
 
     allTimelineEvents.push({
       id: `rx-${rx.id}`,
@@ -740,7 +742,7 @@ const PatientRecordPage = () => {
       type: 'Receita',
       description: `${rx.type === 'simple' ? 'Receita Simples' : rx.type === 'controlled' ? 'Receita Controlada' : 'Receita Manipulada'}: ${description}`,
       summary: rx.instructions || rx.treatmentDescription || rx.medicationName || undefined,
-      icon: FaPrescriptionBottleAlt,
+      icon: rxIcon,
       link: `/clients/${clientId}/animals/${animalId}/edit-prescription/${rx.id}?type=${rx.type}`,
       badgeColor,
       author: mockUserSettings.userName,
@@ -1046,12 +1048,24 @@ const PatientRecordPage = () => {
                         const isWeight = event.type === 'Peso';
                         const weightEntry = isWeight ? weightHistory.find(w => `weight-${w.id}` === event.id) : undefined;
 
-                        // Diferenciações internas da Receita (verde em nuances)
+                        // Receita: variantes definitivas (badge, dot, ícone)
                         const getRecipeVariantClass = () => {
                           const desc = (event.description || "").toLowerCase();
-                          if (desc.includes("controlada")) return "badge-soft-green-variant2"; // verde mais escuro
-                          if (desc.includes("manipulada")) return "badge-soft-green-variant1"; // nuance diferente (teal-like)
-                          return "badge-soft-green"; // verde claro
+                          if (desc.includes("controlada")) return "badge-soft-amber";     // atenção sutil
+                          if (desc.includes("manipulada")) return "badge-soft-teal";      // nuance teal
+                          return "badge-soft-green";                                      // rotina, verde claro
+                        };
+                        const getRecipeDotClass = () => {
+                          const desc = (event.description || "").toLowerCase();
+                          if (desc.includes("controlada")) return "timeline-dot-amber";
+                          if (desc.includes("manipulada")) return "timeline-dot-teal";
+                          return "timeline-dot-green";
+                        };
+                        const getRecipeIconClass = () => {
+                          const desc = (event.description || "").toLowerCase();
+                          if (desc.includes("controlada")) return "icon-soft-amber";
+                          if (desc.includes("manipulada")) return "icon-soft-teal";
+                          return "icon-soft-green";
                         };
 
                         const getExamName = () => {
@@ -1071,7 +1085,6 @@ const PatientRecordPage = () => {
                             return (parts[0] || "Atendimento").trim();
                           }
                           if (event.type === 'Receita') {
-                            // Usa conteúdo específico como título (tratamento, medicação ou instruções)
                             const parts = (event.description || "").split(":");
                             const after = parts.slice(1).join(":").trim();
                             return (after || event.summary || "Receita").trim();
@@ -1080,7 +1093,6 @@ const PatientRecordPage = () => {
                             return getExamName();
                           }
                           if (event.type === 'Vacina') {
-                            // Status como protagonista
                             return "Aplicada";
                           }
                           if (event.type === 'Documento') {
@@ -1114,11 +1126,8 @@ const PatientRecordPage = () => {
                             const next = (event.description || "").match(/Próxima dose:\s*(.*)$/i)?.[1];
                             return next ? `Vacina ${event.description.replace(/^Vacina\s*/i, '').split(".")[0]} • Próxima dose: ${next}` : (event.summary || "").trim();
                           }
-                          if (event.type === 'Documento') {
+                          if (event.type === 'Documento' || event.type === 'Observação') {
                             return ""; // enxuto
-                          }
-                          if (event.type === 'Observação') {
-                            return ""; // título já comunica
                           }
                           if (event.type === 'Venda' || event.type === 'Financeiro') {
                             return (event.summary || event.description.replace(/^\s*Venda:\s*/i, '')).trim();
@@ -1126,7 +1135,15 @@ const PatientRecordPage = () => {
                           return (event.summary || "").trim();
                         };
 
-                        // Botão visualizar (apenas onde faz sentido)
+                        // Botão contextual com rótulo claro
+                        const getViewLabelByType = () => {
+                          if (event.type === 'Receita') return "Ver Receita";
+                          if (event.type === 'Exame') return "Ver Resultado";
+                          if (event.type === 'Documento') return "Abrir Documento";
+                          if (event.type === 'Atendimento') return "Ver Atendimento";
+                          return "Ver";
+                        };
+
                         const onView = () => {
                           if (event.type === 'Exame') {
                             const examId = (event.id || "").replace(/^exam-/, "");
@@ -1152,32 +1169,23 @@ const PatientRecordPage = () => {
 
                         const titleText = getTitleByType();
                         const descText = getDescByType();
-                        const showViewButton = !!event.link || event.type === 'Exame' || event.type === 'Documento';
+                        const showViewButton = !!event.link || event.type === 'Exame' || event.type === 'Documento' || event.type === 'Atendimento';
 
-                        // Integração visual: acento de borda esquerda por tipo (não aplica ao Peso)
-                        const accentBorder =
-                          event.type === 'Atendimento' ? 'border-l-blue-200' :
-                          event.type === 'Receita' ? 'border-l-green-200' :
-                          event.type === 'Exame' ? 'border-l-purple-200' :
-                          event.type === 'Vacina' ? 'border-l-teal-200' :
-                          (event.type === 'Venda' || event.type === 'Financeiro') ? 'border-l-teal-200' :
-                          event.type === 'Documento' ? 'border-l-slate-200' :
-                          event.type === 'Observação' ? 'border-l-gray-200' : 'border-l-gray-200';
+                        // Integração visual do marcador da timeline para Receita
+                        const dotClass = event.type === 'Receita' ? getRecipeDotClass() : styles.dot;
+                        const iconColorClass = event.type === 'Receita' ? getRecipeIconClass() : iconClass;
+                        const badgeClass = event.type === 'Receita' ? getRecipeVariantClass() : styles.badge;
 
                         return (
                           <div key={event.id} className="relative pl-6 sm:pl-8">
                             <span className={cn(
                               "absolute left-1.5 sm:left-2.5 timeline-dot",
-                              styles.dot,
+                              dotClass,
                               isWeight ? "top-5" : "top-1/2 -translate-y-1/2"
                             )} />
-                            <Card className={cn(
-                              "premium-card p-5",
-                              !isWeight && "border-l-[3px]",
-                              !isWeight && accentBorder
-                            )}>
+                            <Card className={cn("premium-card", isWeight ? "p-5" : "p-5")}>
                               {isWeight ? (
-                                // NÃO ALTERAR: card de Peso aprovado
+                                // Mantém Peso intacto
                                 <>
                                   <div className="flex items-start justify-between mb-2">
                                     <div className="flex items-center gap-2">
@@ -1207,20 +1215,17 @@ const PatientRecordPage = () => {
                                   </div>
                                 </>
                               ) : (
-                                // Layout padronizado: esquerda (ícone+badge), centro (título + 1 linha), direita (meta agrupada + ver)
+                                // Layout padronizado: esquerda (ícone+badge), centro (título + 1 linha), direita (meta agrupada + ação clara)
                                 <div className="grid grid-cols-[auto_1fr_auto] items-center gap-3">
-                                  {/* Esquerda: ícone + badge (menor peso que título) */}
+                                  {/* Esquerda: ícone + badge (menos destaque que o título) */}
                                   <div className="flex items-center gap-2">
-                                    {React.createElement(event.icon, { className: cn("h-4 w-4", iconClass) })}
-                                    <Badge className={cn(
-                                      "px-2 py-0.5 text-[11px] font-medium rounded-full",
-                                      event.type === 'Receita' ? getRecipeVariantClass() : styles.badge
-                                    )}>
+                                    {React.createElement(event.icon, { className: cn("h-4 w-4", iconColorClass) })}
+                                    <Badge className={cn("px-2 py-0.5 text-[11px] font-medium rounded-full", badgeClass)}>
                                       {event.type === 'Receita'
                                         ? ((event.description || "").toLowerCase().includes('controlada') ? 'Receita Controlada'
                                           : (event.description || "").toLowerCase().includes('manipulada') ? 'Receita Manipulada'
                                           : 'Receita Simples')
-                                        : (event.type === 'Vacina' ? 'Vacina' : event.type)}
+                                        : (event.type)}
                                     </Badge>
                                   </div>
 
@@ -1234,19 +1239,17 @@ const PatientRecordPage = () => {
                                       event.type === 'Vacina' && "text-[1.05rem] text-foreground",
                                       event.type === 'Documento' && "text-[1rem] text-foreground/90",
                                       event.type === 'Observação' && "text-[0.95rem] text-foreground/75",
-                                      (event.type === 'Venda' || event.type === 'Financeiro') && "text-[1.5rem] font-extrabold text-teal-700 dark:text-teal-300"
+                                      (event.type === 'Venda' || event.type === 'Financeiro') && "text-[1.45rem] font-extrabold text-teal-700 dark:text-teal-300"
                                     )}>
                                       {titleText}
                                     </p>
                                     {descText && (event.type !== 'Documento' && event.type !== 'Observação') && (
-                                      <p className="text-sm metadata-subtle truncate">
-                                        {descText}
-                                      </p>
+                                      <p className="text-sm metadata-subtle truncate">{descText}</p>
                                     )}
                                   </div>
 
-                                  {/* Direita: meta (agrupada) + visualizar */}
-                                  <div className="flex items-start gap-2">
+                                  {/* Direita: metadados agrupados + botão contextual */}
+                                  <div className="flex items-center gap-2">
                                     <div className="text-right">
                                       <div className="flex items-center justify-end gap-1 text-[12.5px] text-foreground/80">
                                         <FaCalendarAlt className="h-3 w-3" /> {formatDateTime(event.date, event.time)}
@@ -1258,11 +1261,12 @@ const PatientRecordPage = () => {
                                     {showViewButton && (
                                       <Button
                                         variant="outline"
-                                        size="icon"
+                                        size="sm"
                                         onClick={onView}
                                         className="rounded-md border-border/50 text-foreground hover:bg-muted/40 transition-colors"
                                       >
-                                        <FaEye className="h-4 w-4" />
+                                        <FaEye className="h-4 w-4 mr-2" />
+                                        {getViewLabelByType()}
                                       </Button>
                                     )}
                                   </div>
