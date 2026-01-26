@@ -6,6 +6,7 @@ import {
   FaArrowLeft, FaUsers, FaPaw, FaPlus, FaEye, FaStethoscope, FaCalendarAlt, FaDollarSign, FaSyringe, FaWeightHanging, FaFileAlt, FaClipboardList, FaCommentAlt, FaHeart, FaMale, FaUser, FaPrint, FaDownload, FaTimes, FaSave, FaBalanceScale, FaFileMedical, FaExclamationTriangle, FaFlask, FaTag, FaBox, FaClock, FaMoneyBillWave, FaArrowUp, FaArrowDown, FaTrashAlt, FaPrescriptionBottleAlt, FaEdit, FaIdCard, FaPhone
 } from "react-icons/fa";
 import { FaMapMarkerAlt } from "react-icons/fa";
+import { FaChevronDown, FaChevronUp, FaEllipsisV } from "react-icons/fa";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -36,6 +37,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { pdf } from "@react-pdf/renderer";
 import { PrescriptionPdfContent } from "@/components/PrescriptionPdfContent";
 import { ExamReportPdfContent } from "@/components/ExamReportPdfContent";
@@ -92,6 +94,7 @@ interface TimelineEvent {
   badgeColor?: string;
   summary?: string;
   author?: string;
+  isAlert?: boolean;
 }
 
 // Helper function to calculate age
@@ -302,6 +305,8 @@ const PatientRecordPage = () => {
 
   const [weightModalOpen, setWeightModalOpen] = useState(false);
   const [selectedWeight, setSelectedWeight] = useState<WeightEntry | null>(null);
+
+  const [isTutorExpanded, setIsTutorExpanded] = useState(false);
 
   const animalFinancialTransactions = mockFinancialTransactions.filter(
     (t) =>
@@ -541,11 +546,11 @@ const PatientRecordPage = () => {
     toast.success("Orçamento salvo.");
   };
   const approveBudget = (id: string) => {
-    const next = patientBudgets.map(b => b.id === id ? { ...b, status: "aprovado" } : b);
+    const next = patientBudgets.map(b => b.id === id ? { ...b, status: "aprovado" as BudgetStatusLocal } : b);
     setPatientBudgets(next); writePatientBudgets(animalId, next);
   };
   const cancelBudget = (id: string) => {
-    const next = patientBudgets.map(b => b.id === id ? { ...b, status: "cancelado" } : b);
+    const next = patientBudgets.map(b => b.id === id ? { ...b, status: "cancelado" as BudgetStatusLocal } : b);
     setPatientBudgets(next); writePatientBudgets(animalId, next);
   };
   const printBudget = async (b: PatientBudgetMeta) => {
@@ -635,7 +640,7 @@ const PatientRecordPage = () => {
     const updatedSales = [...patientSales, newSale];
     setPatientSales(updatedSales); writePatientSales(animalId, updatedSales);
 
-    const updatedBudgets = patientBudgets.map(x => x.id === id ? { ...x, status: "convertido", appointmentId } : x);
+    const updatedBudgets = patientBudgets.map(x => x.id === id ? { ...x, status: "convertido" as BudgetStatusLocal, appointmentId } : x);
     setPatientBudgets(updatedBudgets); writePatientBudgets(animalId, updatedBudgets);
 
     toast.success("Orçamento convertido em venda.");
@@ -720,7 +725,7 @@ const PatientRecordPage = () => {
       time: exam.time,
       type: 'Exame',
       description: `${exam.type}: ${exam.result || 'Ver detalhes'}`,
-      summary: exam.note || exam.result || undefined,
+      summary: exam.nota || exam.result || undefined,
       icon: FaFlask,
       badgeColor: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200",
       author: exam.vet || mockUserSettings.userName,
@@ -774,6 +779,7 @@ const PatientRecordPage = () => {
       icon: FaCommentAlt,
       badgeColor: "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200",
       author: mockUserSettings.userName,
+      isAlert: !!obs.displayAsAlert,
     });
   });
 
@@ -831,199 +837,283 @@ const PatientRecordPage = () => {
     .filter((t) => t.relatedAnimalId === animalId && t.type === 'income')
     .reduce((sum, t) => sum + t.amount, 0);
 
+  const lastAppointment = [...animalAppointments]
+    .sort((a, b) => new Date(`${b.date}T${b.time || "00:00"}`).getTime() - new Date(`${a.date}T${a.time || "00:00"}`).getTime())[0];
+
   return (
     <div className="flex flex-col min-h-screen layered-bg-warm overflow-x-hidden font-exo">
-      <div className="premium-top p-6 pb-4 mx-auto w-full max-w-7xl">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-2 gap-4 sm:gap-2">
-          <div className="flex items-center gap-4">
-            <div>
-              <h1 className="text-[1.85rem] leading-tight font-semibold flex items-center gap-3 text-foreground">
-                <FaUser className="h-5 w-5 text-muted-foreground" /> Prontuário Consolidado
-              </h1>
-              <p className="text-sm text-muted-foreground mt-1 mb-4">Visão completa do histórico médico</p>
-            </div>
+      {/* CABEÇALHO DO PRONTUÁRIO (mais baixo e discreto) */}
+      <div className="premium-top px-5 py-4 mx-auto w-full max-w-7xl">
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <h1 className="text-xl sm:text-[1.35rem] leading-tight font-semibold flex items-center gap-2 text-foreground">
+              <FaUser className="h-4 w-4 text-muted-foreground" />
+              Prontuário Consolidado
+            </h1>
+            <p className="text-xs text-muted-foreground mt-1">Visão completa do histórico clínico</p>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Button variant="outline" className="rounded-md border-border/40 text-foreground hover:bg-muted/50 transition-colors duration-200">
-              <FaPrint className="mr-2 h-4 w-4" /> Imprimir
-            </Button>
-            <Button variant="outline" className="rounded-md border-border/40 text-foreground hover:bg-muted/50 transition-colors duration-200">
-              <FaDownload className="mr-2 h-4 w-4" /> Exportar PDF
-            </Button>
+
+          <div className="flex items-center gap-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-9 w-9 rounded-lg border-border/50 text-muted-foreground hover:text-foreground hover:bg-muted/40"
+                >
+                  <FaEllipsisV className="h-4 w-4" />
+                  <span className="sr-only">Ações</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onSelect={() => window.print()}>
+                  <FaPrint className="mr-2 h-4 w-4" /> Imprimir
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => window.print()}>
+                  <FaDownload className="mr-2 h-4 w-4" /> Exportar PDF
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
             <Link to={`/clients/${currentClient.id}`}>
-              <Button variant="outline" className="rounded-md border-border/40 text-foreground hover:bg-muted/50 transition-colors duration-200">
-                <FaArrowLeft className="mr-2 h-4 w-4" /> Voltar para {currentClient.name}
+              <Button
+                variant="ghost"
+                className="h-9 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/40"
+              >
+                <FaArrowLeft className="mr-2 h-4 w-4" />
+                <span className="hidden sm:inline">Voltar</span>
               </Button>
             </Link>
           </div>
         </div>
-        <p className="text-sm text-muted-foreground">
-          Painel &gt; <Link to="/clients" className="hover:text-primary">Clientes</Link> &gt; <Link to={`/clients/${currentClient.id}`} className="hover:text-primary">{currentClient.name}</Link> &gt; {currentAnimal.name}
+
+        <p className="mt-2 text-xs text-muted-foreground/80">
+          Painel &gt;{" "}
+          <Link to="/clients" className="hover:text-primary">Clientes</Link> &gt;{" "}
+          <Link to={`/clients/${currentClient.id}`} className="hover:text-primary">{currentClient.name}</Link> &gt;{" "}
+          <span className="text-muted-foreground">{currentAnimal.name}</span>
         </p>
       </div>
 
       <div className="flex-1 p-6 mx-auto w-full max-w-7xl">
+        {/* CARD DO PACIENTE (reorganizado para leitura clínica rápida) */}
         <div className="mb-6">
-          <Card className="premium-card card-hover ring-1 ring-border/50">
-            <CardHeader className="pb-0 surface-offwhite rounded-t-[1rem]">
-              <div className="grid grid-cols-1 md:grid-cols-[1.5fr_1fr_1fr] gap-5 p-5">
+          <Card className="premium-card ring-1 ring-border/50">
+            <CardHeader className="pb-0">
+              <div className="p-5">
                 <div className="flex items-start gap-4">
-                  <Avatar className="h-20 w-20 rounded-full hero-avatar-ring avatar-soft ring-2 ring-white/70">
+                  <Avatar className="h-14 w-14 rounded-full ring-1 ring-border bg-white">
                     <AvatarImage src={undefined} />
-                    <AvatarFallback className="text-[#0F4C5C] text-xl font-bold">
-                      <FaPaw className="h-7 w-7" />
+                    <AvatarFallback className="text-foreground font-semibold">
+                      <FaPaw className="h-5 w-5" />
                     </AvatarFallback>
                   </Avatar>
-                  <div className="flex-1">
+
+                  <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-3">
-                      <h2 className="text-[2.4rem] leading-tight font-bold tracking-tight text-[#0F4C5C]">
-                        {currentAnimal.name}
-                      </h2>
+                      <div className="min-w-0">
+                        <h2 className="text-2xl sm:text-[1.9rem] leading-tight font-semibold tracking-tight truncate">
+                          {currentAnimal.name}
+                        </h2>
+                        <div className="mt-1 text-sm text-muted-foreground">
+                          {currentAnimal.species} • {currentAnimal.breed} • {currentAnimal.gender}
+                        </div>
+                      </div>
+
                       <Button
-                        variant="outline"
+                        variant="ghost"
+                        size="icon"
                         onClick={handleEditAnimal}
-                        className="rounded-lg h-9 px-3 border-border/50 text-foreground hover:bg-muted/50"
+                        className="h-9 w-9 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/40"
                       >
-                        <FaEdit className="mr-2 h-4 w-4" /> Editar
+                        <FaEdit className="h-4 w-4" />
+                        <span className="sr-only">Editar paciente</span>
                       </Button>
                     </div>
-                    <div className="mt-3">
-                      <div className="flex flex-wrap gap-2">
-                        <span className="chip-soft bg-teal-50/40 text-foreground/75">
-                          Espécie: <span className="font-semibold text-foreground/85">{currentAnimal.species}</span>
-                        </span>
-                        <span className="chip-soft bg-sky-50/40 text-foreground/75">
-                          Raça: <span className="font-semibold text-foreground/85">{currentAnimal.breed}</span>
-                        </span>
+
+                    <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      {/* Identificação */}
+                      <div className="rounded-xl border border-border bg-muted/20 p-3">
+                        <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Identificação</div>
+                        <div className="mt-2 grid grid-cols-3 gap-2 text-sm">
+                          <div>
+                            <div className="text-xs text-muted-foreground">Espécie</div>
+                            <div className="font-medium text-foreground truncate">{currentAnimal.species || "-"}</div>
+                          </div>
+                          <div>
+                            <div className="text-xs text-muted-foreground">Raça</div>
+                            <div className="font-medium text-foreground truncate">{currentAnimal.breed || "-"}</div>
+                          </div>
+                          <div>
+                            <div className="text-xs text-muted-foreground">Sexo</div>
+                            <div className="font-medium text-foreground truncate">{currentAnimal.gender || "-"}</div>
+                          </div>
+                        </div>
                       </div>
-                      <div className="flex flex-wrap gap-2 pt-2 mt-2 border-t border-border/50">
-                        <span className="chip-soft bg-indigo-50/40 text-foreground/75">
-                          Idade: <span className="font-semibold text-foreground/85">{formatAgeLabel(currentAnimal.birthday)}</span>
-                        </span>
-                        <span className="chip-soft bg-purple-50/40 text-foreground/75">
-                          Peso: <span className="font-semibold text-foreground/85">{formatWeightLabel(currentAnimal.weight)}</span>
-                        </span>
-                        <span className="chip-soft bg-pink-50/40 text-foreground/75">
-                          Sexo: <span className="font-semibold text-foreground/85">{currentAnimal.gender}</span>
-                        </span>
-                        <span className="chip-soft bg-amber-50/40 text-foreground/75">
-                          Nasc.: <span className="font-semibold text-foreground/85">{formatDateTime(currentAnimal.birthday || '')}</span>
-                        </span>
+
+                      {/* Dados clínicos */}
+                      <div className="rounded-xl border border-border bg-muted/20 p-3">
+                        <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Dados clínicos</div>
+                        <div className="mt-2 grid grid-cols-2 gap-2 text-sm">
+                          <div>
+                            <div className="text-xs text-muted-foreground">Idade</div>
+                            <div className="font-medium text-foreground">{formatAgeLabel(currentAnimal.birthday)}</div>
+                          </div>
+                          <div>
+                            <div className="text-xs text-muted-foreground">Peso</div>
+                            <div className="font-medium text-foreground">{formatWeightLabel(currentAnimal.weight)}</div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Datas relevantes */}
+                      <div className="rounded-xl border border-border bg-muted/20 p-3">
+                        <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Datas</div>
+                        <div className="mt-2 grid grid-cols-2 gap-2 text-sm">
+                          <div>
+                            <div className="text-xs text-muted-foreground">Nascimento</div>
+                            <div className="font-medium text-foreground">{currentAnimal.birthday ? formatDateTime(currentAnimal.birthday) : "-"}</div>
+                          </div>
+                          <div>
+                            <div className="text-xs text-muted-foreground">Último atend.</div>
+                            <div className="font-medium text-foreground">{lastAppointment ? formatDateTime(lastAppointment.date, lastAppointment.time) : "-"}</div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Tutor + Financeiro (visualmente secundários) */}
+                    <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-3">
+                      {/* CARD DO TUTOR (mais leve, com colapso) */}
+                      <div className="rounded-xl border border-border bg-white">
+                        <Collapsible open={isTutorExpanded} onOpenChange={setIsTutorExpanded}>
+                          <div className="p-4 flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Tutor</div>
+                              <div className="mt-1 font-medium text-foreground truncate">{currentClient.name}</div>
+                              <div className="mt-1 text-sm text-muted-foreground flex items-center gap-2">
+                                <FaPhone className="h-3.5 w-3.5" />
+                                <span className="truncate">{currentClient.mainPhoneContact || "-"}</span>
+                              </div>
+                            </div>
+                            <CollapsibleTrigger asChild>
+                              <Button variant="ghost" className="h-9 px-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/40">
+                                <span className="text-xs">{isTutorExpanded ? "Menos" : "Mais"}</span>
+                                {isTutorExpanded ? <FaChevronUp className="ml-2 h-3.5 w-3.5" /> : <FaChevronDown className="ml-2 h-3.5 w-3.5" />}
+                              </Button>
+                            </CollapsibleTrigger>
+                          </div>
+                          <CollapsibleContent>
+                            <div className="px-4 pb-4 text-sm text-muted-foreground space-y-2">
+                              <div className="flex items-center gap-2">
+                                <FaIdCard className="h-3.5 w-3.5" />
+                                <span className="truncate">{currentClient.clientType === "physical" ? "CPF" : "CNPJ"}: {currentClient.identificationNumber || "-"}</span>
+                              </div>
+                              <div className="flex items-start gap-2">
+                                <FaMapMarkerAlt className="mt-0.5 h-3.5 w-3.5" />
+                                <span>
+                                  {`${currentClient.address.street}, ${currentClient.address.number}`}<br />
+                                  {`${currentClient.address.neighborhood} • ${currentClient.address.city} - ${currentClient.address.state}`}
+                                </span>
+                              </div>
+                            </div>
+                          </CollapsibleContent>
+                        </Collapsible>
+                      </div>
+
+                      {/* INFORMAÇÕES FINANCEIRAS (secundárias) */}
+                      <div className="rounded-xl border border-border bg-white p-4">
+                        {(() => {
+                          const income = mockFinancialTransactions
+                            .filter((t) => t.relatedAnimalId === animalId && t.type === 'income')
+                            .reduce((s, t) => s + t.amount, 0);
+                          const expense = mockFinancialTransactions
+                            .filter((t) => t.relatedAnimalId === animalId && t.type === 'expense')
+                            .reduce((s, t) => s + t.amount, 0);
+                          const net = income - expense;
+                          const pending = Math.max(
+                            0,
+                            patientSales.reduce((sum, s) => sum + s.total, 0) - patientPayments.reduce((sum, p) => sum + p.amount, 0)
+                          );
+
+                          const fmt = (v: number) =>
+                            new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
+
+                          return (
+                            <div>
+                              <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Financeiro</div>
+                              <div className="mt-3 grid grid-cols-3 gap-2">
+                                <div className="rounded-lg bg-muted/20 p-2">
+                                  <div className="text-[11px] text-muted-foreground">Pago</div>
+                                  <div className="mt-1 text-sm font-semibold text-foreground">{fmt(income)}</div>
+                                </div>
+                                <div className="rounded-lg bg-muted/20 p-2">
+                                  <div className="text-[11px] text-muted-foreground">Pend.</div>
+                                  <div className="mt-1 text-sm font-semibold text-foreground">{fmt(pending)}</div>
+                                </div>
+                                <div className="rounded-lg bg-muted/20 p-2">
+                                  <div className="text-[11px] text-muted-foreground">Saldo</div>
+                                  <div className="mt-1 text-sm font-semibold text-foreground">{fmt(net)}</div>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })()}
                       </div>
                     </div>
                   </div>
-                </div>
-
-                <div>
-                  <div className="premium-card premium-card--soft p-5">
-                    <p className="text-xs uppercase tracking-wide text-foreground/75">Tutor Responsável</p>
-                    <p className="text-base font-medium text-foreground mt-1">{currentClient.name}</p>
-                    <div className="mt-2 space-y-2">
-                      <p className="text-sm flex items-center gap-2 text-foreground/80">
-                        <FaIdCard className="h-3.5 w-3.5 text-foreground/70" />
-                        <span className="text-foreground/90">{currentClient.clientType === "physical" ? "CPF" : "CNPJ"}:</span> {currentClient.identificationNumber}
-                      </p>
-                      <p className="text-sm flex items-center gap-2 text-foreground/80">
-                        <FaPhone className="h-3.5 w-3.5 text-foreground/70" />
-                        <span className="text-foreground/90">Telefone:</span> {currentClient.mainPhoneContact}
-                      </p>
-                      <p className="text-sm flex items-start gap-2 text-foreground/70">
-                        <FaMapMarkerAlt className="mt-0.5 h-3.5 w-3.5 text-foreground/65" />
-                        <span>
-                          {`${currentClient.address.street}, ${currentClient.address.number}`}<br />
-                          {`${currentClient.address.neighborhood} • ${currentClient.address.city} - ${currentClient.address.state}`}
-                        </span>
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  {(() => {
-                    const income = mockFinancialTransactions.filter(t => t.relatedAnimalId === animalId && t.type === 'income').reduce((s, t) => s + t.amount, 0);
-                    const expense = mockFinancialTransactions.filter(t => t.relatedAnimalId === animalId && t.type === 'expense').reduce((s, t) => s + t.amount, 0);
-                    const net = income - expense;
-                    const pending = Math.max(0, patientSales.reduce((sum, s) => sum + s.total, 0) - patientPayments.reduce((sum, p) => sum + p.amount, 0));
-                    return (
-                      <div className="grid grid-cols-1 gap-3">
-                        <Card className="premium-card premium-card--soft">
-                          <CardContent className="pt-3 pb-3">
-                            <div className="text-foreground/70 text-xs">Pago</div>
-                            <div className="text-[1.25rem] leading-tight font-medium text-emerald-700">
-                              {new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(income)}
-                            </div>
-                          </CardContent>
-                        </Card>
-                        <Card className="premium-card premium-card--soft">
-                          <CardContent className="pt-3 pb-3">
-                            <div className="text-foreground/70 text-xs">Pendências</div>
-                            <div className="text-[1.25rem] leading-tight font-medium text-rose-700">
-                              {new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(pending)}
-                            </div>
-                          </CardContent>
-                        </Card>
-                        <Card className="premium-card premium-card--soft">
-                          <CardContent className="pt-3 pb-3">
-                            <div className="text-foreground/70 text-xs">Saldo</div>
-                            <div className="text-[1.25rem] leading-tight font-medium text-blue-700">
-                              {new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(net)}
-                            </div>
-                          </CardContent>
-                        </Card>
-                      </div>
-                    );
-                  })()}
                 </div>
               </div>
             </CardHeader>
           </Card>
         </div>
 
+        {/* ABAS (hierarquia melhor: ativo evidente e inativos discretos) */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full mt-6">
           <div ref={tabScrollRef} className="relative w-full overflow-x-auto overflow-y-hidden no-scrollbar scroll-smooth select-none">
             <TabsList className="inline-flex w-max items-center whitespace-nowrap border-b border-border/40 bg-transparent p-0 rounded-none gap-1">
-              <TabsTrigger value="timeline" className="tab-active-line relative -mb-px pb-2 px-2.5 md:px-3.5 shrink-0 text-sm md:text-[0.95rem] text-muted-foreground hover:text-foreground hover:bg-muted/40 rounded-md transition-colors data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold">
-                <FaClock className="h-4 w-4 mr-1.5 md:mr-2 text-muted-foreground" />
+              <TabsTrigger value="timeline" className="tab-active-line relative -mb-px pb-2 px-2.5 md:px-3.5 shrink-0 text-sm md:text-[0.95rem] text-muted-foreground hover:text-foreground hover:bg-muted/30 rounded-md transition-colors data-[state=active]:text-foreground data-[state=active]:font-semibold">
+                <FaClock className="h-4 w-4 mr-1.5 md:mr-2 text-current opacity-70" />
                 <span className="max-w-[9.5rem] md:max-w-none truncate">Linha do Tempo</span>
                 <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[10px] bg-muted text-foreground/70">{sortedTimelineEvents.length}</span>
               </TabsTrigger>
-              <TabsTrigger value="appointments" className="tab-active-line relative -mb-px pb-2 px-2.5 md:px-3.5 shrink-0 text-sm md:text-[0.95rem] text-muted-foreground hover:text-foreground hover:bg-muted/40 rounded-md transition-colors data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold">
-                <FaStethoscope className="h-4 w-4 mr-1.5 md:mr-2 text-muted-foreground" />
+              <TabsTrigger value="appointments" className="tab-active-line relative -mb-px pb-2 px-2.5 md:px-3.5 shrink-0 text-sm md:text-[0.95rem] text-muted-foreground hover:text-foreground hover:bg-muted/30 rounded-md transition-colors data-[state=active]:text-foreground data-[state=active]:font-semibold">
+                <FaStethoscope className="h-4 w-4 mr-1.5 md:mr-2 text-current opacity-70" />
                 <span className="max-w-[9.5rem] md:max-w-none truncate">Atendimento</span>
                 <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[10px] bg-muted text-foreground/70">{animalAppointments.length}</span>
               </TabsTrigger>
-              <TabsTrigger value="exams" className="tab-active-line relative -mb-px pb-2 px-2.5 md:px-3.5 shrink-0 text-sm md:text-[0.95rem] text-muted-foreground hover:text-foreground hover:bg-muted/40 rounded-md transition-colors data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold">
-                <FaFlask className="h-4 w-4 mr-1.5 md:mr-2 text-muted-foreground" />
+              <TabsTrigger value="exams" className="tab-active-line relative -mb-px pb-2 px-2.5 md:px-3.5 shrink-0 text-sm md:text-[0.95rem] text-muted-foreground hover:text-foreground hover:bg-muted/30 rounded-md transition-colors data-[state=active]:text-foreground data-[state=active]:font-semibold">
+                <FaFlask className="h-4 w-4 mr-1.5 md:mr-2 text-current opacity-70" />
                 <span className="max-w-[9.5rem] md:max-w-none truncate">Exames</span>
                 <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[10px] bg-muted text-foreground/70">{examsList.length}</span>
               </TabsTrigger>
-              <TabsTrigger value="vaccines" className="tab-active-line relative -mb-px pb-2 px-2.5 md:px-3.5 shrink-0 text-sm md:text-[0.95rem] text-muted-foreground hover:text-foreground hover:bg-muted/40 rounded-md transition-colors data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold">
-                <FaSyringe className="h-4 w-4 mr-1.5 md:mr-2 text-muted-foreground" />
+              <TabsTrigger value="vaccines" className="tab-active-line relative -mb-px pb-2 px-2.5 md:px-3.5 shrink-0 text-sm md:text-[0.95rem] text-muted-foreground hover:text-foreground hover:bg-muted/30 rounded-md transition-colors data-[state=active]:text-foreground data-[state=active]:font-semibold">
+                <FaSyringe className="h-4 w-4 mr-1.5 md:mr-2 text-current opacity-70" />
                 <span className="max-w-[9.5rem] md:max-w-none truncate">Vacinas</span>
                 <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[10px] bg-muted text-foreground/70">{vaccines.length}</span>
               </TabsTrigger>
-              <TabsTrigger value="weight" className="tab-active-line relative -mb-px pb-2 px-2.5 md:px-3.5 shrink-0 text-sm md:text-[0.95rem] text-muted-foreground hover:text-foreground hover:bg-muted/40 rounded-md transition-colors data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold">
-                <FaWeightHanging className="h-4 w-4 mr-1.5 md:mr-2 text-muted-foreground" />
+              <TabsTrigger value="weight" className="tab-active-line relative -mb-px pb-2 px-2.5 md:px-3.5 shrink-0 text-sm md:text-[0.95rem] text-muted-foreground hover:text-foreground hover:bg-muted/30 rounded-md transition-colors data-[state=active]:text-foreground data-[state=active]:font-semibold">
+                <FaWeightHanging className="h-4 w-4 mr-1.5 md:mr-2 text-current opacity-70" />
                 <span className="max-w-[9.5rem] md:max-w-none truncate">Peso</span>
                 <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[10px] bg-muted text-foreground/70">{weightHistory.length}</span>
               </TabsTrigger>
-              <TabsTrigger value="documents" className="tab-active-line relative -mb-px pb-2 px-2.5 md:px-3.5 shrink-0 text-sm md:text-[0.95rem] text-muted-foreground hover:text-foreground hover:bg-muted/40 rounded-md transition-colors data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold">
-                <FaFileAlt className="h-4 w-4 mr-1.5 md:mr-2 text-muted-foreground" />
+              <TabsTrigger value="documents" className="tab-active-line relative -mb-px pb-2 px-2.5 md:px-3.5 shrink-0 text-sm md:text-[0.95rem] text-muted-foreground hover:text-foreground hover:bg-muted/30 rounded-md transition-colors data-[state=active]:text-foreground data-[state=active]:font-semibold">
+                <FaFileAlt className="h-4 w-4 mr-1.5 md:mr-2 text-current opacity-70" />
                 <span className="max-w-[9.5rem] md:max-w-none truncate">Documentos</span>
                 <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[10px] bg-muted text-foreground/70">{documents.length}</span>
               </TabsTrigger>
-              <TabsTrigger value="prescriptions" className="tab-active-line relative -mb-px pb-2 px-2.5 md:px-3.5 shrink-0 text-sm md:text-[0.95rem] text-muted-foreground hover:text-foreground hover:bg-muted/40 rounded-md transition-colors data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold">
-                <FaPrescriptionBottleAlt className="h-4 w-4 mr-1.5 md:mr-2 text-muted-foreground" />
+              <TabsTrigger value="prescriptions" className="tab-active-line relative -mb-px pb-2 px-2.5 md:px-3.5 shrink-0 text-sm md:text-[0.95rem] text-muted-foreground hover:text-foreground hover:bg-muted/30 rounded-md transition-colors data-[state=active]:text-foreground data-[state=active]:font-semibold">
+                <FaPrescriptionBottleAlt className="h-4 w-4 mr-1.5 md:mr-2 text-current opacity-70" />
                 <span className="max-w-[9.5rem] md:max-w-none truncate">Receitas</span>
                 <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[10px] bg-muted text-foreground/70">{prescriptions.length}</span>
               </TabsTrigger>
-              <TabsTrigger value="observations" className="tab-active-line relative -mb-px pb-2 px-2.5 md:px-3.5 shrink-0 text-sm md:text-[0.95rem] text-muted-foreground hover:text-foreground hover:bg-muted/40 rounded-md transition-colors data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold">
-                <FaCommentAlt className="h-4 w-4 mr-1.5 md:mr-2 text-muted-foreground" />
+              <TabsTrigger value="observations" className="tab-active-line relative -mb-px pb-2 px-2.5 md:px-3.5 shrink-0 text-sm md:text-[0.95rem] text-muted-foreground hover:text-foreground hover:bg-muted/30 rounded-md transition-colors data-[state=active]:text-foreground data-[state=active]:font-semibold">
+                <FaCommentAlt className="h-4 w-4 mr-1.5 md:mr-2 text-current opacity-70" />
                 <span className="max-w-[9.5rem] md:max-w-none truncate">Observações</span>
                 <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[10px] bg-muted text-foreground/70">{observations.length}</span>
               </TabsTrigger>
-              <TabsTrigger value="financial" className="tab-active-line relative -mb-px pb-2 px-2.5 md:px-3.5 shrink-0 text-sm md:text-[0.95rem] text-muted-foreground hover:text-foreground hover:bg-muted/40 rounded-md transition-colors data-[state=active]:text-[#0F4C5C] data-[state=active]:font-semibold">
-                <FaMoneyBillWave className="h-4 w-4 mr-1.5 md:mr-2 text-muted-foreground" />
+              <TabsTrigger value="financial" className="tab-active-line relative -mb-px pb-2 px-2.5 md:px-3.5 shrink-0 text-sm md:text-[0.95rem] text-muted-foreground hover:text-foreground hover:bg-muted/30 rounded-md transition-colors data-[state=active]:text-foreground data-[state=active]:font-semibold">
+                <FaMoneyBillWave className="h-4 w-4 mr-1.5 md:mr-2 text-current opacity-70" />
                 <span className="max-w-[9.5rem] md:max-w-none truncate">Financeiro</span>
                 <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[10px] bg-muted text-foreground/70">{patientSales.length}</span>
               </TabsTrigger>
@@ -1031,29 +1121,29 @@ const PatientRecordPage = () => {
           </div>
 
           <TabsContent value="timeline" className="mt-4">
-            <Card className="premium-card card-hover">
+            <Card className="premium-card">
               <CardHeader className="pb-4">
-                <CardTitle className="flex items-center gap-2 text-lg font-semibold text-[#0F4C5C]">
-                  <FaClock className="h-5 w-5 text-muted-foreground" /> Linha do Tempo do Paciente
+                <CardTitle className="flex items-center gap-2 text-base font-semibold text-foreground">
+                  <FaClock className="h-4 w-4 text-muted-foreground" /> Linha do Tempo
                 </CardTitle>
+                <p className="text-sm text-muted-foreground">Eventos clínicos em ordem cronológica (escaneável)</p>
               </CardHeader>
               <CardContent className="pt-0">
                 {sortedTimelineEvents.length > 0 ? (
                   <div className="relative">
-                    <div className="absolute left-2 sm:left-3 top-0 bottom-0 w-[2px] timeline-line" />
-                    <div className="space-y-9">
+                    <div className="absolute left-4 sm:left-5 top-0 bottom-0 w-px bg-border/70" />
+                    <div className="space-y-5">
                       {sortedTimelineEvents.map((event) => {
                         const styles = getEventStyle(event.type);
                         const iconClass = getEventIconClass(event.type);
                         const isWeight = event.type === 'Peso';
-                        const weightEntry = isWeight ? weightHistory.find(w => `weight-${w.id}` === event.id) : undefined;
+                        const isAlertObs = event.type === 'Observação' && !!event.isAlert;
 
-                        // Receita: variantes definitivas (badge, dot, ícone)
                         const getRecipeVariantClass = () => {
                           const desc = (event.description || "").toLowerCase();
-                          if (desc.includes("controlada")) return "badge-soft-amber";     // atenção sutil
-                          if (desc.includes("manipulada")) return "badge-soft-teal";      // nuance teal
-                          return "badge-soft-green";                                      // rotina, verde claro
+                          if (desc.includes("controlada")) return "badge-soft-amber";
+                          if (desc.includes("manipulada")) return "badge-soft-teal";
+                          return "badge-soft-green";
                         };
                         const getRecipeDotClass = () => {
                           const desc = (event.description || "").toLowerCase();
@@ -1068,210 +1158,123 @@ const PatientRecordPage = () => {
                           return "icon-soft-green";
                         };
 
-                        const getExamName = () => {
-                          const parts = (event.description || "").split(":");
-                          return parts[0]?.trim() || "Exame";
-                        };
-
-                        const getSaleAmount = () => {
-                          const m = event.description?.match(/R\$\s*([\d.,]+)/);
-                          return m ? m[1] : undefined;
-                        };
-
-                        // Título protagonista por tipo (evita repetir badge)
-                        const getTitleByType = () => {
+                        const getTitle = () => {
                           if (event.type === 'Atendimento') {
-                            const parts = (event.description || "").split(":");
-                            return (parts[0] || "Atendimento").trim();
-                          }
-                          if (event.type === 'Receita') {
-                            const parts = (event.description || "").split(":");
-                            const after = parts.slice(1).join(":").trim();
-                            return (after || event.summary || "Receita").trim();
+                            return (event.description || "").split(":")[0]?.trim() || "Atendimento";
                           }
                           if (event.type === 'Exame') {
-                            return getExamName();
+                            return (event.description || "").split(":")[0]?.trim() || "Exame";
                           }
                           if (event.type === 'Vacina') {
-                            return "Aplicada";
+                            return (event.description || "").split(".")[0]?.trim() || "Vacina";
+                          }
+                          if (event.type === 'Receita') {
+                            const after = (event.description || "").split(":").slice(1).join(":").trim();
+                            return after || "Receita";
                           }
                           if (event.type === 'Documento') {
-                            return (event.description || "").replace(/^Documento\s*(:)?\s*/i, '').trim();
+                            return (event.description || "").replace(/^Documento\s*(:)?\s*/i, '').trim() || "Documento";
                           }
                           if (event.type === 'Observação') {
-                            return (event.summary || event.description || 'Observação').replace(/^Observação\s*(:)?\s*/i, '').trim();
-                          }
-                          if (event.type === 'Venda' || event.type === 'Financeiro') {
-                            return getSaleAmount() ? `R$ ${getSaleAmount()}` : (event.description?.match(/R\$\s*([\d.,]+)/)?.[0] || 'R$ 0,00');
+                            return (event.summary || "").trim() || "Observação";
                           }
                           return event.type;
                         };
 
-                        // Descrição curta (máx 1 linha, não protagonista)
-                        const getDescByType = () => {
-                          if (event.type === 'Atendimento') {
-                            const parts = (event.description || "").split(":");
-                            const after = parts.slice(1).join(":").trim();
-                            return (event.summary || after || "").trim();
-                          }
-                          if (event.type === 'Receita') {
-                            const parts = (event.description || "").split(":");
-                            const after = parts.slice(1).join(":").trim();
-                            return (event.summary || after || "").trim();
-                          }
-                          if (event.type === 'Exame') {
-                            return (event.summary || "").trim();
-                          }
+                        const getSubtitle = () => {
+                          if (event.type === 'Atendimento') return (event.summary || "").trim();
+                          if (event.type === 'Exame') return (event.summary || "").trim();
+                          if (event.type === 'Receita') return (event.summary || "").trim();
                           if (event.type === 'Vacina') {
                             const next = (event.description || "").match(/Próxima dose:\s*(.*)$/i)?.[1];
-                            return next ? `Vacina ${event.description.replace(/^Vacina\s*/i, '').split(".")[0]} • Próxima dose: ${next}` : (event.summary || "").trim();
+                            return next ? `Próxima dose: ${next}` : (event.summary || "").trim();
                           }
-                          if (event.type === 'Documento' || event.type === 'Observação') {
-                            return ""; // enxuto
-                          }
-                          if (event.type === 'Venda' || event.type === 'Financeiro') {
-                            return (event.summary || event.description.replace(/^\s*Venda:\s*/i, '')).trim();
-                          }
-                          return (event.summary || "").trim();
+                          return "";
                         };
 
-                        // Botão contextual com rótulo claro
-                        const getViewLabelByType = () => {
-                          if (event.type === 'Receita') return "Ver Receita";
-                          if (event.type === 'Exame') return "Ver Resultado";
-                          if (event.type === 'Documento') return "Abrir Documento";
-                          if (event.type === 'Atendimento') return "Ver Atendimento";
-                          return "Ver";
-                        };
+                        const dotClass = isAlertObs
+                          ? "bg-red-300"
+                          : (event.type === 'Receita' ? getRecipeDotClass() : styles.dot);
 
+                        const badgeClass = isAlertObs
+                          ? "bg-red-100 text-red-800"
+                          : (event.type === 'Receita' ? getRecipeVariantClass() : styles.badge);
+
+                        const iconColorClass = isAlertObs
+                          ? "text-red-700"
+                          : (event.type === 'Receita' ? getRecipeIconClass() : iconClass);
+
+                        const meta = `${formatDateTime(event.date, event.time)}${event.author ? ` • ${event.author}` : ""}`;
+
+                        const showView = !!event.link || event.type === 'Exame' || event.type === 'Atendimento' || event.type === 'Documento';
                         const onView = () => {
                           if (event.type === 'Exame') {
                             const examId = (event.id || "").replace(/^exam-/, "");
                             if (examId) navigate(`/clients/${clientId}/animals/${animalId}/edit-exam/${examId}`);
                             return;
                           }
-                          if (event.type === 'Documento' && event.link) {
-                            if (event.link.startsWith("http") || event.link.startsWith("blob:")) {
-                              window.open(event.link, "_blank");
-                            } else {
-                              navigate(event.link);
-                            }
-                            return;
-                          }
                           if (event.link) {
-                            if (event.link.startsWith("http") || event.link.startsWith("blob:")) {
-                              window.open(event.link, "_blank");
-                            } else {
-                              navigate(event.link);
-                            }
+                            if (event.link.startsWith("http") || event.link.startsWith("blob:")) window.open(event.link, "_blank");
+                            else navigate(event.link);
                           }
                         };
 
-                        const titleText = getTitleByType();
-                        const descText = getDescByType();
-                        const showViewButton = !!event.link || event.type === 'Exame' || event.type === 'Documento' || event.type === 'Atendimento';
-
-                        // Integração visual do marcador da timeline para Receita
-                        const dotClass = event.type === 'Receita' ? getRecipeDotClass() : styles.dot;
-                        const iconColorClass = event.type === 'Receita' ? getRecipeIconClass() : iconClass;
-                        const badgeClass = event.type === 'Receita' ? getRecipeVariantClass() : styles.badge;
+                        const title = getTitle();
+                        const subtitle = getSubtitle();
 
                         return (
-                          <div key={event.id} className="relative pl-6 sm:pl-8">
+                          <div key={event.id} className="relative pl-9 sm:pl-11">
                             <span className={cn(
-                              "absolute left-1.5 sm:left-2.5 timeline-dot",
-                              dotClass,
-                              isWeight ? "top-5" : "top-1/2 -translate-y-1/2"
+                              "absolute left-3.5 sm:left-4.5 top-6 h-2.5 w-2.5 rounded-full",
+                              dotClass
                             )} />
-                            <Card className={cn("premium-card", isWeight ? "p-5" : "p-5")}>
-                              {isWeight ? (
-                                // Mantém Peso intacto
-                                <>
-                                  <div className="flex items-start justify-between mb-2">
-                                    <div className="flex items-center gap-2">
-                                      {React.createElement(event.icon, { className: cn("h-4 w-4", iconClass) })}
-                                      <Badge className={cn("px-2 py-0.5 text-xs font-medium rounded-full", styles.badge)}>
-                                        Peso
-                                      </Badge>
-                                    </div>
-                                  </div>
-                                  <div className="flex items-center gap-2 mb-1">
-                                    <p className="text-[1.6rem] leading-tight font-extrabold text-amber-700 dark:text-amber-400">
-                                      {weightEntry
-                                        ? `${Number(weightEntry.weight).toLocaleString("pt-BR", { minimumFractionDigits: 0, maximumFractionDigits: 1 })} kg`
-                                        : (event.description?.match(/(\d+[.,]?\d*)\s*kg/i)?.[1] ? `${event.description.match(/(\d+[.,]?\d*)\s*kg/i)![1]} kg` : "")}
-                                    </p>
-                                  </div>
-                                  <p className="text-xs sm:text-sm text-amber-900/70 dark:text-amber-200/80 mb-2">
-                                    Peso registrado • Origem: {weightEntry?.source || (event.summary?.replace(/Origem:\s*/i, '') || '-')}
-                                  </p>
-                                  <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-1 metadata-subtle">
-                                      <FaCalendarAlt className="h-3 w-3" /> {formatDateTime(event.date, event.time)}
-                                    </div>
-                                    <div className="metadata-subtle">
-                                      {event.author ? `Profissional: ${event.author}` : ""}
-                                    </div>
-                                  </div>
-                                </>
-                              ) : (
-                                // Layout padronizado: esquerda (ícone+badge), centro (título + 1 linha), direita (meta agrupada + ação clara)
-                                <div className="grid grid-cols-[auto_1fr_auto] items-center gap-3">
-                                  {/* Esquerda: ícone + badge (menos destaque que o título) */}
+
+                            <Card className="premium-card p-4 sm:p-5">
+                              <div className="flex items-start justify-between gap-4">
+                                <div className="min-w-0">
                                   <div className="flex items-center gap-2">
-                                    {React.createElement(event.icon, { className: cn("h-4 w-4", iconColorClass) })}
-                                    <Badge className={cn("px-2 py-0.5 text-[11px] font-medium rounded-full", badgeClass)}>
-                                      {event.type === 'Receita'
-                                        ? ((event.description || "").toLowerCase().includes('controlada') ? 'Receita Controlada'
-                                          : (event.description || "").toLowerCase().includes('manipulada') ? 'Receita Manipulada'
-                                          : 'Receita Simples')
-                                        : (event.type)}
-                                    </Badge>
+                                    <span className={cn("chip-soft", badgeClass)}>
+                                      {isAlertObs
+                                        ? "Alerta"
+                                        : event.type === 'Receita'
+                                          ? ((event.description || "").toLowerCase().includes('controlada') ? 'Receita Controlada'
+                                            : (event.description || "").toLowerCase().includes('manipulada') ? 'Receita Manipulada'
+                                            : 'Receita Simples')
+                                          : event.type}
+                                    </span>
+                                    <span className="text-xs text-muted-foreground truncate">{meta}</span>
                                   </div>
 
-                                  {/* Centro: título protagonista + descrição 1 linha */}
-                                  <div className="min-w-0">
-                                    <p className={cn(
-                                      "font-semibold mb-0.5 truncate",
-                                      event.type === 'Atendimento' && "text-[1.2rem] text-foreground",
-                                      event.type === 'Receita' && "text-[1.05rem] text-foreground",
-                                      event.type === 'Exame' && "text-[1.05rem] text-foreground",
-                                      event.type === 'Vacina' && "text-[1.05rem] text-foreground",
-                                      event.type === 'Documento' && "text-[1rem] text-foreground/90",
-                                      event.type === 'Observação' && "text-[0.95rem] text-foreground/75",
-                                      (event.type === 'Venda' || event.type === 'Financeiro') && "text-[1.45rem] font-extrabold text-teal-700 dark:text-teal-300"
-                                    )}>
-                                      {titleText}
-                                    </p>
-                                    {descText && (event.type !== 'Documento' && event.type !== 'Observação') && (
-                                      <p className="text-sm metadata-subtle truncate">{descText}</p>
-                                    )}
-                                  </div>
-
-                                  {/* Direita: metadados agrupados + botão contextual */}
-                                  <div className="flex items-center gap-2">
-                                    <div className="text-right">
-                                      <div className="flex items-center justify-end gap-1 text-[12.5px] text-foreground/80">
-                                        <FaCalendarAlt className="h-3 w-3" /> {formatDateTime(event.date, event.time)}
-                                      </div>
-                                      <div className="text-[12.5px] text-foreground/80">
-                                        {event.author ? `Profissional: ${event.author}` : ""}
-                                      </div>
+                                  <div className="mt-2 flex items-start gap-3">
+                                    <div className={cn("h-9 w-9 rounded-xl flex items-center justify-center bg-muted/30", iconColorClass)}>
+                                      {React.createElement(event.icon, { className: "h-4 w-4" })}
                                     </div>
-                                    {showViewButton && (
-                                      <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={onView}
-                                        className="rounded-md border-border/50 text-foreground hover:bg-muted/40 transition-colors"
-                                      >
-                                        <FaEye className="h-4 w-4 mr-2" />
-                                        {getViewLabelByType()}
-                                      </Button>
-                                    )}
+
+                                    <div className="min-w-0">
+                                      <div className="text-[15px] sm:text-base font-semibold text-foreground leading-snug truncate">
+                                        {title}
+                                      </div>
+                                      {subtitle && (
+                                        <div className="mt-0.5 text-sm text-muted-foreground leading-relaxed line-clamp-2">
+                                          {subtitle}
+                                        </div>
+                                      )}
+                                    </div>
                                   </div>
                                 </div>
-                              )}
+
+                                {showView && (
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={onView}
+                                    className="h-9 w-9 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/40"
+                                  >
+                                    <FaEye className="h-4 w-4" />
+                                    <span className="sr-only">Ver</span>
+                                  </Button>
+                                )}
+                              </div>
                             </Card>
                           </div>
                         );
@@ -1813,7 +1816,7 @@ const PatientRecordPage = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent className="pt-0">
-                <Tabs value={financeTab} onValueChange={setFinanceTab} className="w-full">
+                <Tabs value={financeTab} onValueChange={(v) => setFinanceTab(v as any)} className="w-full">
                   <TabsList className="grid grid-cols-3 w-full mb-4">
                     <TabsTrigger value="orcamentos">Orçamentos</TabsTrigger>
                     <TabsTrigger value="vendas">Vendas</TabsTrigger>
