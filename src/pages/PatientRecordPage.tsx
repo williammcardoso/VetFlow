@@ -56,6 +56,14 @@ import CurrencyInput from "@/components/CurrencyInput";
 import { getCatalog, findCatalogItem, adjustStock } from "@/mockData/catalog";
 import { getRegistryList } from "@/mockData/registry";
 import BudgetReportPdfContent from "@/components/BudgetReportPdfContent";
+import {
+  Circle as CircleIcon,
+  FileText as FileTextIcon,
+  FlaskConical as FlaskConicalIcon,
+  Stethoscope as StethoscopeIcon,
+  Syringe as SyringeIcon,
+  AlertTriangle as AlertTriangleIcon,
+} from "lucide-react";
 
 // Tipos locais para documentos e observações
 interface DocumentEntry {
@@ -840,6 +848,60 @@ const PatientRecordPage = () => {
   const lastAppointment = [...animalAppointments]
     .sort((a, b) => new Date(`${b.date}T${b.time || "00:00"}`).getTime() - new Date(`${a.date}T${a.time || "00:00"}`).getTime())[0];
 
+  const latestWeight = (() => {
+    if (weightHistory.length === 0) return currentAnimal.weight;
+    const sorted = [...weightHistory].sort((a, b) => {
+      const da = new Date(`${a.date}T${a.time || "00:00"}`).getTime();
+      const db = new Date(`${b.date}T${b.time || "00:00"}`).getTime();
+      return db - da;
+    });
+    return sorted[0]?.weight ?? currentAnimal.weight;
+  })();
+
+  const formatAgeYearsMonths = (birthday?: string) => {
+    if (!birthday) return "-";
+
+    const birth = new Date(birthday);
+    const now = new Date();
+
+    let months = (now.getFullYear() - birth.getFullYear()) * 12 + (now.getMonth() - birth.getMonth());
+    if (now.getDate() < birth.getDate()) months -= 1;
+    if (months < 0) months = 0;
+
+    const years = Math.floor(months / 12);
+    const rem = months % 12;
+
+    const yearLabel = years === 1 ? "1 ano" : `${years} anos`;
+    const monthLabel = rem === 1 ? "1 mês" : `${rem} meses`;
+
+    if (years <= 0 && rem <= 0) return "Menos de 1 mês";
+    if (years <= 0) return monthLabel;
+    if (rem <= 0) return yearLabel;
+    return `${yearLabel} e ${monthLabel}`;
+  };
+
+  const getTimelineMarkerColor = (dotClass: string) => {
+    if (dotClass.includes("timeline-dot-blue")) return "#93c5fd";
+    if (dotClass.includes("timeline-dot-purple")) return "#c4b5fd";
+    if (dotClass.includes("timeline-dot-green")) return "#86efac";
+    if (dotClass.includes("timeline-dot-amber")) return "#fcd34d";
+    if (dotClass.includes("timeline-dot-teal")) return "#99f6e4";
+    if (dotClass.includes("timeline-dot-orange")) return "#fdba74";
+    if (dotClass.includes("timeline-dot-slate")) return "#cbd5e1";
+    if (dotClass.includes("timeline-dot-gray")) return "#cbd5e1";
+    if (dotClass.includes("bg-red-300")) return "#fca5a5";
+    return "#cbd5e1";
+  };
+
+  const getTimelineMarkerIcon = (event: TimelineEvent) => {
+    if (event.type === "Atendimento") return StethoscopeIcon;
+    if (event.type === "Exame") return FlaskConicalIcon;
+    if (event.type === "Vacina") return SyringeIcon;
+    if (event.type === "Receita") return FileTextIcon;
+    if (event.type === "Observação" && event.isAlert) return AlertTriangleIcon;
+    return CircleIcon;
+  };
+
   return (
     <div className="flex flex-col min-h-screen layered-bg-warm overflow-x-hidden font-exo">
       {/* CABEÇALHO DO PRONTUÁRIO (mais baixo e discreto) */}
@@ -927,32 +989,17 @@ const PatientRecordPage = () => {
                 </Button>
               </div>
 
-              {/* INFORMAÇÕES CLÍNICAS (chips/pills) */}
+              {/* CHIPS DO PACIENTE: apenas dados variáveis */}
               <div className="mt-4 flex flex-wrap gap-2">
-                <span className="inline-flex items-center gap-2 rounded-full border border-border bg-white px-3 py-1.5 text-sm">
-                  <FaPaw className="h-3.5 w-3.5 text-[rgb(5,150,105)]" />
-                  <span className="text-muted-foreground">Espécie</span>
-                  <span className="font-medium text-foreground">{currentAnimal.species || "-"}</span>
-                </span>
-                <span className="inline-flex items-center gap-2 rounded-full border border-border bg-white px-3 py-1.5 text-sm">
-                  <FaTag className="h-3.5 w-3.5 text-[rgb(5,150,105)]" />
-                  <span className="text-muted-foreground">Raça</span>
-                  <span className="font-medium text-foreground">{currentAnimal.breed || "-"}</span>
-                </span>
-                <span className="inline-flex items-center gap-2 rounded-full border border-border bg-white px-3 py-1.5 text-sm">
-                  <FaMale className="h-3.5 w-3.5 text-[rgb(5,150,105)]" />
-                  <span className="text-muted-foreground">Sexo</span>
-                  <span className="font-medium text-foreground">{currentAnimal.gender || "-"}</span>
-                </span>
                 <span className="inline-flex items-center gap-2 rounded-full border border-border bg-white px-3 py-1.5 text-sm">
                   <FaClock className="h-3.5 w-3.5 text-[rgb(5,150,105)]" />
                   <span className="text-muted-foreground">Idade</span>
-                  <span className="font-medium text-foreground">{formatAgeLabel(currentAnimal.birthday)}</span>
+                  <span className="font-medium text-foreground">{formatAgeYearsMonths(currentAnimal.birthday)}</span>
                 </span>
                 <span className="inline-flex items-center gap-2 rounded-full border border-border bg-white px-3 py-1.5 text-sm">
                   <FaWeightHanging className="h-3.5 w-3.5 text-[rgb(5,150,105)]" />
                   <span className="text-muted-foreground">Peso</span>
-                  <span className="font-medium text-foreground">{formatWeightLabel(currentAnimal.weight)}</span>
+                  <span className="font-medium text-foreground">{formatWeightLabel(latestWeight)}</span>
                 </span>
                 <span className="inline-flex items-center gap-2 rounded-full border border-border bg-white px-3 py-1.5 text-sm">
                   <FaCalendarAlt className="h-3.5 w-3.5 text-[rgb(5,150,105)]" />
@@ -1025,15 +1072,15 @@ const PatientRecordPage = () => {
                         <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Financeiro</div>
                         <div className="mt-3 grid grid-cols-3 gap-3">
                           <div>
-                            <div className="text-[11px] text-muted-foreground">Pago</div>
+                            <div className="text-[11px] text-muted-foreground">Pago neste prontuário</div>
                             <div className="mt-1 text-sm font-semibold text-emerald-600">{fmt(income)}</div>
                           </div>
                           <div>
-                            <div className="text-[11px] text-muted-foreground">Pend.</div>
+                            <div className="text-[11px] text-muted-foreground">Pendências ativas</div>
                             <div className="mt-1 text-sm font-semibold text-rose-600">{fmt(pending)}</div>
                           </div>
                           <div>
-                            <div className="text-[11px] text-muted-foreground">Saldo</div>
+                            <div className="text-[11px] text-muted-foreground">Saldo do paciente</div>
                             <div className="mt-1 text-sm font-semibold text-sky-600">{fmt(net)}</div>
                           </div>
                         </div>
@@ -1114,7 +1161,6 @@ const PatientRecordPage = () => {
                       {sortedTimelineEvents.map((event) => {
                         const styles = getEventStyle(event.type);
                         const iconClass = getEventIconClass(event.type);
-                        const isWeight = event.type === 'Peso';
                         const isAlertObs = event.type === 'Observação' && !!event.isAlert;
 
                         const getRecipeVariantClass = () => {
@@ -1200,12 +1246,14 @@ const PatientRecordPage = () => {
                         const title = getTitle();
                         const subtitle = getSubtitle();
 
+                        const MarkerIcon = getTimelineMarkerIcon(event);
+                        const markerColor = getTimelineMarkerColor(dotClass);
+
                         return (
                           <div key={event.id} className="relative pl-9 sm:pl-11">
-                            <span className={cn(
-                              "absolute left-3.5 sm:left-4.5 top-6 h-2.5 w-2.5 rounded-full",
-                              dotClass
-                            )} />
+                            <span className="absolute left-3.5 sm:left-4.5 top-5 h-6 w-6 rounded-full bg-white ring-1 ring-border flex items-center justify-center">
+                              <MarkerIcon className="h-4 w-4" strokeWidth={1.6} style={{ color: markerColor }} />
+                            </span>
 
                             <Card className="premium-card p-4 sm:p-5">
                               <div className="flex items-start justify-between gap-4">
