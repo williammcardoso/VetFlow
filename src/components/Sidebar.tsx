@@ -125,13 +125,16 @@ interface SidebarProps {
   onToggleDesktop: () => void;
 }
 
+const ACTIVE_BG = "bg-[rgb(236,250,244)]";
+const ACTIVE_FG = "text-[rgb(16,185,129)]";
+
 function NavIcon({ icon: Icon, active }: { icon: React.ElementType; active?: boolean }) {
   return (
     <Icon
       className={cn(
         "h-[18px] w-[18px] shrink-0",
         "text-muted-foreground/90 transition-colors",
-        active && "text-primary",
+        active && ACTIVE_FG,
         "group-hover:text-primary/80"
       )}
       strokeWidth={1.55}
@@ -179,7 +182,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, onCloseMobile, isDeskto
                         "rounded-2xl",
                         "hover:bg-primary/5",
                         isDesktopOpen ? "px-3 gap-3 justify-start" : "px-0 gap-0 justify-center",
-                        isActive && "bg-sidebar-primary ring-1 ring-primary/10"
+                        isActive && cn(ACTIVE_BG, "ring-1 ring-black/0")
                       )}
                       onClick={onCloseMobile}
                     >
@@ -189,8 +192,8 @@ const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, onCloseMobile, isDeskto
                           className={cn(
                             "text-[13.5px] leading-none transition-colors",
                             "relative top-[0.5px]",
-                            isActive ? "font-medium text-sidebar-primary-foreground" : "font-normal text-foreground/60",
-                            "group-hover:text-sidebar-primary-foreground"
+                            isActive ? cn("font-medium", ACTIVE_FG) : "font-normal text-foreground/60",
+                            "group-hover:text-foreground/80"
                           )}
                         >
                           {item.title}
@@ -213,7 +216,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, onCloseMobile, isDeskto
                         <div className={cn("flex items-center", isDesktopOpen ? "gap-3 w-full" : "gap-0 justify-center")}>
                           <NavIcon icon={Icon} />
                           {isDesktopOpen && (
-                            <span className="text-[13.5px] font-normal text-foreground/60 group-hover:text-sidebar-primary-foreground relative top-[0.5px]">
+                            <span className="text-[13.5px] font-normal text-foreground/60 group-hover:text-foreground/80 relative top-[0.5px]">
                               {item.title}
                             </span>
                           )}
@@ -234,7 +237,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, onCloseMobile, isDeskto
                                   className={cn(
                                     "group flex items-center gap-3 rounded-2xl px-3 py-2 transition-all",
                                     "hover:bg-primary/5",
-                                    subActive && "bg-sidebar-primary ring-1 ring-primary/10"
+                                    subActive && cn(ACTIVE_BG, "ring-1 ring-black/0")
                                   )}
                                   onClick={onCloseMobile}
                                 >
@@ -242,10 +245,8 @@ const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, onCloseMobile, isDeskto
                                   <span
                                     className={cn(
                                       "text-[13px] transition-colors relative top-[0.5px]",
-                                      subActive
-                                        ? "font-medium text-sidebar-primary-foreground"
-                                        : "font-normal text-foreground/60",
-                                      "group-hover:text-sidebar-primary-foreground"
+                                      subActive ? cn("font-medium", ACTIVE_FG) : "font-normal text-foreground/60",
+                                      "group-hover:text-foreground/80"
                                     )}
                                   >
                                     {subItem.title}
