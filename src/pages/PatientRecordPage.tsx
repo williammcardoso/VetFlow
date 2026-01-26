@@ -899,172 +899,150 @@ const PatientRecordPage = () => {
         {/* CARD DO PACIENTE (reorganizado para leitura clínica rápida) */}
         <div className="mb-6">
           <Card className="premium-card ring-1 ring-border/50">
-            <CardHeader className="pb-0">
-              <div className="p-5">
-                <div className="flex items-start gap-4">
-                  <Avatar className="h-14 w-14 rounded-full ring-1 ring-border bg-white">
-                    <AvatarImage src={undefined} />
-                    <AvatarFallback className="text-foreground font-semibold">
-                      <FaPaw className="h-5 w-5" />
-                    </AvatarFallback>
-                  </Avatar>
+            <CardContent className="p-5">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex items-start gap-4 min-w-0">
+                  <div className="h-14 w-14 rounded-2xl bg-[rgb(240,253,248)] text-[rgb(5,150,105)] ring-1 ring-[rgba(5,150,105,0.12)] flex items-center justify-center">
+                    <FaPaw className="h-6 w-6" />
+                  </div>
 
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <h2 className="text-2xl sm:text-[1.9rem] leading-tight font-semibold tracking-tight truncate">
-                          {currentAnimal.name}
-                        </h2>
-                        <div className="mt-1 text-sm text-muted-foreground">
-                          {currentAnimal.species} • {currentAnimal.breed} • {currentAnimal.gender}
-                        </div>
-                      </div>
-
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={handleEditAnimal}
-                        className="h-9 w-9 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/40"
-                      >
-                        <FaEdit className="h-4 w-4" />
-                        <span className="sr-only">Editar paciente</span>
-                      </Button>
-                    </div>
-
-                    <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
-                      {/* Identificação */}
-                      <div className="rounded-xl border border-border bg-muted/20 p-3">
-                        <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Identificação</div>
-                        <div className="mt-2 grid grid-cols-3 gap-2 text-sm">
-                          <div>
-                            <div className="text-xs text-muted-foreground">Espécie</div>
-                            <div className="font-medium text-foreground truncate">{currentAnimal.species || "-"}</div>
-                          </div>
-                          <div>
-                            <div className="text-xs text-muted-foreground">Raça</div>
-                            <div className="font-medium text-foreground truncate">{currentAnimal.breed || "-"}</div>
-                          </div>
-                          <div>
-                            <div className="text-xs text-muted-foreground">Sexo</div>
-                            <div className="font-medium text-foreground truncate">{currentAnimal.gender || "-"}</div>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Dados clínicos */}
-                      <div className="rounded-xl border border-border bg-muted/20 p-3">
-                        <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Dados clínicos</div>
-                        <div className="mt-2 grid grid-cols-2 gap-2 text-sm">
-                          <div>
-                            <div className="text-xs text-muted-foreground">Idade</div>
-                            <div className="font-medium text-foreground">{formatAgeLabel(currentAnimal.birthday)}</div>
-                          </div>
-                          <div>
-                            <div className="text-xs text-muted-foreground">Peso</div>
-                            <div className="font-medium text-foreground">{formatWeightLabel(currentAnimal.weight)}</div>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Datas relevantes */}
-                      <div className="rounded-xl border border-border bg-muted/20 p-3">
-                        <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Datas</div>
-                        <div className="mt-2 grid grid-cols-2 gap-2 text-sm">
-                          <div>
-                            <div className="text-xs text-muted-foreground">Nascimento</div>
-                            <div className="font-medium text-foreground">{currentAnimal.birthday ? formatDateTime(currentAnimal.birthday) : "-"}</div>
-                          </div>
-                          <div>
-                            <div className="text-xs text-muted-foreground">Último atend.</div>
-                            <div className="font-medium text-foreground">{lastAppointment ? formatDateTime(lastAppointment.date, lastAppointment.time) : "-"}</div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Tutor + Financeiro (visualmente secundários) */}
-                    <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-3">
-                      {/* CARD DO TUTOR (mais leve, com colapso) */}
-                      <div className="rounded-xl border border-border bg-white">
-                        <Collapsible open={isTutorExpanded} onOpenChange={setIsTutorExpanded}>
-                          <div className="p-4 flex items-start justify-between gap-3">
-                            <div className="min-w-0">
-                              <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Tutor</div>
-                              <div className="mt-1 font-medium text-foreground truncate">{currentClient.name}</div>
-                              <div className="mt-1 text-sm text-muted-foreground flex items-center gap-2">
-                                <FaPhone className="h-3.5 w-3.5" />
-                                <span className="truncate">{currentClient.mainPhoneContact || "-"}</span>
-                              </div>
-                            </div>
-                            <CollapsibleTrigger asChild>
-                              <Button variant="ghost" className="h-9 px-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/40">
-                                <span className="text-xs">{isTutorExpanded ? "Menos" : "Mais"}</span>
-                                {isTutorExpanded ? <FaChevronUp className="ml-2 h-3.5 w-3.5" /> : <FaChevronDown className="ml-2 h-3.5 w-3.5" />}
-                              </Button>
-                            </CollapsibleTrigger>
-                          </div>
-                          <CollapsibleContent>
-                            <div className="px-4 pb-4 text-sm text-muted-foreground space-y-2">
-                              <div className="flex items-center gap-2">
-                                <FaIdCard className="h-3.5 w-3.5" />
-                                <span className="truncate">{currentClient.clientType === "physical" ? "CPF" : "CNPJ"}: {currentClient.identificationNumber || "-"}</span>
-                              </div>
-                              <div className="flex items-start gap-2">
-                                <FaMapMarkerAlt className="mt-0.5 h-3.5 w-3.5" />
-                                <span>
-                                  {`${currentClient.address.street}, ${currentClient.address.number}`}<br />
-                                  {`${currentClient.address.neighborhood} • ${currentClient.address.city} - ${currentClient.address.state}`}
-                                </span>
-                              </div>
-                            </div>
-                          </CollapsibleContent>
-                        </Collapsible>
-                      </div>
-
-                      {/* INFORMAÇÕES FINANCEIRAS (secundárias) */}
-                      <div className="rounded-xl border border-border bg-white p-4">
-                        {(() => {
-                          const income = mockFinancialTransactions
-                            .filter((t) => t.relatedAnimalId === animalId && t.type === 'income')
-                            .reduce((s, t) => s + t.amount, 0);
-                          const expense = mockFinancialTransactions
-                            .filter((t) => t.relatedAnimalId === animalId && t.type === 'expense')
-                            .reduce((s, t) => s + t.amount, 0);
-                          const net = income - expense;
-                          const pending = Math.max(
-                            0,
-                            patientSales.reduce((sum, s) => sum + s.total, 0) - patientPayments.reduce((sum, p) => sum + p.amount, 0)
-                          );
-
-                          const fmt = (v: number) =>
-                            new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
-
-                          return (
-                            <div>
-                              <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Financeiro</div>
-                              <div className="mt-3 grid grid-cols-3 gap-2">
-                                <div className="rounded-lg bg-muted/20 p-2">
-                                  <div className="text-[11px] text-muted-foreground">Pago</div>
-                                  <div className="mt-1 text-sm font-semibold text-foreground">{fmt(income)}</div>
-                                </div>
-                                <div className="rounded-lg bg-muted/20 p-2">
-                                  <div className="text-[11px] text-muted-foreground">Pend.</div>
-                                  <div className="mt-1 text-sm font-semibold text-foreground">{fmt(pending)}</div>
-                                </div>
-                                <div className="rounded-lg bg-muted/20 p-2">
-                                  <div className="text-[11px] text-muted-foreground">Saldo</div>
-                                  <div className="mt-1 text-sm font-semibold text-foreground">{fmt(net)}</div>
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })()}
-                      </div>
-                    </div>
+                  <div className="min-w-0">
+                    <h2 className="text-2xl sm:text-[1.95rem] leading-tight font-semibold tracking-tight truncate">
+                      {currentAnimal.name}
+                    </h2>
+                    <p className="mt-1 text-sm text-muted-foreground truncate">
+                      {currentAnimal.species} • {currentAnimal.breed} • {currentAnimal.gender}
+                    </p>
                   </div>
                 </div>
+
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={handleEditAnimal}
+                  className="h-9 w-9 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/40"
+                >
+                  <FaEdit className="h-4 w-4" />
+                  <span className="sr-only">Editar paciente</span>
+                </Button>
               </div>
-            </CardHeader>
+
+              {/* INFORMAÇÕES CLÍNICAS (chips/pills) */}
+              <div className="mt-4 flex flex-wrap gap-2">
+                <span className="inline-flex items-center gap-2 rounded-full border border-border bg-white px-3 py-1.5 text-sm">
+                  <FaPaw className="h-3.5 w-3.5 text-[rgb(5,150,105)]" />
+                  <span className="text-muted-foreground">Espécie</span>
+                  <span className="font-medium text-foreground">{currentAnimal.species || "-"}</span>
+                </span>
+                <span className="inline-flex items-center gap-2 rounded-full border border-border bg-white px-3 py-1.5 text-sm">
+                  <FaTag className="h-3.5 w-3.5 text-[rgb(5,150,105)]" />
+                  <span className="text-muted-foreground">Raça</span>
+                  <span className="font-medium text-foreground">{currentAnimal.breed || "-"}</span>
+                </span>
+                <span className="inline-flex items-center gap-2 rounded-full border border-border bg-white px-3 py-1.5 text-sm">
+                  <FaMale className="h-3.5 w-3.5 text-[rgb(5,150,105)]" />
+                  <span className="text-muted-foreground">Sexo</span>
+                  <span className="font-medium text-foreground">{currentAnimal.gender || "-"}</span>
+                </span>
+                <span className="inline-flex items-center gap-2 rounded-full border border-border bg-white px-3 py-1.5 text-sm">
+                  <FaClock className="h-3.5 w-3.5 text-[rgb(5,150,105)]" />
+                  <span className="text-muted-foreground">Idade</span>
+                  <span className="font-medium text-foreground">{formatAgeLabel(currentAnimal.birthday)}</span>
+                </span>
+                <span className="inline-flex items-center gap-2 rounded-full border border-border bg-white px-3 py-1.5 text-sm">
+                  <FaWeightHanging className="h-3.5 w-3.5 text-[rgb(5,150,105)]" />
+                  <span className="text-muted-foreground">Peso</span>
+                  <span className="font-medium text-foreground">{formatWeightLabel(currentAnimal.weight)}</span>
+                </span>
+                <span className="inline-flex items-center gap-2 rounded-full border border-border bg-white px-3 py-1.5 text-sm">
+                  <FaCalendarAlt className="h-3.5 w-3.5 text-[rgb(5,150,105)]" />
+                  <span className="text-muted-foreground">Nascimento</span>
+                  <span className="font-medium text-foreground">
+                    {currentAnimal.birthday ? formatDateTime(currentAnimal.birthday) : "-"}
+                  </span>
+                </span>
+              </div>
+
+              {/* Tutor + Financeiro (terceiro plano) */}
+              <div className="mt-5 grid grid-cols-1 lg:grid-cols-2 gap-3">
+                {/* TUTOR (secundário, com expandir) */}
+                <div className="rounded-xl border border-border bg-white">
+                  <Collapsible open={isTutorExpanded} onOpenChange={setIsTutorExpanded}>
+                    <div className="p-4 flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Tutor</div>
+                        <div className="mt-1 font-medium text-foreground truncate">{currentClient.name}</div>
+                        <div className="mt-1 text-sm text-muted-foreground flex items-center gap-2">
+                          <FaPhone className="h-3.5 w-3.5" />
+                          <span className="truncate">{currentClient.mainPhoneContact || "-"}</span>
+                        </div>
+                      </div>
+                      <CollapsibleTrigger asChild>
+                        <Button variant="ghost" className="h-9 px-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/40">
+                          <span className="text-xs">{isTutorExpanded ? "Menos" : "Mais"}</span>
+                          {isTutorExpanded ? <FaChevronUp className="ml-2 h-3.5 w-3.5" /> : <FaChevronDown className="ml-2 h-3.5 w-3.5" />}
+                        </Button>
+                      </CollapsibleTrigger>
+                    </div>
+                    <CollapsibleContent>
+                      <div className="px-4 pb-4 text-sm text-muted-foreground space-y-2">
+                        <div className="flex items-center gap-2">
+                          <FaIdCard className="h-3.5 w-3.5" />
+                          <span className="truncate">{currentClient.clientType === "physical" ? "CPF" : "CNPJ"}: {currentClient.identificationNumber || "-"}</span>
+                        </div>
+                        <div className="flex items-start gap-2">
+                          <FaMapMarkerAlt className="mt-0.5 h-3.5 w-3.5" />
+                          <span>
+                            {`${currentClient.address.street}, ${currentClient.address.number}`}<br />
+                            {`${currentClient.address.neighborhood} • ${currentClient.address.city} - ${currentClient.address.state}`}
+                          </span>
+                        </div>
+                      </div>
+                    </CollapsibleContent>
+                  </Collapsible>
+                </div>
+
+                {/* FINANCEIRO (secundário, sem caixas cinzas) */}
+                <div className="rounded-xl border border-border bg-white p-4">
+                  {(() => {
+                    const income = mockFinancialTransactions
+                      .filter((t) => t.relatedAnimalId === animalId && t.type === 'income')
+                      .reduce((s, t) => s + t.amount, 0);
+                    const expense = mockFinancialTransactions
+                      .filter((t) => t.relatedAnimalId === animalId && t.type === 'expense')
+                      .reduce((s, t) => s + t.amount, 0);
+                    const net = income - expense;
+                    const pending = Math.max(
+                      0,
+                      patientSales.reduce((sum, s) => sum + s.total, 0) - patientPayments.reduce((sum, p) => sum + p.amount, 0)
+                    );
+
+                    const fmt = (v: number) =>
+                      new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
+
+                    return (
+                      <div>
+                        <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Financeiro</div>
+                        <div className="mt-3 grid grid-cols-3 gap-3">
+                          <div>
+                            <div className="text-[11px] text-muted-foreground">Pago</div>
+                            <div className="mt-1 text-sm font-semibold text-emerald-600">{fmt(income)}</div>
+                          </div>
+                          <div>
+                            <div className="text-[11px] text-muted-foreground">Pend.</div>
+                            <div className="mt-1 text-sm font-semibold text-rose-600">{fmt(pending)}</div>
+                          </div>
+                          <div>
+                            <div className="text-[11px] text-muted-foreground">Saldo</div>
+                            <div className="mt-1 text-sm font-semibold text-sky-600">{fmt(net)}</div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+              </div>
+            </CardContent>
           </Card>
         </div>
 
