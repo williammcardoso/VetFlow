@@ -7,33 +7,29 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { cn } from "@/lib/utils";
-import {
-  FaTachometerAlt,
-  FaUsers,
-  FaCalendarAlt,
-  FaShoppingCart,
-  FaFolder,
-  FaPaw,
-  FaPalette,
-  FaDollarSign,
-  FaBox,
-  FaCog,
-  FaSignOutAlt,
-  FaMoneyBillWave,
-  FaMoneyCheckAlt,
-  FaSearchDollar,
-  FaBoxOpen,
-  FaCreditCard,
-  FaTrophy,
-  FaBalanceScale,
-  FaFileInvoiceDollar,
-  FaFileInvoice,
-  FaTags,
-  FaMoneyBillAlt,
-  FaWallet,
-  FaStethoscope,
-} from "react-icons/fa";
 import SystemVetLogo from "./SystemVetLogo";
+import {
+  Calendar,
+  CreditCard,
+  DollarSign,
+  FileText,
+  Folder,
+  LayoutDashboard,
+  LogOut,
+  Package,
+  PawPrint,
+  Receipt,
+  Search,
+  Settings,
+  ShoppingCart,
+  Stethoscope,
+  Tag,
+  Trophy,
+  Users,
+  Wallet,
+  Scale,
+  ClipboardList,
+} from "lucide-react";
 
 interface NavItem {
   title: string;
@@ -43,83 +39,83 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-  { title: "Painel de Controle", href: "/", icon: FaTachometerAlt },
-  { title: "Clientes", href: "/clients", icon: FaUsers },
-  { title: "Agenda", href: "/agenda", icon: FaCalendarAlt },
+  { title: "Painel de Controle", href: "/", icon: LayoutDashboard },
+  { title: "Clientes", href: "/clients", icon: Users },
+  { title: "Agenda", href: "/agenda", icon: Calendar },
   {
     title: "Vendas",
-    icon: FaShoppingCart,
+    icon: ShoppingCart,
     subItems: [
-      { title: "Ponto de venda", href: "/sales/pos", icon: FaDollarSign },
-      { title: "Minhas vendas", href: "/sales/my-sales", icon: FaShoppingCart },
-      { title: "Movimentos de caixa", href: "/sales/cash-movements", icon: FaMoneyBillWave },
-      { title: "Consulta vendas", href: "/sales/consult-sales", icon: FaSearchDollar },
-      { title: "Orçamentos", href: "/sales/budgets", icon: FaFileInvoiceDollar },
-      { title: "Pacotes vendidos", href: "/sales/sold-packages", icon: FaBoxOpen },
-      { title: "Recebimentos", href: "/sales/receipts", icon: FaMoneyCheckAlt },
-      { title: "Lista de preços", href: "/sales/price-list", icon: FaTags },
-      { title: "Ranking de clientes", href: "/sales/client-ranking", icon: FaTrophy },
-      { title: "Saldo dos clientes", href: "/sales/client-balance", icon: FaBalanceScale },
-      { title: "Formas de recebimento", href: "/sales/payment-methods", icon: FaCreditCard },
-      { title: "Modelo de orçamento", href: "/sales/budget-model", icon: FaFileInvoiceDollar },
-      { title: "Modelo de demonstrativo", href: "/sales/statement-model", icon: FaFileInvoice },
-      { title: "Configuração", href: "/sales/configuration", icon: FaCog },
+      { title: "Ponto de venda", href: "/sales/pos", icon: DollarSign },
+      { title: "Minhas vendas", href: "/sales/my-sales", icon: Receipt },
+      { title: "Movimentos de caixa", href: "/sales/cash-movements", icon: Wallet },
+      { title: "Consulta vendas", href: "/sales/consult-sales", icon: Search },
+      { title: "Orçamentos", href: "/sales/budgets", icon: FileText },
+      { title: "Pacotes vendidos", href: "/sales/sold-packages", icon: Package },
+      { title: "Recebimentos", href: "/sales/receipts", icon: Receipt },
+      { title: "Lista de preços", href: "/sales/price-list", icon: Tag },
+      { title: "Ranking de clientes", href: "/sales/client-ranking", icon: Trophy },
+      { title: "Saldo dos clientes", href: "/sales/client-balance", icon: Scale },
+      { title: "Formas de recebimento", href: "/sales/payment-methods", icon: CreditCard },
+      { title: "Modelo de orçamento", href: "/sales/budget-model", icon: FileText },
+      { title: "Modelo de demonstrativo", href: "/sales/statement-model", icon: FileText },
+      { title: "Configuração", href: "/sales/configuration", icon: Settings },
     ],
   },
   {
     title: "Cadastros",
-    icon: FaFolder,
+    icon: Folder,
     subItems: [
-      { title: "Espécies", href: "/registrations/species", icon: FaPaw },
-      { title: "Raças", href: "/registrations/breeds", icon: FaPaw },
-      { title: "Pelagens", href: "/registrations/coat-types", icon: FaPalette },
-      { title: "Patologias", href: "/registrations/pathologies", icon: FaFolder },
-      { title: "Tipos de atendimento", href: "/registrations/appointment-types", icon: FaFolder },
-      { title: "Vacinas", href: "/registrations/vaccines", icon: FaFolder },
-      { title: "Exames", href: "/registrations/exams", icon: FaFolder },
-      { title: "Atributos de exames", href: "/registrations/exam-attributes", icon: FaFolder },
-      { title: "Referências de exames", href: "/registrations/exam-references", icon: FaFolder },
-      { title: "Modelo de receita", href: "/registrations/recipe-model", icon: FaFolder },
-      { title: "Origem dos clientes", href: "/registrations/client-origins", icon: FaFolder },
-      { title: "Modelo de documento", href: "/registrations/document-model", icon: FaFolder },
+      { title: "Espécies", href: "/registrations/species", icon: PawPrint },
+      { title: "Raças", href: "/registrations/breeds", icon: PawPrint },
+      { title: "Pelagens", href: "/registrations/coat-types", icon: PawPrint },
+      { title: "Patologias", href: "/registrations/pathologies", icon: Folder },
+      { title: "Tipos de atendimento", href: "/registrations/appointment-types", icon: ClipboardList },
+      { title: "Vacinas", href: "/registrations/vaccines", icon: ClipboardList },
+      { title: "Exames", href: "/registrations/exams", icon: ClipboardList },
+      { title: "Atributos de exames", href: "/registrations/exam-attributes", icon: ClipboardList },
+      { title: "Referências de exames", href: "/registrations/exam-references", icon: ClipboardList },
+      { title: "Modelo de receita", href: "/registrations/recipe-model", icon: FileText },
+      { title: "Origem dos clientes", href: "/registrations/client-origins", icon: Users },
+      { title: "Modelo de documento", href: "/registrations/document-model", icon: FileText },
     ],
   },
   {
     title: "Estoque e serviços",
-    icon: FaBox,
+    icon: Package,
     subItems: [
-      { title: "Produtos e Serviços", href: "/stock/products-services", icon: FaBox },
-      { title: "Compras", href: "/stock/purchases", icon: FaBox },
-      { title: "Outras saídas de estoque", href: "/stock/other-exits", icon: FaBox },
-      { title: "Análise de estoque", href: "/stock/stock-analysis", icon: FaBox },
-      { title: "Inventário", href: "/stock/inventory", icon: FaBox },
-      { title: "Pedido de compra", href: "/stock/purchase-order", icon: FaBox },
-      { title: "Grupos de Produtos", href: "/stock/product-groups", icon: FaBox },
-      { title: "Marcas", href: "/stock/brands", icon: FaBox },
-      { title: "Produtos recomendados", href: "/stock/recommended-products", icon: FaBox },
+      { title: "Produtos e Serviços", href: "/stock/products-services", icon: Package },
+      { title: "Compras", href: "/stock/purchases", icon: ShoppingCart },
+      { title: "Outras saídas de estoque", href: "/stock/other-exits", icon: Package },
+      { title: "Análise de estoque", href: "/stock/stock-analysis", icon: Search },
+      { title: "Inventário", href: "/stock/inventory", icon: Package },
+      { title: "Pedido de compra", href: "/stock/purchase-order", icon: FileText },
+      { title: "Grupos de Produtos", href: "/stock/product-groups", icon: Folder },
+      { title: "Marcas", href: "/stock/brands", icon: Tag },
+      { title: "Produtos recomendados", href: "/stock/recommended-products", icon: Package },
     ],
   },
   {
     title: "Financeiro",
-    icon: FaMoneyBillWave,
+    icon: Wallet,
     subItems: [
-      { title: "Visão geral", href: "/financial", icon: FaMoneyBillWave },
-      { title: "Contas a receber", href: "/financial/accounts-receivable", icon: FaMoneyBillAlt },
-      { title: "Recebimentos", href: "/financial/receipts", icon: FaMoneyCheckAlt },
-      { title: "Caixa / Movimentações", href: "/financial/cash-movements", icon: FaWallet },
+      { title: "Visão geral", href: "/financial", icon: Wallet },
+      { title: "Contas a receber", href: "/financial/accounts-receivable", icon: DollarSign },
+      { title: "Recebimentos", href: "/financial/receipts", icon: Receipt },
+      { title: "Caixa / Movimentações", href: "/financial/cash-movements", icon: Wallet },
     ],
   },
   {
     title: "Configuração",
-    icon: FaCog,
+    icon: Settings,
     subItems: [
-      { title: "Empresa", href: "/settings/company", icon: FaCog },
-      { title: "Usuários", href: "/settings/user", icon: FaUsers },
-      { title: "Acesso externo", href: "/settings/external-access", icon: FaCog },
-      { title: "Perfil de Acesso", href: "/settings/access-profile", icon: FaCog },
+      { title: "Empresa", href: "/settings/company", icon: Settings },
+      { title: "Usuários", href: "/settings/user", icon: Users },
+      { title: "Acesso externo", href: "/settings/external-access", icon: Settings },
+      { title: "Perfil de Acesso", href: "/settings/access-profile", icon: Settings },
     ],
   },
-  { title: "Sair", href: "/logout", icon: FaSignOutAlt },
+  { title: "Sair", href: "/logout", icon: LogOut },
 ];
 
 interface SidebarProps {
@@ -133,9 +129,11 @@ function IconBox({ active, children }: { active?: boolean; children: React.React
   return (
     <span
       className={cn(
-        "h-9 w-9 rounded-xl flex items-center justify-center ring-1 transition-colors",
-        active ? "bg-sidebar-primary text-primary ring-sidebar-border" : "bg-sidebar-accent/60 text-sidebar-foreground/80 ring-sidebar-border",
-        "group-hover:bg-sidebar-accent group-hover:text-sidebar-foreground"
+        "h-10 w-10 rounded-xl flex items-center justify-center transition-colors",
+        "ring-1 ring-border/70",
+        active
+          ? "bg-emerald-50 text-emerald-700"
+          : "bg-muted/50 text-muted-foreground group-hover:bg-muted group-hover:text-foreground/80"
       )}
     >
       {children}
@@ -160,19 +158,21 @@ const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, onCloseMobile, isDeskto
           isDesktopOpen ? "lg:translate-x-0 lg:w-64" : "lg:translate-x-0 lg:w-16"
         )}
       >
-        <div
-          className={cn(
-            "h-14 flex items-center border-b border-sidebar-border mb-4",
-            isDesktopOpen ? "px-2 justify-start" : "px-0 justify-center"
+        <div className={cn("h-14 flex items-center", isDesktopOpen ? "px-2" : "px-0 justify-center")}>
+          {isDesktopOpen ? (
+            <SystemVetLogo />
+          ) : (
+            <div className="h-10 w-10 rounded-xl bg-muted/50 ring-1 ring-border/70 flex items-center justify-center text-muted-foreground">
+              <Stethoscope className="h-[18px] w-[18px]" />
+            </div>
           )}
-        >
-          {isDesktopOpen ? <SystemVetLogo /> : <FaStethoscope className="h-5 w-5 text-sidebar-foreground/80" />}
         </div>
 
-        <nav className="space-y-1.5">
+        <nav className="mt-3 space-y-2">
           <Accordion type="multiple" className="w-full">
             {navItems.map((item, index) => {
               const isActive = !!item.href && location.pathname === item.href;
+              const Icon = item.icon;
 
               return (
                 <React.Fragment key={item.title}>
@@ -180,56 +180,85 @@ const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, onCloseMobile, isDeskto
                     <Link
                       to={item.href}
                       className={cn(
-                        "group flex items-center rounded-xl h-11 transition-colors",
+                        "group flex items-center rounded-xl h-12 transition-colors",
+                        "hover:bg-muted/70",
                         isDesktopOpen ? "px-2 gap-3 justify-start" : "px-0 gap-0 justify-center",
-                        isActive ? "bg-sidebar-primary/60" : "hover:bg-sidebar-accent"
+                        isActive && "bg-emerald-50"
                       )}
                       onClick={onCloseMobile}
                     >
                       <IconBox active={isActive}>
-                        <item.icon className="h-[18px] w-[18px]" />
+                        <Icon className="h-[18px] w-[18px]" />
                       </IconBox>
                       {isDesktopOpen && (
-                        <span className={cn("text-sm font-medium", isActive ? "text-primary" : "text-sidebar-foreground")}>{item.title}</span>
+                        <span
+                          className={cn(
+                            "text-[13.5px] leading-none",
+                            isActive ? "font-medium text-emerald-800" : "font-normal text-foreground/70",
+                            "group-hover:text-foreground/90"
+                          )}
+                        >
+                          {item.title}
+                        </span>
                       )}
                     </Link>
                   ) : (
                     <AccordionItem value={`item-${index}`} className="border-b-0">
                       <AccordionTrigger
                         className={cn(
-                          "group flex items-center rounded-xl h-11 transition-colors hover:bg-sidebar-accent",
+                          "group flex items-center rounded-xl h-12 transition-colors hover:bg-muted/70",
                           isDesktopOpen ? "px-2" : "px-0",
-                          isDesktopOpen ? "[&>svg]:block [&[data-state=open]>svg]:rotate-180" : "[&>svg]:hidden"
+                          isDesktopOpen
+                            ? "[&>svg]:block [&[data-state=open]>svg]:rotate-180"
+                            : "[&>svg]:hidden"
                         )}
                       >
-                        <div className={cn("flex items-center", isDesktopOpen ? "gap-3" : "gap-0", isDesktopOpen ? "w-full" : "justify-center")}
+                        <div
+                          className={cn(
+                            "flex items-center",
+                            isDesktopOpen ? "gap-3 w-full" : "gap-0 justify-center"
+                          )}
                         >
                           <IconBox>
-                            <item.icon className="h-[18px] w-[18px]" />
+                            <Icon className="h-[18px] w-[18px]" />
                           </IconBox>
-                          {isDesktopOpen && <span className="text-sm font-medium text-sidebar-foreground">{item.title}</span>}
+                          {isDesktopOpen && (
+                            <span className="text-[13.5px] font-normal text-foreground/70 group-hover:text-foreground/90">
+                              {item.title}
+                            </span>
+                          )}
                         </div>
                       </AccordionTrigger>
 
                       {isDesktopOpen && (
                         <AccordionContent className="pb-0">
-                          <div className="ml-11 mt-1 space-y-1">
+                          <div className="ml-11 mt-1.5 space-y-1.5">
                             {item.subItems?.map((subItem) => {
                               const subActive = location.pathname === subItem.href;
+                              const SubIcon = subItem.icon;
+
                               return (
                                 <Link
                                   key={subItem.title}
                                   to={subItem.href || "#"}
                                   className={cn(
                                     "group flex items-center gap-3 rounded-xl px-2 py-2 transition-colors",
-                                    subActive ? "bg-sidebar-primary/50" : "hover:bg-sidebar-accent"
+                                    "hover:bg-muted/70",
+                                    subActive && "bg-emerald-50"
                                   )}
                                   onClick={onCloseMobile}
                                 >
                                   <IconBox active={subActive}>
-                                    {subItem.icon ? <subItem.icon className="h-[16px] w-[16px]" /> : <FaFolder className="h-[16px] w-[16px]" />}
+                                    <SubIcon className="h-[16px] w-[16px]" />
                                   </IconBox>
-                                  <span className={cn("text-sm", subActive ? "font-semibold text-primary" : "text-sidebar-foreground/90")}
+                                  <span
+                                    className={cn(
+                                      "text-[13px]",
+                                      subActive
+                                        ? "font-medium text-emerald-800"
+                                        : "font-normal text-foreground/70",
+                                      "group-hover:text-foreground/90"
+                                    )}
                                   >
                                     {subItem.title}
                                   </span>
