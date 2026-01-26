@@ -52,18 +52,17 @@ body {
     --input: 0 0% 100%; /* White input background */
     --ring: 200 80% 40%; /* Primary blue for focus rings */
 
-    --radius: 0.5rem;
+    /* Radius levemente maior para estética premium (12px) */
+    --radius: 0.75rem;
 
-    --sidebar-background: 210 10% 20%; /* Dark blue-grey from image */
-    --sidebar-foreground: 0 0% 100%; /* White text */
-
-    --sidebar-primary: 200 80% 40%; /* Active item background, same as header blue */
-    --sidebar-primary-foreground: 0 0% 100%;
-
-    --sidebar-accent: 210 10% 30%; /* Hover background, slightly lighter dark blue-grey */
-    --sidebar-accent-foreground: 0 0% 100%;
-
-    --sidebar-border: 210 10% 25%;
+    /* Sidebar clara */
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 220 10% 20%;
+    --sidebar-primary: 200 85% 92%; /* fundo do item ativo, azul muito suave */
+    --sidebar-primary-foreground: 200 65% 35%;
+    --sidebar-accent: 210 20% 96%; /* hover suave */
+    --sidebar-accent-foreground: 220 10% 20%;
+    --sidebar-border: 210 20% 90%;
     --sidebar-ring: 200 80% 40%;
   }
 

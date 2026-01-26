@@ -25,38 +25,38 @@ const Header: React.FC<HeaderProps> = ({ onToggleMobileSidebar, onToggleDesktopS
   const { theme, setTheme } = useTheme();
 
   return (
-    <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b border-border bg-primary px-4 sm:static sm:h-auto sm:border-0 sm:bg-primary sm:px-6">
+    <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b border-border bg-card/95 px-4 backdrop-blur-md sm:static sm:h-auto sm:border-0 sm:bg-card sm:px-6">
       {/* Hamburger menu para mobile */}
       <Button
         variant="ghost"
         size="icon"
-        className="lg:hidden text-white hover:bg-primary/80"
+        className="lg:hidden text-foreground hover:bg-muted"
         onClick={onToggleMobileSidebar}
       >
         <FaBars className="h-5 w-5" />
         <span className="sr-only">Toggle Sidebar</span>
       </Button>
 
-      {/* Botão de toggle para desktop sidebar (visível apenas em telas grandes) */}
+      {/* Botão de toggle para desktop sidebar */}
       <Button
         variant="ghost"
         size="icon"
-        className="hidden lg:flex text-white hover:bg-primary/80"
+        className="hidden lg:flex text-foreground hover:bg-muted"
         onClick={onToggleDesktopSidebar}
       >
         {isDesktopSidebarOpen ? <FaChevronLeft className="h-5 w-5" /> : <FaChevronRight className="h-5 w-5" />}
         <span className="sr-only">Toggle Desktop Sidebar</span>
       </Button>
 
-      <div className="flex-1 text-lg font-medium text-white"></div> {/* Espaço flexível para empurrar itens para a direita */}
+      <div className="flex-1" />
 
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-2">
         {/* Botão de Dark Mode */}
         <Button
           variant="ghost"
           size="icon"
           onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-          className="transition-colors duration-200 text-white hover:bg-primary/80"
+          className="transition-colors duration-200 text-foreground hover:bg-muted"
         >
           {theme === "dark" ? (
             <FaSun className="h-5 w-5" />
@@ -67,7 +67,7 @@ const Header: React.FC<HeaderProps> = ({ onToggleMobileSidebar, onToggleDesktopS
         </Button>
 
         {/* Notificações */}
-        <Button variant="ghost" size="icon" className="relative text-white hover:bg-primary/80">
+        <Button variant="ghost" size="icon" className="relative text-foreground hover:bg-muted">
           <FaBell className="h-5 w-5" />
           <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-red-500" />
           <span className="sr-only">Notificações</span>
@@ -75,7 +75,7 @@ const Header: React.FC<HeaderProps> = ({ onToggleMobileSidebar, onToggleDesktopS
 
         {/* Ajuda */}
         <Link to="/help">
-          <Button variant="ghost" size="icon" className="text-white hover:bg-primary/80">
+          <Button variant="ghost" size="icon" className="text-foreground hover:bg-muted">
             <FaQuestionCircle className="h-5 w-5" />
             <span className="sr-only">Ajuda</span>
           </Button>
@@ -84,10 +84,10 @@ const Header: React.FC<HeaderProps> = ({ onToggleMobileSidebar, onToggleDesktopS
         {/* Menu do Usuário */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="relative h-8 w-8 rounded-full text-white hover:bg-primary/80">
+            <Button variant="ghost" className="relative h-8 w-8 rounded-full text-foreground hover:bg-muted">
               <Avatar className="h-8 w-8">
-                <AvatarImage src="/public/placeholder.svg" alt="User Avatar" />
-                <AvatarFallback className="bg-white text-primary">WC</AvatarFallback>
+                <AvatarImage src="/placeholder.svg" alt="User Avatar" />
+                <AvatarFallback className="bg-muted text-foreground">WC</AvatarFallback>
               </Avatar>
             </Button>
           </DropdownMenuTrigger>

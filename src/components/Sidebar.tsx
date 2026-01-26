@@ -138,7 +138,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, onCloseMobile, isDeskto
 
       <aside
         className={cn(
-          "bg-sidebar text-sidebar-foreground h-screen fixed left-0 top-0 overflow-y-auto border-r border-sidebar-border p-4 shadow-lg transition-all duration-300 ease-in-out z-50 hide-scrollbar",
+          "bg-sidebar text-sidebar-foreground h-screen fixed left-0 top-0 overflow-y-auto border-r border-sidebar-border p-4 shadow-sm transition-all duration-300 ease-in-out z-50 hide-scrollbar",
           isMobileOpen ? "translate-x-0 w-64" : "-translate-x-full",
           isDesktopOpen ? "lg:translate-x-0 lg:w-64" : "lg:translate-x-0 lg:w-16"
         )}
@@ -149,7 +149,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, onCloseMobile, isDeskto
           {isDesktopOpen ? (
             <SystemVetLogo />
           ) : (
-            <FaStethoscope className="h-5 w-5 text-white" />
+            <FaStethoscope className="h-5 w-5 text-sidebar-foreground" />
           )}
         </div>
         <nav className="space-y-1">
@@ -160,9 +160,9 @@ const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, onCloseMobile, isDeskto
                   <Link
                     to={item.href}
                     className={cn(
-                      "flex items-center rounded-md h-11 transition-all hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                      "flex items-center rounded-lg h-11 transition-all hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
                       isDesktopOpen ? "px-3 gap-3 justify-start" : "px-0 gap-0 justify-center",
-                      location.pathname === item.href && "bg-sidebar-primary text-sidebar-primary-foreground font-medium"
+                      location.pathname === item.href && "bg-sidebar-primary/70 text-primary font-semibold ring-1 ring-sidebar-border"
                     )}
                     onClick={onCloseMobile}
                   >
@@ -172,17 +172,15 @@ const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, onCloseMobile, isDeskto
                 ) : (
                   <AccordionItem value={`item-${index}`} className="border-b-0">
                     <AccordionTrigger className={cn(
-                      "flex items-center rounded-md h-11 transition-all hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                      "flex items-center rounded-lg h-11 transition-all hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
                       isDesktopOpen ? "[&>svg]:block [&[data-state=open]>svg]:rotate-180" : "[&>svg]:hidden",
                       isDesktopOpen ? "px-3 gap-3 justify-between" : "px-0 gap-0 justify-center",
-                      "font-normal",
-                      location.pathname.startsWith(item.subItems?.[0]?.href?.split('/')[1] || "") && "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+                      "font-normal"
                     )}>
                       <div className={cn("flex items-center", isDesktopOpen ? "gap-3" : "gap-0")}>
                         <item.icon className="h-5 w-5" />
                         {isDesktopOpen && item.title}
                       </div>
-                      {/* O chevron padrão do AccordionTrigger agora é controlado pela classe acima */}
                     </AccordionTrigger>
                     {isDesktopOpen && (
                       <AccordionContent className="pb-0">
@@ -192,8 +190,8 @@ const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, onCloseMobile, isDeskto
                               key={subItem.title}
                               to={subItem.href || "#"}
                               className={cn(
-                                "flex items-center gap-3 rounded-md px-3 py-2 text-sidebar-foreground transition-all hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-                                location.pathname === subItem.href && "bg-sidebar-primary text-sidebar-primary-foreground font-medium"
+                                "flex items-center gap-3 rounded-lg px-3 py-2 transition-all hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                                location.pathname === subItem.href && "bg-sidebar-primary/70 text-primary font-semibold ring-1 ring-sidebar-border"
                               )}
                               onClick={onCloseMobile}
                             >
