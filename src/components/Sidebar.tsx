@@ -125,8 +125,9 @@ interface SidebarProps {
   onToggleDesktop: () => void;
 }
 
-const ACTIVE_BG = "bg-[rgb(236,250,244)]";
-const ACTIVE_FG = "text-[rgb(16,185,129)]";
+// VetFlow active colors (exact)
+const ACTIVE_BG = "bg-[rgb(240,253,248)]";
+const ACTIVE_FG = "text-[rgb(5,150,105)]";
 
 function NavIcon({ icon: Icon, active }: { icon: React.ElementType; active?: boolean }) {
   return (
@@ -135,7 +136,7 @@ function NavIcon({ icon: Icon, active }: { icon: React.ElementType; active?: boo
         "h-[18px] w-[18px] shrink-0",
         "text-muted-foreground/90 transition-colors",
         active && ACTIVE_FG,
-        "group-hover:text-primary/80"
+        "group-hover:text-[rgb(5,150,105)]"
       )}
       strokeWidth={1.55}
     />

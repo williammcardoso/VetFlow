@@ -162,7 +162,7 @@ const ClientsPage = () => {
             <FaSyncAlt className="h-4 w-4" />
           </Button>
           <Link to="/clients/add">
-            <Button className="rounded-md bg-gradient-to-r from-blue-500 to-indigo-500 text-white hover:from-blue-600 hover:to-indigo-600 font-semibold transition-all duration-200 shadow-md hover:shadow-lg">
+            <Button className="rounded-md bg-primary text-primary-foreground hover:bg-primary/90 font-semibold transition-all duration-200 shadow-md hover:shadow-lg">
               <FaPlus className="mr-2 h-4 w-4" /> Adicionar Responsável
             </Button>
           </Link>
