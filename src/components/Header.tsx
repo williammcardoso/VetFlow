@@ -12,105 +12,106 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { FaBars, FaSun, FaMoon, FaBell, FaQuestionCircle, FaCog, FaSignOutAlt, FaChevronLeft, FaChevronRight } from "react-icons/fa"; // Importar ícones de react-icons
+import { Bell, HelpCircle, Moon, Sun, PanelLeft, PanelRight, Settings, LogOut } from "lucide-react";
 import { useTheme } from "next-themes";
+import { cn } from "@/lib/utils";
 
 interface HeaderProps {
   onToggleMobileSidebar: () => void;
-  onToggleDesktopSidebar: () => void; // Nova prop para o toggle do desktop
-  isDesktopSidebarOpen: boolean; // Nova prop para o estado do sidebar desktop
+  onToggleDesktopSidebar: () => void;
+  isDesktopSidebarOpen: boolean;
+  containerClassName?: string;
 }
 
-const Header: React.FC<HeaderProps> = ({ onToggleMobileSidebar, onToggleDesktopSidebar, isDesktopSidebarOpen }) => {
+const Header: React.FC<HeaderProps> = ({
+  onToggleMobileSidebar,
+  onToggleDesktopSidebar,
+  isDesktopSidebarOpen,
+  containerClassName,
+}) => {
   const { theme, setTheme } = useTheme();
 
   return (
-    <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b border-border bg-card/95 px-4 backdrop-blur-md sm:static sm:h-auto sm:border-0 sm:bg-card sm:px-6">
-      {/* Hamburger menu para mobile */}
-      <Button
-        variant="ghost"
-        size="icon"
-        className="lg:hidden text-foreground hover:bg-muted"
-        onClick={onToggleMobileSidebar}
-      >
-        <FaBars className="h-5 w-5" />
-        <span className="sr-only">Toggle Sidebar</span>
-      </Button>
-
-      {/* Botão de toggle para desktop sidebar */}
-      <Button
-        variant="ghost"
-        size="icon"
-        className="hidden lg:flex text-foreground hover:bg-muted"
-        onClick={onToggleDesktopSidebar}
-      >
-        {isDesktopSidebarOpen ? <FaChevronLeft className="h-5 w-5" /> : <FaChevronRight className="h-5 w-5" />}
-        <span className="sr-only">Toggle Desktop Sidebar</span>
-      </Button>
-
-      <div className="flex-1" />
-
-      <div className="flex items-center gap-2">
-        {/* Botão de Dark Mode */}
+    <header className="sticky top-0 z-30 w-full border-b border-border bg-background/70 backdrop-blur-md">
+      <div className={cn("h-14 flex items-center gap-3", containerClassName)}>
         <Button
           variant="ghost"
           size="icon"
-          onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-          className="transition-colors duration-200 text-foreground hover:bg-muted"
+          className="lg:hidden h-9 w-9 text-foreground/80 hover:text-foreground hover:bg-muted"
+          onClick={onToggleMobileSidebar}
         >
-          {theme === "dark" ? (
-            <FaSun className="h-5 w-5" />
-          ) : (
-            <FaMoon className="h-5 w-5" />
-          )}
-          <span className="sr-only">Toggle theme</span>
+          <PanelLeft className="h-5 w-5" />
+          <span className="sr-only">Abrir menu</span>
         </Button>
 
-        {/* Notificações */}
-        <Button variant="ghost" size="icon" className="relative text-foreground hover:bg-muted">
-          <FaBell className="h-5 w-5" />
-          <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-red-500" />
-          <span className="sr-only">Notificações</span>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="hidden lg:inline-flex h-9 w-9 text-foreground/80 hover:text-foreground hover:bg-muted"
+          onClick={onToggleDesktopSidebar}
+        >
+          {isDesktopSidebarOpen ? <PanelLeft className="h-5 w-5" /> : <PanelRight className="h-5 w-5" />}
+          <span className="sr-only">Alternar sidebar</span>
         </Button>
 
-        {/* Ajuda */}
-        <Link to="/help">
-          <Button variant="ghost" size="icon" className="text-foreground hover:bg-muted">
-            <FaQuestionCircle className="h-5 w-5" />
-            <span className="sr-only">Ajuda</span>
+        <div className="flex-1" />
+
+        <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+            className="h-9 w-9 text-foreground/80 hover:text-foreground hover:bg-muted"
+          >
+            {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            <span className="sr-only">Alternar tema</span>
           </Button>
-        </Link>
 
-        {/* Menu do Usuário */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="relative h-8 w-8 rounded-full text-foreground hover:bg-muted">
-              <Avatar className="h-8 w-8">
-                <AvatarImage src="/placeholder.svg" alt="User Avatar" />
-                <AvatarFallback className="bg-muted text-foreground">WC</AvatarFallback>
-              </Avatar>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="relative h-9 w-9 text-foreground/80 hover:text-foreground hover:bg-muted"
+          >
+            <Bell className="h-4 w-4" />
+            <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-red-500" />
+            <span className="sr-only">Notificações</span>
+          </Button>
+
+          <Link to="/help">
+            <Button variant="ghost" size="icon" className="h-9 w-9 text-foreground/80 hover:text-foreground hover:bg-muted">
+              <HelpCircle className="h-4 w-4" />
+              <span className="sr-only">Ajuda</span>
             </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent className="w-56" align="end" forceMount>
-            <DropdownMenuLabel className="font-normal">
-              <div className="flex flex-col space-y-1">
-                <p className="text-sm font-medium leading-none">William Cardoso</p>
-                <p className="text-xs leading-none text-muted-foreground">
-                  william@example.com
-                </p>
-              </div>
-            </DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem>
-              <FaCog className="mr-2 h-4 w-4" />
-              <span>Configurações</span>
-            </DropdownMenuItem>
-            <DropdownMenuItem>
-              <FaSignOutAlt className="mr-2 h-4 w-4" />
-              <span>Sair</span>
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+          </Link>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" className="h-9 w-9 rounded-full p-0 hover:bg-muted">
+                <Avatar className="h-9 w-9 ring-1 ring-border">
+                  <AvatarImage src="/placeholder.svg" alt="User Avatar" />
+                  <AvatarFallback className="bg-muted text-foreground">WC</AvatarFallback>
+                </Avatar>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-56" align="end" forceMount>
+              <DropdownMenuLabel className="font-normal">
+                <div className="flex flex-col space-y-1">
+                  <p className="text-sm font-semibold leading-none">William Cardoso</p>
+                  <p className="text-xs leading-none text-muted-foreground">william@example.com</p>
+                </div>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem>
+                <Settings className="mr-2 h-4 w-4" />
+                <span>Configurações</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem>
+                <LogOut className="mr-2 h-4 w-4" />
+                <span>Sair</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
     </header>
   );

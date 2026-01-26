@@ -18,17 +18,18 @@ const QuickActionCard: React.FC<QuickActionCardProps> = ({ to, icon: Icon, title
     <Link to={to} className="block">
       <div
         className={cn(
-          "premium-card premium-card--soft card-hover rounded-xl px-5 py-6 border transition-all group hover:-translate-y-[2px] hover:shadow-lg",
+          "premium-card premium-card--soft card-hover rounded-xl px-6 py-5",
+          "transition-all hover:-translate-y-[2px]",
           className
         )}
       >
         <div className="flex items-center gap-4">
-          <div className="h-12 w-12 rounded-xl bg-gray-100 text-gray-700 flex items-center justify-center ring-1 ring-gray-200 group-hover:bg-gray-200/60 transition-colors">
+          <div className="h-12 w-12 rounded-2xl bg-gray-50 text-gray-700 flex items-center justify-center ring-1 ring-gray-200">
             <Icon className="h-6 w-6" />
           </div>
-          <div>
-            <div className="text-base font-semibold">{title}</div>
-            {subtitle && <div className="text-sm text-muted-foreground">{subtitle}</div>}
+          <div className="min-w-0">
+            <div className="text-[15px] font-semibold leading-snug">{title}</div>
+            {subtitle && <div className="mt-0.5 text-sm text-muted-foreground leading-relaxed">{subtitle}</div>}
           </div>
         </div>
       </div>
