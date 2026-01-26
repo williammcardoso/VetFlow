@@ -34,8 +34,8 @@ body,
     --popover: 0 0% 100%;
     --popover-foreground: 222 20% 12%;
 
-    /* VERDE como cor principal do sistema (elegante, não saturado) */
-    --primary: 155 60% 34%;
+    /* VERDE primário suave (menos saturado, mais premium) */
+    --primary: 156 38% 34%;
     --primary-foreground: 0 0% 100%;
 
     --secondary: 220 20% 96%;
@@ -44,7 +44,7 @@ body,
     --muted: 220 20% 96%;
     --muted-foreground: 220 8% 46%;
 
-    /* Mantemos accent para pequenos destaques (não é o primário) */
+    /* Mantemos accent neutro para não poluir */
     --accent: 220 20% 96%;
     --accent-foreground: 222 20% 12%;
 
@@ -54,20 +54,20 @@ body,
     /* Bordas bem claras, sólidas */
     --border: 220 16% 90%;
     --input: 0 0% 100%;
-    --ring: 155 60% 34%;
+    --ring: 156 38% 34%;
 
     /* Radius premium */
-    --radius: 0.875rem;
+    --radius: 0.9rem;
 
     /* Sidebar clara */
     --sidebar-background: 0 0% 100%;
     --sidebar-foreground: 222 12% 22%;
-    --sidebar-primary: 155 55% 93%;
-    --sidebar-primary-foreground: 155 60% 24%;
+    --sidebar-primary: 156 40% 94%;
+    --sidebar-primary-foreground: 156 42% 22%;
     --sidebar-accent: 220 20% 96%;
     --sidebar-accent-foreground: 222 12% 22%;
     --sidebar-border: 220 16% 90%;
-    --sidebar-ring: 155 60% 34%;
+    --sidebar-ring: 156 38% 34%;
   }
 
   .dark {
@@ -80,8 +80,8 @@ body,
     --popover: 222 16% 15%;
     --popover-foreground: 220 20% 92%;
 
-    /* VERDE como primário no dark */
-    --primary: 155 60% 48%;
+    /* VERDE como primário no dark (suave) */
+    --primary: 156 38% 48%;
     --primary-foreground: 222 16% 10%;
 
     --secondary: 222 16% 18%;
@@ -98,16 +98,16 @@ body,
 
     --border: 222 14% 24%;
     --input: 222 16% 18%;
-    --ring: 155 60% 48%;
+    --ring: 156 38% 48%;
 
     --sidebar-background: 222 16% 14%;
     --sidebar-foreground: 220 20% 92%;
-    --sidebar-primary: 155 22% 22%;
+    --sidebar-primary: 156 18% 20%;
     --sidebar-primary-foreground: 220 20% 92%;
     --sidebar-accent: 222 16% 18%;
     --sidebar-accent-foreground: 220 20% 92%;
     --sidebar-border: 222 14% 24%;
-    --sidebar-ring: 155 60% 48%;
+    --sidebar-ring: 156 38% 48%;
   }
 }
 
@@ -148,8 +148,8 @@ body,
 /* Fundo bem discreto (respiração) */
 .layered-bg {
   background:
-    radial-gradient(1100px 420px at 8% -15%, rgba(16, 185, 129, 0.06), transparent 60%),
-    radial-gradient(900px 360px at 92% -20%, rgba(34, 197, 94, 0.04), transparent 60%),
+    radial-gradient(1100px 420px at 8% -15%, hsl(var(--primary) / 0.06), transparent 60%),
+    radial-gradient(900px 360px at 92% -20%, hsl(var(--primary) / 0.04), transparent 60%),
     hsl(var(--background));
 }
 

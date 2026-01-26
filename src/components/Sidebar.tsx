@@ -130,11 +130,11 @@ function NavIcon({ icon: Icon, active }: { icon: React.ElementType; active?: boo
     <Icon
       className={cn(
         "h-[18px] w-[18px] shrink-0",
-        "text-muted-foreground transition-colors",
+        "text-muted-foreground/90 transition-colors",
         active && "text-primary",
-        "group-hover:text-foreground/80"
+        "group-hover:text-primary/80"
       )}
-      strokeWidth={1.6}
+      strokeWidth={1.55}
     />
   );
 }
@@ -144,9 +144,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, onCloseMobile, isDeskto
 
   return (
     <>
-      {isMobileOpen && (
-        <div className="fixed inset-0 z-40 bg-black/40 lg:hidden" onClick={onCloseMobile} />
-      )}
+      {isMobileOpen && <div className="fixed inset-0 z-40 bg-black/40 lg:hidden" onClick={onCloseMobile} />}
 
       <aside
         className={cn(
@@ -161,7 +159,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, onCloseMobile, isDeskto
           {isDesktopOpen ? (
             <SystemVetLogo />
           ) : (
-            <Stethoscope className="h-[18px] w-[18px] text-muted-foreground" strokeWidth={1.6} />
+            <Stethoscope className="h-[18px] w-[18px] text-muted-foreground" strokeWidth={1.55} />
           )}
         </div>
 
@@ -177,10 +175,11 @@ const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, onCloseMobile, isDeskto
                     <Link
                       to={item.href}
                       className={cn(
-                        "group flex items-center rounded-xl h-11 transition-all",
-                        "hover:bg-muted/60",
+                        "group flex items-center h-11 transition-all",
+                        "rounded-2xl",
+                        "hover:bg-primary/5",
                         isDesktopOpen ? "px-3 gap-3 justify-start" : "px-0 gap-0 justify-center",
-                        isActive && "bg-primary/10"
+                        isActive && "bg-sidebar-primary ring-1 ring-primary/10"
                       )}
                       onClick={onCloseMobile}
                     >
@@ -189,8 +188,9 @@ const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, onCloseMobile, isDeskto
                         <span
                           className={cn(
                             "text-[13.5px] leading-none transition-colors",
-                            isActive ? "font-medium text-primary" : "font-normal text-foreground/65",
-                            "group-hover:text-foreground/85"
+                            "relative top-[0.5px]",
+                            isActive ? "font-medium text-sidebar-primary-foreground" : "font-normal text-foreground/60",
+                            "group-hover:text-sidebar-primary-foreground"
                           )}
                         >
                           {item.title}
@@ -201,7 +201,9 @@ const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, onCloseMobile, isDeskto
                     <AccordionItem value={`item-${index}`} className="border-b-0">
                       <AccordionTrigger
                         className={cn(
-                          "group flex items-center rounded-xl h-11 transition-all hover:bg-muted/60",
+                          "group flex items-center h-11 transition-all",
+                          "rounded-2xl",
+                          "hover:bg-primary/5",
                           isDesktopOpen ? "px-3" : "px-0",
                           isDesktopOpen
                             ? "[&>svg]:block [&[data-state=open]>svg]:rotate-180"
@@ -211,7 +213,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, onCloseMobile, isDeskto
                         <div className={cn("flex items-center", isDesktopOpen ? "gap-3 w-full" : "gap-0 justify-center")}>
                           <NavIcon icon={Icon} />
                           {isDesktopOpen && (
-                            <span className="text-[13.5px] font-normal text-foreground/65 group-hover:text-foreground/85">
+                            <span className="text-[13.5px] font-normal text-foreground/60 group-hover:text-sidebar-primary-foreground relative top-[0.5px]">
                               {item.title}
                             </span>
                           )}
@@ -230,20 +232,20 @@ const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, onCloseMobile, isDeskto
                                   key={subItem.title}
                                   to={subItem.href || "#"}
                                   className={cn(
-                                    "group flex items-center gap-3 rounded-xl px-3 py-2 transition-all",
-                                    "hover:bg-muted/60",
-                                    subActive && "bg-primary/10"
+                                    "group flex items-center gap-3 rounded-2xl px-3 py-2 transition-all",
+                                    "hover:bg-primary/5",
+                                    subActive && "bg-sidebar-primary ring-1 ring-primary/10"
                                   )}
                                   onClick={onCloseMobile}
                                 >
                                   <NavIcon icon={SubIcon} active={subActive} />
                                   <span
                                     className={cn(
-                                      "text-[13px] transition-colors",
+                                      "text-[13px] transition-colors relative top-[0.5px]",
                                       subActive
-                                        ? "font-medium text-primary"
-                                        : "font-normal text-foreground/65",
-                                      "group-hover:text-foreground/85"
+                                        ? "font-medium text-sidebar-primary-foreground"
+                                        : "font-normal text-foreground/60",
+                                      "group-hover:text-sidebar-primary-foreground"
                                     )}
                                   >
                                     {subItem.title}

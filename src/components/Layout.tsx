@@ -34,7 +34,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const containerClassName = `mx-auto w-full ${contentMaxWidthClass} px-4 sm:px-6`;
 
   return (
-    <div className={`flex min-h-screen bg-background ${containerPaddingClass} overflow-x-hidden`}>
+    <div className={`flex h-screen bg-background ${containerPaddingClass} overflow-hidden`}>
       <Sidebar
         isMobileOpen={isSidebarOpen}
         onCloseMobile={handleCloseMobileSidebar}
@@ -42,7 +42,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         onToggleDesktop={handleToggleDesktopSidebar}
       />
 
-      <div className="flex flex-col flex-1 transition-all duration-300 ease-in-out">
+      <div className="flex flex-col flex-1 h-screen overflow-hidden">
         <Header
           onToggleMobileSidebar={handleToggleMobileSidebar}
           onToggleDesktopSidebar={handleToggleDesktopSidebar}
@@ -50,11 +50,10 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           containerClassName={containerClassName}
         />
 
-        <main className="flex-1">
+        <main className="flex-1 overflow-y-auto">
           <div className={`mx-auto w-full ${contentMaxWidthClass} px-4 sm:px-6 py-6`}>{children}</div>
+          <MadeWithDyad />
         </main>
-
-        <MadeWithDyad />
       </div>
     </div>
   );

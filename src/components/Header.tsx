@@ -32,15 +32,15 @@ const Header: React.FC<HeaderProps> = ({
   const { theme, setTheme } = useTheme();
 
   return (
-    <header className="sticky top-0 z-30 w-full border-b border-border bg-background/90">
-      <div className={cn("h-12 flex items-center gap-2", containerClassName)}>
+    <header className="sticky top-0 z-40 w-full border-b border-border bg-card">
+      <div className={cn("h-11 flex items-center gap-2", containerClassName)}>
         <Button
           variant="ghost"
           size="icon"
           className="lg:hidden h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted"
           onClick={onToggleMobileSidebar}
         >
-          <PanelLeft className="h-4 w-4" strokeWidth={1.6} />
+          <PanelLeft className="h-4 w-4" strokeWidth={1.55} />
           <span className="sr-only">Abrir menu</span>
         </Button>
 
@@ -51,9 +51,9 @@ const Header: React.FC<HeaderProps> = ({
           onClick={onToggleDesktopSidebar}
         >
           {isDesktopSidebarOpen ? (
-            <PanelLeft className="h-4 w-4" strokeWidth={1.6} />
+            <PanelLeft className="h-4 w-4" strokeWidth={1.55} />
           ) : (
-            <PanelRight className="h-4 w-4" strokeWidth={1.6} />
+            <PanelRight className="h-4 w-4" strokeWidth={1.55} />
           )}
           <span className="sr-only">Alternar sidebar</span>
         </Button>
@@ -68,9 +68,9 @@ const Header: React.FC<HeaderProps> = ({
             className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted"
           >
             {theme === "dark" ? (
-              <Sun className="h-4 w-4" strokeWidth={1.6} />
+              <Sun className="h-4 w-4" strokeWidth={1.55} />
             ) : (
-              <Moon className="h-4 w-4" strokeWidth={1.6} />
+              <Moon className="h-4 w-4" strokeWidth={1.55} />
             )}
             <span className="sr-only">Alternar tema</span>
           </Button>
@@ -80,7 +80,7 @@ const Header: React.FC<HeaderProps> = ({
             size="icon"
             className="relative h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted"
           >
-            <Bell className="h-4 w-4" strokeWidth={1.6} />
+            <Bell className="h-4 w-4" strokeWidth={1.55} />
             <span className="absolute top-2 right-2 h-1.5 w-1.5 rounded-full bg-red-500" />
             <span className="sr-only">Notificações</span>
           </Button>
@@ -91,7 +91,7 @@ const Header: React.FC<HeaderProps> = ({
               size="icon"
               className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted"
             >
-              <HelpCircle className="h-4 w-4" strokeWidth={1.6} />
+              <HelpCircle className="h-4 w-4" strokeWidth={1.55} />
               <span className="sr-only">Ajuda</span>
             </Button>
           </Link>
@@ -114,11 +114,11 @@ const Header: React.FC<HeaderProps> = ({
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuItem>
-                <Settings className="mr-2 h-4 w-4" strokeWidth={1.6} />
+                <Settings className="mr-2 h-4 w-4" strokeWidth={1.55} />
                 <span>Configurações</span>
               </DropdownMenuItem>
               <DropdownMenuItem>
-                <LogOut className="mr-2 h-4 w-4" strokeWidth={1.6} />
+                <LogOut className="mr-2 h-4 w-4" strokeWidth={1.55} />
                 <span>Sair</span>
               </DropdownMenuItem>
             </DropdownMenuContent>
