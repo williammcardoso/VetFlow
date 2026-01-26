@@ -906,14 +906,14 @@ const PatientRecordPage = () => {
   return (
     <div className="flex flex-col min-h-screen layered-bg-warm overflow-x-hidden font-exo">
       {/* CABEÇALHO DO PRONTUÁRIO (mais baixo e discreto) */}
-      <div className="premium-top px-5 py-4 mx-auto w-full max-w-7xl">
+      <div className="mx-auto w-full max-w-7xl px-5 pt-3 pb-2 border-b border-border/60">
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
-            <h1 className="text-xl sm:text-[1.35rem] leading-tight font-semibold flex items-center gap-2 text-foreground">
+            <h1 className="text-[1.05rem] sm:text-[1.15rem] leading-tight font-semibold flex items-center gap-2 text-foreground">
               <FaUser className="h-4 w-4 text-muted-foreground" />
               Prontuário Consolidado
             </h1>
-            <p className="text-xs text-muted-foreground mt-1">Visão completa do histórico clínico</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Visão completa do histórico clínico</p>
           </div>
 
           <div className="flex items-center gap-2">
@@ -922,7 +922,7 @@ const PatientRecordPage = () => {
                 <Button
                   variant="outline"
                   size="icon"
-                  className="h-9 w-9 rounded-lg border-border/50 text-muted-foreground hover:text-foreground hover:bg-muted/40"
+                  className="h-8 w-8 rounded-lg border-border/50 text-muted-foreground hover:text-foreground hover:bg-muted/40"
                 >
                   <FaEllipsisV className="h-4 w-4" />
                   <span className="sr-only">Ações</span>
@@ -941,7 +941,7 @@ const PatientRecordPage = () => {
             <Link to={`/clients/${currentClient.id}`}>
               <Button
                 variant="ghost"
-                className="h-9 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/40"
+                className="h-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/40 px-2"
               >
                 <FaArrowLeft className="mr-2 h-4 w-4" />
                 <span className="hidden sm:inline">Voltar</span>
@@ -959,18 +959,19 @@ const PatientRecordPage = () => {
       </div>
 
       <div className="flex-1 p-6 mx-auto w-full max-w-7xl">
-        {/* CARD DO PACIENTE (reorganizado para leitura clínica rápida) */}
+        {/* CARD DO PACIENTE */}
         <div className="mb-6">
           <Card className="premium-card ring-1 ring-border/50">
             <CardContent className="p-5">
               <div className="flex items-start justify-between gap-4">
                 <div className="flex items-start gap-4 min-w-0">
-                  <div className="h-14 w-14 rounded-2xl bg-[rgb(240,253,248)] text-[rgb(5,150,105)] ring-1 ring-[rgba(5,150,105,0.12)] flex items-center justify-center">
-                    <FaPaw className="h-6 w-6" />
+                  {/* Avatar ligeiramente menor */}
+                  <div className="h-12 w-12 rounded-2xl bg-[rgb(240,253,248)] text-[rgb(5,150,105)] ring-1 ring-[rgba(5,150,105,0.12)] flex items-center justify-center">
+                    <FaPaw className="h-5 w-5" />
                   </div>
 
                   <div className="min-w-0">
-                    <h2 className="text-2xl sm:text-[1.95rem] leading-tight font-semibold tracking-tight truncate">
+                    <h2 className="text-2xl sm:text-[1.9rem] leading-tight font-semibold tracking-tight truncate">
                       {currentAnimal.name}
                     </h2>
                   </div>
@@ -987,47 +988,58 @@ const PatientRecordPage = () => {
                 </Button>
               </div>
 
-              {/* CHIPS DO PACIENTE: informações somente em chips (inclui espécie/raça/sexo) */}
-              <div className="mt-4 flex flex-wrap gap-2">
-                <span className="inline-flex items-center gap-2 rounded-full border border-border bg-white px-3 py-1.5 text-sm">
-                  <FaPaw className="h-3.5 w-3.5 text-[rgb(5,150,105)]" />
-                  <span className="text-muted-foreground">Espécie</span>
-                  <span className="font-medium text-foreground">{currentAnimal.species || "-"}</span>
-                </span>
-                <span className="inline-flex items-center gap-2 rounded-full border border-border bg-white px-3 py-1.5 text-sm">
-                  <FaTag className="h-3.5 w-3.5 text-[rgb(5,150,105)]" />
-                  <span className="text-muted-foreground">Raça</span>
-                  <span className="font-medium text-foreground">{currentAnimal.breed || "-"}</span>
-                </span>
-                <span className="inline-flex items-center gap-2 rounded-full border border-border bg-white px-3 py-1.5 text-sm">
-                  <FaMale className="h-3.5 w-3.5 text-[rgb(5,150,105)]" />
-                  <span className="text-muted-foreground">Sexo</span>
-                  <span className="font-medium text-foreground">{currentAnimal.gender || "-"}</span>
-                </span>
-                <span className="inline-flex items-center gap-2 rounded-full border border-border bg-white px-3 py-1.5 text-sm">
-                  <FaClock className="h-3.5 w-3.5 text-[rgb(5,150,105)]" />
-                  <span className="text-muted-foreground">Idade</span>
-                  <span className="font-medium text-foreground">{formatAgeYearsMonths(currentAnimal.birthday)}</span>
-                </span>
-                <span className="inline-flex items-center gap-2 rounded-full border border-border bg-white px-3 py-1.5 text-sm">
-                  <FaWeightHanging className="h-3.5 w-3.5 text-[rgb(5,150,105)]" />
-                  <span className="text-muted-foreground">Peso</span>
-                  <span className="font-medium text-foreground">{formatWeightLabel(latestWeight)}</span>
-                </span>
-                <span className="inline-flex items-center gap-2 rounded-full border border-border bg-white px-3 py-1.5 text-sm">
-                  <FaCalendarAlt className="h-3.5 w-3.5 text-[rgb(5,150,105)]" />
-                  <span className="text-muted-foreground">Nascimento</span>
-                  <span className="font-medium text-foreground">
-                    {currentAnimal.birthday ? formatDateTime(currentAnimal.birthday) : "-"}
+              {/* CHIPS DO PACIENTE: 3 linhas com hierarquia */}
+              <div className="mt-4 space-y-2">
+                {/* Linha 1: Identidade fixa (menor destaque) */}
+                <div className="flex flex-wrap gap-2">
+                  <span className="inline-flex items-center gap-2 rounded-full border border-border bg-white px-3 py-1 text-[12.5px] text-foreground/80">
+                    <FaPaw className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span className="text-muted-foreground">Espécie</span>
+                    <span className="font-medium text-foreground/85">{currentAnimal.species || "-"}</span>
                   </span>
-                </span>
+                  <span className="inline-flex items-center gap-2 rounded-full border border-border bg-white px-3 py-1 text-[12.5px] text-foreground/80">
+                    <FaTag className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span className="text-muted-foreground">Raça</span>
+                    <span className="font-medium text-foreground/85">{currentAnimal.breed || "-"}</span>
+                  </span>
+                  <span className="inline-flex items-center gap-2 rounded-full border border-border bg-white px-3 py-1 text-[12.5px] text-foreground/80">
+                    <FaMale className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span className="text-muted-foreground">Sexo</span>
+                    <span className="font-medium text-foreground/85">{currentAnimal.gender || "-"}</span>
+                  </span>
+                </div>
+
+                {/* Linha 2: Estado atual (maior destaque) */}
+                <div className="flex flex-wrap gap-2">
+                  <span className="inline-flex items-center gap-2 rounded-full border border-border bg-white px-3 py-1.5 text-sm">
+                    <FaClock className="h-3.5 w-3.5 text-[rgb(5,150,105)]" />
+                    <span className="text-muted-foreground">Idade</span>
+                    <span className="font-semibold text-foreground">{formatAgeYearsMonths(currentAnimal.birthday)}</span>
+                  </span>
+                  <span className="inline-flex items-center gap-2 rounded-full border border-border bg-white px-3 py-1.5 text-sm">
+                    <FaWeightHanging className="h-3.5 w-3.5 text-[rgb(5,150,105)]" />
+                    <span className="text-muted-foreground">Peso</span>
+                    <span className="font-semibold text-foreground">{formatWeightLabel(latestWeight)}</span>
+                  </span>
+                </div>
+
+                {/* Linha 3: Informação histórica (mais discreta) */}
+                <div className="flex flex-wrap gap-2">
+                  <span className="inline-flex items-center gap-2 rounded-full border border-border bg-white px-3 py-1 text-[12.5px]">
+                    <FaCalendarAlt className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span className="text-muted-foreground">Nascimento</span>
+                    <span className="font-medium text-foreground/85">
+                      {currentAnimal.birthday ? formatDateTime(currentAnimal.birthday) : "-"}
+                    </span>
+                  </span>
+                </div>
               </div>
 
-              {/* Tutor + Financeiro (terceiro plano) */}
-              <div className="mt-5 grid grid-cols-1 lg:grid-cols-2 gap-3">
-                {/* TUTOR (secundário, com expandir) */}
-                <div className="rounded-xl border border-border bg-white">
-                  <Collapsible open={isTutorExpanded} onOpenChange={setIsTutorExpanded}>
+              {/* Tutor + Financeiro (mesma altura visual / alinhados) */}
+              <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-3 items-stretch">
+                {/* TUTOR */}
+                <div className="rounded-xl border border-border bg-white h-full">
+                  <Collapsible open={isTutorExpanded} onOpenChange={setIsTutorExpanded} className="h-full flex flex-col">
                     <div className="p-4 flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Tutor</div>
@@ -1062,8 +1074,8 @@ const PatientRecordPage = () => {
                   </Collapsible>
                 </div>
 
-                {/* FINANCEIRO (secundário, com caixas discretas e ícones) */}
-                <div className="rounded-xl border border-border bg-white p-4">
+                {/* FINANCEIRO */}
+                <div className="rounded-xl border border-border bg-white p-4 h-full">
                   {(() => {
                     const income = mockFinancialTransactions
                       .filter((t) => t.relatedAnimalId === animalId && t.type === 'income')
@@ -1085,21 +1097,21 @@ const PatientRecordPage = () => {
                         <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Financeiro</div>
                         <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-2">
                           <div className="rounded-lg border border-border bg-white p-3">
-                            <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                            <div className="flex items-center gap-2 text-[11px] text-muted-foreground/75">
                               <CheckCircle2 className="h-4 w-4 text-emerald-600" strokeWidth={1.6} />
                               Pago neste prontuário
                             </div>
                             <div className="mt-1 text-sm font-semibold text-emerald-600">{fmt(income)}</div>
                           </div>
                           <div className="rounded-lg border border-border bg-white p-3">
-                            <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                            <div className="flex items-center gap-2 text-[11px] text-muted-foreground/75">
                               <AlertCircle className="h-4 w-4 text-rose-600" strokeWidth={1.6} />
                               Pendências ativas
                             </div>
                             <div className="mt-1 text-sm font-semibold text-rose-600">{fmt(pending)}</div>
                           </div>
                           <div className="rounded-lg border border-border bg-white p-3">
-                            <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                            <div className="flex items-center gap-2 text-[11px] text-muted-foreground/75">
                               <BadgeDollarSign className="h-4 w-4 text-sky-600" strokeWidth={1.6} />
                               Saldo do paciente
                             </div>
@@ -1273,9 +1285,9 @@ const PatientRecordPage = () => {
 
                         return (
                           <div key={event.id} className="relative pl-9 sm:pl-11">
-                            {/* Ícone do marcador maior */}
-                            <span className="absolute left-3 sm:left-4 top-4 h-8 w-8 rounded-full bg-white ring-1 ring-border flex items-center justify-center">
-                              <MarkerIcon className="h-5 w-5" strokeWidth={1.6} style={{ color: markerColor }} />
+                            {/* Container maior, ícone no mesmo tamanho */}
+                            <span className="absolute left-2.5 sm:left-3.5 top-4 h-10 w-10 rounded-full bg-white ring-1 ring-border flex items-center justify-center">
+                              <MarkerIcon className="h-4 w-4" strokeWidth={1.6} style={{ color: markerColor }} />
                             </span>
 
                             <Card className="premium-card p-4 sm:p-5">
