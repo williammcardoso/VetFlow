@@ -63,6 +63,9 @@ import {
   Stethoscope as StethoscopeIcon,
   Syringe as SyringeIcon,
   AlertTriangle as AlertTriangleIcon,
+  CheckCircle2,
+  AlertCircle,
+  BadgeDollarSign,
 } from "lucide-react";
 
 // Tipos locais para documentos e observações
@@ -864,20 +867,18 @@ const PatientRecordPage = () => {
     const birth = new Date(birthday);
     const now = new Date();
 
-    let months = (now.getFullYear() - birth.getFullYear()) * 12 + (now.getMonth() - birth.getMonth());
-    if (now.getDate() < birth.getDate()) months -= 1;
-    if (months < 0) months = 0;
+    let totalMonths = (now.getFullYear() - birth.getFullYear()) * 12 + (now.getMonth() - birth.getMonth());
+    if (now.getDate() < birth.getDate()) totalMonths -= 1;
+    if (totalMonths < 0) totalMonths = 0;
 
-    const years = Math.floor(months / 12);
-    const rem = months % 12;
+    const years = Math.floor(totalMonths / 12);
+    const months = totalMonths % 12;
 
-    const yearLabel = years === 1 ? "1 ano" : `${years} anos`;
-    const monthLabel = rem === 1 ? "1 mês" : `${rem} meses`;
+    const yearsLabel = years === 1 ? "1 ano" : `${years} anos`;
+    const monthsLabel = months === 1 ? "1 mês" : `${months} meses`;
 
-    if (years <= 0 && rem <= 0) return "Menos de 1 mês";
-    if (years <= 0) return monthLabel;
-    if (rem <= 0) return yearLabel;
-    return `${yearLabel} e ${monthLabel}`;
+    // Sempre exibir anos e meses (ex.: "6 anos e 4 meses")
+    return `${yearsLabel} e ${monthsLabel}`;
   };
 
   const getTimelineMarkerColor = (dotClass: string) => {
@@ -972,9 +973,6 @@ const PatientRecordPage = () => {
                     <h2 className="text-2xl sm:text-[1.95rem] leading-tight font-semibold tracking-tight truncate">
                       {currentAnimal.name}
                     </h2>
-                    <p className="mt-1 text-sm text-muted-foreground truncate">
-                      {currentAnimal.species} • {currentAnimal.breed} • {currentAnimal.gender}
-                    </p>
                   </div>
                 </div>
 
@@ -989,8 +987,23 @@ const PatientRecordPage = () => {
                 </Button>
               </div>
 
-              {/* CHIPS DO PACIENTE: apenas dados variáveis */}
+              {/* CHIPS DO PACIENTE: informações somente em chips (inclui espécie/raça/sexo) */}
               <div className="mt-4 flex flex-wrap gap-2">
+                <span className="inline-flex items-center gap-2 rounded-full border border-border bg-white px-3 py-1.5 text-sm">
+                  <FaPaw className="h-3.5 w-3.5 text-[rgb(5,150,105)]" />
+                  <span className="text-muted-foreground">Espécie</span>
+                  <span className="font-medium text-foreground">{currentAnimal.species || "-"}</span>
+                </span>
+                <span className="inline-flex items-center gap-2 rounded-full border border-border bg-white px-3 py-1.5 text-sm">
+                  <FaTag className="h-3.5 w-3.5 text-[rgb(5,150,105)]" />
+                  <span className="text-muted-foreground">Raça</span>
+                  <span className="font-medium text-foreground">{currentAnimal.breed || "-"}</span>
+                </span>
+                <span className="inline-flex items-center gap-2 rounded-full border border-border bg-white px-3 py-1.5 text-sm">
+                  <FaMale className="h-3.5 w-3.5 text-[rgb(5,150,105)]" />
+                  <span className="text-muted-foreground">Sexo</span>
+                  <span className="font-medium text-foreground">{currentAnimal.gender || "-"}</span>
+                </span>
                 <span className="inline-flex items-center gap-2 rounded-full border border-border bg-white px-3 py-1.5 text-sm">
                   <FaClock className="h-3.5 w-3.5 text-[rgb(5,150,105)]" />
                   <span className="text-muted-foreground">Idade</span>
@@ -1049,7 +1062,7 @@ const PatientRecordPage = () => {
                   </Collapsible>
                 </div>
 
-                {/* FINANCEIRO (secundário, sem caixas cinzas) */}
+                {/* FINANCEIRO (secundário, com caixas discretas e ícones) */}
                 <div className="rounded-xl border border-border bg-white p-4">
                   {(() => {
                     const income = mockFinancialTransactions
@@ -1070,17 +1083,26 @@ const PatientRecordPage = () => {
                     return (
                       <div>
                         <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Financeiro</div>
-                        <div className="mt-3 grid grid-cols-3 gap-3">
-                          <div>
-                            <div className="text-[11px] text-muted-foreground">Pago neste prontuário</div>
+                        <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-2">
+                          <div className="rounded-lg border border-border bg-white p-3">
+                            <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                              <CheckCircle2 className="h-4 w-4 text-emerald-600" strokeWidth={1.6} />
+                              Pago neste prontuário
+                            </div>
                             <div className="mt-1 text-sm font-semibold text-emerald-600">{fmt(income)}</div>
                           </div>
-                          <div>
-                            <div className="text-[11px] text-muted-foreground">Pendências ativas</div>
+                          <div className="rounded-lg border border-border bg-white p-3">
+                            <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                              <AlertCircle className="h-4 w-4 text-rose-600" strokeWidth={1.6} />
+                              Pendências ativas
+                            </div>
                             <div className="mt-1 text-sm font-semibold text-rose-600">{fmt(pending)}</div>
                           </div>
-                          <div>
-                            <div className="text-[11px] text-muted-foreground">Saldo do paciente</div>
+                          <div className="rounded-lg border border-border bg-white p-3">
+                            <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                              <BadgeDollarSign className="h-4 w-4 text-sky-600" strokeWidth={1.6} />
+                              Saldo do paciente
+                            </div>
                             <div className="mt-1 text-sm font-semibold text-sky-600">{fmt(net)}</div>
                           </div>
                         </div>
@@ -1251,8 +1273,9 @@ const PatientRecordPage = () => {
 
                         return (
                           <div key={event.id} className="relative pl-9 sm:pl-11">
-                            <span className="absolute left-3.5 sm:left-4.5 top-5 h-6 w-6 rounded-full bg-white ring-1 ring-border flex items-center justify-center">
-                              <MarkerIcon className="h-4 w-4" strokeWidth={1.6} style={{ color: markerColor }} />
+                            {/* Ícone do marcador maior */}
+                            <span className="absolute left-3 sm:left-4 top-4 h-8 w-8 rounded-full bg-white ring-1 ring-border flex items-center justify-center">
+                              <MarkerIcon className="h-5 w-5" strokeWidth={1.6} style={{ color: markerColor }} />
                             </span>
 
                             <Card className="premium-card p-4 sm:p-5">
