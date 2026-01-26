@@ -32,62 +32,74 @@ const Header: React.FC<HeaderProps> = ({
   const { theme, setTheme } = useTheme();
 
   return (
-    <header className="sticky top-0 z-30 w-full border-b border-border bg-background/70 backdrop-blur-md">
-      <div className={cn("h-14 flex items-center gap-3", containerClassName)}>
+    <header className="sticky top-0 z-30 w-full border-b border-border bg-background/90">
+      <div className={cn("h-12 flex items-center gap-2", containerClassName)}>
         <Button
           variant="ghost"
           size="icon"
-          className="lg:hidden h-9 w-9 text-foreground/80 hover:text-foreground hover:bg-muted"
+          className="lg:hidden h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted"
           onClick={onToggleMobileSidebar}
         >
-          <PanelLeft className="h-5 w-5" />
+          <PanelLeft className="h-4 w-4" strokeWidth={1.6} />
           <span className="sr-only">Abrir menu</span>
         </Button>
 
         <Button
           variant="ghost"
           size="icon"
-          className="hidden lg:inline-flex h-9 w-9 text-foreground/80 hover:text-foreground hover:bg-muted"
+          className="hidden lg:inline-flex h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted"
           onClick={onToggleDesktopSidebar}
         >
-          {isDesktopSidebarOpen ? <PanelLeft className="h-5 w-5" /> : <PanelRight className="h-5 w-5" />}
+          {isDesktopSidebarOpen ? (
+            <PanelLeft className="h-4 w-4" strokeWidth={1.6} />
+          ) : (
+            <PanelRight className="h-4 w-4" strokeWidth={1.6} />
+          )}
           <span className="sr-only">Alternar sidebar</span>
         </Button>
 
         <div className="flex-1" />
 
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-0.5">
           <Button
             variant="ghost"
             size="icon"
             onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-            className="h-9 w-9 text-foreground/80 hover:text-foreground hover:bg-muted"
+            className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted"
           >
-            {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            {theme === "dark" ? (
+              <Sun className="h-4 w-4" strokeWidth={1.6} />
+            ) : (
+              <Moon className="h-4 w-4" strokeWidth={1.6} />
+            )}
             <span className="sr-only">Alternar tema</span>
           </Button>
 
           <Button
             variant="ghost"
             size="icon"
-            className="relative h-9 w-9 text-foreground/80 hover:text-foreground hover:bg-muted"
+            className="relative h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted"
           >
-            <Bell className="h-4 w-4" />
-            <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-red-500" />
+            <Bell className="h-4 w-4" strokeWidth={1.6} />
+            <span className="absolute top-2 right-2 h-1.5 w-1.5 rounded-full bg-red-500" />
             <span className="sr-only">Notificações</span>
           </Button>
 
           <Link to="/help">
-            <Button variant="ghost" size="icon" className="h-9 w-9 text-foreground/80 hover:text-foreground hover:bg-muted">
-              <HelpCircle className="h-4 w-4" />
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted"
+            >
+              <HelpCircle className="h-4 w-4" strokeWidth={1.6} />
               <span className="sr-only">Ajuda</span>
             </Button>
           </Link>
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="h-9 w-9 rounded-full p-0 hover:bg-muted">
-                <Avatar className="h-9 w-9 ring-1 ring-border">
+              <Button variant="ghost" className="h-8 w-8 rounded-full p-0 hover:bg-muted">
+                <Avatar className="h-8 w-8 ring-1 ring-border">
                   <AvatarImage src="/placeholder.svg" alt="User Avatar" />
                   <AvatarFallback className="bg-muted text-foreground">WC</AvatarFallback>
                 </Avatar>
@@ -102,11 +114,11 @@ const Header: React.FC<HeaderProps> = ({
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuItem>
-                <Settings className="mr-2 h-4 w-4" />
+                <Settings className="mr-2 h-4 w-4" strokeWidth={1.6} />
                 <span>Configurações</span>
               </DropdownMenuItem>
               <DropdownMenuItem>
-                <LogOut className="mr-2 h-4 w-4" />
+                <LogOut className="mr-2 h-4 w-4" strokeWidth={1.6} />
                 <span>Sair</span>
               </DropdownMenuItem>
             </DropdownMenuContent>

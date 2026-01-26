@@ -125,19 +125,17 @@ interface SidebarProps {
   onToggleDesktop: () => void;
 }
 
-function IconBox({ active, children }: { active?: boolean; children: React.ReactNode }) {
+function NavIcon({ icon: Icon, active }: { icon: React.ElementType; active?: boolean }) {
   return (
-    <span
+    <Icon
       className={cn(
-        "h-10 w-10 rounded-xl flex items-center justify-center transition-colors",
-        "ring-1 ring-border/70",
-        active
-          ? "bg-emerald-50 text-emerald-700"
-          : "bg-muted/50 text-muted-foreground group-hover:bg-muted group-hover:text-foreground/80"
+        "h-[18px] w-[18px] shrink-0",
+        "text-muted-foreground transition-colors",
+        active && "text-primary",
+        "group-hover:text-foreground/80"
       )}
-    >
-      {children}
-    </span>
+      strokeWidth={1.6}
+    />
   );
 }
 
@@ -158,17 +156,16 @@ const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, onCloseMobile, isDeskto
           isDesktopOpen ? "lg:translate-x-0 lg:w-64" : "lg:translate-x-0 lg:w-16"
         )}
       >
-        <div className={cn("h-14 flex items-center", isDesktopOpen ? "px-2" : "px-0 justify-center")}>
+        {/* Topo integrado (sem separador) */}
+        <div className={cn("h-12 flex items-center", isDesktopOpen ? "px-2" : "px-0 justify-center")}>
           {isDesktopOpen ? (
             <SystemVetLogo />
           ) : (
-            <div className="h-10 w-10 rounded-xl bg-muted/50 ring-1 ring-border/70 flex items-center justify-center text-muted-foreground">
-              <Stethoscope className="h-[18px] w-[18px]" />
-            </div>
+            <Stethoscope className="h-[18px] w-[18px] text-muted-foreground" strokeWidth={1.6} />
           )}
         </div>
 
-        <nav className="mt-3 space-y-2">
+        <nav className="mt-4 space-y-2">
           <Accordion type="multiple" className="w-full">
             {navItems.map((item, index) => {
               const isActive = !!item.href && location.pathname === item.href;
@@ -180,22 +177,20 @@ const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, onCloseMobile, isDeskto
                     <Link
                       to={item.href}
                       className={cn(
-                        "group flex items-center rounded-xl h-12 transition-colors",
-                        "hover:bg-muted/70",
-                        isDesktopOpen ? "px-2 gap-3 justify-start" : "px-0 gap-0 justify-center",
-                        isActive && "bg-emerald-50"
+                        "group flex items-center rounded-xl h-11 transition-all",
+                        "hover:bg-muted/60",
+                        isDesktopOpen ? "px-3 gap-3 justify-start" : "px-0 gap-0 justify-center",
+                        isActive && "bg-primary/10"
                       )}
                       onClick={onCloseMobile}
                     >
-                      <IconBox active={isActive}>
-                        <Icon className="h-[18px] w-[18px]" />
-                      </IconBox>
+                      <NavIcon icon={Icon} active={isActive} />
                       {isDesktopOpen && (
                         <span
                           className={cn(
-                            "text-[13.5px] leading-none",
-                            isActive ? "font-medium text-emerald-800" : "font-normal text-foreground/70",
-                            "group-hover:text-foreground/90"
+                            "text-[13.5px] leading-none transition-colors",
+                            isActive ? "font-medium text-primary" : "font-normal text-foreground/65",
+                            "group-hover:text-foreground/85"
                           )}
                         >
                           {item.title}
@@ -206,24 +201,17 @@ const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, onCloseMobile, isDeskto
                     <AccordionItem value={`item-${index}`} className="border-b-0">
                       <AccordionTrigger
                         className={cn(
-                          "group flex items-center rounded-xl h-12 transition-colors hover:bg-muted/70",
-                          isDesktopOpen ? "px-2" : "px-0",
+                          "group flex items-center rounded-xl h-11 transition-all hover:bg-muted/60",
+                          isDesktopOpen ? "px-3" : "px-0",
                           isDesktopOpen
                             ? "[&>svg]:block [&[data-state=open]>svg]:rotate-180"
                             : "[&>svg]:hidden"
                         )}
                       >
-                        <div
-                          className={cn(
-                            "flex items-center",
-                            isDesktopOpen ? "gap-3 w-full" : "gap-0 justify-center"
-                          )}
-                        >
-                          <IconBox>
-                            <Icon className="h-[18px] w-[18px]" />
-                          </IconBox>
+                        <div className={cn("flex items-center", isDesktopOpen ? "gap-3 w-full" : "gap-0 justify-center")}>
+                          <NavIcon icon={Icon} />
                           {isDesktopOpen && (
-                            <span className="text-[13.5px] font-normal text-foreground/70 group-hover:text-foreground/90">
+                            <span className="text-[13.5px] font-normal text-foreground/65 group-hover:text-foreground/85">
                               {item.title}
                             </span>
                           )}
@@ -232,7 +220,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, onCloseMobile, isDeskto
 
                       {isDesktopOpen && (
                         <AccordionContent className="pb-0">
-                          <div className="ml-11 mt-1.5 space-y-1.5">
+                          <div className="ml-8 mt-1.5 space-y-1">
                             {item.subItems?.map((subItem) => {
                               const subActive = location.pathname === subItem.href;
                               const SubIcon = subItem.icon;
@@ -242,22 +230,20 @@ const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, onCloseMobile, isDeskto
                                   key={subItem.title}
                                   to={subItem.href || "#"}
                                   className={cn(
-                                    "group flex items-center gap-3 rounded-xl px-2 py-2 transition-colors",
-                                    "hover:bg-muted/70",
-                                    subActive && "bg-emerald-50"
+                                    "group flex items-center gap-3 rounded-xl px-3 py-2 transition-all",
+                                    "hover:bg-muted/60",
+                                    subActive && "bg-primary/10"
                                   )}
                                   onClick={onCloseMobile}
                                 >
-                                  <IconBox active={subActive}>
-                                    <SubIcon className="h-[16px] w-[16px]" />
-                                  </IconBox>
+                                  <NavIcon icon={SubIcon} active={subActive} />
                                   <span
                                     className={cn(
-                                      "text-[13px]",
+                                      "text-[13px] transition-colors",
                                       subActive
-                                        ? "font-medium text-emerald-800"
-                                        : "font-normal text-foreground/70",
-                                      "group-hover:text-foreground/90"
+                                        ? "font-medium text-primary"
+                                        : "font-normal text-foreground/65",
+                                      "group-hover:text-foreground/85"
                                     )}
                                   >
                                     {subItem.title}
