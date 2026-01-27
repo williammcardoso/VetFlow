@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
+import { pdf } from "@react-pdf/renderer";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -36,6 +37,8 @@ import SurgeryForm from "@/components/appointments/forms/SurgeryForm";
 import AttachmentsSection, {
   type Attachment,
 } from "@/components/appointments/forms/AttachmentsSection";
+
+import AppointmentPdfContent from "@/components/AppointmentPdfContent";
 
 interface AppointmentFormProps {
   animalId: string;
@@ -302,6 +305,58 @@ export default function AppointmentForm({
         });
       }
     }
+  };
+
+  const generatePdf = async () => {
+    if (!date || !time || !type || !vet) {
+      toast.error("Para gerar PDF, preencha: data, hora, tipo e veterinário.");
+      return;
+    }
+
+    const isLegacy = !!type && !isPrimaryType(type);
+    const shouldKeepVitals = type === "Consulta" || type === "Cirurgia" || isLegacy;
+    const shouldKeepCardioVitals = type === "Cirurgia" || isLegacy;
+
+    const appointmentForPdf: AppointmentEntry = {
+      id: initialData?.id || `tmp-${Date.now()}`,
+      animalId,
+      date,
+      time,
+      type,
+      vet,
+      observacoesGerais: administrativeNote.trim() || undefined,
+      pesoAtual: shouldKeepVitals && pesoAtual !== "" ? Number(pesoAtual) : undefined,
+      temperaturaCorporal:
+        shouldKeepVitals && temperaturaCorporal !== "" ? Number(temperaturaCorporal) : undefined,
+      frequenciaCardiaca:
+        shouldKeepCardioVitals && frequenciaCardiaca !== "" ? Number(frequenciaCardiaca) : undefined,
+      frequenciaRespiratoria:
+        shouldKeepCardioVitals && frequenciaRespiratoria !== ""
+          ? Number(frequenciaRespiratoria)
+          : undefined,
+      details,
+      attachments,
+    };
+
+    const client = mockClients.find((c) => c.id === clientId);
+    const animal = client?.animals.find((a) => a.id === animalId);
+
+    if (!client || !animal) {
+      toast.error("Cliente/animal não encontrados para gerar PDF.");
+      return;
+    }
+
+    const blob = await pdf(
+      <AppointmentPdfContent
+        appointment={appointmentForPdf}
+        clientName={client.name}
+        animalName={animal.name}
+        animalSpecies={animal.species}
+      />
+    ).toBlob();
+
+    const url = URL.createObjectURL(blob);
+    window.open(url, "_blank");
   };
 
   const renderTypeSpecific = () => {
@@ -678,8 +733,7 @@ export default function AppointmentForm({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onSelect={() => toast.info("Geração de PDF será conectada em breve.")}
-              >
+              <DropdownMenuItem onSelect={() => generatePdf()}>
                 Gerar PDF do atendimento
               </DropdownMenuItem>
               <DropdownMenuItem asChild>

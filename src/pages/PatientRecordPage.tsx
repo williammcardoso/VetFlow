@@ -45,7 +45,7 @@ import { mockFinancialTransactions, addMockFinancialTransaction } from "@/mockDa
 import { AppointmentEntry, BaseAppointmentDetails } from "@/types/appointment";
 import { mockClients, updateAnimalDetails } from "@/mockData/clients";
 import { Client, Animal, WeightEntry } from "@/types/client";
-import { mockAppointments } from "@/pages/AddAppointmentPage";
+import { mockAppointments } from "@/mockData/appointments";
 import { ExamEntry } from "@/types/exam";
 import { mockExams } from "@/mockData/exams";
 import { hemogramReferences } from "@/constants/examReferences";

@@ -1,5 +1,5 @@
 import { Card } from "@/components/ui/card";
-import { mockAppointments } from "@/pages/AddAppointmentPage";
+import { mockAppointments } from "@/mockData/appointments";
 import { getCatalog } from "@/mockData/catalog";
 import StatCard from "@/components/saas/StatCard";
 import AppointmentList from "@/components/saas/AppointmentList";

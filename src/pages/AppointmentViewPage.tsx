@@ -28,7 +28,7 @@ import type {
   VaccinationDetails,
 } from "@/types/appointment";
 import { mockClients } from "@/mockData/clients";
-import { mockAppointments } from "@/pages/AddAppointmentPage";
+import { mockAppointments } from "@/mockData/appointments";
 
 const formatDateBR = (dateISO?: string) => {
   if (!dateISO) return "-";
@@ -88,6 +88,11 @@ export default function AppointmentViewPage() {
   const renderTypeDetails = () => {
     if (appointment.type === "Consulta") {
       const d = appointment.details as ConsultationDetails;
+      const vacStatus = d.vacinacaoEmDia || d.vacinacaoPaciente;
+      const mucosasFallback = (d.mucosasResumo as any) || (d.mucosas as any);
+      const fcLegacy = (d as any).frequenciaCardiaca as number | undefined;
+      const frLegacy = (d as any).frequenciaRespiratoria as number | undefined;
+
       const showComplete =
         !!d.sec_digestorio_status ||
         !!d.sec_digestorio_obs ||
@@ -100,8 +105,6 @@ export default function AppointmentViewPage() {
         !!d.sec_linfonodos_pele_status ||
         !!d.sec_linfonodos_pele_obs ||
         !!d.observacoesComplementares;
-
-      const vacStatus = d.vacinacaoEmDia || d.vacinacaoPaciente;
 
       return (
         <div className="space-y-4">
@@ -130,12 +133,14 @@ export default function AppointmentViewPage() {
               {renderField("Peso (kg)", appointment.pesoAtual)}
               {renderField("Temperatura (°C)", appointment.temperaturaCorporal)}
               {renderField("Estado geral", d.estadoGeral)}
-              {renderField("Mucosas", d.mucosasResumo)}
+              {renderField("Mucosas", mucosasFallback)}
               {renderField("Hidratação", d.hidratacao)}
               {renderField(
                 "Dor",
                 d.dor === "escala" ? `Escala ${d.dorEscala ?? 0}/10` : d.dor
               )}
+              {renderField("FC (legado)", fcLegacy)}
+              {renderField("FR (legado)", frLegacy)}
               {renderField("Observações do exame físico", d.exameFisicoObs)}
             </CardContent>
           </Card>
