@@ -187,13 +187,15 @@ export default function AppointmentPdfContent({
       return (
         <View>
           <Text style={styles.sectionTitle}>Vacinação</Text>
-          <Field label="Tipo" value={d.tipoVacina} />
+          <Field label="Vacina" value={d.tipoVacina} />
+          <Field label="Dose" value={d.dose} />
+          <Field label="Via" value={d.viaAdministracao} />
+          <Field label="Local" value={d.localAplicacao} />
+          <Field label="Próxima dose" value={formatDateBR(d.proximaDose)} />
           <Field label="Nome comercial" value={d.nomeComercial} />
           <Field label="Lote" value={d.lote} />
           <Field label="Fabricante" value={d.fabricante} />
           <Field label="Dose (mL)" value={d.doseAplicada} />
-          <Field label="Via" value={d.viaAdministracao} />
-          <Field label="Local" value={d.localAplicacao} />
           <Field label="Reação adversa" value={d.reacaoAdversaObservada} />
           <Field label="Fabricação" value={formatDateBR(d.dataFabricacao)} />
           <Field label="Validade" value={formatDateBR(d.dataValidade)} />

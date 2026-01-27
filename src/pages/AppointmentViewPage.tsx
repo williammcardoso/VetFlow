@@ -2,7 +2,7 @@
 
 import React from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { Button } from "@/components/ui/button";
+import SaasButton from "@/components/saas/SaasButton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -15,7 +15,6 @@ import {
   ArrowLeft,
   Clipboard,
   Edit,
-  Paperclip,
   Scissors,
   Stethoscope,
 } from "lucide-react";
@@ -84,9 +83,9 @@ export default function AppointmentViewPage() {
       <div className="p-6 text-center">
         <h1 className="text-2xl font-semibold mb-4">Atendimento não encontrado.</h1>
         <Link to={`/clients/${clientId}/animals/${animalId}/record`}>
-          <Button variant="outline">
+          <SaasButton saasVariant="outline">
             <ArrowLeft className="mr-2 h-4 w-4" /> Voltar para Prontuário
-          </Button>
+          </SaasButton>
         </Link>
       </div>
     );
@@ -115,7 +114,7 @@ export default function AppointmentViewPage() {
 
       return (
         <div className="space-y-4">
-          <Card className="border-border">
+          <Card className="premium-card rounded-xl">
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2">
                 <Stethoscope className="h-4 w-4 text-muted-foreground" /> Queixa e Anamnese
@@ -132,7 +131,7 @@ export default function AppointmentViewPage() {
             </CardContent>
           </Card>
 
-          <Card className="border-border">
+          <Card className="premium-card rounded-xl">
             <CardHeader className="pb-3">
               <CardTitle className="text-base">Sinais vitais / Avaliação</CardTitle>
             </CardHeader>
@@ -153,7 +152,7 @@ export default function AppointmentViewPage() {
             </CardContent>
           </Card>
 
-          <Card className="border-border">
+          <Card className="premium-card rounded-xl">
             <CardHeader className="pb-3">
               <CardTitle className="text-base">Diagnóstico e Conduta</CardTitle>
             </CardHeader>
@@ -201,7 +200,7 @@ export default function AppointmentViewPage() {
       const d = appointment.details as SurgeryDetails;
       return (
         <div className="space-y-4">
-          <Card className="border-border">
+          <Card className="premium-card rounded-xl">
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2">
                 <Scissors className="h-4 w-4 text-muted-foreground" /> Dados básicos
@@ -215,7 +214,7 @@ export default function AppointmentViewPage() {
             </CardContent>
           </Card>
 
-          <Card className="border-border">
+          <Card className="premium-card rounded-xl">
             <CardHeader className="pb-3">
               <CardTitle className="text-base">Avaliação pré-operatória</CardTitle>
             </CardHeader>
@@ -233,7 +232,7 @@ export default function AppointmentViewPage() {
             </CardContent>
           </Card>
 
-          <Card className="border-border">
+          <Card className="premium-card rounded-xl">
             <CardHeader className="pb-3">
               <CardTitle className="text-base">Procedimento</CardTitle>
             </CardHeader>
@@ -248,7 +247,7 @@ export default function AppointmentViewPage() {
           </Card>
 
           {d.suturas && d.suturas.length > 0 && (
-            <Card className="border-border">
+            <Card className="premium-card rounded-xl">
               <CardHeader className="pb-3">
                 <CardTitle className="text-base">Materiais & suturas</CardTitle>
               </CardHeader>
@@ -269,7 +268,7 @@ export default function AppointmentViewPage() {
             </Card>
           )}
 
-          <Card className="border-border">
+          <Card className="premium-card rounded-xl">
             <CardHeader className="pb-3">
               <CardTitle className="text-base">Pós-operatório e alta</CardTitle>
             </CardHeader>
@@ -288,20 +287,22 @@ export default function AppointmentViewPage() {
     if (appointment.type === "Vacina") {
       const d = appointment.details as VaccinationDetails;
       return (
-        <Card className="border-border">
+        <Card className="premium-card rounded-xl">
           <CardHeader className="pb-3">
             <CardTitle className="text-base">Vacinação</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
-            {renderField("Tipo", d.tipoVacina)}
+            {renderField("Vacina", d.tipoVacina)}
+            {renderField("Dose", d.dose)}
+            {renderField("Local", d.localAplicacao)}
+            {renderField("Via", d.viaAdministracao)}
+            {renderField("Próxima dose", formatDateBR(d.proximaDose))}
             {renderField("Nome comercial", d.nomeComercial)}
             {renderField("Lote", d.lote)}
             {renderField("Fabricante", d.fabricante)}
             {renderField("Fabricação", formatDateBR(d.dataFabricacao))}
             {renderField("Validade", formatDateBR(d.dataValidade))}
             {renderField("Dose (mL)", d.doseAplicada)}
-            {renderField("Via", d.viaAdministracao)}
-            {renderField("Local", d.localAplicacao)}
             {renderField("Reação adversa", d.reacaoAdversaObservada)}
           </CardContent>
         </Card>
@@ -315,7 +316,7 @@ export default function AppointmentViewPage() {
         : undefined;
 
       return (
-        <Card className="border-border">
+        <Card className="premium-card rounded-xl">
           <CardHeader className="pb-3">
             <CardTitle className="text-base">Retorno</CardTitle>
           </CardHeader>
@@ -349,18 +350,18 @@ export default function AppointmentViewPage() {
           </div>
 
           <div className="flex flex-wrap gap-2">
-            <Button
-              variant="outline"
+            <SaasButton
+              saasVariant="outline"
               onClick={() =>
                 navigate(`/clients/${clientId}/animals/${animalId}/edit-appointment/${appointmentId}`)
               }
             >
               <Edit className="mr-2 h-4 w-4" /> Editar
-            </Button>
+            </SaasButton>
             <Link to={`/clients/${clientId}/animals/${animalId}/record`}>
-              <Button variant="outline">
+              <SaasButton saasVariant="outline">
                 <ArrowLeft className="mr-2 h-4 w-4" /> Voltar
-              </Button>
+              </SaasButton>
             </Link>
           </div>
         </div>
@@ -386,7 +387,7 @@ export default function AppointmentViewPage() {
       </div>
 
       <div className="flex-1 p-6">
-        <Card className="border-border">
+        <Card className="premium-card rounded-xl">
           <CardHeader className="pb-3">
             <CardTitle className="text-base">Informações administrativas</CardTitle>
           </CardHeader>
@@ -401,32 +402,6 @@ export default function AppointmentViewPage() {
         </Card>
 
         <div className="mt-4">{renderTypeDetails()}</div>
-
-        {appointment.attachments && appointment.attachments.length > 0 && (
-          <Card className="border-border mt-4">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center gap-2">
-                <Paperclip className="h-4 w-4 text-muted-foreground" /> Anexos
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ul className="space-y-2">
-                {appointment.attachments.map((att, index) => (
-                  <li key={index} className="text-sm">
-                    <a
-                      href={att.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-primary hover:underline"
-                    >
-                      {att.name}
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            </CardContent>
-          </Card>
-        )}
       </div>
     </div>
   );

@@ -2,8 +2,7 @@ import React, { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import SaasButton from "@/components/saas/SaasButton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
@@ -125,8 +124,9 @@ function buildSummary(app: AppointmentEntry) {
   if (type === "Vacinação") {
     const v = app.details as VaccinationDetails;
     const main = v.tipoVacina || "Vacinação";
+    const dose = v.dose ? ` • ${v.dose}` : "";
     const local = v.localAplicacao ? ` • ${v.localAplicacao}` : "";
-    return `${main}${local}`;
+    return `${main}${dose}${local}`;
   }
 
   if (type === "Retorno") {
@@ -181,77 +181,75 @@ export default function PatientAppointmentsTab({
 
   return (
     <div className="space-y-4">
-      <Card className="bg-card shadow-sm border border-border rounded-md">
+      <Card className="premium-card rounded-xl">
         <CardHeader className="pb-3">
           <CardTitle className="text-lg font-semibold text-foreground">Novo atendimento</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
-            <Button
-              variant="outline"
+            <SaasButton
+              saasVariant="outline"
               className="justify-start gap-2"
               onClick={() => setConsultDialogOpen(true)}
             >
               <Stethoscope className="h-4 w-4 text-primary" /> Consulta
-            </Button>
-            <Button
-              variant="outline"
-              className="justify-start gap-2"
-              onClick={() => goNew("Cirurgia")}
-            >
+            </SaasButton>
+            <SaasButton saasVariant="outline" className="justify-start gap-2" onClick={() => goNew("Cirurgia")}>
               <Scissors className="h-4 w-4 text-primary" /> Cirurgia
-            </Button>
-            <Button
-              variant="outline"
-              className="justify-start gap-2"
-              onClick={() => goNew("Vacina")}
-            >
+            </SaasButton>
+            <SaasButton saasVariant="outline" className="justify-start gap-2" onClick={() => goNew("Vacina")}>
               <Syringe className="h-4 w-4 text-primary" /> Vacina
-            </Button>
-            <Button
-              variant="outline"
-              className="justify-start gap-2"
-              onClick={() => goNew("Retorno")}
-            >
+            </SaasButton>
+            <SaasButton saasVariant="outline" className="justify-start gap-2" onClick={() => goNew("Retorno")}>
               <Repeat2 className="h-4 w-4 text-primary" /> Retorno
-            </Button>
-            <Button
-              variant="outline"
+            </SaasButton>
+            <SaasButton
+              saasVariant="outline"
               className="justify-start gap-2"
               onClick={() => goNew("Emergência")}
             >
               <AlertTriangle className="h-4 w-4 text-destructive" /> Emergência
-            </Button>
+            </SaasButton>
           </div>
         </CardContent>
       </Card>
 
       <Dialog open={consultDialogOpen} onOpenChange={setConsultDialogOpen}>
-        <DialogContent>
+        <DialogContent className="premium-card rounded-xl">
           <DialogHeader>
             <DialogTitle>Consulta</DialogTitle>
             <DialogDescription>Selecione qual modelo de consulta deseja utilizar.</DialogDescription>
           </DialogHeader>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            <Button onClick={() => { setConsultDialogOpen(false); goNew("Consulta"); }}>
+            <SaasButton onClick={() => { setConsultDialogOpen(false); goNew("Consulta"); }}>
               Consulta (Novo Modelo)
-            </Button>
-            <Button variant="outline" onClick={() => { setConsultDialogOpen(false); goNew("Consulta (Modelo Antigo)"); }}>
+            </SaasButton>
+            <SaasButton
+              saasVariant="outline"
+              onClick={() => { setConsultDialogOpen(false); goNew("Consulta (Modelo Antigo)"); }}
+            >
               Consulta (Modelo Antigo)
-            </Button>
+            </SaasButton>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setConsultDialogOpen(false)}>Cancelar</Button>
+            <SaasButton saasVariant="outline" onClick={() => setConsultDialogOpen(false)}>
+              Cancelar
+            </SaasButton>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      <Card className="bg-card shadow-sm border border-border rounded-md">
+      <Card className="premium-card rounded-xl">
         <CardHeader className="flex flex-row items-center justify-between pb-3">
           <CardTitle className="text-lg font-semibold text-foreground">Histórico de atendimentos</CardTitle>
-          <Button size="sm" onClick={() => navigate(`/clients/${clientId}/animals/${animalId}/add-appointment`)} className="gap-2">
+          <SaasButton
+            saasVariant="soft"
+            size="sm"
+            onClick={() => navigate(`/clients/${clientId}/animals/${animalId}/add-appointment`)}
+            className="gap-2"
+          >
             <Plus className="h-4 w-4" /> Novo
-          </Button>
+          </SaasButton>
         </CardHeader>
         <CardContent className="pt-0">
           {sorted.length > 0 ? (
@@ -262,7 +260,10 @@ export default function PatientAppointmentsTab({
                 const summary = buildSummary(app);
 
                 return (
-                  <div key={app.id} className="relative rounded-xl border border-border bg-card overflow-hidden">
+                  <div
+                    key={app.id}
+                    className="premium-card premium-card--soft card-hover relative rounded-xl overflow-hidden"
+                  >
                     <div className={`absolute left-0 top-0 bottom-0 w-1 ${meta.left}`} />
                     <div className="p-4">
                       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
@@ -281,24 +282,24 @@ export default function PatientAppointmentsTab({
                         </div>
 
                         <div className="flex gap-2">
-                          <Button
-                            variant="ghost"
+                          <SaasButton
+                            saasVariant="ghost"
                             size="icon"
                             onClick={() => navigate(`/clients/${clientId}/animals/${animalId}/view-appointment/${app.id}`)}
                             className="rounded-md"
                             title="Ver"
                           >
                             <Eye className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
+                          </SaasButton>
+                          <SaasButton
+                            saasVariant="ghost"
                             size="icon"
                             onClick={() => removeAppointment(app.id)}
                             className="rounded-md"
                             title="Excluir"
                           >
                             <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
+                          </SaasButton>
                         </div>
                       </div>
                     </div>

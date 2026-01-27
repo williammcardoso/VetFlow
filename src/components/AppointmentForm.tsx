@@ -5,6 +5,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { pdf } from "@react-pdf/renderer";
 
+import SaasButton from "@/components/saas/SaasButton";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -39,10 +40,6 @@ import EmergencyForm from "@/components/appointments/forms/EmergencyForm";
 import DateInputBR, { isoToBR } from "@/components/appointments/inputs/DateInputBR";
 import LegacyConsultationForm from "@/components/appointments/forms/LegacyConsultationForm";
 
-import AttachmentsSection, {
-  type Attachment,
-} from "@/components/appointments/forms/AttachmentsSection";
-
 import AppointmentPdfContent from "@/components/AppointmentPdfContent";
 
 interface AppointmentFormProps {
@@ -73,6 +70,8 @@ const VACCINE_TYPE_PRESETS = [
   "FeLV",
   "FIV",
 ];
+
+const VACCINE_DOSE_PRESETS = ["1ª dose", "2ª dose", "3ª dose", "Reforço"];
 
 const VACCINE_APPLICATION_SITE_PRESETS = [
   "Interescapular",
@@ -185,9 +184,6 @@ export default function AppointmentForm({
   const [details, setDetails] = useState<AppointmentEntry["details"]>(
     (initialData?.details as any) || {}
   );
-  const [attachments, setAttachments] = useState<Attachment[]>(
-    (initialData?.attachments as any) || []
-  );
 
   const [consultationMode, setConsultationMode] = useState<ConsultationMode>("simplificado");
 
@@ -216,7 +212,6 @@ export default function AppointmentForm({
       setFrequenciaRespiratoria(saved.frequenciaRespiratoria ?? "");
 
       setDetails(saved.details || {});
-      setAttachments(saved.attachments || []);
       setConsultationMode(saved.consultationMode || "simplificado");
       return;
     }
@@ -339,7 +334,6 @@ export default function AppointmentForm({
       frequenciaCardiaca,
       frequenciaRespiratoria,
       details,
-      attachments,
       consultationMode,
     };
     localStorage.setItem(draftKey(clientId, animalId), JSON.stringify(payload));
@@ -393,6 +387,7 @@ export default function AppointmentForm({
     if (type === "Vacina") {
       const v = details as VaccinationDetails;
       if (!v.tipoVacina || !v.tipoVacina.trim()) nextErrors.tipoVacina = true;
+      if (!v.dose || !v.dose.trim()) nextErrors.dose = true;
       if (!v.viaAdministracao) nextErrors.viaAdministracao = true;
       if (!v.localAplicacao || !v.localAplicacao.trim()) nextErrors.localAplicacao = true;
     }
@@ -437,7 +432,6 @@ export default function AppointmentForm({
           ? Number(frequenciaRespiratoria)
           : undefined,
       details: detailsToSave,
-      attachments,
     };
 
     onSave(newAppointment);
@@ -490,9 +484,10 @@ export default function AppointmentForm({
       frequenciaCardiaca:
         shouldKeepCardioVitals && frequenciaCardiaca !== "" ? Number(frequenciaCardiaca) : undefined,
       frequenciaRespiratoria:
-        shouldKeepCardioVitals && frequenciaRespiratoria !== "" ? Number(frequenciaRespiratoria) : undefined,
+        shouldKeepCardioVitals && frequenciaRespiratoria !== ""
+          ? Number(frequenciaRespiratoria)
+          : undefined,
       details: detailsForPdf,
-      attachments,
     };
 
     const client = mockClients.find((c) => c.id === clientId);
@@ -603,13 +598,16 @@ export default function AppointmentForm({
       const isPresetType = VACCINE_TYPE_PRESETS.includes(v.tipoVacina || "");
       const typeSelectValue = isPresetType ? (v.tipoVacina as string) : VACCINE_OTHER_VALUE;
 
+      const isPresetDose = VACCINE_DOSE_PRESETS.includes(v.dose || "");
+      const doseSelectValue = isPresetDose ? (v.dose as string) : VACCINE_OTHER_VALUE;
+
       const isPresetSite = VACCINE_APPLICATION_SITE_PRESETS.includes(v.localAplicacao || "");
       const siteSelectValue = isPresetSite ? (v.localAplicacao as string) : VACCINE_OTHER_VALUE;
 
       return (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="space-y-2">
-            <Label>Tipo de vacina *</Label>
+            <Label>Vacina *</Label>
             <Select
               value={typeSelectValue}
               onValueChange={(val) => {
@@ -644,6 +642,128 @@ export default function AppointmentForm({
                 placeholder="Digite o nome da vacina"
               />
             )}
+          </div>
+
+          <div className="space-y-2">
+            <Label>Dose *</Label>
+            <Select
+              value={doseSelectValue}
+              onValueChange={(val) => {
+                clearError("dose");
+                if (val === VACCINE_OTHER_VALUE) {
+                  setDetails({ ...v, dose: "" });
+                } else {
+                  setDetails({ ...v, dose: val });
+                }
+              }}
+            >
+              <SelectTrigger className={errClass(errors.dose)}>
+                <SelectValue placeholder="Selecione" />
+              </SelectTrigger>
+              <SelectContent>
+                {VACCINE_DOSE_PRESETS.map((x) => (
+                  <SelectItem key={x} value={x}>
+                    {x}
+                  </SelectItem>
+                ))}
+                <SelectItem value={VACCINE_OTHER_VALUE}>Outra</SelectItem>
+              </SelectContent>
+            </Select>
+            {doseSelectValue === VACCINE_OTHER_VALUE && (
+              <Input
+                className={errClass(errors.dose)}
+                value={v.dose || ""}
+                onChange={(e) => {
+                  clearError("dose");
+                  setDetails({ ...v, dose: e.target.value });
+                }}
+                placeholder="Digite a dose"
+              />
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label>Local *</Label>
+            <Select
+              value={siteSelectValue}
+              onValueChange={(val) => {
+                clearError("localAplicacao");
+                if (val === VACCINE_OTHER_VALUE) {
+                  setDetails({ ...v, localAplicacao: "" });
+                } else {
+                  setDetails({ ...v, localAplicacao: val });
+                }
+              }}
+            >
+              <SelectTrigger className={errClass(errors.localAplicacao)}>
+                <SelectValue placeholder="Selecione" />
+              </SelectTrigger>
+              <SelectContent>
+                {VACCINE_APPLICATION_SITE_PRESETS.filter((x) => x !== "Outro").map((x) => (
+                  <SelectItem key={x} value={x}>
+                    {x}
+                  </SelectItem>
+                ))}
+                <SelectItem value={VACCINE_OTHER_VALUE}>Outro</SelectItem>
+              </SelectContent>
+            </Select>
+            {siteSelectValue === VACCINE_OTHER_VALUE && (
+              <Input
+                className={errClass(errors.localAplicacao)}
+                value={v.localAplicacao || ""}
+                onChange={(e) => {
+                  clearError("localAplicacao");
+                  setDetails({ ...v, localAplicacao: e.target.value });
+                }}
+                placeholder="Digite o local de aplicação"
+              />
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="viaAdministracao">Via de administração *</Label>
+            <Select
+              value={(v.viaAdministracao as any) || ""}
+              onValueChange={(val) => {
+                clearError("viaAdministracao");
+                setDetails({ ...v, viaAdministracao: val as any });
+              }}
+            >
+              <SelectTrigger id="viaAdministracao" className={errClass(errors.viaAdministracao)}>
+                <SelectValue placeholder="Selecione" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="SC">Subcutânea (SC)</SelectItem>
+                <SelectItem value="IM">Intramuscular (IM)</SelectItem>
+                <SelectItem value="VO">Via oral (VO)</SelectItem>
+                <SelectItem value="IN">Intranasal (IN)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="proximaDose">Próxima dose</Label>
+            <DateInputBR
+              id="proximaDose"
+              valueISO={v.proximaDose || ""}
+              onChangeISO={(val) => setDetails({ ...v, proximaDose: val || undefined })}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="doseAplicada">Dose (mL)</Label>
+            <Input
+              id="doseAplicada"
+              type="number"
+              step="0.1"
+              value={v.doseAplicada ?? ""}
+              onChange={(e) =>
+                setDetails({
+                  ...v,
+                  doseAplicada: e.target.value ? Number(e.target.value) : undefined,
+                })
+              }
+            />
           </div>
 
           <div className="space-y-2">
@@ -687,82 +807,7 @@ export default function AppointmentForm({
             />
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="doseAplicada">Dose (mL)</Label>
-            <Input
-              id="doseAplicada"
-              type="number"
-              step="0.1"
-              value={v.doseAplicada ?? ""}
-              onChange={(e) =>
-                setDetails({
-                  ...v,
-                  doseAplicada: e.target.value ? Number(e.target.value) : undefined,
-                })
-              }
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="viaAdministracao">Via de administração *</Label>
-            <Select
-              value={(v.viaAdministracao as any) || ""}
-              onValueChange={(val) => {
-                clearError("viaAdministracao");
-                setDetails({ ...v, viaAdministracao: val as any });
-              }}
-            >
-              <SelectTrigger id="viaAdministracao" className={errClass(errors.viaAdministracao)}>
-                <SelectValue placeholder="Selecione" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="SC">Subcutânea (SC)</SelectItem>
-                <SelectItem value="IM">Intramuscular (IM)</SelectItem>
-                <SelectItem value="VO">Via oral (VO)</SelectItem>
-                <SelectItem value="IN">Intranasal (IN)</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label>Local de aplicação *</Label>
-            <Select
-              value={siteSelectValue}
-              onValueChange={(val) => {
-                clearError("localAplicacao");
-                if (val === VACCINE_OTHER_VALUE) {
-                  setDetails({ ...v, localAplicacao: "" });
-                } else {
-                  setDetails({ ...v, localAplicacao: val });
-                }
-              }}
-            >
-              <SelectTrigger className={errClass(errors.localAplicacao)}>
-                <SelectValue placeholder="Selecione" />
-              </SelectTrigger>
-              <SelectContent>
-                {VACCINE_APPLICATION_SITE_PRESETS.filter((x) => x !== "Outro").map((x) => (
-                  <SelectItem key={x} value={x}>
-                    {x}
-                  </SelectItem>
-                ))}
-                <SelectItem value={VACCINE_OTHER_VALUE}>Outro</SelectItem>
-              </SelectContent>
-            </Select>
-            {siteSelectValue === VACCINE_OTHER_VALUE && (
-              <Input
-                className={errClass(errors.localAplicacao)}
-                value={v.localAplicacao || ""}
-                onChange={(e) => {
-                  clearError("localAplicacao");
-                  setDetails({ ...v, localAplicacao: e.target.value });
-                }}
-                placeholder="Digite o local de aplicação"
-              />
-            )}
-          </div>
-
-          <div className="space-y-2 md:col-span-2">
+          <div className="space-y-2 md:col-span-3">
             <Label htmlFor="reacao">Reação adversa observada</Label>
             <Textarea
               id="reacao"
@@ -772,7 +817,7 @@ export default function AppointmentForm({
             />
           </div>
 
-          <div className="space-y-2 md:col-span-2">
+          <div className="space-y-2 md:col-span-3">
             <Label htmlFor="profAplicou">Profissional que aplicou</Label>
             <Input
               id="profAplicou"
@@ -931,7 +976,7 @@ export default function AppointmentForm({
       className="space-y-6 pb-24"
     >
       {/* ETAPA 1 — Dados administrativos (sem campos clínicos) */}
-      <Card className="border-border">
+      <Card className="premium-card rounded-xl">
         <CardHeader>
           <CardTitle className="text-base">Dados gerais do atendimento</CardTitle>
         </CardHeader>
@@ -1035,7 +1080,7 @@ export default function AppointmentForm({
 
       {/* ETAPA 2 — Formulário dinâmico por tipo */}
       {type ? (
-        <Card className="border-border">
+        <Card className="premium-card rounded-xl">
           <CardHeader>
             <CardTitle className="text-base">{typeLabel}</CardTitle>
           </CardHeader>
@@ -1047,19 +1092,16 @@ export default function AppointmentForm({
         </div>
       )}
 
-      {/* Anexos (somente após seleção do tipo) */}
-      {type && type !== "Consulta" && <AttachmentsSection attachments={attachments} onChange={setAttachments} />}
-
       {/* Rodapé fixo de ações */}
       <div className="sticky bottom-0 z-10 -mx-6 px-6 py-4 border-t border-border bg-background/90 backdrop-blur">
         <div className="flex flex-col sm:flex-row gap-2 sm:items-center sm:justify-end">
-          <Button type="button" variant="outline" onClick={onCancel} className="w-full sm:w-auto">
+          <SaasButton type="button" saasVariant="outline" onClick={onCancel} className="w-full sm:w-auto">
             <X className="h-4 w-4 mr-2" /> Cancelar
-          </Button>
+          </SaasButton>
 
-          <Button type="button" variant="secondary" onClick={saveDraft} className="w-full sm:w-auto">
+          <SaasButton type="button" saasVariant="soft" onClick={saveDraft} className="w-full sm:w-auto">
             Salvar rascunho
-          </Button>
+          </SaasButton>
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -1079,9 +1121,9 @@ export default function AppointmentForm({
             </DropdownMenuContent>
           </DropdownMenu>
 
-          <Button type="submit" className="w-full sm:w-auto">
+          <SaasButton type="submit" className="w-full sm:w-auto">
             <Save className="h-4 w-4 mr-2" /> Salvar atendimento
-          </Button>
+          </SaasButton>
         </div>
       </div>
     </form>

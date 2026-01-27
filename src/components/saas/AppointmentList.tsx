@@ -51,7 +51,10 @@ const AppointmentList: React.FC<AppointmentListProps> = ({ title = "Próximos At
             const status = deriveStatus(app.date, app.time);
 
             return (
-              <div key={app.id} className="rounded-xl p-4 border border-border bg-white/70 hover:bg-white transition-colors">
+              <div
+                key={app.id}
+                className="premium-card premium-card--soft card-hover rounded-xl p-4"
+              >
                 <div className="flex items-center gap-3">
                   <Avatar className="h-10 w-10 bg-white ring-1 ring-border">
                     <AvatarFallback className="bg-muted text-foreground">

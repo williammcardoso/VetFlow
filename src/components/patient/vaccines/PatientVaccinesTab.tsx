@@ -1,7 +1,7 @@
 import React, { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 
-import { Button } from "@/components/ui/button";
+import SaasButton from "@/components/saas/SaasButton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
@@ -9,6 +9,7 @@ import { Calendar, Plus, Syringe } from "lucide-react";
 
 import type { AppointmentEntry, VaccinationDetails } from "@/types/appointment";
 import { formatDateTime } from "@/lib/utils";
+import { isoToBR } from "@/components/appointments/inputs/DateInputBR";
 
 export default function PatientVaccinesTab({
   clientId,
@@ -33,12 +34,13 @@ export default function PatientVaccinesTab({
 
   return (
     <div className="space-y-4">
-      <Card className="bg-card shadow-sm border border-border rounded-md">
+      <Card className="premium-card rounded-xl">
         <CardHeader className="flex flex-row items-center justify-between pb-3">
           <CardTitle className="text-lg font-semibold text-foreground flex items-center gap-2">
             <Syringe className="h-5 w-5 text-primary" /> Vacinação
           </CardTitle>
-          <Button
+          <SaasButton
+            saasVariant="soft"
             size="sm"
             onClick={() =>
               navigate(`/clients/${clientId}/animals/${animalId}/add-appointment?type=${encodeURIComponent("Vacina")}`)
@@ -46,49 +48,62 @@ export default function PatientVaccinesTab({
             className="gap-2"
           >
             <Plus className="h-4 w-4" /> Registrar vacina
-          </Button>
+          </SaasButton>
         </CardHeader>
         <CardContent className="pt-0">
           {vaccines.length > 0 ? (
             <div className="space-y-3">
               {vaccines.map((v) => {
                 const d = v.details as VaccinationDetails;
+                const doseLabel = d.dose ? ` • ${d.dose}` : "";
+                const localLabel = d.localAplicacao ? ` • ${d.localAplicacao}` : "";
+
                 return (
-                  <div key={v.id} className="rounded-xl border border-border bg-card p-4">
+                  <div
+                    key={v.id}
+                    className="premium-card premium-card--soft card-hover rounded-xl p-4"
+                  >
                     <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
                           <Badge className="chip-soft badge-soft-teal">
-                            <Syringe className="h-3.5 w-3.5" /> {d.tipoVacina || "Vacina"}
+                            <Syringe className="h-3.5 w-3.5" /> {(d.tipoVacina || "Vacina") + doseLabel + localLabel}
                           </Badge>
                           <span className="text-xs text-muted-foreground flex items-center gap-1">
                             <Calendar className="h-3.5 w-3.5" /> {formatDateTime(v.date, v.time)} • {v.vet}
                           </span>
                         </div>
-                        <div className="mt-2 text-sm text-muted-foreground">
-                          {d.nomeComercial ? `Comercial: ${d.nomeComercial}` : ""}
-                          {d.nomeComercial && d.lote ? " • " : ""}
-                          {d.lote ? `Lote: ${d.lote}` : ""}
-                        </div>
-                        <div className="mt-1 text-sm text-muted-foreground">
-                          {d.viaAdministracao ? `Via: ${d.viaAdministracao}` : ""}
-                          {d.viaAdministracao && d.localAplicacao ? " • " : ""}
-                          {d.localAplicacao ? `Local: ${d.localAplicacao}` : ""}
-                        </div>
+
+                        {(d.nomeComercial || d.lote) && (
+                          <div className="mt-2 text-sm text-muted-foreground">
+                            {d.nomeComercial ? `Comercial: ${d.nomeComercial}` : ""}
+                            {d.nomeComercial && d.lote ? " • " : ""}
+                            {d.lote ? `Lote: ${d.lote}` : ""}
+                          </div>
+                        )}
+
+                        {(d.viaAdministracao || d.profissionalAplicou) && (
+                          <div className="mt-1 text-sm text-muted-foreground">
+                            {d.viaAdministracao ? `Via: ${d.viaAdministracao}` : ""}
+                            {d.viaAdministracao && d.profissionalAplicou ? " • " : ""}
+                            {d.profissionalAplicou ? `Aplicado por: ${d.profissionalAplicou}` : ""}
+                          </div>
+                        )}
+
                         {d.proximaDose && (
                           <div className="mt-1 text-sm text-muted-foreground">
-                            Próxima dose: {d.proximaDose}
+                            Próxima dose: {isoToBR(d.proximaDose)}
                           </div>
                         )}
                       </div>
 
-                      <Button
-                        variant="outline"
+                      <SaasButton
+                        saasVariant="outline"
                         size="sm"
                         onClick={() => navigate(`/clients/${clientId}/animals/${animalId}/view-appointment/${v.id}`)}
                       >
                         Ver atendimento
-                      </Button>
+                      </SaasButton>
                     </div>
                   </div>
                 );

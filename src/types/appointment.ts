@@ -130,7 +130,8 @@ export interface ConsultationDetails extends BaseAppointmentDetails {
 }
 
 export interface VaccinationDetails {
-  tipoVacina?: string; // Ex: Polivalente, Antirrábica
+  tipoVacina?: string; // Ex: V10, Antirrábica
+  dose?: string; // Ex: 1ª dose, 2ª dose, reforço
   nomeComercial?: string;
   lote?: string;
   fabricante?: string;
