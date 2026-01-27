@@ -141,6 +141,7 @@ export interface VaccinationDetails {
   localAplicacao?: string;
   reacaoAdversaObservada?: string;
   profissionalAplicou?: string; // Pré-preenchido com o veterinário logado
+  proximaDose?: string; // Data ISO (opcional)
 }
 
 export interface SurgerySutureItem {
