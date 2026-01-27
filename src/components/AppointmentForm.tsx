@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { pdf } from "@react-pdf/renderer";
 
@@ -23,6 +23,7 @@ import { MoreHorizontal, Save, X } from "lucide-react";
 import type {
   AppointmentEntry,
   ConsultationDetails,
+  EmergencyDetails,
   ReturnDetails,
   SurgeryDetails,
   VaccinationDetails,
@@ -34,6 +35,7 @@ import ConsultationClinicalForm, {
   type ConsultationMode,
 } from "@/components/appointments/forms/ConsultationClinicalForm";
 import SurgeryForm from "@/components/appointments/forms/SurgeryForm";
+import EmergencyForm from "@/components/appointments/forms/EmergencyForm";
 import DateInputBR, { isoToBR } from "@/components/appointments/inputs/DateInputBR";
 import LegacyConsultationForm from "@/components/appointments/forms/LegacyConsultationForm";
 
@@ -66,9 +68,9 @@ type AllowedType = AppointmentEntry["type"]; // Mantém compatibilidade com tipo
 const PRIMARY_TYPES: Array<
   Extract<
     AppointmentEntry["type"],
-    "Consulta" | "Consulta (Modelo Antigo)" | "Cirurgia" | "Retorno" | "Vacina"
+    "Consulta" | "Consulta (Modelo Antigo)" | "Cirurgia" | "Retorno" | "Vacina" | "Emergência"
   >
-> = ["Consulta", "Consulta (Modelo Antigo)", "Cirurgia", "Retorno", "Vacina"];
+> = ["Consulta", "Consulta (Modelo Antigo)", "Cirurgia", "Retorno", "Vacina", "Emergência"];
 
 const isPrimaryType = (t: AppointmentEntry["type"]) => (PRIMARY_TYPES as string[]).includes(t);
 
@@ -111,6 +113,20 @@ export default function AppointmentForm({
   onCancel,
   mockAppointments,
 }: AppointmentFormProps) {
+  const [searchParams] = useSearchParams();
+
+  const errClass = (has?: boolean) =>
+    has ? "border-destructive focus-visible:ring-destructive focus-visible:border-destructive" : "";
+
+  const [errors, setErrors] = useState<Record<string, boolean>>({});
+  const clearError = (key: string) =>
+    setErrors((prev) => {
+      if (!prev[key]) return prev;
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+
   const lastWeight = useMemo(
     () => getLastKnownWeight(clientId, animalId),
     [clientId, animalId]
@@ -150,32 +166,39 @@ export default function AppointmentForm({
 
   const hydratedFromDraftRef = useRef(false);
 
-  // Carregar rascunho (apenas em criação)
+  // Carregar rascunho (apenas em criação). Prioridade: initialData > draft > querystring
   useEffect(() => {
     if (initialData) return;
+
     const saved = safeParseJSON<any>(localStorage.getItem(draftKey(clientId, animalId)));
-    if (!saved) return;
+    if (saved) {
+      hydratedFromDraftRef.current = true;
 
-    hydratedFromDraftRef.current = true;
+      setDate(saved.date || new Date().toISOString().split("T")[0]);
+      setTime(
+        saved.time ||
+          new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })
+      );
+      setType(saved.type || "");
+      setVet(saved.vet || mockUserSettings.userName);
+      setAdministrativeNote(saved.administrativeNote || "");
 
-    setDate(saved.date || new Date().toISOString().split("T")[0]);
-    setTime(
-      saved.time ||
-        new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })
-    );
-    setType(saved.type || "");
-    setVet(saved.vet || mockUserSettings.userName);
-    setAdministrativeNote(saved.administrativeNote || "");
+      setPesoAtual(saved.pesoAtual ?? "");
+      setTemperaturaCorporal(saved.temperaturaCorporal ?? "");
+      setFrequenciaCardiaca(saved.frequenciaCardiaca ?? "");
+      setFrequenciaRespiratoria(saved.frequenciaRespiratoria ?? "");
 
-    setPesoAtual(saved.pesoAtual ?? "");
-    setTemperaturaCorporal(saved.temperaturaCorporal ?? "");
-    setFrequenciaCardiaca(saved.frequenciaCardiaca ?? "");
-    setFrequenciaRespiratoria(saved.frequenciaRespiratoria ?? "");
+      setDetails(saved.details || {});
+      setAttachments(saved.attachments || []);
+      setConsultationMode(saved.consultationMode || "simplificado");
+      return;
+    }
 
-    setDetails(saved.details || {});
-    setAttachments(saved.attachments || []);
-    setConsultationMode(saved.consultationMode || "simplificado");
-  }, [initialData, clientId, animalId]);
+    const qsType = searchParams.get("type");
+    if (qsType && !type) {
+      setType(qsType as AllowedType);
+    }
+  }, [initialData, clientId, animalId, searchParams, type]);
 
   // Resetar estrutura específica quando o tipo muda (exceto quando o tipo veio do rascunho)
   useEffect(() => {
@@ -184,6 +207,9 @@ export default function AppointmentForm({
       hydratedFromDraftRef.current = false;
       return;
     }
+
+    // Limpar erros do formulário ao trocar o tipo (evita bordas vermelhas "presas")
+    setErrors({});
 
     // Ao trocar de tipo, reconstruir apenas o bloco abaixo do administrativo
     if (type === "Consulta") {
@@ -238,6 +264,21 @@ export default function AppointmentForm({
       return;
     }
 
+    if (type === "Emergência") {
+      setDetails({} as EmergencyDetails);
+      setPesoAtual(initialData?.type === "Emergência" ? initialData.pesoAtual ?? "" : lastWeight ?? "");
+      setTemperaturaCorporal(
+        initialData?.type === "Emergência" ? initialData.temperaturaCorporal ?? "" : ""
+      );
+      setFrequenciaCardiaca(
+        initialData?.type === "Emergência" ? initialData.frequenciaCardiaca ?? "" : ""
+      );
+      setFrequenciaRespiratoria(
+        initialData?.type === "Emergência" ? initialData.frequenciaRespiratoria ?? "" : ""
+      );
+      return;
+    }
+
     if (type === "Vacina") {
       setDetails({} as VaccinationDetails);
       setPesoAtual("");
@@ -279,6 +320,64 @@ export default function AppointmentForm({
   };
 
   const handleSave = () => {
+    const nextErrors: Record<string, boolean> = {};
+
+    if (!date) nextErrors.date = true;
+    if (!time) nextErrors.time = true;
+    if (!type) nextErrors.type = true;
+    if (!vet) nextErrors.vet = true;
+
+    if (type === "Consulta" || type === "Consulta (Modelo Antigo)") {
+      const c = details as ConsultationDetails;
+      if (!c.queixaPrincipal || !c.queixaPrincipal.trim()) {
+        nextErrors.queixaPrincipal = true;
+      }
+
+      const hasAnyDiagnosis = !!(
+        (c.suspeitaDiagnostica && c.suspeitaDiagnostica.trim()) ||
+        (c.diagnosticoPresuntivo && c.diagnosticoPresuntivo.trim()) ||
+        (c.diagnosticoDefinitivo && c.diagnosticoDefinitivo.trim())
+      );
+      if (!hasAnyDiagnosis) {
+        nextErrors.diagnostico = true;
+      }
+    }
+
+    if (type === "Cirurgia") {
+      const s = details as SurgeryDetails;
+      if (!s.procedimentoRealizado || !s.procedimentoRealizado.trim()) {
+        nextErrors.procedimentoRealizado = true;
+      }
+    }
+
+    if (type === "Emergência") {
+      const e = details as EmergencyDetails;
+      if (!e.condicaoGeral) {
+        nextErrors.condicaoGeral = true;
+      }
+    }
+
+    if (type === "Retorno") {
+      const r = details as ReturnDetails;
+      if (!r.atendimentoOrigemId) nextErrors.atendimentoOrigemId = true;
+      if (!r.motivoRetorno || !r.motivoRetorno.trim()) nextErrors.motivoRetorno = true;
+    }
+
+    if (type === "Vacina") {
+      const v = details as VaccinationDetails;
+      if (!v.tipoVacina || !v.tipoVacina.trim()) nextErrors.tipoVacina = true;
+      if (!v.viaAdministracao) nextErrors.viaAdministracao = true;
+      if (!v.localAplicacao || !v.localAplicacao.trim()) nextErrors.localAplicacao = true;
+    }
+
+    if (Object.keys(nextErrors).length > 0) {
+      setErrors(nextErrors);
+      toast.error("Preencha os campos obrigatórios destacados em vermelho.");
+      return;
+    }
+
+    setErrors({});
+
     if (!date || !time || !type || !vet) {
       toast.error("Preencha: data, hora, tipo e veterinário responsável.");
       return;
@@ -302,8 +401,9 @@ export default function AppointmentForm({
 
     const isLegacy = !!type && !isPrimaryType(type);
     const isOldConsult = type === "Consulta (Modelo Antigo)";
-    const shouldKeepVitals = type === "Consulta" || isOldConsult || type === "Cirurgia" || isLegacy;
-    const shouldKeepCardioVitals = isOldConsult || type === "Cirurgia" || isLegacy;
+    const shouldKeepVitals =
+      type === "Consulta" || isOldConsult || type === "Cirurgia" || type === "Emergência" || isLegacy;
+    const shouldKeepCardioVitals = isOldConsult || type === "Cirurgia" || type === "Emergência" || isLegacy;
 
     const newAppointment: AppointmentEntry = {
       id: initialData?.id || `app-${Date.now()}`,
@@ -352,8 +452,8 @@ export default function AppointmentForm({
     }
 
     const isLegacy = !!type && !isPrimaryType(type);
-    const shouldKeepVitals = type === "Consulta" || type === "Cirurgia" || isLegacy;
-    const shouldKeepCardioVitals = type === "Cirurgia" || isLegacy;
+    const shouldKeepVitals = type === "Consulta" || type === "Cirurgia" || type === "Emergência" || isLegacy;
+    const shouldKeepCardioVitals = type === "Cirurgia" || type === "Emergência" || isLegacy;
 
     const appointmentForPdf: AppointmentEntry = {
       id: initialData?.id || `tmp-${Date.now()}`,
@@ -412,6 +512,8 @@ export default function AppointmentForm({
           onTemperaturaCorporalChange={setTemperaturaCorporal}
           details={details as ConsultationDetails}
           onDetailsChange={(next) => setDetails(next)}
+          errors={errors}
+          onClearError={clearError}
         />
       );
     }
@@ -430,6 +532,8 @@ export default function AppointmentForm({
           onFrequenciaRespiratoriaChange={setFrequenciaRespiratoria}
           details={details as ConsultationDetails}
           onDetailsChange={(next) => setDetails(next)}
+          errors={errors}
+          onClearError={clearError}
         />
       );
     }
@@ -449,6 +553,27 @@ export default function AppointmentForm({
           onFrequenciaRespiratoriaChange={setFrequenciaRespiratoria}
           details={details as SurgeryDetails}
           onDetailsChange={(next) => setDetails(next)}
+          errors={errors}
+          onClearError={clearError}
+        />
+      );
+    }
+
+    if (type === "Emergência") {
+      return (
+        <EmergencyForm
+          pesoAtual={pesoAtual}
+          onPesoAtualChange={setPesoAtual}
+          temperaturaCorporal={temperaturaCorporal}
+          onTemperaturaCorporalChange={setTemperaturaCorporal}
+          frequenciaCardiaca={frequenciaCardiaca}
+          onFrequenciaCardiacaChange={setFrequenciaCardiaca}
+          frequenciaRespiratoria={frequenciaRespiratoria}
+          onFrequenciaRespiratoriaChange={setFrequenciaRespiratoria}
+          details={details as EmergencyDetails}
+          onDetailsChange={(next) => setDetails(next)}
+          errors={errors}
+          onClearError={clearError}
         />
       );
     }
@@ -458,11 +583,15 @@ export default function AppointmentForm({
       return (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label htmlFor="tipoVacina">Tipo de vacina</Label>
+            <Label htmlFor="tipoVacina">Tipo de vacina *</Label>
             <Input
               id="tipoVacina"
+              className={errClass(errors.tipoVacina)}
               value={v.tipoVacina || ""}
-              onChange={(e) => setDetails({ ...v, tipoVacina: e.target.value })}
+              onChange={(e) => {
+                clearError("tipoVacina");
+                setDetails({ ...v, tipoVacina: e.target.value });
+              }}
               placeholder="Ex.: Polivalente, Antirrábica"
             />
           </div>
@@ -522,12 +651,15 @@ export default function AppointmentForm({
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="viaAdministracao">Via de administração</Label>
+            <Label htmlFor="viaAdministracao">Via de administração *</Label>
             <Select
               value={(v.viaAdministracao as any) || ""}
-              onValueChange={(val) => setDetails({ ...v, viaAdministracao: val as any })}
+              onValueChange={(val) => {
+                clearError("viaAdministracao");
+                setDetails({ ...v, viaAdministracao: val as any });
+              }}
             >
-              <SelectTrigger id="viaAdministracao">
+              <SelectTrigger id="viaAdministracao" className={errClass(errors.viaAdministracao)}>
                 <SelectValue placeholder="Selecione" />
               </SelectTrigger>
               <SelectContent>
@@ -539,11 +671,15 @@ export default function AppointmentForm({
             </Select>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="localAplicacao">Local de aplicação</Label>
+            <Label htmlFor="localAplicacao">Local de aplicação *</Label>
             <Input
               id="localAplicacao"
+              className={errClass(errors.localAplicacao)}
               value={v.localAplicacao || ""}
-              onChange={(e) => setDetails({ ...v, localAplicacao: e.target.value })}
+              onChange={(e) => {
+                clearError("localAplicacao");
+                setDetails({ ...v, localAplicacao: e.target.value });
+              }}
             />
           </div>
           <div className="space-y-2 md:col-span-2">
@@ -565,12 +701,15 @@ export default function AppointmentForm({
       return (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label htmlFor="atendimentoOrigemId">Atendimento de origem</Label>
+            <Label htmlFor="atendimentoOrigemId">Atendimento de origem *</Label>
             <Select
               value={r.atendimentoOrigemId || ""}
-              onValueChange={(val) => setDetails({ ...r, atendimentoOrigemId: val })}
+              onValueChange={(val) => {
+                clearError("atendimentoOrigemId");
+                setDetails({ ...r, atendimentoOrigemId: val });
+              }}
             >
-              <SelectTrigger id="atendimentoOrigemId">
+              <SelectTrigger id="atendimentoOrigemId" className={errClass(errors.atendimentoOrigemId)}>
                 <SelectValue placeholder="Selecione" />
               </SelectTrigger>
               <SelectContent>
@@ -584,11 +723,15 @@ export default function AppointmentForm({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="motivoRetorno">Motivo do retorno</Label>
+            <Label htmlFor="motivoRetorno">Motivo do retorno *</Label>
             <Input
               id="motivoRetorno"
+              className={errClass(errors.motivoRetorno)}
               value={r.motivoRetorno || ""}
-              onChange={(e) => setDetails({ ...r, motivoRetorno: e.target.value })}
+              onChange={(e) => {
+                clearError("motivoRetorno");
+                setDetails({ ...r, motivoRetorno: e.target.value });
+              }}
             />
           </div>
 
@@ -685,7 +828,9 @@ export default function AppointmentForm({
             ? "Retorno"
             : type === "Vacina"
               ? "Vacinação"
-              : type;
+              : type === "Emergência"
+                ? "Emergência"
+                : type;
 
   return (
     <form
@@ -703,18 +848,43 @@ export default function AppointmentForm({
         <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label htmlFor="date">Data do atendimento *</Label>
-            <DateInputBR id="date" valueISO={date} onChangeISO={setDate} required />
+            <DateInputBR
+              id="date"
+              valueISO={date}
+              onChangeISO={(v) => {
+                clearError("date");
+                setDate(v);
+              }}
+              required
+              className={errClass(errors.date)}
+            />
           </div>
 
           <div className="space-y-2">
             <Label htmlFor="time">Hora do atendimento *</Label>
-            <Input id="time" type="time" value={time} onChange={(e) => setTime(e.target.value)} required />
+            <Input
+              id="time"
+              type="time"
+              value={time}
+              className={errClass(errors.time)}
+              onChange={(e) => {
+                clearError("time");
+                setTime(e.target.value);
+              }}
+              required
+            />
           </div>
 
           <div className="space-y-2">
             <Label htmlFor="type">Tipo de atendimento *</Label>
-            <Select value={type} onValueChange={(v) => setType(v as AllowedType)}>
-              <SelectTrigger id="type">
+            <Select
+              value={type}
+              onValueChange={(v) => {
+                clearError("type");
+                setType(v as AllowedType);
+              }}
+            >
+              <SelectTrigger id="type" className={errClass(errors.type)}>
                 <SelectValue placeholder="Selecione" />
               </SelectTrigger>
               <SelectContent>
@@ -744,7 +914,11 @@ export default function AppointmentForm({
               id="vet"
               list="systemvet-vets"
               value={vet}
-              onChange={(e) => setVet(e.target.value)}
+              className={errClass(errors.vet)}
+              onChange={(e) => {
+                clearError("vet");
+                setVet(e.target.value);
+              }}
               placeholder="Selecione ou digite"
               required
             />

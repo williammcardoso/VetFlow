@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { Link, useParams, useNavigate, useSearchParams } from "react-router-dom";
 import {
   FaArrowLeft, FaUsers, FaPaw, FaPlus, FaEye, FaStethoscope, FaCalendarAlt, FaDollarSign, FaSyringe, FaWeightHanging, FaFileAlt, FaClipboardList, FaCommentAlt, FaHeart, FaMale, FaUser, FaPrint, FaDownload, FaTimes, FaSave, FaBalanceScale, FaFileMedical, FaExclamationTriangle, FaFlask, FaTag, FaBox, FaClock, FaMoneyBillWave, FaArrowUp, FaArrowDown, FaTrashAlt, FaPrescriptionBottleAlt, FaEdit, FaIdCard, FaPhone
@@ -56,6 +56,8 @@ import CurrencyInput from "@/components/CurrencyInput";
 import { getCatalog, findCatalogItem, adjustStock } from "@/mockData/catalog";
 import { getRegistryList } from "@/mockData/registry";
 import BudgetReportPdfContent from "@/components/BudgetReportPdfContent";
+import PatientAppointmentsTab from "@/components/patient/appointments/PatientAppointmentsTab";
+import PatientVaccinesTab from "@/components/patient/vaccines/PatientVaccinesTab";
 import {
   Circle as CircleIcon,
   FileText as FileTextIcon,
@@ -87,11 +89,6 @@ interface ObservationEntry {
 // Helpers de storage ausentes
 const salesStorageKey = (aid?: string) => `patient:sales:${aid || "unknown"}`;
 const paymentsStorageKey = (aid?: string) => `patient:payments:${aid || "unknown"}`;
-
-// Mock data para vacinas
-const mockVaccines = [
-  { id: "vac1", date: "2024-03-10", time: "11:00", type: "V8", nextDue: "2025-03-10", vet: "Dra. Costa" },
-];
 
 // Interface para eventos da linha do tempo
 interface TimelineEvent {
@@ -264,6 +261,11 @@ const PatientRecordPage = () => {
     setAnimalAppointments(mockAppointments.filter(app => app.animalId === animalId));
   }, [mockAppointments, animalId]);
 
+  const vaccineAppointmentsCount = useMemo(
+    () => animalAppointments.filter((a) => a.type === "Vacina").length,
+    [animalAppointments]
+  );
+
   const [weightHistory, setWeightHistory] = useState<WeightEntry[]>(currentAnimal?.weightHistory || []);
   const [newWeight, setNewWeight] = useState<string>("");
   const [newWeightDate, setNewWeightDate] = useState<string>(new Date().toISOString().split('T')[0]);
@@ -298,18 +300,6 @@ const PatientRecordPage = () => {
   useEffect(() => {
     setExamsList([...mockExams]);
   }, [mockExams, animalId]);
-
-  const [vaccines, setVaccines] = useState(mockVaccines);
-  const [vaccineAddOpen, setVaccineAddOpen] = useState(false);
-  const [vaccineViewOpen, setVaccineViewOpen] = useState(false);
-  const [selectedVaccine, setSelectedVaccine] = useState<(typeof mockVaccines)[number] | null>(null);
-  const [vaccineForm, setVaccineForm] = useState({
-    date: new Date().toISOString().split("T")[0],
-    time: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
-    type: "",
-    nextDue: "",
-    vet: "",
-  });
 
   const [observationModalOpen, setObservationModalOpen] = useState(false);
   const [selectedObservation, setSelectedObservation] = useState<ObservationEntry | null>(null);
@@ -808,20 +798,6 @@ const PatientRecordPage = () => {
     });
   });
 
-  vaccines.forEach(vaccine => {
-    allTimelineEvents.push({
-      id: `vaccine-${vaccine.id}`,
-      date: vaccine.date,
-      time: vaccine.time,
-      type: 'Vacina',
-      description: `Vacina ${vaccine.type} aplicada. Próxima dose: ${formatDateTime(vaccine.nextDue)}`,
-      summary: `Aplicada por ${vaccine.vet}`,
-      icon: FaSyringe,
-      badgeColor: "bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-200",
-      author: vaccine.vet || mockUserSettings.userName,
-    });
-  });
-
   documents.forEach(doc => {
     allTimelineEvents.push({
       id: `doc-${doc.id}`,
@@ -1149,7 +1125,7 @@ const PatientRecordPage = () => {
               <TabsTrigger value="vaccines" className="tab-active-line relative -mb-px pb-2 px-2.5 md:px-3.5 shrink-0 text-sm md:text-[0.95rem] text-muted-foreground hover:text-foreground hover:bg-muted/30 rounded-md transition-colors data-[state=active]:text-foreground data-[state=active]:font-semibold">
                 <FaSyringe className="h-4 w-4 mr-1.5 md:mr-2 text-current opacity-70" />
                 <span className="max-w-[9.5rem] md:max-w-none truncate">Vacinas</span>
-                <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[10px] bg-muted text-foreground/70">{vaccines.length}</span>
+                <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[10px] bg-muted text-foreground/70">{vaccineAppointmentsCount}</span>
               </TabsTrigger>
               <TabsTrigger value="weight" className="tab-active-line relative -mb-px pb-2 px-2.5 md:px-3.5 shrink-0 text-sm md:text-[0.95rem] text-muted-foreground hover:text-foreground hover:bg-muted/30 rounded-md transition-colors data-[state=active]:text-foreground data-[state=active]:font-semibold">
                 <FaWeightHanging className="h-4 w-4 mr-1.5 md:mr-2 text-current opacity-70" />
@@ -1350,72 +1326,12 @@ const PatientRecordPage = () => {
           </TabsContent>
 
           <TabsContent value="appointments" className="mt-4">
-            <Card className="bg-card shadow-sm border border-border rounded-md">
-              <CardHeader className="flex flex-row items-center justify-between pb-3">
-                <CardTitle className="flex items-center gap-2 text-lg font-semibold text-foreground">
-                  <FaStethoscope className="h-5 w-5 text-primary" /> Histórico de Atendimentos
-                </CardTitle>
-                <Button size="sm" onClick={() => navigate(`/clients/${clientId}/animals/${animalId}/add-appointment`)} className="rounded-md bg-primary text-primary-foreground hover:bg-primary/90 font-semibold transition-all duration-200 shadow-md hover:shadow-lg">
-                  <FaPlus className="h-4 w-4 mr-2" /> Adicionar Atendimento
-                </Button>
-              </CardHeader>
-              <CardContent className="pt-0">
-                {animalAppointments.length > 0 ? (
-                  <div className="space-y-4">
-                    {animalAppointments.map((app) => {
-                      const appDetails = app.details as BaseAppointmentDetails;
-                      const displaySummary = appDetails.suspeitaDiagnostica || appDetails.condutaTratamento || app.observacoesGerais || "Sem descrição detalhada.";
-                      const retornoInfo = appDetails.retornoRecomendadoEmDias ? `Retorno em ${appDetails.retornoRecomendadoEmDias} dias.` : '';
-
-                      return (
-                        <Card key={app.id} className="p-4 bg-input shadow-sm border border-border">
-                          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-2 gap-2">
-                            <div className="flex items-center gap-2">
-                              <Badge className="px-2 py-0.5 text-xs font-medium rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
-                                {app.type}
-                              </Badge>
-                              <p className="text-lg font-semibold text-foreground">
-                                {displaySummary}
-                              </p>
-                            </div>
-                            <div className="flex gap-2">
-                              <Button variant="ghost" size="icon" onClick={() => navigate(`/clients/${clientId}/animals/${animalId}/view-appointment/${app.id}`)} className="rounded-md hover:bg-muted hover:text-foreground transition-colors duration-200">
-                                <FaEye className="h-4 w-4" />
-                              </Button>
-                              <Button variant="ghost" size="icon" onClick={() => {
-                                const index = mockAppointments.findIndex(a => a.id === app.id);
-                                if (index > -1) {
-                                  mockAppointments.splice(index, 1);
-                                  setAnimalAppointments(mockAppointments.filter(a => a.animalId === animalId));
-                                  toast.info("Atendimento excluído.");
-                                }
-                              }} className="rounded-md hover:bg-muted hover:text-foreground transition-colors duration-200">
-                                <FaTrashAlt className="h-4 w-4 text-destructive" />
-                              </Button>
-                            </div>
-                          </div>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-muted-foreground">
-                            <div className="flex items-center gap-1">
-                              <FaCalendarAlt className="h-3 w-3" /> {formatDateTime(app.date, app.time)}
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <FaStethoscope className="h-3 w-3" /> {app.vet}
-                            </div>
-                            {retornoInfo && (
-                              <div className="flex items-center gap-1 col-span-full">
-                                <FaClock className="h-3 w-3" /> {retornoInfo}
-                              </div>
-                            )}
-                          </div>
-                        </Card>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <p className="text-muted-foreground py-4">Nenhum atendimento registrado.</p>
-                )}
-              </CardContent>
-            </Card>
+            <PatientAppointmentsTab
+              clientId={clientId!}
+              animalId={animalId!}
+              animalAppointments={animalAppointments}
+              setAnimalAppointments={setAnimalAppointments}
+            />
           </TabsContent>
 
           <TabsContent value="exams" className="mt-4">
@@ -1490,54 +1406,11 @@ const PatientRecordPage = () => {
           </TabsContent>
 
           <TabsContent value="vaccines" className="mt-4">
-            <Card className="bg-card shadow-sm border border-border rounded-md">
-              <CardHeader className="flex flex-row items-center justify-between pb-3">
-                <CardTitle className="flex items-center gap-2 text-lg font-semibold text-foreground">
-                  <FaSyringe className="h-5 w-5 text-primary" /> Histórico de Vacinas
-                </CardTitle>
-                <Button size="sm" onClick={() => setVaccineAddOpen(true)} className="rounded-md bg-primary text-primary-foreground hover:bg-primary/90 font-semibold transition-all duration-200 shadow-md hover:shadow-lg">
-                  <FaPlus className="h-4 w-4 mr-2" /> Adicionar Vacina
-                </Button>
-              </CardHeader>
-              <CardContent className="pt-0">
-                {vaccines.length > 0 ? (
-                  <div className="space-y-4">
-                    {vaccines.map((vaccine) => (
-                      <Card key={vaccine.id} className="p-4 bg-input shadow-sm border border-border">
-                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-2 gap-2">
-                          <div className="flex items-center gap-2">
-                            <Badge className="px-2 py-0.5 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">
-                              {vaccine.type}
-                            </Badge>
-                            <p className="text-lg font-semibold text-foreground">
-                              Próxima Dose: {formatDateTime(vaccine.nextDue)}
-                            </p>
-                          </div>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => { setSelectedVaccine(vaccine); setVaccineViewOpen(true); }}
-                            className="rounded-md hover:bg-muted hover:text-foreground transition-colors duration-200"
-                          >
-                            <FaEye className="h-4 w-4" />
-                          </Button>
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-muted-foreground">
-                          <div className="flex items-center gap-1">
-                            <FaCalendarAlt className="h-3 w-3" /> {formatDateTime(vaccine.date, vaccine.time)}
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <FaStethoscope className="h-3 w-3" /> {vaccine.vet}
-                          </div>
-                        </div>
-                      </Card>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-muted-foreground py-4">Nenhuma vacina registrada.</p>
-                )}
-              </CardContent>
-            </Card>
+            <PatientVaccinesTab
+              clientId={clientId!}
+              animalId={animalId!}
+              animalAppointments={animalAppointments}
+            />
           </TabsContent>
 
           <TabsContent value="weight" className="mt-4">
@@ -2319,71 +2192,6 @@ const PatientRecordPage = () => {
               <p className="text-foreground font-semibold">{selectedWeight.weight.toFixed(2)} kg</p>
               <p className="text-sm text-muted-foreground">Origem: {selectedWeight.source || "-"}</p>
               <p className="text-xs text-muted-foreground">Data: {formatDateTime(selectedWeight.date, selectedWeight.time)}</p>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={vaccineAddOpen} onOpenChange={setVaccineAddOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Adicionar Vacina</DialogTitle>
-            <DialogDescription>Cadastre uma vacina aplicada para este paciente.</DialogDescription>
-          </DialogHeader>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <Label>Data</Label>
-              <Input type="date" value={vaccineForm.date} onChange={(e) => setVaccineForm(v => ({ ...v, date: e.target.value }))} />
-            </div>
-            <div>
-              <Label>Hora</Label>
-              <Input value={vaccineForm.time} onChange={(e) => setVaccineForm(v => ({ ...v, time: e.target.value }))} />
-            </div>
-            <div className="sm:col-span-2">
-              <Label>Tipo</Label>
-              <Input value={vaccineForm.type} onChange={(e) => setVaccineForm(v => ({ ...v, type: e.target.value }))} placeholder="Ex.: V8, Antirrábica" />
-            </div>
-            <div>
-              <Label>Próxima Dose</Label>
-              <Input type="date" value={vaccineForm.nextDue} onChange={(e) => setVaccineForm(v => ({ ...v, nextDue: e.target.value }))} />
-            </div>
-            <div>
-              <Label>Veterinário</Label>
-              <Input value={vaccineForm.vet} onChange={(e) => setVaccineForm(v => ({ ...v, vet: e.target.value }))} />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setVaccineAddOpen(false)}>Cancelar</Button>
-            <Button
-              onClick={() => {
-                if (!vaccineForm.type || !vaccineForm.date) {
-                  toast.error("Preencha ao menos o tipo e a data.");
-                  return;
-                }
-                const newVac = { id: `vac-${Date.now()}`, ...vaccineForm };
-                setVaccines(prev => [...prev, newVac]);
-                setVaccineAddOpen(false);
-                toast.success("Vacina adicionada!");
-              }}
-            >
-              Salvar
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={vaccineViewOpen} onOpenChange={setVaccineViewOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Detalhes da Vacina</DialogTitle>
-            <DialogDescription>Informações da aplicação selecionada.</DialogDescription>
-          </DialogHeader>
-          {selectedVaccine && (
-            <div className="space-y-2">
-              <p className="text-sm"><span className="font-semibold">Tipo:</span> {selectedVaccine.type}</p>
-              <p className="text-sm"><span className="font-semibold">Aplicada em:</span> {formatDateTime(selectedVaccine.date, selectedVaccine.time)}</p>
-              <p className="text-sm"><span className="font-semibold">Próxima dose:</span> {formatDateTime(selectedVaccine.nextDue)}</p>
-              <p className="text-sm"><span className="font-semibold">Veterinário:</span> {selectedVaccine.vet}</p>
             </div>
           )}
         </DialogContent>

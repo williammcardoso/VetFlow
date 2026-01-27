@@ -30,6 +30,10 @@ type Props = {
   onTemperaturaCorporalChange: (v: number | "") => void;
   details: ConsultationDetails;
   onDetailsChange: (next: ConsultationDetails) => void;
+
+  // validação visual (opcional)
+  errors?: Record<string, boolean>;
+  onClearError?: (key: string) => void;
 };
 
 function addDaysISO(dateISO: string, days: number) {
@@ -49,8 +53,12 @@ export default function ConsultationClinicalForm({
   onTemperaturaCorporalChange,
   details,
   onDetailsChange,
+  errors,
+  onClearError,
 }: Props) {
   const patch = (p: Partial<ConsultationDetails>) => onDetailsChange({ ...details, ...p });
+  const errClass = (has?: boolean) =>
+    has ? "border-destructive focus-visible:ring-destructive focus-visible:border-destructive" : "";
 
   const retornoEmDias = details.retornoRecomendadoEmDias || 0;
   const suggestedReturnDate = retornoEmDias ? addDaysISO(dateISO, retornoEmDias) : "";
@@ -96,8 +104,12 @@ export default function ConsultationClinicalForm({
                 <Label htmlFor="queixaPrincipal">Queixa principal *</Label>
                 <Textarea
                   id="queixaPrincipal"
+                  className={errClass(errors?.queixaPrincipal)}
                   value={details.queixaPrincipal || ""}
-                  onChange={(e) => patch({ queixaPrincipal: e.target.value })}
+                  onChange={(e) => {
+                    onClearError?.("queixaPrincipal");
+                    patch({ queixaPrincipal: e.target.value });
+                  }}
                   placeholder="Ex.: Vômito há 2 dias, apatia, falta de apetite..."
                   rows={2}
                 />
@@ -409,12 +421,19 @@ export default function ConsultationClinicalForm({
           <AccordionContent>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
               <div className="space-y-2">
-                <Label htmlFor="suspeitaDiagnostica">Suspeita diagnóstica principal</Label>
+                <Label htmlFor="suspeitaDiagnostica">Suspeita diagnóstica principal *</Label>
                 <Input
                   id="suspeitaDiagnostica"
+                  className={errClass(errors?.diagnostico)}
                   value={details.suspeitaDiagnostica || ""}
-                  onChange={(e) => patch({ suspeitaDiagnostica: e.target.value })}
+                  onChange={(e) => {
+                    onClearError?.("diagnostico");
+                    patch({ suspeitaDiagnostica: e.target.value });
+                  }}
                 />
+                {errors?.diagnostico && (
+                  <p className="text-xs text-destructive">Preencha ao menos um diagnóstico (suspeita/presuntivo/definitivo).</p>
+                )}
               </div>
 
               <div className="space-y-2">

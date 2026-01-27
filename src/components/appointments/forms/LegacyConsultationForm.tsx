@@ -32,6 +32,10 @@ type Props = {
 
   details: ConsultationDetails;
   onDetailsChange: (next: ConsultationDetails) => void;
+
+  // validação visual (opcional)
+  errors?: Record<string, boolean>;
+  onClearError?: (key: string) => void;
 };
 
 function addDaysISO(dateISO: string, days: number) {
@@ -61,9 +65,7 @@ function RadioYesNo({
   value: YesNo;
   onChange: (v: YesNo) => void;
 }) {
-  // Padrão solicitado: radios sem borda (mais clean)
-  const itemClass =
-    "border-0 bg-muted/60 data-[state=checked]:bg-primary/20 text-primary focus-visible:ring-2 focus-visible:ring-ring";
+  const itemClass = "h-5 w-5 border-2 border-primary data-[state=checked]:border-primary";
 
   return (
     <RadioGroup value={value} onValueChange={(v) => onChange(v as YesNo)} className="flex gap-4">
@@ -147,8 +149,12 @@ export default function LegacyConsultationForm({
   onFrequenciaRespiratoriaChange,
   details,
   onDetailsChange,
+  errors,
+  onClearError,
 }: Props) {
   const patch = (p: Partial<ConsultationDetails>) => onDetailsChange({ ...details, ...p });
+  const errClass = (has?: boolean) =>
+    has ? "border-destructive focus-visible:ring-destructive focus-visible:border-destructive" : "";
 
   const retornoEmDias = details.retornoRecomendadoEmDias || 0;
   const suggestedReturnDate = retornoEmDias ? addDaysISO(dateISO, retornoEmDias) : "";
@@ -232,8 +238,12 @@ export default function LegacyConsultationForm({
             <CardContent className="space-y-2">
               <Label>Queixa principal *</Label>
               <Textarea
+                className={errClass(errors?.queixaPrincipal)}
                 value={details.queixaPrincipal || ""}
-                onChange={(e) => patch({ queixaPrincipal: e.target.value })}
+                onChange={(e) => {
+                  onClearError?.("queixaPrincipal");
+                  patch({ queixaPrincipal: e.target.value });
+                }}
                 placeholder="Descreva a queixa principal do tutor..."
                 rows={2}
               />
@@ -993,26 +1003,43 @@ export default function LegacyConsultationForm({
 
               <FieldGrid>
                 <div className="space-y-2">
-                  <Label>Suspeita diagnóstica</Label>
-                  <Input value={details.suspeitaDiagnostica || ""} onChange={(e) => patch({ suspeitaDiagnostica: e.target.value })} />
-                </div>
-                <div className="space-y-2">
-                  <Label>Diagnóstico diferencial</Label>
-                  <Input value={details.diagnosticoDiferencial || ""} onChange={(e) => patch({ diagnosticoDiferencial: e.target.value })} />
-                </div>
-                <div className="space-y-2">
-                  <Label>Procedimento realizado durante a consulta</Label>
-                  <Input value={details.procedimentoRealizadoConsulta || ""} onChange={(e) => patch({ procedimentoRealizadoConsulta: e.target.value })} />
+                  <Label>Suspeita diagnóstica *</Label>
+                  <Input
+                    className={errClass(errors?.diagnostico)}
+                    value={details.suspeitaDiagnostica || ""}
+                    onChange={(e) => {
+                      onClearError?.("diagnostico");
+                      patch({ suspeitaDiagnostica: e.target.value });
+                    }}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label>Diagnóstico presuntivo</Label>
-                  <Input value={details.diagnosticoPresuntivo || ""} onChange={(e) => patch({ diagnosticoPresuntivo: e.target.value })} />
+                  <Input
+                    className={errClass(errors?.diagnostico)}
+                    value={details.diagnosticoPresuntivo || ""}
+                    onChange={(e) => {
+                      onClearError?.("diagnostico");
+                      patch({ diagnosticoPresuntivo: e.target.value });
+                    }}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label>Diagnóstico definitivo</Label>
-                  <Input value={details.diagnosticoDefinitivo || ""} onChange={(e) => patch({ diagnosticoDefinitivo: e.target.value })} />
+                  <Input
+                    className={errClass(errors?.diagnostico)}
+                    value={details.diagnosticoDefinitivo || ""}
+                    onChange={(e) => {
+                      onClearError?.("diagnostico");
+                      patch({ diagnosticoDefinitivo: e.target.value });
+                    }}
+                  />
                 </div>
               </FieldGrid>
+
+              {errors?.diagnostico && (
+                <p className="text-xs text-destructive">Preencha ao menos um diagnóstico (suspeita/presuntivo/definitivo).</p>
+              )}
 
               <div className="space-y-2">
                 <Label>Conduta / tratamento prescrito</Label>

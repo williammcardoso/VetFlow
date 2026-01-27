@@ -26,7 +26,15 @@ import {
   Trash2,
 } from "lucide-react";
 
-import type { AppointmentEntry, BaseAppointmentDetails, ConsultationDetails, ReturnDetails, VaccinationDetails } from "@/types/appointment";
+import type {
+  AppointmentEntry,
+  BaseAppointmentDetails,
+  ConsultationDetails,
+  ReturnDetails,
+  SurgeryDetails,
+  VaccinationDetails,
+  EmergencyDetails,
+} from "@/types/appointment";
 import { mockAppointments } from "@/mockData/appointments";
 import { formatDateTime } from "@/lib/utils";
 
@@ -88,7 +96,7 @@ const typeMeta = (type: AppointmentEntry["type"]) => {
 
 function buildSummary(app: AppointmentEntry) {
   const type = displayType(app.type);
-  const d = app.details as BaseAppointmentDetails;
+  const base = app.details as BaseAppointmentDetails;
 
   if (type === "Consulta") {
     const c = app.details as ConsultationDetails;
@@ -104,7 +112,14 @@ function buildSummary(app: AppointmentEntry) {
   }
 
   if (type === "Cirurgia") {
-    return d.procedimentoRealizadoConsulta || d.diagnosticoDefinitivo || d.diagnosticoPresuntivo || d.condutaTratamento || "Cirurgia";
+    const s = app.details as SurgeryDetails;
+    return (
+      s.procedimentoRealizado ||
+      s.diagnostico ||
+      s.tecnicaCirurgica ||
+      app.observacoesGerais ||
+      "Cirurgia"
+    );
   }
 
   if (type === "Vacinação") {
@@ -120,11 +135,11 @@ function buildSummary(app: AppointmentEntry) {
   }
 
   if (type === "Emergência") {
-    const e = app.details as any;
+    const e = app.details as EmergencyDetails;
     return e.condicaoGeral || app.observacoesGerais || "Emergência";
   }
 
-  return d.suspeitaDiagnostica || d.condutaTratamento || app.observacoesGerais || `Atendimento de ${type}`;
+  return base.suspeitaDiagnostica || base.condutaTratamento || app.observacoesGerais || `Atendimento de ${type}`;
 }
 
 export default function PatientAppointmentsTab({
@@ -263,11 +278,6 @@ export default function PatientAppointmentsTab({
                           <div className="mt-2 text-[15px] font-semibold text-foreground leading-snug truncate">
                             {summary}
                           </div>
-                          {app.type === "Consulta" || app.type === "Consulta (Modelo Antigo)" ? (
-                            <div className="mt-1 text-xs text-muted-foreground">
-                              Modelo: {app.type === "Consulta" ? "Novo" : "Antigo"}
-                            </div>
-                          ) : null}
                         </div>
 
                         <div className="flex gap-2">

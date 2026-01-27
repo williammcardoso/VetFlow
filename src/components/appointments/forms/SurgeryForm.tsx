@@ -27,6 +27,10 @@ type Props = {
 
   details: SurgeryDetails;
   onDetailsChange: (next: SurgeryDetails) => void;
+
+  // validação visual (opcional)
+  errors?: Record<string, boolean>;
+  onClearError?: (key: string) => void;
 };
 
 function minutesDiff(start?: string, end?: string) {
@@ -54,8 +58,12 @@ export default function SurgeryForm({
   onFrequenciaRespiratoriaChange,
   details,
   onDetailsChange,
+  errors,
+  onClearError,
 }: Props) {
   const patch = (p: Partial<SurgeryDetails>) => onDetailsChange({ ...details, ...p });
+  const errClass = (has?: boolean) =>
+    has ? "border-destructive focus-visible:ring-destructive focus-visible:border-destructive" : "";
 
   const tempoCirurgicoMin = useMemo(
     () => minutesDiff(details.horaInicio, details.horaTermino),
@@ -306,11 +314,15 @@ export default function SurgeryForm({
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="procedimento">Procedimento realizado</Label>
+                  <Label htmlFor="procedimento">Procedimento realizado *</Label>
                   <Input
                     id="procedimento"
+                    className={errClass(errors?.procedimentoRealizado)}
                     value={details.procedimentoRealizado || ""}
-                    onChange={(e) => patch({ procedimentoRealizado: e.target.value })}
+                    onChange={(e) => {
+                      onClearError?.("procedimentoRealizado");
+                      patch({ procedimentoRealizado: e.target.value });
+                    }}
                   />
                 </div>
                 <div className="space-y-2">
