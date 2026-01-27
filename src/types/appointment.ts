@@ -129,41 +129,6 @@ export interface ConsultationDetails extends BaseAppointmentDetails {
   linfonodosAlteracaoQualObs?: string;
 }
 
-export interface ClassicClinicalDetails extends BaseAppointmentDetails {
-  templateId?: 'gastro' | 'dermato' | 'checkup' | 'resp' | '';
-
-  // Checklists por seção (modelo clássico)
-  queixaChecklist?: string[];
-  queixaObs?: string;
-
-  anamneseChecklist?: string[];
-  anamneseObs?: string;
-
-  exameFisicoChecklist?: string[];
-  exameFisicoObs?: string;
-
-  avaliacaoSistemasChecklist?: string[];
-  avaliacaoSistemasObs?: string;
-
-  diagnosticoChecklist?: string[];
-  diagnosticoObs?: string;
-
-  condutaChecklist?: string[];
-  condutaObs?: string;
-
-  prescricaoChecklist?: string[];
-  prescricaoObs?: string;
-
-  examesSolicitadosChecklist?: string[];
-  examesSolicitadosObs?: string;
-
-  orientacoesChecklist?: string[];
-  orientacoesObs?: string;
-
-  // Texto consolidado (impresso/PDF)
-  textoConsolidado?: string;
-}
-
 export interface VaccinationDetails {
   tipoVacina?: string; // Ex: Polivalente, Antirrábica
   nomeComercial?: string;

@@ -1,5 +1,6 @@
 import React, { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Accordion,
   AccordionContent,
@@ -47,18 +48,47 @@ function toggle(list: string[] | undefined, value: string, checked: boolean) {
   return Array.from(set);
 }
 
-function FieldRow({ children }: { children: React.ReactNode }) {
+function FieldGrid({ children }: { children: React.ReactNode }) {
   return <div className="grid grid-cols-1 md:grid-cols-2 gap-4">{children}</div>;
+}
+
+function RadioYesNo({
+  name,
+  value,
+  onChange,
+}: {
+  name: string;
+  value: YesNo;
+  onChange: (v: YesNo) => void;
+}) {
+  // Padrão solicitado: radios sem borda (mais clean)
+  const itemClass =
+    "border-0 bg-muted/60 data-[state=checked]:bg-primary/20 text-primary focus-visible:ring-2 focus-visible:ring-ring";
+
+  return (
+    <RadioGroup value={value} onValueChange={(v) => onChange(v as YesNo)} className="flex gap-4">
+      <div className="flex items-center gap-2">
+        <RadioGroupItem id={`${name}-sim`} value="sim" className={itemClass} />
+        <Label htmlFor={`${name}-sim`}>Sim</Label>
+      </div>
+      <div className="flex items-center gap-2">
+        <RadioGroupItem id={`${name}-nao`} value="nao" className={itemClass} />
+        <Label htmlFor={`${name}-nao`}>Não</Label>
+      </div>
+    </RadioGroup>
+  );
 }
 
 function YesNoField({
   label,
+  name,
   value,
   onChange,
   showWhen,
   children,
 }: {
   label: string;
+  name: string;
   value: YesNo;
   onChange: (v: YesNo) => void;
   showWhen: "sim" | "nao";
@@ -67,16 +97,7 @@ function YesNoField({
   return (
     <div className="space-y-2">
       <Label>{label}</Label>
-      <RadioGroup value={value} onValueChange={(v) => onChange(v as YesNo)} className="flex gap-4">
-        <div className="flex items-center gap-2">
-          <RadioGroupItem id={`${label}-sim`} value="sim" />
-          <Label htmlFor={`${label}-sim`}>Sim</Label>
-        </div>
-        <div className="flex items-center gap-2">
-          <RadioGroupItem id={`${label}-nao`} value="nao" />
-          <Label htmlFor={`${label}-nao`}>Não</Label>
-        </div>
-      </RadioGroup>
+      <RadioYesNo name={name} value={value} onChange={onChange} />
       {value === showWhen && <div className="pt-1">{children}</div>}
     </div>
   );
@@ -100,7 +121,7 @@ function CheckboxGrid({
         {options.map((opt) => (
           <label
             key={opt}
-            className="flex items-center gap-3 rounded-md border border-border bg-background px-3 py-2 hover:bg-muted/30"
+            className="flex items-center gap-3 rounded-md border border-border bg-card px-3 py-2 hover:bg-muted/30"
           >
             <Checkbox
               checked={(value || []).includes(opt)}
@@ -133,7 +154,6 @@ export default function LegacyConsultationForm({
   const suggestedReturnDate = retornoEmDias ? addDaysISO(dateISO, retornoEmDias) : "";
 
   const canShowExam = details.exameFisicoRealizado !== "nao";
-
   const alimentacaoTipo = details.alimentacaoTipo || "";
 
   const diagnosticSummary = useMemo(() => {
@@ -195,11 +215,21 @@ export default function LegacyConsultationForm({
         </CardContent>
       </Card>
 
-      <Accordion type="multiple" defaultValue={["queixa", "anam", "diag"]} className="w-full">
-        <AccordionItem value="queixa">
-          <AccordionTrigger className="text-sm font-semibold">Queixa Principal</AccordionTrigger>
-          <AccordionContent>
-            <div className="pt-2 space-y-2">
+      <Tabs defaultValue="anam" className="w-full">
+        <TabsList className="grid grid-cols-2 md:grid-cols-5 w-full">
+          <TabsTrigger value="anam">Queixa & Anamnese</TabsTrigger>
+          <TabsTrigger value="digest">Digestório / Urinário</TabsTrigger>
+          <TabsTrigger value="resp">Respiratório</TabsTrigger>
+          <TabsTrigger value="exame">Exame físico</TabsTrigger>
+          <TabsTrigger value="diag">Diagnóstico</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="anam" className="mt-4 space-y-4">
+          <Card className="border-border">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Queixa principal</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
               <Label>Queixa principal *</Label>
               <Textarea
                 value={details.queixaPrincipal || ""}
@@ -207,15 +237,15 @@ export default function LegacyConsultationForm({
                 placeholder="Descreva a queixa principal do tutor..."
                 rows={2}
               />
-            </div>
-          </AccordionContent>
-        </AccordionItem>
+            </CardContent>
+          </Card>
 
-        <AccordionItem value="anam">
-          <AccordionTrigger className="text-sm font-semibold">Anamnese</AccordionTrigger>
-          <AccordionContent>
-            <div className="pt-2 space-y-4">
-              <FieldRow>
+          <Card className="border-border">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Anamnese</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <FieldGrid>
                 <div className="space-y-2">
                   <Label>Vacinação do paciente</Label>
                   <RadioGroup
@@ -229,11 +259,11 @@ export default function LegacyConsultationForm({
                     className="flex gap-4"
                   >
                     <div className="flex items-center gap-2">
-                      <RadioGroupItem id="vac-sim" value="sim" />
+                      <RadioGroupItem id="vac-sim" value="sim" className="border-0 bg-muted/60 data-[state=checked]:bg-primary/20 text-primary" />
                       <Label htmlFor="vac-sim">Sim</Label>
                     </div>
                     <div className="flex items-center gap-2">
-                      <RadioGroupItem id="vac-nao" value="nao" />
+                      <RadioGroupItem id="vac-nao" value="nao" className="border-0 bg-muted/60 data-[state=checked]:bg-primary/20 text-primary" />
                       <Label htmlFor="vac-nao">Não</Label>
                     </div>
                   </RadioGroup>
@@ -247,9 +277,15 @@ export default function LegacyConsultationForm({
                 </div>
 
                 <YesNoField
-                  label="Possibilidade de Intoxicação"
+                  label="Possibilidade de intoxicação"
+                  name="intoxicacao"
                   value={(details.possibilidadeIntoxicacao as YesNo) || ""}
-                  onChange={(v) => patch({ possibilidadeIntoxicacao: v as any, possibilidadeIntoxicacaoObs: v === "sim" ? details.possibilidadeIntoxicacaoObs || "" : "" })}
+                  onChange={(v) =>
+                    patch({
+                      possibilidadeIntoxicacao: v as any,
+                      possibilidadeIntoxicacaoObs: v === "sim" ? details.possibilidadeIntoxicacaoObs || "" : "",
+                    })
+                  }
                   showWhen="sim"
                 >
                   <Input
@@ -260,9 +296,15 @@ export default function LegacyConsultationForm({
                 </YesNoField>
 
                 <YesNoField
-                  label="Histórico Cirúrgico"
+                  label="Histórico cirúrgico"
+                  name="hist-cir"
                   value={(details.historicoCirurgico as YesNo) || ""}
-                  onChange={(v) => patch({ historicoCirurgico: v as any, historicoCirurgicoQuais: v === "sim" ? details.historicoCirurgicoQuais || "" : "" })}
+                  onChange={(v) =>
+                    patch({
+                      historicoCirurgico: v as any,
+                      historicoCirurgicoQuais: v === "sim" ? details.historicoCirurgicoQuais || "" : "",
+                    })
+                  }
                   showWhen="sim"
                 >
                   <Input
@@ -272,20 +314,16 @@ export default function LegacyConsultationForm({
                   />
                 </YesNoField>
 
-                <div className="space-y-2">
-                  <Label>Histórico Geral</Label>
-                  <Textarea
-                    value={details.historicoClinico || ""}
-                    onChange={(e) => patch({ historicoClinico: e.target.value })}
-                    rows={3}
-                    placeholder="Histórico e evolução..."
-                  />
-                </div>
-
                 <YesNoField
-                  label="Uso de Medicação"
+                  label="Uso de medicação"
+                  name="uso-med"
                   value={(details.usoMedicacao as YesNo) || ""}
-                  onChange={(v) => patch({ usoMedicacao: v as any, usoMedicacaoQuais: v === "sim" ? details.usoMedicacaoQuais || "" : "" })}
+                  onChange={(v) =>
+                    patch({
+                      usoMedicacao: v as any,
+                      usoMedicacaoQuais: v === "sim" ? details.usoMedicacaoQuais || "" : "",
+                    })
+                  }
                   showWhen="sim"
                 >
                   <Input
@@ -297,8 +335,14 @@ export default function LegacyConsultationForm({
 
                 <YesNoField
                   label="Alergias do paciente"
+                  name="alergias"
                   value={(details.alergiasPaciente as YesNo) || ""}
-                  onChange={(v) => patch({ alergiasPaciente: v as any, alergiasPacienteObs: v === "sim" ? details.alergiasPacienteObs || "" : "" })}
+                  onChange={(v) =>
+                    patch({
+                      alergiasPaciente: v as any,
+                      alergiasPacienteObs: v === "sim" ? details.alergiasPacienteObs || "" : "",
+                    })
+                  }
                   showWhen="sim"
                 >
                   <Input
@@ -307,17 +351,24 @@ export default function LegacyConsultationForm({
                     placeholder="Descreva as alergias"
                   />
                 </YesNoField>
-              </FieldRow>
+
+                <div className="space-y-2 md:col-span-2">
+                  <Label>Histórico geral</Label>
+                  <Textarea
+                    value={details.historicoClinico || ""}
+                    onChange={(e) => patch({ historicoClinico: e.target.value })}
+                    rows={3}
+                    placeholder="Histórico e evolução..."
+                  />
+                </div>
+              </FieldGrid>
 
               <Separator />
 
-              <FieldRow>
+              <FieldGrid>
                 <div className="space-y-2">
                   <Label>Alimentação</Label>
-                  <Select
-                    value={alimentacaoTipo}
-                    onValueChange={(v) => patch({ alimentacaoTipo: v as any })}
-                  >
+                  <Select value={alimentacaoTipo} onValueChange={(v) => patch({ alimentacaoTipo: v as any })}>
                     <SelectTrigger>
                       <SelectValue placeholder="Selecione o tipo" />
                     </SelectTrigger>
@@ -366,22 +417,25 @@ export default function LegacyConsultationForm({
                     onChange={(next) => patch({ ingestaoAgua: next })}
                   />
                 </div>
-              </FieldRow>
-            </div>
-          </AccordionContent>
-        </AccordionItem>
+              </FieldGrid>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-        <AccordionItem value="digestorio">
-          <AccordionTrigger className="text-sm font-semibold">Sistema Digestório</AccordionTrigger>
-          <AccordionContent>
-            <div className="pt-2 space-y-4">
+        <TabsContent value="digest" className="mt-4 space-y-4">
+          <Card className="border-border">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Sistema Digestório / Urinário</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
               <YesNoField
-                label="Êmese e Regurgitação"
+                label="Êmese e regurgitação"
+                name="emese"
                 value={(details.emeseRegurgitacao as YesNo) || ""}
                 onChange={(v) => patch({ emeseRegurgitacao: v as any })}
                 showWhen="sim"
               >
-                <FieldRow>
+                <FieldGrid>
                   <div className="space-y-2">
                     <Label>Início</Label>
                     <Input
@@ -410,16 +464,17 @@ export default function LegacyConsultationForm({
                       onChange={(e) => patch({ emeseRegurgitacaoComplementoAspecto: e.target.value })}
                     />
                   </div>
-                </FieldRow>
+                </FieldGrid>
               </YesNoField>
 
               <YesNoField
-                label="Micção"
+                label="Micção normal"
+                name="miccao"
                 value={(details.miccaoNormal as YesNo) || ""}
                 onChange={(v) => patch({ miccaoNormal: v as any })}
                 showWhen="nao"
               >
-                <FieldRow>
+                <FieldGrid>
                   <div className="space-y-2">
                     <Label>Frequência</Label>
                     <Input
@@ -442,12 +497,12 @@ export default function LegacyConsultationForm({
                       onChange={(next) => patch({ miccaoAlteracoes: next })}
                     />
                   </div>
-                </FieldRow>
+                </FieldGrid>
               </YesNoField>
 
               <div className="space-y-3">
                 <CheckboxGrid
-                  label="Fezes e Defecações"
+                  label="Fezes e defecações"
                   options={["Normoquesia", "Hematoquesia", "Disquezia", "Tenesmo", "Melena", "Diarreia", "Constipação"]}
                   value={details.fezesDefecacoes}
                   onChange={(next) => patch({ fezesDefecacoes: next })}
@@ -459,16 +514,19 @@ export default function LegacyConsultationForm({
                   rows={2}
                 />
               </div>
-            </div>
-          </AccordionContent>
-        </AccordionItem>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-        <AccordionItem value="respiratorio">
-          <AccordionTrigger className="text-sm font-semibold">Sistema Respiratório</AccordionTrigger>
-          <AccordionContent>
-            <div className="pt-2 space-y-4">
+        <TabsContent value="resp" className="mt-4 space-y-4">
+          <Card className="border-border">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Sistema Respiratório</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
               <YesNoField
-                label="Alterações Respiratórias"
+                label="Alterações respiratórias"
+                name="alt-resp"
                 value={(details.alteracoesRespiratorias as YesNo) || ""}
                 onChange={(v) => patch({ alteracoesRespiratorias: v as any })}
                 showWhen="sim"
@@ -481,14 +539,15 @@ export default function LegacyConsultationForm({
                 />
               </YesNoField>
 
-              <FieldRow>
+              <FieldGrid>
                 <YesNoField
                   label="Tosse"
+                  name="tosse"
                   value={(details.tosse as YesNo) || ""}
                   onChange={(v) => patch({ tosse: v as any })}
                   showWhen="sim"
                 >
-                  <FieldRow>
+                  <FieldGrid>
                     <div className="space-y-2">
                       <Label>Período</Label>
                       <Input value={details.tossePeriodo || ""} onChange={(e) => patch({ tossePeriodo: e.target.value })} />
@@ -497,16 +556,17 @@ export default function LegacyConsultationForm({
                       <Label>Frequência</Label>
                       <Input value={details.tosseFrequencia || ""} onChange={(e) => patch({ tosseFrequencia: e.target.value })} />
                     </div>
-                  </FieldRow>
+                  </FieldGrid>
                 </YesNoField>
 
                 <YesNoField
                   label="Espirros"
+                  name="espirros"
                   value={(details.espirros as YesNo) || ""}
                   onChange={(v) => patch({ espirros: v as any })}
                   showWhen="sim"
                 >
-                  <FieldRow>
+                  <FieldGrid>
                     <div className="space-y-2">
                       <Label>Período</Label>
                       <Input value={details.espirrosPeriodo || ""} onChange={(e) => patch({ espirrosPeriodo: e.target.value })} />
@@ -515,11 +575,12 @@ export default function LegacyConsultationForm({
                       <Label>Frequência</Label>
                       <Input value={details.espirrosFrequencia || ""} onChange={(e) => patch({ espirrosFrequencia: e.target.value })} />
                     </div>
-                  </FieldRow>
+                  </FieldGrid>
                 </YesNoField>
 
                 <YesNoField
-                  label="Intolerância ao Exercício"
+                  label="Intolerância ao exercício"
+                  name="int-ex"
                   value={(details.intoleranciaExercicio as YesNo) || ""}
                   onChange={(v) => patch({ intoleranciaExercicio: v as any })}
                   showWhen="sim"
@@ -538,38 +599,37 @@ export default function LegacyConsultationForm({
                     />
                   </div>
                 </YesNoField>
-              </FieldRow>
-            </div>
-          </AccordionContent>
-        </AccordionItem>
+              </FieldGrid>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-        <AccordionItem value="exame">
-          <AccordionTrigger className="text-sm font-semibold">Exame Físico</AccordionTrigger>
-          <AccordionContent>
-            <div className="pt-2 space-y-4">
-              <FieldRow>
+        <TabsContent value="exame" className="mt-4 space-y-4">
+          <Card className="border-border">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Exame físico</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <FieldGrid>
                 <div className="space-y-2">
                   <Label>Exame físico realizado?</Label>
-                  <RadioGroup
-                    value={details.exameFisicoRealizado || ""}
-                    onValueChange={(v) => patch({ exameFisicoRealizado: v as any })}
-                    className="flex gap-4"
-                  >
-                    <div className="flex items-center gap-2">
-                      <RadioGroupItem id="ef-sim" value="sim" />
-                      <Label htmlFor="ef-sim">Sim</Label>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <RadioGroupItem id="ef-nao" value="nao" />
-                      <Label htmlFor="ef-nao">Não</Label>
-                    </div>
-                  </RadioGroup>
+                  <RadioYesNo
+                    name="exame-fisico"
+                    value={(details.exameFisicoRealizado as YesNo) || ""}
+                    onChange={(v) => patch({ exameFisicoRealizado: v as any })}
+                  />
                 </div>
 
                 <YesNoField
                   label="Foi necessário uso de contenção?"
+                  name="contencao"
                   value={(details.usoContencao as YesNo) || ""}
-                  onChange={(v) => patch({ usoContencao: v as any, usoContencaoQual: v === "sim" ? details.usoContencaoQual || "" : "" })}
+                  onChange={(v) =>
+                    patch({
+                      usoContencao: v as any,
+                      usoContencaoQual: v === "sim" ? details.usoContencaoQual || "" : "",
+                    })
+                  }
                   showWhen="sim"
                 >
                   <Input
@@ -587,317 +647,334 @@ export default function LegacyConsultationForm({
                     rows={3}
                   />
                 </div>
-              </FieldRow>
+              </FieldGrid>
 
               {!canShowExam ? (
                 <div className="text-sm text-muted-foreground">Exame físico marcado como não realizado.</div>
               ) : (
-                <>
-                  <Separator />
+                <Accordion type="multiple" defaultValue={["cabeca", "viscera", "linfonodos"]} className="w-full">
+                  <AccordionItem value="cabeca">
+                    <AccordionTrigger className="text-sm font-semibold">Cabeça e Pescoço</AccordionTrigger>
+                    <AccordionContent>
+                      <div className="pt-2 space-y-4">
+                        <FieldGrid>
+                          <YesNoField
+                            label="Secreção nasal"
+                            name="sec-nasal"
+                            value={(details.secrecaoNasal as YesNo) || ""}
+                            onChange={(v) => patch({ secrecaoNasal: v as any })}
+                            showWhen="sim"
+                          >
+                            <FieldGrid>
+                              <div className="space-y-2">
+                                <Label>Início</Label>
+                                <Input
+                                  value={details.secrecaoNasalComplementoInicio || ""}
+                                  onChange={(e) => patch({ secrecaoNasalComplementoInicio: e.target.value })}
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <Label>Aspecto/quantidade</Label>
+                                <Input
+                                  value={details.secrecaoNasalComplementoAspectoQuantidade || ""}
+                                  onChange={(e) => patch({ secrecaoNasalComplementoAspectoQuantidade: e.target.value })}
+                                />
+                              </div>
+                            </FieldGrid>
+                          </YesNoField>
 
-                  <Accordion type="multiple" defaultValue={["cabeca", "viscera", "linfonodos"]} className="w-full">
-                    <AccordionItem value="cabeca">
-                      <AccordionTrigger className="text-sm font-semibold">Cabeça e Pescoço</AccordionTrigger>
-                      <AccordionContent>
-                        <div className="pt-2 space-y-4">
-                          <FieldRow>
-                            <YesNoField
-                              label="Secreção nasal"
-                              value={(details.secrecaoNasal as YesNo) || ""}
-                              onChange={(v) => patch({ secrecaoNasal: v as any })}
-                              showWhen="sim"
-                            >
-                              <FieldRow>
-                                <div className="space-y-2">
-                                  <Label>Início</Label>
-                                  <Input
-                                    value={details.secrecaoNasalComplementoInicio || ""}
-                                    onChange={(e) => patch({ secrecaoNasalComplementoInicio: e.target.value })}
-                                  />
-                                </div>
-                                <div className="space-y-2">
-                                  <Label>Aspecto/quantidade</Label>
-                                  <Input
-                                    value={details.secrecaoNasalComplementoAspectoQuantidade || ""}
-                                    onChange={(e) => patch({ secrecaoNasalComplementoAspectoQuantidade: e.target.value })}
-                                  />
-                                </div>
-                              </FieldRow>
-                            </YesNoField>
+                          <YesNoField
+                            label="Secreção ocular"
+                            name="sec-ocular"
+                            value={(details.secrecaoOcular as YesNo) || ""}
+                            onChange={(v) => patch({ secrecaoOcular: v as any })}
+                            showWhen="sim"
+                          >
+                            <FieldGrid>
+                              <div className="space-y-2">
+                                <Label>Início</Label>
+                                <Input
+                                  value={details.secrecaoOcularComplementoInicio || ""}
+                                  onChange={(e) => patch({ secrecaoOcularComplementoInicio: e.target.value })}
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <Label>Aspecto/quantidade</Label>
+                                <Input
+                                  value={details.secrecaoOcularComplementoAspectoQuantidade || ""}
+                                  onChange={(e) => patch({ secrecaoOcularComplementoAspectoQuantidade: e.target.value })}
+                                />
+                              </div>
+                            </FieldGrid>
+                          </YesNoField>
 
-                            <YesNoField
-                              label="Secreção ocular"
-                              value={(details.secrecaoOcular as YesNo) || ""}
-                              onChange={(v) => patch({ secrecaoOcular: v as any })}
-                              showWhen="sim"
-                            >
-                              <FieldRow>
-                                <div className="space-y-2">
-                                  <Label>Início</Label>
-                                  <Input
-                                    value={details.secrecaoOcularComplementoInicio || ""}
-                                    onChange={(e) => patch({ secrecaoOcularComplementoInicio: e.target.value })}
-                                  />
-                                </div>
-                                <div className="space-y-2">
-                                  <Label>Aspecto/quantidade</Label>
-                                  <Input
-                                    value={details.secrecaoOcularComplementoAspectoQuantidade || ""}
-                                    onChange={(e) => patch({ secrecaoOcularComplementoAspectoQuantidade: e.target.value })}
-                                  />
-                                </div>
-                              </FieldRow>
-                            </YesNoField>
+                          <div className="space-y-2">
+                            <Label>Olhos</Label>
+                            <Select value={details.olhosEstado || ""} onValueChange={(v) => patch({ olhosEstado: v })}>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Selecione o estado dos olhos" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {[
+                                  "Normal",
+                                  "Secreção",
+                                  "Conjuntivite",
+                                  "Opacidade",
+                                  "Úlcera",
+                                  "Prurido",
+                                  "Outros",
+                                ].map((x) => (
+                                  <SelectItem key={x} value={x}>
+                                    {x}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <Textarea
+                              value={details.olhosObs || ""}
+                              onChange={(e) => patch({ olhosObs: e.target.value })}
+                              rows={2}
+                              placeholder="Observações sobre os olhos"
+                            />
+                          </div>
 
-                            <div className="space-y-2">
-                              <Label>Olhos</Label>
-                              <Select
-                                value={details.olhosEstado || ""}
-                                onValueChange={(v) => patch({ olhosEstado: v })}
-                              >
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Selecione o estado dos olhos" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {[
-                                    "Normal",
-                                    "Secreção",
-                                    "Conjuntivite",
-                                    "Opacidade",
-                                    "Úlcera",
-                                    "Prurido",
-                                    "Outros",
-                                  ].map((x) => (
-                                    <SelectItem key={x} value={x}>
-                                      {x}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                              <Textarea
-                                value={details.olhosObs || ""}
-                                onChange={(e) => patch({ olhosObs: e.target.value })}
-                                rows={2}
-                                placeholder="Observações sobre os olhos"
-                              />
-                            </div>
+                          <div className="space-y-3">
+                            <CheckboxGrid
+                              label="Orelhas"
+                              options={["Prurido", "Descarga", "Odores", "Lesões", "NDA"]}
+                              value={details.orelhasAlteracoes}
+                              onChange={(next) => patch({ orelhasAlteracoes: next })}
+                            />
+                          </div>
 
-                            <div className="space-y-3">
-                              <CheckboxGrid
-                                label="Orelhas"
-                                options={["Prurido", "Descarga", "Odores", "Lesões", "NDA"]}
-                                value={details.orelhasAlteracoes}
-                                onChange={(next) => patch({ orelhasAlteracoes: next })}
-                              />
-                            </div>
+                          <YesNoField
+                            label="Boca e anexos"
+                            name="boca"
+                            value={(details.bocaAnexos as YesNo) || ""}
+                            onChange={(v) =>
+                              patch({
+                                bocaAnexos: v as any,
+                                bocaAnexosDescricao: v === "sim" ? details.bocaAnexosDescricao || "" : "",
+                              })
+                            }
+                            showWhen="sim"
+                          >
+                            <Input
+                              value={details.bocaAnexosDescricao || ""}
+                              onChange={(e) => patch({ bocaAnexosDescricao: e.target.value })}
+                              placeholder="Descreva"
+                            />
+                          </YesNoField>
 
-                            <YesNoField
-                              label="Boca e anexos"
-                              value={(details.bocaAnexos as YesNo) || ""}
-                              onChange={(v) => patch({ bocaAnexos: v as any, bocaAnexosDescricao: v === "sim" ? details.bocaAnexosDescricao || "" : "" })}
-                              showWhen="sim"
-                            >
-                              <Input
-                                value={details.bocaAnexosDescricao || ""}
-                                onChange={(e) => patch({ bocaAnexosDescricao: e.target.value })}
-                                placeholder="Descreva"
-                              />
-                            </YesNoField>
+                          <YesNoField
+                            label="Doença periodontal"
+                            name="dp"
+                            value={(details.doencaPeriodontal as YesNo) || ""}
+                            onChange={(v) =>
+                              patch({
+                                doencaPeriodontal: v as any,
+                                doencaPeriodontalGrau: v === "sim" ? details.doencaPeriodontalGrau || "" : "",
+                              })
+                            }
+                            showWhen="sim"
+                          >
+                            <Select value={details.doencaPeriodontalGrau || ""} onValueChange={(v) => patch({ doencaPeriodontalGrau: v as any })}>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Grau" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {["1", "2", "3", "4"].map((g) => (
+                                  <SelectItem key={g} value={g}>
+                                    Grau {g}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </YesNoField>
 
-                            <YesNoField
-                              label="Doença periodontal"
-                              value={(details.doencaPeriodontal as YesNo) || ""}
-                              onChange={(v) => patch({ doencaPeriodontal: v as any, doencaPeriodontalGrau: v === "sim" ? details.doencaPeriodontalGrau || "" : "" })}
-                              showWhen="sim"
-                            >
-                              <Select
-                                value={details.doencaPeriodontalGrau || ""}
-                                onValueChange={(v) => patch({ doencaPeriodontalGrau: v as any })}
-                              >
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Grau" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {["1", "2", "3", "4"].map((g) => (
-                                    <SelectItem key={g} value={g}>
-                                      Grau {g}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </YesNoField>
+                          <YesNoField
+                            label="Pescoço e coluna"
+                            name="pescoco"
+                            value={(details.pescocoColuna as YesNo) || ""}
+                            onChange={(v) =>
+                              patch({
+                                pescocoColuna: v as any,
+                                pescocoColunaDescricao: v === "sim" ? details.pescocoColunaDescricao || "" : "",
+                              })
+                            }
+                            showWhen="sim"
+                          >
+                            <Input
+                              value={details.pescocoColunaDescricao || ""}
+                              onChange={(e) => patch({ pescocoColunaDescricao: e.target.value })}
+                              placeholder="Descreva"
+                            />
+                          </YesNoField>
+                        </FieldGrid>
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
 
-                            <YesNoField
-                              label="Pescoço e coluna"
-                              value={(details.pescocoColuna as YesNo) || ""}
-                              onChange={(v) => patch({ pescocoColuna: v as any, pescocoColunaDescricao: v === "sim" ? details.pescocoColunaDescricao || "" : "" })}
-                              showWhen="sim"
-                            >
-                              <Input
-                                value={details.pescocoColunaDescricao || ""}
-                                onChange={(e) => patch({ pescocoColunaDescricao: e.target.value })}
-                                placeholder="Descreva"
-                              />
-                            </YesNoField>
-                          </FieldRow>
-                        </div>
-                      </AccordionContent>
-                    </AccordionItem>
+                  <AccordionItem value="viscera">
+                    <AccordionTrigger className="text-sm font-semibold">Víscera e Abdômen</AccordionTrigger>
+                    <AccordionContent>
+                      <div className="pt-2 space-y-4">
+                        <FieldGrid>
+                          <YesNoField
+                            label="Desconforto abdominal"
+                            name="desconf"
+                            value={(details.desconfortoAbdominal as YesNo) || ""}
+                            onChange={(v) => patch({ desconfortoAbdominal: v as any })}
+                            showWhen="sim"
+                          >
+                            <FieldGrid>
+                              <div className="space-y-2">
+                                <Label>Região/sensibilidade</Label>
+                                <Input
+                                  value={details.desconfortoAbdominalRegiaoSensibilidade || ""}
+                                  onChange={(e) => patch({ desconfortoAbdominalRegiaoSensibilidade: e.target.value })}
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <Label>Nível de dor</Label>
+                                <Input
+                                  value={details.desconfortoAbdominalNivelDor || ""}
+                                  onChange={(e) => patch({ desconfortoAbdominalNivelDor: e.target.value })}
+                                />
+                              </div>
+                            </FieldGrid>
+                          </YesNoField>
 
-                    <AccordionItem value="viscera">
-                      <AccordionTrigger className="text-sm font-semibold">Víscera e Abdômen</AccordionTrigger>
-                      <AccordionContent>
-                        <div className="pt-2 space-y-4">
-                          <FieldRow>
-                            <YesNoField
-                              label="Desconforto abdominal"
-                              value={(details.desconfortoAbdominal as YesNo) || ""}
-                              onChange={(v) => patch({ desconfortoAbdominal: v as any })}
-                              showWhen="sim"
-                            >
-                              <FieldRow>
-                                <div className="space-y-2">
-                                  <Label>Região/sensibilidade</Label>
-                                  <Input
-                                    value={details.desconfortoAbdominalRegiaoSensibilidade || ""}
-                                    onChange={(e) => patch({ desconfortoAbdominalRegiaoSensibilidade: e.target.value })}
-                                  />
-                                </div>
-                                <div className="space-y-2">
-                                  <Label>Nível de dor</Label>
-                                  <Input
-                                    value={details.desconfortoAbdominalNivelDor || ""}
-                                    onChange={(e) => patch({ desconfortoAbdominalNivelDor: e.target.value })}
-                                  />
-                                </div>
-                              </FieldRow>
-                            </YesNoField>
+                          <YesNoField
+                            label="Aumento de volume abdominal"
+                            name="vol"
+                            value={(details.aumentoVolumeAbdominal as YesNo) || ""}
+                            onChange={(v) =>
+                              patch({
+                                aumentoVolumeAbdominal: v as any,
+                                aumentoVolumeAbdominalRegiao: v === "sim" ? details.aumentoVolumeAbdominalRegiao || "" : "",
+                              })
+                            }
+                            showWhen="sim"
+                          >
+                            <Input
+                              value={details.aumentoVolumeAbdominalRegiao || ""}
+                              onChange={(e) => patch({ aumentoVolumeAbdominalRegiao: e.target.value })}
+                              placeholder="Região"
+                            />
+                          </YesNoField>
 
-                            <YesNoField
-                              label="Aumento de volume abdominal"
-                              value={(details.aumentoVolumeAbdominal as YesNo) || ""}
-                              onChange={(v) => patch({ aumentoVolumeAbdominal: v as any, aumentoVolumeAbdominalRegiao: v === "sim" ? details.aumentoVolumeAbdominalRegiao || "" : "" })}
-                              showWhen="sim"
-                            >
-                              <Input
-                                value={details.aumentoVolumeAbdominalRegiao || ""}
-                                onChange={(e) => patch({ aumentoVolumeAbdominalRegiao: e.target.value })}
-                                placeholder="Região"
-                              />
-                            </YesNoField>
+                          <div className="space-y-3 md:col-span-2">
+                            <CheckboxGrid
+                              label="Mucosas"
+                              options={["Normocoradas", "Hipocoradas", "Ictéricas", "Hiperêmicas", "Cianóticas", "Congestas"]}
+                              value={details.mucosasEstado}
+                              onChange={(next) => patch({ mucosasEstado: next })}
+                            />
+                          </div>
 
-                            <div className="space-y-3 md:col-span-2">
-                              <CheckboxGrid
-                                label="Mucosas"
-                                options={["Normocoradas", "Hipocoradas", "Ictéricas", "Hiperêmicas", "Cianóticas", "Congestas"]}
-                                value={details.mucosasEstado}
-                                onChange={(next) => patch({ mucosasEstado: next })}
-                              />
-                            </div>
+                          <div className="space-y-2 md:col-span-2">
+                            <Label>Obs. ausculta respiratória</Label>
+                            <Textarea
+                              value={details.frequenciaRespiratoriaObsAusculta || ""}
+                              onChange={(e) => patch({ frequenciaRespiratoriaObsAusculta: e.target.value })}
+                              rows={2}
+                            />
+                          </div>
 
-                            <div className="space-y-2 md:col-span-2">
-                              <Label>Obs. Ausculta Respiratória</Label>
-                              <Textarea
-                                value={details.frequenciaRespiratoriaObsAusculta || ""}
-                                onChange={(e) => patch({ frequenciaRespiratoriaObsAusculta: e.target.value })}
-                                rows={2}
-                              />
-                            </div>
+                          <div className="space-y-3 md:col-span-2">
+                            <CheckboxGrid
+                              label="Padrão respiratório"
+                              options={["Dispneia", "Normal", "Taquipneia", "Bradipneia", "Apneia"]}
+                              value={details.padraoRespiratorio}
+                              onChange={(next) => patch({ padraoRespiratorio: next })}
+                            />
+                          </div>
 
-                            <div className="space-y-3 md:col-span-2">
-                              <CheckboxGrid
-                                label="Padrão respiratório"
-                                options={["Dispneia", "Normal", "Taquipneia", "Bradipneia", "Apneia"]}
-                                value={details.padraoRespiratorio}
-                                onChange={(next) => patch({ padraoRespiratorio: next })}
-                              />
-                            </div>
+                          <YesNoField
+                            label="Sopro"
+                            name="sopro"
+                            value={(details.sopro as YesNo) || ""}
+                            onChange={(v) => patch({ sopro: v as any })}
+                            showWhen="sim"
+                          >
+                            <div className="text-xs text-muted-foreground">Sopro informado como presente.</div>
+                          </YesNoField>
 
-                            <YesNoField
-                              label="Sopro"
-                              value={(details.sopro as YesNo) || ""}
-                              onChange={(v) => patch({ sopro: v as any })}
-                              showWhen="sim"
-                            >
-                              <div className="text-xs text-muted-foreground">Sopro informado como presente.</div>
-                            </YesNoField>
+                          <div className="space-y-2 md:col-span-2">
+                            <Label>Obs. ausculta cardíaca</Label>
+                            <Textarea
+                              value={details.frequenciaCardiacaObsAusculta || ""}
+                              onChange={(e) => patch({ frequenciaCardiacaObsAusculta: e.target.value })}
+                              rows={2}
+                            />
+                          </div>
+                        </FieldGrid>
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
 
-                            <div className="space-y-2 md:col-span-2">
-                              <Label>Obs. Ausculta Cardíaca</Label>
-                              <Textarea
-                                value={details.frequenciaCardiacaObsAusculta || ""}
-                                onChange={(e) => patch({ frequenciaCardiacaObsAusculta: e.target.value })}
-                                rows={2}
-                              />
-                            </div>
-                          </FieldRow>
-                        </div>
-                      </AccordionContent>
-                    </AccordionItem>
+                  <AccordionItem value="linfonodos">
+                    <AccordionTrigger className="text-sm font-semibold">Linfonodos e Pele</AccordionTrigger>
+                    <AccordionContent>
+                      <div className="pt-2 space-y-4">
+                        <FieldGrid>
+                          <div className="space-y-2">
+                            <Label>Linfonodos</Label>
+                            <Select value={details.linfonodosEstado || ""} onValueChange={(v) => patch({ linfonodosEstado: v as any })}>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Selecione" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="normal">Normal</SelectItem>
+                                <SelectItem value="infartado">Infartado</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <Input
+                              value={details.linfonodosAlteracaoQualObs || ""}
+                              onChange={(e) => patch({ linfonodosAlteracaoQualObs: e.target.value })}
+                              placeholder="Obs.: alterações, quais?"
+                            />
+                          </div>
 
-                    <AccordionItem value="linfonodos">
-                      <AccordionTrigger className="text-sm font-semibold">Linfonodos e Pele</AccordionTrigger>
-                      <AccordionContent>
-                        <div className="pt-2 space-y-4">
-                          <FieldRow>
-                            <div className="space-y-2">
-                              <Label>Linfonodos</Label>
-                              <Select
-                                value={details.linfonodosEstado || ""}
-                                onValueChange={(v) => patch({ linfonodosEstado: v as any })}
-                              >
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Selecione" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="normal">Normal</SelectItem>
-                                  <SelectItem value="infartado">Infartado</SelectItem>
-                                </SelectContent>
-                              </Select>
-                              <Input
-                                value={details.linfonodosAlteracaoQualObs || ""}
-                                onChange={(e) => patch({ linfonodosAlteracaoQualObs: e.target.value })}
-                                placeholder="Obs.: alterações, quais?"
-                              />
-                            </div>
-
-                            <div className="space-y-3 md:col-span-2">
-                              <CheckboxGrid
-                                label="Pele e Anexos"
-                                options={["Prurido", "Descamação", "Odores", "Lesões", "Alopecia", "Nódulos"]}
-                                value={details.peleAnexosAlteracoes}
-                                onChange={(next) => patch({ peleAnexosAlteracoes: next })}
-                              />
-                              <Textarea
-                                value={details.peleAnexosDescricao || ""}
-                                onChange={(e) => patch({ peleAnexosDescricao: e.target.value })}
-                                rows={2}
-                                placeholder="Observações, localização, extensão..."
-                              />
-                            </div>
-                          </FieldRow>
-                        </div>
-                      </AccordionContent>
-                    </AccordionItem>
-                  </Accordion>
-                </>
+                          <div className="space-y-3 md:col-span-2">
+                            <CheckboxGrid
+                              label="Pele e anexos"
+                              options={["Prurido", "Descamação", "Odores", "Lesões", "Alopecia", "Nódulos"]}
+                              value={details.peleAnexosAlteracoes}
+                              onChange={(next) => patch({ peleAnexosAlteracoes: next })}
+                            />
+                            <Textarea
+                              value={details.peleAnexosDescricao || ""}
+                              onChange={(e) => patch({ peleAnexosDescricao: e.target.value })}
+                              rows={2}
+                              placeholder="Observações, localização, extensão..."
+                            />
+                          </div>
+                        </FieldGrid>
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                </Accordion>
               )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="diag" className="mt-4 space-y-4">
+          {diagnosticSummary && (
+            <div className="rounded-md border border-border bg-muted/20 p-3 text-sm text-muted-foreground">
+              <span className="font-medium text-foreground">Resumo:</span> {diagnosticSummary}
             </div>
-          </AccordionContent>
-        </AccordionItem>
+          )}
 
-        <AccordionItem value="diag">
-          <AccordionTrigger className="text-sm font-semibold">Diagnóstico e Tratamento</AccordionTrigger>
-          <AccordionContent>
-            <div className="pt-2 space-y-4">
-              {diagnosticSummary && (
-                <div className="rounded-md border border-border bg-muted/20 p-3 text-sm text-muted-foreground">
-                  <span className="font-medium text-foreground">Resumo:</span> {diagnosticSummary}
-                </div>
-              )}
-
+          <Card className="border-border">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Diagnóstico e tratamento</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label>Observações e Ocorrências</Label>
+                <Label>Observações e ocorrências</Label>
                 <Textarea
                   value={details.observacoesOcorrencias || ""}
                   onChange={(e) => patch({ observacoesOcorrencias: e.target.value })}
@@ -914,43 +991,28 @@ export default function LegacyConsultationForm({
                 />
               </div>
 
-              <FieldRow>
+              <FieldGrid>
                 <div className="space-y-2">
                   <Label>Suspeita diagnóstica</Label>
-                  <Input
-                    value={details.suspeitaDiagnostica || ""}
-                    onChange={(e) => patch({ suspeitaDiagnostica: e.target.value })}
-                  />
+                  <Input value={details.suspeitaDiagnostica || ""} onChange={(e) => patch({ suspeitaDiagnostica: e.target.value })} />
                 </div>
                 <div className="space-y-2">
                   <Label>Diagnóstico diferencial</Label>
-                  <Input
-                    value={details.diagnosticoDiferencial || ""}
-                    onChange={(e) => patch({ diagnosticoDiferencial: e.target.value })}
-                  />
+                  <Input value={details.diagnosticoDiferencial || ""} onChange={(e) => patch({ diagnosticoDiferencial: e.target.value })} />
                 </div>
                 <div className="space-y-2">
                   <Label>Procedimento realizado durante a consulta</Label>
-                  <Input
-                    value={details.procedimentoRealizadoConsulta || ""}
-                    onChange={(e) => patch({ procedimentoRealizadoConsulta: e.target.value })}
-                  />
+                  <Input value={details.procedimentoRealizadoConsulta || ""} onChange={(e) => patch({ procedimentoRealizadoConsulta: e.target.value })} />
                 </div>
                 <div className="space-y-2">
                   <Label>Diagnóstico presuntivo</Label>
-                  <Input
-                    value={details.diagnosticoPresuntivo || ""}
-                    onChange={(e) => patch({ diagnosticoPresuntivo: e.target.value })}
-                  />
+                  <Input value={details.diagnosticoPresuntivo || ""} onChange={(e) => patch({ diagnosticoPresuntivo: e.target.value })} />
                 </div>
                 <div className="space-y-2">
                   <Label>Diagnóstico definitivo</Label>
-                  <Input
-                    value={details.diagnosticoDefinitivo || ""}
-                    onChange={(e) => patch({ diagnosticoDefinitivo: e.target.value })}
-                  />
+                  <Input value={details.diagnosticoDefinitivo || ""} onChange={(e) => patch({ diagnosticoDefinitivo: e.target.value })} />
                 </div>
-              </FieldRow>
+              </FieldGrid>
 
               <div className="space-y-2">
                 <Label>Conduta / tratamento prescrito</Label>
@@ -982,10 +1044,10 @@ export default function LegacyConsultationForm({
                   rows={3}
                 />
               </div>
-            </div>
-          </AccordionContent>
-        </AccordionItem>
-      </Accordion>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

@@ -322,6 +322,84 @@ export default function ConsultationClinicalForm({
                   rows={3}
                 />
               </div>
+
+              {mode === "completo" && (
+                <div className="md:col-span-3 pt-2">
+                  <Card className="border-border">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm">Exame clínico completo (colapsável)</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <Accordion type="multiple" className="w-full">
+                        {[
+                          { key: "digestorio", title: "Sistema digestório" },
+                          { key: "respiratorio", title: "Sistema respiratório" },
+                          { key: "cabeca_pescoco", title: "Cabeça e pescoço" },
+                          { key: "torax_abdomen", title: "Tórax e abdômen" },
+                          { key: "linfonodos_pele", title: "Linfonodos e pele" },
+                        ].map((sec) => (
+                          <AccordionItem key={sec.key} value={sec.key}>
+                            <AccordionTrigger className="text-sm">{sec.title}</AccordionTrigger>
+                            <AccordionContent>
+                              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-2">
+                                <div className="space-y-2">
+                                  <Label>Status</Label>
+                                  <Select
+                                    value={(details[`sec_${sec.key}_status` as any] as any) || ""}
+                                    onValueChange={(v) =>
+                                      patch({
+                                        [`sec_${sec.key}_status` as any]: v,
+                                        [`sec_${sec.key}_obs` as any]:
+                                          v === "normal"
+                                            ? ""
+                                            : (details[`sec_${sec.key}_obs` as any] as any) || "",
+                                      } as any)
+                                    }
+                                  >
+                                    <SelectTrigger>
+                                      <SelectValue placeholder="Selecione" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="normal">Normal</SelectItem>
+                                      <SelectItem value="alterado">Alterado</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+
+                                <div className="space-y-2 md:col-span-2">
+                                  <Label>Observações</Label>
+                                  <Textarea
+                                    value={(details[`sec_${sec.key}_obs` as any] as any) || ""}
+                                    onChange={(e) =>
+                                      patch({ [`sec_${sec.key}_obs` as any]: e.target.value } as any)
+                                    }
+                                    rows={2}
+                                    placeholder="Descreva achados relevantes (evite checklists extensos)."
+                                  />
+                                </div>
+                              </div>
+                            </AccordionContent>
+                          </AccordionItem>
+                        ))}
+
+                        <AccordionItem value="obs_complementares">
+                          <AccordionTrigger className="text-sm">Observações complementares</AccordionTrigger>
+                          <AccordionContent>
+                            <div className="pt-2 space-y-2">
+                              <Label>Notas adicionais</Label>
+                              <Textarea
+                                value={(details.observacoesComplementares as any) || ""}
+                                onChange={(e) => patch({ observacoesComplementares: e.target.value } as any)}
+                                rows={3}
+                              />
+                            </div>
+                          </AccordionContent>
+                        </AccordionItem>
+                      </Accordion>
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
             </div>
           </AccordionContent>
         </AccordionItem>
@@ -411,82 +489,6 @@ export default function ConsultationClinicalForm({
                 />
               </div>
             </div>
-
-            {mode === "completo" && (
-              <>
-                <Separator className="my-5" />
-                <Card className="border-border">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm">Exame clínico completo (colapsável)</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <Accordion type="multiple" className="w-full">
-                      {[
-                        { key: "digestorio", title: "Sistema digestório" },
-                        { key: "respiratorio", title: "Sistema respiratório" },
-                        { key: "cabeca_pescoco", title: "Cabeça e pescoço" },
-                        { key: "torax_abdomen", title: "Tórax e abdômen" },
-                        { key: "linfonodos_pele", title: "Linfonodos e pele" },
-                      ].map((sec) => (
-                        <AccordionItem key={sec.key} value={sec.key}>
-                          <AccordionTrigger className="text-sm">{sec.title}</AccordionTrigger>
-                          <AccordionContent>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-2">
-                              <div className="space-y-2">
-                                <Label>Status</Label>
-                                <Select
-                                  value={(details[`sec_${sec.key}_status` as any] as any) || ""}
-                                  onValueChange={(v) =>
-                                    patch({
-                                      [`sec_${sec.key}_status` as any]: v,
-                                      [`sec_${sec.key}_obs` as any]: v === "normal" ? "" : (details[`sec_${sec.key}_obs` as any] as any) || "",
-                                    } as any)
-                                  }
-                                >
-                                  <SelectTrigger>
-                                    <SelectValue placeholder="Selecione" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="normal">Normal</SelectItem>
-                                    <SelectItem value="alterado">Alterado</SelectItem>
-                                  </SelectContent>
-                                </Select>
-                              </div>
-
-                              <div className="space-y-2 md:col-span-2">
-                                <Label>Observações</Label>
-                                <Textarea
-                                  value={(details[`sec_${sec.key}_obs` as any] as any) || ""}
-                                  onChange={(e) =>
-                                    patch({ [`sec_${sec.key}_obs` as any]: e.target.value } as any)
-                                  }
-                                  rows={2}
-                                  placeholder="Descreva achados relevantes (evite checklists extensos)."
-                                />
-                              </div>
-                            </div>
-                          </AccordionContent>
-                        </AccordionItem>
-                      ))}
-
-                      <AccordionItem value="obs_complementares">
-                        <AccordionTrigger className="text-sm">Observações complementares</AccordionTrigger>
-                        <AccordionContent>
-                          <div className="pt-2 space-y-2">
-                            <Label>Notas adicionais</Label>
-                            <Textarea
-                              value={(details.observacoesComplementares as any) || ""}
-                              onChange={(e) => patch({ observacoesComplementares: e.target.value } as any)}
-                              rows={3}
-                            />
-                          </div>
-                        </AccordionContent>
-                      </AccordionItem>
-                    </Accordion>
-                  </CardContent>
-                </Card>
-              </>
-            )}
           </AccordionContent>
         </AccordionItem>
       </Accordion>

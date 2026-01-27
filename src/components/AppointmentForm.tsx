@@ -784,7 +784,7 @@ export default function AppointmentForm({
       )}
 
       {/* Anexos (somente após seleção do tipo) */}
-      {type && <AttachmentsSection attachments={attachments} onChange={setAttachments} />}
+      {type && type !== "Consulta" && <AttachmentsSection attachments={attachments} onChange={setAttachments} />}
 
       {/* Rodapé fixo de ações */}
       <div className="sticky bottom-0 z-10 -mx-6 px-6 py-4 border-t border-border bg-background/90 backdrop-blur">
