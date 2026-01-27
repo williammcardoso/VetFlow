@@ -22,6 +22,7 @@ import { MoreHorizontal, Save, X } from "lucide-react";
 
 import type {
   AppointmentEntry,
+  ClassicClinicalDetails,
   ConsultationDetails,
   ReturnDetails,
   SurgeryDetails,
@@ -34,6 +35,9 @@ import ConsultationClinicalForm, {
   type ConsultationMode,
 } from "@/components/appointments/forms/ConsultationClinicalForm";
 import SurgeryForm from "@/components/appointments/forms/SurgeryForm";
+import ClassicClinicalForm from "@/components/appointments/forms/ClassicClinicalForm";
+import DateInputBR, { isoToBR } from "@/components/appointments/inputs/DateInputBR";
+
 import AttachmentsSection, {
   type Attachment,
 } from "@/components/appointments/forms/AttachmentsSection";
@@ -60,8 +64,9 @@ const draftKey = (clientId: string, animalId: string) =>
 
 type AllowedType = AppointmentEntry["type"]; // Mantém compatibilidade com tipos legados
 
-const PRIMARY_TYPES: Array<Extract<AppointmentEntry["type"], "Consulta" | "Cirurgia" | "Retorno" | "Vacina">> = [
+const PRIMARY_TYPES: Array<Extract<AppointmentEntry["type"], "Consulta" | "Atendimento Clínico (Modelo Clássico)" | "Cirurgia" | "Retorno" | "Vacina">> = [
   "Consulta",
+  "Atendimento Clínico (Modelo Clássico)",
   "Cirurgia",
   "Retorno",
   "Vacina",
@@ -195,6 +200,31 @@ export default function AppointmentForm({
       return;
     }
 
+    if (type === "Atendimento Clínico (Modelo Clássico)") {
+      setDetails({ templateId: "", textoConsolidado: "" } as ClassicClinicalDetails);
+      setPesoAtual(
+        initialData?.type === "Atendimento Clínico (Modelo Clássico)"
+          ? initialData.pesoAtual ?? ""
+          : lastWeight ?? ""
+      );
+      setTemperaturaCorporal(
+        initialData?.type === "Atendimento Clínico (Modelo Clássico)"
+          ? initialData.temperaturaCorporal ?? ""
+          : ""
+      );
+      setFrequenciaCardiaca(
+        initialData?.type === "Atendimento Clínico (Modelo Clássico)"
+          ? initialData.frequenciaCardiaca ?? ""
+          : ""
+      );
+      setFrequenciaRespiratoria(
+        initialData?.type === "Atendimento Clínico (Modelo Clássico)"
+          ? initialData.frequenciaRespiratoria ?? ""
+          : ""
+      );
+      return;
+    }
+
     if (type === "Cirurgia") {
       setDetails({ suturas: [] } as SurgeryDetails);
       setPesoAtual(initialData?.type === "Cirurgia" ? initialData.pesoAtual ?? "" : lastWeight ?? "");
@@ -259,14 +289,23 @@ export default function AppointmentForm({
     if (type === "Consulta") {
       const c = details as ConsultationDetails;
       if (!c.queixaPrincipal || !c.queixaPrincipal.trim()) {
-        toast.error("Na Consulta Clínica, a queixa principal é obrigatória.");
+        toast.error("Na Consulta Clínica (Novo Modelo), a queixa principal é obrigatória.");
+        return;
+      }
+    }
+
+    if (type === "Atendimento Clínico (Modelo Clássico)") {
+      const c = details as ClassicClinicalDetails;
+      if (!c.queixaPrincipal || !c.queixaPrincipal.trim()) {
+        toast.error("No Modelo Clássico, a queixa principal (texto) é obrigatória.");
         return;
       }
     }
 
     const isLegacy = !!type && !isPrimaryType(type);
-    const shouldKeepVitals = type === "Consulta" || type === "Cirurgia" || isLegacy;
-    const shouldKeepCardioVitals = type === "Cirurgia" || isLegacy;
+    const isClassic = type === "Atendimento Clínico (Modelo Clássico)";
+    const shouldKeepVitals = type === "Consulta" || type === "Cirurgia" || isClassic || isLegacy;
+    const shouldKeepCardioVitals = type === "Cirurgia" || isClassic || isLegacy;
 
     const newAppointment: AppointmentEntry = {
       id: initialData?.id || `app-${Date.now()}`,
@@ -286,6 +325,7 @@ export default function AppointmentForm({
           ? Number(frequenciaRespiratoria)
           : undefined,
       details,
+      // Regra: não remover dados existentes. No modelo clássico, apenas ocultamos UI de anexos.
       attachments,
     };
 
@@ -378,6 +418,23 @@ export default function AppointmentForm({
       );
     }
 
+    if (type === "Atendimento Clínico (Modelo Clássico)") {
+      return (
+        <ClassicClinicalForm
+          pesoAtual={pesoAtual}
+          onPesoAtualChange={setPesoAtual}
+          temperaturaCorporal={temperaturaCorporal}
+          onTemperaturaCorporalChange={setTemperaturaCorporal}
+          frequenciaCardiaca={frequenciaCardiaca}
+          onFrequenciaCardiacaChange={setFrequenciaCardiaca}
+          frequenciaRespiratoria={frequenciaRespiratoria}
+          onFrequenciaRespiratoriaChange={setFrequenciaRespiratoria}
+          details={details as ClassicClinicalDetails}
+          onDetailsChange={(next) => setDetails(next)}
+        />
+      );
+    }
+
     if (type === "Cirurgia") {
       return (
         <SurgeryForm
@@ -420,7 +477,11 @@ export default function AppointmentForm({
           </div>
           <div className="space-y-2">
             <Label htmlFor="lote">Lote</Label>
-            <Input id="lote" value={v.lote || ""} onChange={(e) => setDetails({ ...v, lote: e.target.value })} />
+            <Input
+              id="lote"
+              value={v.lote || ""}
+              onChange={(e) => setDetails({ ...v, lote: e.target.value })}
+            />
           </div>
           <div className="space-y-2">
             <Label htmlFor="fabricante">Fabricante</Label>
@@ -432,20 +493,18 @@ export default function AppointmentForm({
           </div>
           <div className="space-y-2">
             <Label htmlFor="dataFabricacao">Data de fabricação</Label>
-            <Input
+            <DateInputBR
               id="dataFabricacao"
-              type="date"
-              value={v.dataFabricacao || ""}
-              onChange={(e) => setDetails({ ...v, dataFabricacao: e.target.value })}
+              valueISO={v.dataFabricacao || ""}
+              onChangeISO={(val) => setDetails({ ...v, dataFabricacao: val || undefined })}
             />
           </div>
           <div className="space-y-2">
             <Label htmlFor="dataValidade">Data de validade</Label>
-            <Input
+            <DateInputBR
               id="dataValidade"
-              type="date"
-              value={v.dataValidade || ""}
-              onChange={(e) => setDetails({ ...v, dataValidade: e.target.value })}
+              valueISO={v.dataValidade || ""}
+              onChangeISO={(val) => setDetails({ ...v, dataValidade: val || undefined })}
             />
           </div>
           <div className="space-y-2">
@@ -456,7 +515,10 @@ export default function AppointmentForm({
               step="0.1"
               value={v.doseAplicada ?? ""}
               onChange={(e) =>
-                setDetails({ ...v, doseAplicada: e.target.value ? Number(e.target.value) : undefined })
+                setDetails({
+                  ...v,
+                  doseAplicada: e.target.value ? Number(e.target.value) : undefined,
+                })
               }
             />
           </div>
@@ -466,7 +528,9 @@ export default function AppointmentForm({
               value={(v.viaAdministracao as any) || ""}
               onValueChange={(val) => setDetails({ ...v, viaAdministracao: val as any })}
             >
-              <SelectTrigger id="viaAdministracao"><SelectValue placeholder="Selecione" /></SelectTrigger>
+              <SelectTrigger id="viaAdministracao">
+                <SelectValue placeholder="Selecione" />
+              </SelectTrigger>
               <SelectContent>
                 <SelectItem value="SC">Subcutânea (SC)</SelectItem>
                 <SelectItem value="IM">Intramuscular (IM)</SelectItem>
@@ -507,11 +571,13 @@ export default function AppointmentForm({
               value={r.atendimentoOrigemId || ""}
               onValueChange={(val) => setDetails({ ...r, atendimentoOrigemId: val })}
             >
-              <SelectTrigger id="atendimentoOrigemId"><SelectValue placeholder="Selecione" /></SelectTrigger>
+              <SelectTrigger id="atendimentoOrigemId">
+                <SelectValue placeholder="Selecione" />
+              </SelectTrigger>
               <SelectContent>
                 {animalAppointmentsForSelect.map((app) => (
                   <SelectItem key={app.id} value={app.id}>
-                    {app.date} • {app.type} • {app.vet}
+                    {isoToBR(app.date)} • {app.type} • {app.vet}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -611,14 +677,16 @@ export default function AppointmentForm({
 
   const typeLabel =
     type === "Consulta"
-      ? "Consulta Clínica"
-      : type === "Cirurgia"
-        ? "Cirurgia"
-        : type === "Retorno"
-          ? "Retorno"
-          : type === "Vacina"
-            ? "Vacinação"
-            : "";
+      ? "Consulta Clínica (Novo Modelo)"
+      : type === "Atendimento Clínico (Modelo Clássico)"
+        ? "Atendimento Clínico (Modelo Clássico)"
+        : type === "Cirurgia"
+          ? "Cirurgia"
+          : type === "Retorno"
+            ? "Retorno"
+            : type === "Vacina"
+              ? "Vacinação"
+              : type;
 
   return (
     <form
@@ -636,7 +704,7 @@ export default function AppointmentForm({
         <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label htmlFor="date">Data do atendimento *</Label>
-            <Input id="date" type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
+            <DateInputBR id="date" valueISO={date} onChangeISO={setDate} required />
           </div>
 
           <div className="space-y-2">
@@ -654,7 +722,7 @@ export default function AppointmentForm({
                 {PRIMARY_TYPES.map((t) => (
                   <SelectItem key={t} value={t}>
                     {t === "Consulta"
-                      ? "Consulta Clínica"
+                      ? "Consulta Clínica (Novo Modelo)"
                       : t === "Vacina"
                         ? "Vacinação"
                         : t}
@@ -671,18 +739,20 @@ export default function AppointmentForm({
 
           <div className="space-y-2">
             <Label htmlFor="vet">Veterinário responsável *</Label>
-            <Select value={vet} onValueChange={setVet}>
-              <SelectTrigger id="vet">
-                <SelectValue placeholder="Selecione" />
-              </SelectTrigger>
-              <SelectContent>
-                {mockVets.map((v) => (
-                  <SelectItem key={v.id} value={v.name}>
-                    {v.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Input
+              id="vet"
+              list="systemvet-vets"
+              value={vet}
+              onChange={(e) => setVet(e.target.value)}
+              placeholder="Selecione ou digite"
+              required
+            />
+            <datalist id="systemvet-vets">
+              {mockVets.map((v) => (
+                <option key={v.id} value={v.name} />
+              ))}
+            </datalist>
+            <p className="text-xs text-muted-foreground">Padrão: usuário logado. Você pode trocar manualmente.</p>
           </div>
 
           <div className="space-y-2 md:col-span-2">
@@ -712,8 +782,10 @@ export default function AppointmentForm({
         </div>
       )}
 
-      {/* Anexos (somente após seleção do tipo) */}
-      {type && <AttachmentsSection attachments={attachments} onChange={setAttachments} />}
+      {/* Regra: Remover completamente Anexos no Modelo Clássico */}
+      {type && type !== "Atendimento Clínico (Modelo Clássico)" && (
+        <AttachmentsSection attachments={attachments} onChange={setAttachments} />
+      )}
 
       {/* Rodapé fixo de ações */}
       <div className="sticky bottom-0 z-10 -mx-6 px-6 py-4 border-t border-border bg-background/90 backdrop-blur">

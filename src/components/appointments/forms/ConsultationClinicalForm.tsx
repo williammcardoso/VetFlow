@@ -65,7 +65,7 @@ export default function ConsultationClinicalForm({
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-4">
         <div className="space-y-0.5">
-          <div className="text-sm font-medium text-foreground">Consulta Clínica</div>
+          <div className="text-sm font-medium text-foreground">Consulta Clínica (Novo Modelo)</div>
           <div className="text-xs text-muted-foreground">
             Modo simplificado para alta produtividade. Ative o exame completo quando necessário.
           </div>

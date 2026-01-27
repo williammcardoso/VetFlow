@@ -22,6 +22,7 @@ import {
 
 import type {
   AppointmentEntry,
+  ClassicClinicalDetails,
   ConsultationDetails,
   ReturnDetails,
   SurgeryDetails,
@@ -58,6 +59,13 @@ const renderField = (label: string, value: any) => {
       <span className="font-medium text-foreground">{label}:</span> {text}
     </div>
   );
+};
+
+const typeLabel = (t: AppointmentEntry["type"]) => {
+  if (t === "Consulta") return "Consulta Clínica (Novo Modelo)";
+  if (t === "Atendimento Clínico (Modelo Clássico)") return "Atendimento Clínico (Modelo Clássico)";
+  if (t === "Vacina") return "Vacinação";
+  return t;
 };
 
 export default function AppointmentViewPage() {
@@ -183,6 +191,70 @@ export default function AppointmentViewPage() {
               )}
             </CardContent>
           </Card>
+        </div>
+      );
+    }
+
+    if (appointment.type === "Atendimento Clínico (Modelo Clássico)") {
+      const d = appointment.details as ClassicClinicalDetails;
+      const section = (
+        title: string,
+        selected?: string[],
+        obs?: string
+      ) => {
+        const has = (selected && selected.length > 0) || (obs && obs.trim());
+        if (!has) return null;
+        return (
+          <Card className="border-border">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">{title}</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {selected && selected.length > 0 && renderField("Itens", selected.join(", "))}
+              {renderField("Observações", obs)}
+            </CardContent>
+          </Card>
+        );
+      };
+
+      return (
+        <div className="space-y-4">
+          <Card className="border-border">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Resumo</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {renderField("Template", d.templateId)}
+              {renderField("Queixa principal (texto)", d.queixaPrincipal)}
+              {renderField("Peso (kg)", appointment.pesoAtual)}
+              {renderField("Temperatura (°C)", appointment.temperaturaCorporal)}
+              {renderField("FC", appointment.frequenciaCardiaca)}
+              {renderField("FR", appointment.frequenciaRespiratoria)}
+            </CardContent>
+          </Card>
+
+          {section("Queixa Principal", d.queixaChecklist, d.queixaObs)}
+          {section("Anamnese", d.anamneseChecklist, d.anamneseObs)}
+          {section("Exame Físico", d.exameFisicoChecklist, d.exameFisicoObs)}
+          {section("Avaliação por Sistemas", d.avaliacaoSistemasChecklist, d.avaliacaoSistemasObs)}
+          {section("Diagnóstico / Hipóteses", d.diagnosticoChecklist, d.diagnosticoObs)}
+          {section("Conduta", d.condutaChecklist, d.condutaObs)}
+          {section("Prescrição", d.prescricaoChecklist, d.prescricaoObs)}
+          {section("Exames Solicitados", d.examesSolicitadosChecklist, d.examesSolicitadosObs)}
+          {section("Orientações / Retorno", d.orientacoesChecklist, d.orientacoesObs)}
+
+          {d.textoConsolidado && (
+            <Card className="border-border">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">Texto consolidado</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <pre className="whitespace-pre-wrap rounded-md border border-border bg-muted/20 p-3 text-xs text-foreground">
+                  {d.textoConsolidado}
+                </pre>
+              </CardContent>
+            </Card>
+          )}
         </div>
       );
     }
@@ -334,7 +406,7 @@ export default function AppointmentViewPage() {
               <Clipboard className="h-5 w-5 text-muted-foreground" /> Detalhes do Atendimento
             </h1>
             <p className="text-sm text-muted-foreground mt-1">
-              {animal.name} • {appointment.type}
+              {animal.name} • {typeLabel(appointment.type)}
             </p>
           </div>
 
@@ -382,7 +454,7 @@ export default function AppointmentViewPage() {
           </CardHeader>
           <CardContent className="space-y-2">
             <div className="flex flex-wrap gap-2">
-              <Badge variant="secondary">{appointment.type}</Badge>
+              <Badge variant="secondary">{typeLabel(appointment.type)}</Badge>
               <Badge variant="outline">{formatDateTimeBR(appointment.date, appointment.time)}</Badge>
               <Badge variant="outline">{appointment.vet}</Badge>
             </div>

@@ -129,6 +129,41 @@ export interface ConsultationDetails extends BaseAppointmentDetails {
   linfonodosAlteracaoQualObs?: string;
 }
 
+export interface ClassicClinicalDetails extends BaseAppointmentDetails {
+  templateId?: 'gastro' | 'dermato' | 'checkup' | 'resp' | '';
+
+  // Checklists por seção (modelo clássico)
+  queixaChecklist?: string[];
+  queixaObs?: string;
+
+  anamneseChecklist?: string[];
+  anamneseObs?: string;
+
+  exameFisicoChecklist?: string[];
+  exameFisicoObs?: string;
+
+  avaliacaoSistemasChecklist?: string[];
+  avaliacaoSistemasObs?: string;
+
+  diagnosticoChecklist?: string[];
+  diagnosticoObs?: string;
+
+  condutaChecklist?: string[];
+  condutaObs?: string;
+
+  prescricaoChecklist?: string[];
+  prescricaoObs?: string;
+
+  examesSolicitadosChecklist?: string[];
+  examesSolicitadosObs?: string;
+
+  orientacoesChecklist?: string[];
+  orientacoesObs?: string;
+
+  // Texto consolidado (impresso/PDF)
+  textoConsolidado?: string;
+}
+
 export interface VaccinationDetails {
   tipoVacina?: string; // Ex: Polivalente, Antirrábica
   nomeComercial?: string;
@@ -225,6 +260,7 @@ export interface CheckupDetails {
 
 export type AppointmentSpecificDetails =
   | { type: 'Consulta', details: ConsultationDetails }
+  | { type: 'Atendimento Clínico (Modelo Clássico)', details: ClassicClinicalDetails }
   | { type: 'Vacina', details: VaccinationDetails }
   | { type: 'Retorno', details: ReturnDetails }
   | { type: 'Cirurgia', details: SurgeryDetails }
@@ -235,15 +271,24 @@ export type AppointmentSpecificDetails =
 export interface AppointmentEntry {
   id: string;
   animalId: string;
-  date: string; // Data do atendimento
+  date: string; // Data do atendimento (ISO: YYYY-MM-DD)
   time: string; // Hora do atendimento
-  type: 'Consulta' | 'Vacina' | 'Retorno' | 'Cirurgia' | 'Emergência' | 'Check-up' | 'Outros' | '';
+  type:
+    | 'Consulta'
+    | 'Atendimento Clínico (Modelo Clássico)'
+    | 'Vacina'
+    | 'Retorno'
+    | 'Cirurgia'
+    | 'Emergência'
+    | 'Check-up'
+    | 'Outros'
+    | '';
   vet: string; // Veterinário responsável
   pesoAtual?: number;
-  temperaturaCorporal?: number; // Temperatura corporal (campo sempre visível)
-  frequenciaCardiaca?: number; // Frequência Cardíaca (campo sempre visível)
-  frequenciaRespiratoria?: number; // Frequência Respiratória (campo sempre visível)
-  observacoesGerais?: string; // Observações gerais (campo sempre visível)
-  details: AppointmentSpecificDetails['details']; // Detalhes específicos do tipo de atendimento
-  attachments?: { name: string; url: string }[]; // Para anexos
+  temperaturaCorporal?: number;
+  frequenciaCardiaca?: number;
+  frequenciaRespiratoria?: number;
+  observacoesGerais?: string;
+  details: AppointmentSpecificDetails['details'];
+  attachments?: { name: string; url: string }[];
 }

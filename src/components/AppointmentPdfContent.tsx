@@ -2,11 +2,20 @@ import React from "react";
 import { Document, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
 import type {
   AppointmentEntry,
+  ClassicClinicalDetails,
   ConsultationDetails,
   ReturnDetails,
   SurgeryDetails,
   VaccinationDetails,
 } from "@/types/appointment";
+
+const formatDateBR = (iso?: string) => {
+  if (!iso) return "-";
+  const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return iso;
+  const [, y, mo, d] = m;
+  return `${d}/${mo}/${y}`;
+};
 
 const styles = StyleSheet.create({
   page: { padding: 28, fontSize: 10, fontFamily: "Helvetica" },
@@ -54,7 +63,7 @@ export default function AppointmentPdfContent({
       const d = appointment.details as ConsultationDetails;
       return (
         <View>
-          <Text style={styles.sectionTitle}>Consulta Clínica</Text>
+          <Text style={styles.sectionTitle}>Consulta Clínica (Novo Modelo)</Text>
           <Field label="Queixa principal" value={d.queixaPrincipal} />
           <Field label="História / evolução" value={d.historicoClinico} />
           <View style={styles.row}>
@@ -74,6 +83,37 @@ export default function AppointmentPdfContent({
             <Field label="Retorno (dias)" value={d.retornoRecomendadoEmDias} />
             <Field label="Próximos passos" value={d.proximosPassos} />
           </View>
+        </View>
+      );
+    }
+
+    if (appointment.type === "Atendimento Clínico (Modelo Clássico)") {
+      const d = appointment.details as ClassicClinicalDetails;
+      return (
+        <View>
+          <Text style={styles.sectionTitle}>Atendimento Clínico (Modelo Clássico)</Text>
+          <View style={styles.block}>
+            <Field label="Template" value={d.templateId} />
+            <Field label="Queixa principal (texto)" value={d.queixaPrincipal} />
+            <View style={styles.row}>
+              <Field label="Peso (kg)" value={appointment.pesoAtual} />
+              <Field label="Temperatura (°C)" value={appointment.temperaturaCorporal} />
+              <Field label="FC" value={appointment.frequenciaCardiaca} />
+              <Field label="FR" value={appointment.frequenciaRespiratoria} />
+            </View>
+          </View>
+
+          {d.textoConsolidado ? (
+            <View style={styles.block}>
+              <Text style={{ fontWeight: 700, marginBottom: 6 }}>Texto consolidado</Text>
+              <Text style={styles.mono}>{d.textoConsolidado}</Text>
+            </View>
+          ) : (
+            <View style={styles.block}>
+              <Text style={{ fontWeight: 700, marginBottom: 6 }}>Detalhes</Text>
+              <Text style={styles.mono}>{JSON.stringify(d || {}, null, 2)}</Text>
+            </View>
+          )}
         </View>
       );
     }
@@ -155,6 +195,8 @@ export default function AppointmentPdfContent({
           <Field label="Via" value={d.viaAdministracao} />
           <Field label="Local" value={d.localAplicacao} />
           <Field label="Reação adversa" value={d.reacaoAdversaObservada} />
+          <Field label="Fabricação" value={formatDateBR(d.dataFabricacao)} />
+          <Field label="Validade" value={formatDateBR(d.dataValidade)} />
         </View>
       );
     }
@@ -194,13 +236,13 @@ export default function AppointmentPdfContent({
           <Text style={styles.title}>{clinicName || "SystemVet"}</Text>
           <Text style={styles.subtitle}>{headerLine}</Text>
           <Text style={styles.subtitle}>
-            Atendimento: {appointment.type} • {appointment.date} {appointment.time ? ` ${appointment.time}` : ""} • Vet: {appointment.vet}
+            Atendimento: {appointment.type} • {formatDateBR(appointment.date)}{appointment.time ? ` ${appointment.time}` : ""} • Vet: {appointment.vet}
           </Text>
         </View>
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Informações administrativas</Text>
-          <Field label="Data/Hora" value={`${appointment.date}${appointment.time ? ` ${appointment.time}` : ""}`} />
+          <Field label="Data/Hora" value={`${formatDateBR(appointment.date)}${appointment.time ? ` ${appointment.time}` : ""}`} />
           <Field label="Tipo" value={appointment.type} />
           <Field label="Veterinário" value={appointment.vet} />
           <Field label="Nota administrativa" value={appointment.observacoesGerais} />

@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Plus, Scissors, Timer, Trash2 } from "lucide-react";
 import type { SurgeryDetails, SurgerySutureItem } from "@/types/appointment";
+import { isoToBR } from "@/components/appointments/inputs/DateInputBR";
 
 type Props = {
   appointmentDateISO: string;
@@ -105,7 +106,7 @@ export default function SurgeryForm({
             <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Data da cirurgia</Label>
-                <Input value={appointmentDateISO} disabled />
+                <Input value={isoToBR(appointmentDateISO)} disabled />
               </div>
               <div className="space-y-2">
                 <Label>Veterinário responsável</Label>
