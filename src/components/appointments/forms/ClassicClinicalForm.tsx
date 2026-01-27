@@ -204,16 +204,19 @@ export default function ClassicClinicalForm({
         <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label>Template</Label>
-            <Select value={details.templateId || ""} onValueChange={(v) => setTemplate(v as TemplateId)}>
+            <Select
+              value={(details.templateId as string) || undefined}
+              onValueChange={(v) => setTemplate(v === "none" ? "" : (v as TemplateId))}
+            >
               <SelectTrigger>
                 <SelectValue placeholder="Selecione um template" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Sem template</SelectItem>
                 <SelectItem value="gastro">Gastrointestinal</SelectItem>
                 <SelectItem value="dermato">Dermatológico</SelectItem>
                 <SelectItem value="checkup">Check-up</SelectItem>
                 <SelectItem value="resp">Respiratório</SelectItem>
+                <SelectItem value="none">Sem template</SelectItem>
               </SelectContent>
             </Select>
             <p className="text-xs text-muted-foreground">Selecionar um template marca automaticamente checkboxes relacionados.</p>
