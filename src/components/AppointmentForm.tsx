@@ -22,7 +22,6 @@ import { MoreHorizontal, Save, X } from "lucide-react";
 
 import type {
   AppointmentEntry,
-  ClassicClinicalDetails,
   ConsultationDetails,
   ReturnDetails,
   SurgeryDetails,
@@ -35,8 +34,8 @@ import ConsultationClinicalForm, {
   type ConsultationMode,
 } from "@/components/appointments/forms/ConsultationClinicalForm";
 import SurgeryForm from "@/components/appointments/forms/SurgeryForm";
-import ClassicClinicalForm from "@/components/appointments/forms/ClassicClinicalForm";
 import DateInputBR, { isoToBR } from "@/components/appointments/inputs/DateInputBR";
+import LegacyConsultationForm from "@/components/appointments/forms/LegacyConsultationForm";
 
 import AttachmentsSection, {
   type Attachment,
@@ -64,13 +63,12 @@ const draftKey = (clientId: string, animalId: string) =>
 
 type AllowedType = AppointmentEntry["type"]; // Mantém compatibilidade com tipos legados
 
-const PRIMARY_TYPES: Array<Extract<AppointmentEntry["type"], "Consulta" | "Atendimento Clínico (Modelo Clássico)" | "Cirurgia" | "Retorno" | "Vacina">> = [
-  "Consulta",
-  "Atendimento Clínico (Modelo Clássico)",
-  "Cirurgia",
-  "Retorno",
-  "Vacina",
-];
+const PRIMARY_TYPES: Array<
+  Extract<
+    AppointmentEntry["type"],
+    "Consulta" | "Consulta (Modelo Antigo)" | "Cirurgia" | "Retorno" | "Vacina"
+  >
+> = ["Consulta", "Consulta (Modelo Antigo)", "Cirurgia", "Retorno", "Vacina"];
 
 const isPrimaryType = (t: AppointmentEntry["type"]) => (PRIMARY_TYPES as string[]).includes(t);
 
@@ -200,25 +198,25 @@ export default function AppointmentForm({
       return;
     }
 
-    if (type === "Atendimento Clínico (Modelo Clássico)") {
-      setDetails({ templateId: "", textoConsolidado: "" } as ClassicClinicalDetails);
+    if (type === "Consulta (Modelo Antigo)") {
+      setDetails({} as ConsultationDetails);
       setPesoAtual(
-        initialData?.type === "Atendimento Clínico (Modelo Clássico)"
+        initialData?.type === "Consulta (Modelo Antigo)"
           ? initialData.pesoAtual ?? ""
           : lastWeight ?? ""
       );
       setTemperaturaCorporal(
-        initialData?.type === "Atendimento Clínico (Modelo Clássico)"
+        initialData?.type === "Consulta (Modelo Antigo)"
           ? initialData.temperaturaCorporal ?? ""
           : ""
       );
       setFrequenciaCardiaca(
-        initialData?.type === "Atendimento Clínico (Modelo Clássico)"
+        initialData?.type === "Consulta (Modelo Antigo)"
           ? initialData.frequenciaCardiaca ?? ""
           : ""
       );
       setFrequenciaRespiratoria(
-        initialData?.type === "Atendimento Clínico (Modelo Clássico)"
+        initialData?.type === "Consulta (Modelo Antigo)"
           ? initialData.frequenciaRespiratoria ?? ""
           : ""
       );
@@ -294,18 +292,18 @@ export default function AppointmentForm({
       }
     }
 
-    if (type === "Atendimento Clínico (Modelo Clássico)") {
-      const c = details as ClassicClinicalDetails;
+    if (type === "Consulta (Modelo Antigo)") {
+      const c = details as ConsultationDetails;
       if (!c.queixaPrincipal || !c.queixaPrincipal.trim()) {
-        toast.error("No Modelo Clássico, a queixa principal (texto) é obrigatória.");
+        toast.error("Na Consulta Clínica (Modelo Antigo), a queixa principal é obrigatória.");
         return;
       }
     }
 
     const isLegacy = !!type && !isPrimaryType(type);
-    const isClassic = type === "Atendimento Clínico (Modelo Clássico)";
-    const shouldKeepVitals = type === "Consulta" || type === "Cirurgia" || isClassic || isLegacy;
-    const shouldKeepCardioVitals = type === "Cirurgia" || isClassic || isLegacy;
+    const isOldConsult = type === "Consulta (Modelo Antigo)";
+    const shouldKeepVitals = type === "Consulta" || isOldConsult || type === "Cirurgia" || isLegacy;
+    const shouldKeepCardioVitals = isOldConsult || type === "Cirurgia" || isLegacy;
 
     const newAppointment: AppointmentEntry = {
       id: initialData?.id || `app-${Date.now()}`,
@@ -418,9 +416,10 @@ export default function AppointmentForm({
       );
     }
 
-    if (type === "Atendimento Clínico (Modelo Clássico)") {
+    if (type === "Consulta (Modelo Antigo)") {
       return (
-        <ClassicClinicalForm
+        <LegacyConsultationForm
+          dateISO={date}
           pesoAtual={pesoAtual}
           onPesoAtualChange={setPesoAtual}
           temperaturaCorporal={temperaturaCorporal}
@@ -429,7 +428,7 @@ export default function AppointmentForm({
           onFrequenciaCardiacaChange={setFrequenciaCardiaca}
           frequenciaRespiratoria={frequenciaRespiratoria}
           onFrequenciaRespiratoriaChange={setFrequenciaRespiratoria}
-          details={details as ClassicClinicalDetails}
+          details={details as ConsultationDetails}
           onDetailsChange={(next) => setDetails(next)}
         />
       );
@@ -678,8 +677,8 @@ export default function AppointmentForm({
   const typeLabel =
     type === "Consulta"
       ? "Consulta Clínica (Novo Modelo)"
-      : type === "Atendimento Clínico (Modelo Clássico)"
-        ? "Atendimento Clínico (Modelo Clássico)"
+      : type === "Consulta (Modelo Antigo)"
+        ? "Consulta Clínica (Modelo Antigo)"
         : type === "Cirurgia"
           ? "Cirurgia"
           : type === "Retorno"
@@ -723,9 +722,11 @@ export default function AppointmentForm({
                   <SelectItem key={t} value={t}>
                     {t === "Consulta"
                       ? "Consulta Clínica (Novo Modelo)"
-                      : t === "Vacina"
-                        ? "Vacinação"
-                        : t}
+                      : t === "Consulta (Modelo Antigo)"
+                        ? "Consulta Clínica (Modelo Antigo)"
+                        : t === "Vacina"
+                          ? "Vacinação"
+                          : t}
                   </SelectItem>
                 ))}
 
@@ -782,10 +783,8 @@ export default function AppointmentForm({
         </div>
       )}
 
-      {/* Regra: Remover completamente Anexos no Modelo Clássico */}
-      {type && type !== "Atendimento Clínico (Modelo Clássico)" && (
-        <AttachmentsSection attachments={attachments} onChange={setAttachments} />
-      )}
+      {/* Anexos (somente após seleção do tipo) */}
+      {type && <AttachmentsSection attachments={attachments} onChange={setAttachments} />}
 
       {/* Rodapé fixo de ações */}
       <div className="sticky bottom-0 z-10 -mx-6 px-6 py-4 border-t border-border bg-background/90 backdrop-blur">

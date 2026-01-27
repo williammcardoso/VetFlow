@@ -22,7 +22,6 @@ import {
 
 import type {
   AppointmentEntry,
-  ClassicClinicalDetails,
   ConsultationDetails,
   ReturnDetails,
   SurgeryDetails,
@@ -63,7 +62,7 @@ const renderField = (label: string, value: any) => {
 
 const typeLabel = (t: AppointmentEntry["type"]) => {
   if (t === "Consulta") return "Consulta Clínica (Novo Modelo)";
-  if (t === "Atendimento Clínico (Modelo Clássico)") return "Atendimento Clínico (Modelo Clássico)";
+  if (t === "Consulta (Modelo Antigo)") return "Consulta Clínica (Modelo Antigo)";
   if (t === "Vacina") return "Vacinação";
   return t;
 };
@@ -94,25 +93,25 @@ export default function AppointmentViewPage() {
   }
 
   const renderTypeDetails = () => {
-    if (appointment.type === "Consulta") {
+    if (appointment.type === "Consulta" || appointment.type === "Consulta (Modelo Antigo)") {
       const d = appointment.details as ConsultationDetails;
       const vacStatus = d.vacinacaoEmDia || d.vacinacaoPaciente;
       const mucosasFallback = (d.mucosasResumo as any) || (d.mucosas as any);
-      const fcLegacy = (d as any).frequenciaCardiaca as number | undefined;
-      const frLegacy = (d as any).frequenciaRespiratoria as number | undefined;
+      const isOld = appointment.type === "Consulta (Modelo Antigo)";
 
       const showComplete =
-        !!d.sec_digestorio_status ||
-        !!d.sec_digestorio_obs ||
-        !!d.sec_respiratorio_status ||
-        !!d.sec_respiratorio_obs ||
-        !!d.sec_cabeca_pescoco_status ||
-        !!d.sec_cabeca_pescoco_obs ||
-        !!d.sec_torax_abdomen_status ||
-        !!d.sec_torax_abdomen_obs ||
-        !!d.sec_linfonodos_pele_status ||
-        !!d.sec_linfonodos_pele_obs ||
-        !!d.observacoesComplementares;
+        !isOld &&
+        (!!d.sec_digestorio_status ||
+          !!d.sec_digestorio_obs ||
+          !!d.sec_respiratorio_status ||
+          !!d.sec_respiratorio_obs ||
+          !!d.sec_cabeca_pescoco_status ||
+          !!d.sec_cabeca_pescoco_obs ||
+          !!d.sec_torax_abdomen_status ||
+          !!d.sec_torax_abdomen_obs ||
+          !!d.sec_linfonodos_pele_status ||
+          !!d.sec_linfonodos_pele_obs ||
+          !!d.observacoesComplementares);
 
       return (
         <div className="space-y-4">
@@ -125,30 +124,31 @@ export default function AppointmentViewPage() {
             <CardContent className="space-y-2">
               {renderField("Queixa principal", d.queixaPrincipal)}
               {renderField("História / evolução", d.historicoClinico)}
+              {renderField("Vacinação", vacStatus)}
               {renderField("Uso de medicação", d.usoMedicacao)}
               {d.usoMedicacao === "sim" && renderField("Medicação (quais)", d.usoMedicacaoQuais)}
               {renderField("Alergias", d.alergiasPaciente)}
               {d.alergiasPaciente === "sim" && renderField("Alergias (descrição)", d.alergiasPacienteObs)}
-              {renderField("Vacinação em dia", vacStatus)}
             </CardContent>
           </Card>
 
           <Card className="border-border">
             <CardHeader className="pb-3">
-              <CardTitle className="text-base">Avaliação Clínica (Resumo)</CardTitle>
+              <CardTitle className="text-base">Sinais vitais / Avaliação</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
               {renderField("Peso (kg)", appointment.pesoAtual)}
               {renderField("Temperatura (°C)", appointment.temperaturaCorporal)}
-              {renderField("Estado geral", d.estadoGeral)}
-              {renderField("Mucosas", mucosasFallback)}
-              {renderField("Hidratação", d.hidratacao)}
-              {renderField(
-                "Dor",
-                d.dor === "escala" ? `Escala ${d.dorEscala ?? 0}/10` : d.dor
-              )}
-              {renderField("FC (legado)", fcLegacy)}
-              {renderField("FR (legado)", frLegacy)}
+              {renderField("FC", appointment.frequenciaCardiaca)}
+              {renderField("FR", appointment.frequenciaRespiratoria)}
+              {!isOld && renderField("Estado geral", d.estadoGeral)}
+              {!isOld && renderField("Mucosas", mucosasFallback)}
+              {!isOld && renderField("Hidratação", d.hidratacao)}
+              {!isOld &&
+                renderField(
+                  "Dor",
+                  d.dor === "escala" ? `Escala ${d.dorEscala ?? 0}/10` : d.dor
+                )}
               {renderField("Observações do exame físico", d.exameFisicoObs)}
             </CardContent>
           </Card>
@@ -159,6 +159,8 @@ export default function AppointmentViewPage() {
             </CardHeader>
             <CardContent className="space-y-2">
               {renderField("Suspeita diagnóstica", d.suspeitaDiagnostica)}
+              {renderField("Diagnóstico presuntivo", d.diagnosticoPresuntivo)}
+              {renderField("Diagnóstico definitivo", d.diagnosticoDefinitivo)}
               {renderField("Diagnósticos diferenciais", d.diagnosticoDiferencial)}
               {renderField("Exames solicitados", d.examesSolicitados)}
               {renderField("Conduta / tratamento", d.condutaTratamento)}
@@ -191,70 +193,6 @@ export default function AppointmentViewPage() {
               )}
             </CardContent>
           </Card>
-        </div>
-      );
-    }
-
-    if (appointment.type === "Atendimento Clínico (Modelo Clássico)") {
-      const d = appointment.details as ClassicClinicalDetails;
-      const section = (
-        title: string,
-        selected?: string[],
-        obs?: string
-      ) => {
-        const has = (selected && selected.length > 0) || (obs && obs.trim());
-        if (!has) return null;
-        return (
-          <Card className="border-border">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base">{title}</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              {selected && selected.length > 0 && renderField("Itens", selected.join(", "))}
-              {renderField("Observações", obs)}
-            </CardContent>
-          </Card>
-        );
-      };
-
-      return (
-        <div className="space-y-4">
-          <Card className="border-border">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base">Resumo</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              {renderField("Template", d.templateId)}
-              {renderField("Queixa principal (texto)", d.queixaPrincipal)}
-              {renderField("Peso (kg)", appointment.pesoAtual)}
-              {renderField("Temperatura (°C)", appointment.temperaturaCorporal)}
-              {renderField("FC", appointment.frequenciaCardiaca)}
-              {renderField("FR", appointment.frequenciaRespiratoria)}
-            </CardContent>
-          </Card>
-
-          {section("Queixa Principal", d.queixaChecklist, d.queixaObs)}
-          {section("Anamnese", d.anamneseChecklist, d.anamneseObs)}
-          {section("Exame Físico", d.exameFisicoChecklist, d.exameFisicoObs)}
-          {section("Avaliação por Sistemas", d.avaliacaoSistemasChecklist, d.avaliacaoSistemasObs)}
-          {section("Diagnóstico / Hipóteses", d.diagnosticoChecklist, d.diagnosticoObs)}
-          {section("Conduta", d.condutaChecklist, d.condutaObs)}
-          {section("Prescrição", d.prescricaoChecklist, d.prescricaoObs)}
-          {section("Exames Solicitados", d.examesSolicitadosChecklist, d.examesSolicitadosObs)}
-          {section("Orientações / Retorno", d.orientacoesChecklist, d.orientacoesObs)}
-
-          {d.textoConsolidado && (
-            <Card className="border-border">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base">Texto consolidado</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <pre className="whitespace-pre-wrap rounded-md border border-border bg-muted/20 p-3 text-xs text-foreground">
-                  {d.textoConsolidado}
-                </pre>
-              </CardContent>
-            </Card>
-          )}
         </div>
       );
     }

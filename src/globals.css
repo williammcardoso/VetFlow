@@ -53,7 +53,8 @@ body,
 
     /* Bordas bem claras, sólidas */
     --border: 220 16% 90%;
-    --input: 0 0% 100%;
+    /* FIX: inputs/SelectTrigger usam border-input. Garantir borda visível em todos os campos */
+    --input: 220 16% 86%;
     --ring: 156 38% 34%;
 
     /* Radius premium */
@@ -97,7 +98,8 @@ body,
     --destructive-foreground: 210 40% 98%;
 
     --border: 222 14% 24%;
-    --input: 222 16% 18%;
+    /* FIX: borda visível no dark */
+    --input: 222 14% 28%;
     --ring: 156 38% 48%;
 
     --sidebar-background: 222 16% 14%;

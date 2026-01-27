@@ -260,13 +260,13 @@ export interface CheckupDetails {
 
 export type AppointmentSpecificDetails =
   | { type: 'Consulta', details: ConsultationDetails }
-  | { type: 'Atendimento Clínico (Modelo Clássico)', details: ClassicClinicalDetails }
+  | { type: 'Consulta (Modelo Antigo)', details: ConsultationDetails }
   | { type: 'Vacina', details: VaccinationDetails }
   | { type: 'Retorno', details: ReturnDetails }
   | { type: 'Cirurgia', details: SurgeryDetails }
   | { type: 'Emergência', details: EmergencyDetails }
   | { type: 'Check-up', details: CheckupDetails }
-  | { type: 'Outros', details: BaseAppointmentDetails }; // Para tipos não especificados
+  | { type: 'Outros', details: BaseAppointmentDetails };
 
 export interface AppointmentEntry {
   id: string;
@@ -275,7 +275,7 @@ export interface AppointmentEntry {
   time: string; // Hora do atendimento
   type:
     | 'Consulta'
-    | 'Atendimento Clínico (Modelo Clássico)'
+    | 'Consulta (Modelo Antigo)'
     | 'Vacina'
     | 'Retorno'
     | 'Cirurgia'

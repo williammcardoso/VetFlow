@@ -2,7 +2,6 @@ import React from "react";
 import { Document, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
 import type {
   AppointmentEntry,
-  ClassicClinicalDetails,
   ConsultationDetails,
   ReturnDetails,
   SurgeryDetails,
@@ -87,33 +86,34 @@ export default function AppointmentPdfContent({
       );
     }
 
-    if (appointment.type === "Atendimento Clínico (Modelo Clássico)") {
-      const d = appointment.details as ClassicClinicalDetails;
+    if (appointment.type === "Consulta (Modelo Antigo)") {
+      const d = appointment.details as ConsultationDetails;
       return (
         <View>
-          <Text style={styles.sectionTitle}>Atendimento Clínico (Modelo Clássico)</Text>
-          <View style={styles.block}>
-            <Field label="Template" value={d.templateId} />
-            <Field label="Queixa principal (texto)" value={d.queixaPrincipal} />
-            <View style={styles.row}>
-              <Field label="Peso (kg)" value={appointment.pesoAtual} />
-              <Field label="Temperatura (°C)" value={appointment.temperaturaCorporal} />
-              <Field label="FC" value={appointment.frequenciaCardiaca} />
-              <Field label="FR" value={appointment.frequenciaRespiratoria} />
-            </View>
+          <Text style={styles.sectionTitle}>Consulta Clínica (Modelo Antigo)</Text>
+          <Field label="Queixa principal" value={d.queixaPrincipal} />
+          <Field label="História / evolução" value={d.historicoClinico} />
+          <View style={styles.row}>
+            <Field label="Peso (kg)" value={appointment.pesoAtual} />
+            <Field label="Temperatura (°C)" value={appointment.temperaturaCorporal} />
+            <Field label="FC" value={appointment.frequenciaCardiaca} />
+            <Field label="FR" value={appointment.frequenciaRespiratoria} />
           </View>
+          <Field label="Vacinação" value={d.vacinacaoPaciente} />
+          <Field label="Uso de medicação" value={d.usoMedicacao} />
+          {d.usoMedicacao === "sim" && <Field label="Medicação (quais)" value={d.usoMedicacaoQuais} />}
+          <Field label="Alergias" value={d.alergiasPaciente} />
+          {d.alergiasPaciente === "sim" && <Field label="Alergias (descrição)" value={d.alergiasPacienteObs} />}
 
-          {d.textoConsolidado ? (
-            <View style={styles.block}>
-              <Text style={{ fontWeight: 700, marginBottom: 6 }}>Texto consolidado</Text>
-              <Text style={styles.mono}>{d.textoConsolidado}</Text>
-            </View>
-          ) : (
-            <View style={styles.block}>
-              <Text style={{ fontWeight: 700, marginBottom: 6 }}>Detalhes</Text>
-              <Text style={styles.mono}>{JSON.stringify(d || {}, null, 2)}</Text>
-            </View>
-          )}
+          <View style={styles.block}>
+            <Field label="Exames solicitados" value={d.examesSolicitados} />
+            <Field label="Suspeita diagnóstica" value={d.suspeitaDiagnostica} />
+            <Field label="Diagnóstico presuntivo" value={d.diagnosticoPresuntivo} />
+            <Field label="Diagnóstico definitivo" value={d.diagnosticoDefinitivo} />
+            <Field label="Conduta / tratamento" value={d.condutaTratamento} />
+            <Field label="Retorno (dias)" value={d.retornoRecomendadoEmDias} />
+            <Field label="Próximos passos" value={d.proximosPassos} />
+          </View>
         </View>
       );
     }
