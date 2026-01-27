@@ -27,6 +27,33 @@ export interface BaseAppointmentDetails {
 }
 
 export interface ConsultationDetails extends BaseAppointmentDetails {
+  // --- Novo padrão (Consulta Clínica) ---
+  // Obs.: Mantemos campos antigos por compatibilidade com registros existentes.
+
+  // Anamnese (modo simplificado)
+  vacinacaoEmDia?: 'sim' | 'nao' | 'nao_informado' | '';
+
+  // Avaliação clínica (resumo)
+  estadoGeral?: 'bom' | 'regular' | 'grave' | '';
+  mucosasResumo?: 'normal' | 'palida' | 'icterica' | 'hiperemica' | 'cianotica' | '';
+  hidratacao?: 'normal' | 'leve' | 'moderada' | 'severa' | '';
+  dor?: 'sem' | 'leve' | 'moderada' | 'intensa' | 'escala' | '';
+  dorEscala?: number;
+
+  // Exame completo (seções colapsáveis, sem checklists extensos)
+  sec_digestorio_status?: 'normal' | 'alterado' | '';
+  sec_digestorio_obs?: string;
+  sec_respiratorio_status?: 'normal' | 'alterado' | '';
+  sec_respiratorio_obs?: string;
+  sec_cabeca_pescoco_status?: 'normal' | 'alterado' | '';
+  sec_cabeca_pescoco_obs?: string;
+  sec_torax_abdomen_status?: 'normal' | 'alterado' | '';
+  sec_torax_abdomen_obs?: string;
+  sec_linfonodos_pele_status?: 'normal' | 'alterado' | '';
+  sec_linfonodos_pele_obs?: string;
+  observacoesComplementares?: string;
+
+  // --- Campos antigos (legado) ---
   // Anamnese
   vacinacaoPaciente?: 'sim' | 'nao' | '';
   vacinacaoPacienteObs?: string;
@@ -116,12 +143,54 @@ export interface VaccinationDetails {
   profissionalAplicou?: string; // Pré-preenchido com o veterinário logado
 }
 
+export interface SurgerySutureItem {
+  id: string;
+  tipo: 'Nylon' | 'PGA' | 'Vicryl' | 'Monocryl' | 'Prolene' | 'Outros' | '';
+  calibre?: string;
+  plano?: string;
+  padrao?: string;
+  quantidade?: number;
+  usoLocal?: string;
+}
+
 export interface SurgeryDetails {
+  // --- Novo padrão (Cirurgia) ---
+  horaInicio?: string;
+  horaTermino?: string;
+  anestesista?: string;
+  instrumentador?: string;
+
+  // Pré-operatório
+  mucosas?: 'normal' | 'palida' | 'icterica' | 'hiperemica' | 'cianotica' | '';
+  tpcSeg?: number;
+  estadoGeral?: 'bom' | 'regular' | 'grave' | '';
+  jejumAdequado?: boolean;
+  examesPreOperatoriosAvaliados?: boolean;
+  observacoesPreOperatorias?: string;
+
+  // Procedimento
+  procedimentoRealizado?: string;
+  diagnostico?: string;
+  tecnicaCirurgica?: string;
+  protocoloAnestesico?: string;
+  intercorrenciaIntraOperatoria?: boolean;
+  intercorrenciaDescricao?: string;
+
+  // Materiais
+  suturas?: SurgerySutureItem[];
+
+  // Pós-operatório
+  condicaoFinal?: string;
+  prescricaoPosOperatoria?: string;
+  orientacoesTutor?: string;
+  complicacoesImediatas?: boolean;
+  observacoesPosOperatorias?: string;
+
+  // --- Campos antigos (legado) ---
   tipoCirurgia?: string; // Ex: Castração, Piometra
   tempoJejumHoras?: number;
   medicacaoPreAnestesica?: string;
   anestesicoUtilizado?: string;
-  procedimentoRealizado?: string;
   achadosIntraoperatorios?: string;
   complicacoesIntraoperatorias?: string;
   tempoCirurgicoMin?: number;
