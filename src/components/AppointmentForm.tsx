@@ -60,6 +60,33 @@ const mockVets = [
   { id: "3", name: "Dr. Carlos Eduardo" },
 ];
 
+const VACCINE_TYPE_PRESETS = [
+  "V8",
+  "V10",
+  "V4",
+  "V3",
+  "Antirrábica",
+  "Giárdia",
+  "Leishmaniose",
+  "Gripe Canina",
+  "Bordetella",
+  "FeLV",
+  "FIV",
+];
+
+const VACCINE_APPLICATION_SITE_PRESETS = [
+  "Interescapular",
+  "Escapular direita",
+  "Escapular esquerda",
+  "Coxa direita",
+  "Coxa esquerda",
+  "Membro anterior direito",
+  "Membro anterior esquerdo",
+  "Outro",
+];
+
+const VACCINE_OTHER_VALUE = "__other__";
+
 const draftKey = (clientId: string, animalId: string) =>
   `systemvet:appointment:draft:${clientId}:${animalId}`;
 
@@ -378,32 +405,19 @@ export default function AppointmentForm({
 
     setErrors({});
 
-    if (!date || !time || !type || !vet) {
-      toast.error("Preencha: data, hora, tipo e veterinário responsável.");
-      return;
-    }
-
-    if (type === "Consulta") {
-      const c = details as ConsultationDetails;
-      if (!c.queixaPrincipal || !c.queixaPrincipal.trim()) {
-        toast.error("Na Consulta Clínica (Novo Modelo), a queixa principal é obrigatória.");
-        return;
-      }
-    }
-
-    if (type === "Consulta (Modelo Antigo)") {
-      const c = details as ConsultationDetails;
-      if (!c.queixaPrincipal || !c.queixaPrincipal.trim()) {
-        toast.error("Na Consulta Clínica (Modelo Antigo), a queixa principal é obrigatória.");
-        return;
-      }
-    }
-
     const isLegacy = !!type && !isPrimaryType(type);
     const isOldConsult = type === "Consulta (Modelo Antigo)";
     const shouldKeepVitals =
       type === "Consulta" || isOldConsult || type === "Cirurgia" || type === "Emergência" || isLegacy;
     const shouldKeepCardioVitals = isOldConsult || type === "Cirurgia" || type === "Emergência" || isLegacy;
+
+    const detailsToSave: AppointmentEntry["details"] =
+      type === "Vacina"
+        ? ({
+            ...(details as VaccinationDetails),
+            profissionalAplicou: (details as VaccinationDetails).profissionalAplicou || vet,
+          } as VaccinationDetails)
+        : details;
 
     const newAppointment: AppointmentEntry = {
       id: initialData?.id || `app-${Date.now()}`,
@@ -422,8 +436,7 @@ export default function AppointmentForm({
         shouldKeepCardioVitals && frequenciaRespiratoria !== ""
           ? Number(frequenciaRespiratoria)
           : undefined,
-      details,
-      // Regra: não remover dados existentes. No modelo clássico, apenas ocultamos UI de anexos.
+      details: detailsToSave,
       attachments,
     };
 
@@ -455,6 +468,14 @@ export default function AppointmentForm({
     const shouldKeepVitals = type === "Consulta" || type === "Cirurgia" || type === "Emergência" || isLegacy;
     const shouldKeepCardioVitals = type === "Cirurgia" || type === "Emergência" || isLegacy;
 
+    const detailsForPdf: AppointmentEntry["details"] =
+      type === "Vacina"
+        ? ({
+            ...(details as VaccinationDetails),
+            profissionalAplicou: (details as VaccinationDetails).profissionalAplicou || vet,
+          } as VaccinationDetails)
+        : details;
+
     const appointmentForPdf: AppointmentEntry = {
       id: initialData?.id || `tmp-${Date.now()}`,
       animalId,
@@ -469,10 +490,8 @@ export default function AppointmentForm({
       frequenciaCardiaca:
         shouldKeepCardioVitals && frequenciaCardiaca !== "" ? Number(frequenciaCardiaca) : undefined,
       frequenciaRespiratoria:
-        shouldKeepCardioVitals && frequenciaRespiratoria !== ""
-          ? Number(frequenciaRespiratoria)
-          : undefined,
-      details,
+        shouldKeepCardioVitals && frequenciaRespiratoria !== "" ? Number(frequenciaRespiratoria) : undefined,
+      details: detailsForPdf,
       attachments,
     };
 
@@ -580,21 +599,53 @@ export default function AppointmentForm({
 
     if (type === "Vacina") {
       const v = details as VaccinationDetails;
+
+      const isPresetType = VACCINE_TYPE_PRESETS.includes(v.tipoVacina || "");
+      const typeSelectValue = isPresetType ? (v.tipoVacina as string) : VACCINE_OTHER_VALUE;
+
+      const isPresetSite = VACCINE_APPLICATION_SITE_PRESETS.includes(v.localAplicacao || "");
+      const siteSelectValue = isPresetSite ? (v.localAplicacao as string) : VACCINE_OTHER_VALUE;
+
       return (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label htmlFor="tipoVacina">Tipo de vacina *</Label>
-            <Input
-              id="tipoVacina"
-              className={errClass(errors.tipoVacina)}
-              value={v.tipoVacina || ""}
-              onChange={(e) => {
+            <Label>Tipo de vacina *</Label>
+            <Select
+              value={typeSelectValue}
+              onValueChange={(val) => {
                 clearError("tipoVacina");
-                setDetails({ ...v, tipoVacina: e.target.value });
+                if (val === VACCINE_OTHER_VALUE) {
+                  setDetails({ ...v, tipoVacina: "" });
+                } else {
+                  setDetails({ ...v, tipoVacina: val });
+                }
               }}
-              placeholder="Ex.: Polivalente, Antirrábica"
-            />
+            >
+              <SelectTrigger className={errClass(errors.tipoVacina)}>
+                <SelectValue placeholder="Selecione" />
+              </SelectTrigger>
+              <SelectContent>
+                {VACCINE_TYPE_PRESETS.map((x) => (
+                  <SelectItem key={x} value={x}>
+                    {x}
+                  </SelectItem>
+                ))}
+                <SelectItem value={VACCINE_OTHER_VALUE}>Outra</SelectItem>
+              </SelectContent>
+            </Select>
+            {typeSelectValue === VACCINE_OTHER_VALUE && (
+              <Input
+                className={errClass(errors.tipoVacina)}
+                value={v.tipoVacina || ""}
+                onChange={(e) => {
+                  clearError("tipoVacina");
+                  setDetails({ ...v, tipoVacina: e.target.value });
+                }}
+                placeholder="Digite o nome da vacina"
+              />
+            )}
           </div>
+
           <div className="space-y-2">
             <Label htmlFor="nomeComercial">Nome comercial</Label>
             <Input
@@ -603,14 +654,12 @@ export default function AppointmentForm({
               onChange={(e) => setDetails({ ...v, nomeComercial: e.target.value })}
             />
           </div>
+
           <div className="space-y-2">
             <Label htmlFor="lote">Lote</Label>
-            <Input
-              id="lote"
-              value={v.lote || ""}
-              onChange={(e) => setDetails({ ...v, lote: e.target.value })}
-            />
+            <Input id="lote" value={v.lote || ""} onChange={(e) => setDetails({ ...v, lote: e.target.value })} />
           </div>
+
           <div className="space-y-2">
             <Label htmlFor="fabricante">Fabricante</Label>
             <Input
@@ -619,6 +668,7 @@ export default function AppointmentForm({
               onChange={(e) => setDetails({ ...v, fabricante: e.target.value })}
             />
           </div>
+
           <div className="space-y-2">
             <Label htmlFor="dataFabricacao">Data de fabricação</Label>
             <DateInputBR
@@ -627,6 +677,7 @@ export default function AppointmentForm({
               onChangeISO={(val) => setDetails({ ...v, dataFabricacao: val || undefined })}
             />
           </div>
+
           <div className="space-y-2">
             <Label htmlFor="dataValidade">Data de validade</Label>
             <DateInputBR
@@ -635,6 +686,7 @@ export default function AppointmentForm({
               onChangeISO={(val) => setDetails({ ...v, dataValidade: val || undefined })}
             />
           </div>
+
           <div className="space-y-2">
             <Label htmlFor="doseAplicada">Dose (mL)</Label>
             <Input
@@ -650,6 +702,7 @@ export default function AppointmentForm({
               }
             />
           </div>
+
           <div className="space-y-2">
             <Label htmlFor="viaAdministracao">Via de administração *</Label>
             <Select
@@ -670,18 +723,45 @@ export default function AppointmentForm({
               </SelectContent>
             </Select>
           </div>
+
           <div className="space-y-2">
-            <Label htmlFor="localAplicacao">Local de aplicação *</Label>
-            <Input
-              id="localAplicacao"
-              className={errClass(errors.localAplicacao)}
-              value={v.localAplicacao || ""}
-              onChange={(e) => {
+            <Label>Local de aplicação *</Label>
+            <Select
+              value={siteSelectValue}
+              onValueChange={(val) => {
                 clearError("localAplicacao");
-                setDetails({ ...v, localAplicacao: e.target.value });
+                if (val === VACCINE_OTHER_VALUE) {
+                  setDetails({ ...v, localAplicacao: "" });
+                } else {
+                  setDetails({ ...v, localAplicacao: val });
+                }
               }}
-            />
+            >
+              <SelectTrigger className={errClass(errors.localAplicacao)}>
+                <SelectValue placeholder="Selecione" />
+              </SelectTrigger>
+              <SelectContent>
+                {VACCINE_APPLICATION_SITE_PRESETS.filter((x) => x !== "Outro").map((x) => (
+                  <SelectItem key={x} value={x}>
+                    {x}
+                  </SelectItem>
+                ))}
+                <SelectItem value={VACCINE_OTHER_VALUE}>Outro</SelectItem>
+              </SelectContent>
+            </Select>
+            {siteSelectValue === VACCINE_OTHER_VALUE && (
+              <Input
+                className={errClass(errors.localAplicacao)}
+                value={v.localAplicacao || ""}
+                onChange={(e) => {
+                  clearError("localAplicacao");
+                  setDetails({ ...v, localAplicacao: e.target.value });
+                }}
+                placeholder="Digite o local de aplicação"
+              />
+            )}
           </div>
+
           <div className="space-y-2 md:col-span-2">
             <Label htmlFor="reacao">Reação adversa observada</Label>
             <Textarea
@@ -689,6 +769,16 @@ export default function AppointmentForm({
               value={v.reacaoAdversaObservada || ""}
               onChange={(e) => setDetails({ ...v, reacaoAdversaObservada: e.target.value })}
               rows={2}
+            />
+          </div>
+
+          <div className="space-y-2 md:col-span-2">
+            <Label htmlFor="profAplicou">Profissional que aplicou</Label>
+            <Input
+              id="profAplicou"
+              value={v.profissionalAplicou || vet}
+              onChange={(e) => setDetails({ ...v, profissionalAplicou: e.target.value })}
+              placeholder="Nome do profissional"
             />
           </div>
         </div>

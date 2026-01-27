@@ -65,6 +65,9 @@ export default function SurgeryForm({
   const errClass = (has?: boolean) =>
     has ? "border-destructive focus-visible:ring-destructive focus-visible:border-destructive" : "";
 
+  const RADIO_ITEM_CLASS =
+    "h-5 w-5 border-2 border-primary bg-card data-[state=checked]:border-primary";
+
   const tempoCirurgicoMin = useMemo(
     () => minutesDiff(details.horaInicio, details.horaTermino),
     [details.horaInicio, details.horaTermino]
@@ -221,7 +224,9 @@ export default function SurgeryForm({
                   value={(details.mucosas as any) || ""}
                   onValueChange={(v) => patch({ mucosas: v as any })}
                 >
-                  <SelectTrigger id="mucosas"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                  <SelectTrigger id="mucosas">
+                    <SelectValue placeholder="Selecione" />
+                  </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="normal">Normal</SelectItem>
                     <SelectItem value="palida">Pálida</SelectItem>
@@ -248,7 +253,9 @@ export default function SurgeryForm({
                   value={(details.estadoGeral as any) || ""}
                   onValueChange={(v) => patch({ estadoGeral: v as any })}
                 >
-                  <SelectTrigger id="estadoGeral"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                  <SelectTrigger id="estadoGeral">
+                    <SelectValue placeholder="Selecione" />
+                  </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="bom">Bom</SelectItem>
                     <SelectItem value="regular">Regular</SelectItem>
@@ -265,11 +272,11 @@ export default function SurgeryForm({
                   className="flex gap-4"
                 >
                   <div className="flex items-center gap-2">
-                    <RadioGroupItem id="jejum-sim" value="sim" />
+                    <RadioGroupItem id="jejum-sim" value="sim" className={RADIO_ITEM_CLASS} />
                     <Label htmlFor="jejum-sim">Sim</Label>
                   </div>
                   <div className="flex items-center gap-2">
-                    <RadioGroupItem id="jejum-nao" value="nao" />
+                    <RadioGroupItem id="jejum-nao" value="nao" className={RADIO_ITEM_CLASS} />
                     <Label htmlFor="jejum-nao">Não</Label>
                   </div>
                 </RadioGroup>
@@ -283,11 +290,11 @@ export default function SurgeryForm({
                   className="flex gap-4"
                 >
                   <div className="flex items-center gap-2">
-                    <RadioGroupItem id="ex-pre-sim" value="sim" />
+                    <RadioGroupItem id="ex-pre-sim" value="sim" className={RADIO_ITEM_CLASS} />
                     <Label htmlFor="ex-pre-sim">Sim</Label>
                   </div>
                   <div className="flex items-center gap-2">
-                    <RadioGroupItem id="ex-pre-nao" value="nao" />
+                    <RadioGroupItem id="ex-pre-nao" value="nao" className={RADIO_ITEM_CLASS} />
                     <Label htmlFor="ex-pre-nao">Não</Label>
                   </div>
                 </RadioGroup>
@@ -371,16 +378,27 @@ export default function SurgeryForm({
               <div className="space-y-2">
                 <Label>Intercorrências intra-operatórias?</Label>
                 <RadioGroup
-                  value={details.intercorrenciaIntraOperatoria === undefined ? "" : details.intercorrenciaIntraOperatoria ? "sim" : "nao"}
-                  onValueChange={(v) => patch({ intercorrenciaIntraOperatoria: v === "sim", intercorrenciaDescricao: v === "sim" ? (details.intercorrenciaDescricao || "") : "" })}
+                  value={
+                    details.intercorrenciaIntraOperatoria === undefined
+                      ? ""
+                      : details.intercorrenciaIntraOperatoria
+                        ? "sim"
+                        : "nao"
+                  }
+                  onValueChange={(v) =>
+                    patch({
+                      intercorrenciaIntraOperatoria: v === "sim",
+                      intercorrenciaDescricao: v === "sim" ? details.intercorrenciaDescricao || "" : "",
+                    })
+                  }
                   className="flex gap-4"
                 >
                   <div className="flex items-center gap-2">
-                    <RadioGroupItem id="inter-sim" value="sim" />
+                    <RadioGroupItem id="inter-sim" value="sim" className={RADIO_ITEM_CLASS} />
                     <Label htmlFor="inter-sim">Sim</Label>
                   </div>
                   <div className="flex items-center gap-2">
-                    <RadioGroupItem id="inter-nao" value="nao" />
+                    <RadioGroupItem id="inter-nao" value="nao" className={RADIO_ITEM_CLASS} />
                     <Label htmlFor="inter-nao">Não</Label>
                   </div>
                 </RadioGroup>
@@ -417,16 +435,11 @@ export default function SurgeryForm({
                           <div className="space-y-2 md:col-span-2">
                             <Label>Tipo</Label>
                             <Select value={s.tipo || ""} onValueChange={(v) => updateSutura(s.id, { tipo: v as any })}>
-                              <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Selecione" />
+                              </SelectTrigger>
                               <SelectContent>
-                                {[
-                                  "Nylon",
-                                  "PGA",
-                                  "Vicryl",
-                                  "Monocryl",
-                                  "Prolene",
-                                  "Outros",
-                                ].map((t) => (
+                                {["Nylon", "PGA", "Vicryl", "Monocryl", "Prolene", "Outros"].map((t) => (
                                   <SelectItem key={t} value={t}>
                                     {t}
                                   </SelectItem>
@@ -523,16 +536,22 @@ export default function SurgeryForm({
               <div className="space-y-2">
                 <Label>Complicações imediatas?</Label>
                 <RadioGroup
-                  value={details.complicacoesImediatas === undefined ? "" : details.complicacoesImediatas ? "sim" : "nao"}
+                  value={
+                    details.complicacoesImediatas === undefined
+                      ? ""
+                      : details.complicacoesImediatas
+                        ? "sim"
+                        : "nao"
+                  }
                   onValueChange={(v) => patch({ complicacoesImediatas: v === "sim" })}
                   className="flex gap-4"
                 >
                   <div className="flex items-center gap-2">
-                    <RadioGroupItem id="comp-sim" value="sim" />
+                    <RadioGroupItem id="comp-sim" value="sim" className={RADIO_ITEM_CLASS} />
                     <Label htmlFor="comp-sim">Sim</Label>
                   </div>
                   <div className="flex items-center gap-2">
-                    <RadioGroupItem id="comp-nao" value="nao" />
+                    <RadioGroupItem id="comp-nao" value="nao" className={RADIO_ITEM_CLASS} />
                     <Label htmlFor="comp-nao">Não</Label>
                   </div>
                 </RadioGroup>

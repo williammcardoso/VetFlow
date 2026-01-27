@@ -18,6 +18,9 @@ import type { ConsultationDetails } from "@/types/appointment";
 
 type YesNo = "sim" | "nao" | "";
 
+const RADIO_ITEM_CLASS =
+  "h-5 w-5 border-2 border-primary bg-card data-[state=checked]:border-primary";
+
 type Props = {
   dateISO: string;
 
@@ -65,16 +68,14 @@ function RadioYesNo({
   value: YesNo;
   onChange: (v: YesNo) => void;
 }) {
-  const itemClass = "h-5 w-5 border-2 border-primary data-[state=checked]:border-primary";
-
   return (
     <RadioGroup value={value} onValueChange={(v) => onChange(v as YesNo)} className="flex gap-4">
       <div className="flex items-center gap-2">
-        <RadioGroupItem id={`${name}-sim`} value="sim" className={itemClass} />
+        <RadioGroupItem id={`${name}-sim`} value="sim" className={RADIO_ITEM_CLASS} />
         <Label htmlFor={`${name}-sim`}>Sim</Label>
       </div>
       <div className="flex items-center gap-2">
-        <RadioGroupItem id={`${name}-nao`} value="nao" className={itemClass} />
+        <RadioGroupItem id={`${name}-nao`} value="nao" className={RADIO_ITEM_CLASS} />
         <Label htmlFor={`${name}-nao`}>Não</Label>
       </div>
     </RadioGroup>
@@ -269,11 +270,11 @@ export default function LegacyConsultationForm({
                     className="flex gap-4"
                   >
                     <div className="flex items-center gap-2">
-                      <RadioGroupItem id="vac-sim" value="sim" className="border-0 bg-muted/60 data-[state=checked]:bg-primary/20 text-primary" />
+                      <RadioGroupItem id="vac-sim" value="sim" className={RADIO_ITEM_CLASS} />
                       <Label htmlFor="vac-sim">Sim</Label>
                     </div>
                     <div className="flex items-center gap-2">
-                      <RadioGroupItem id="vac-nao" value="nao" className="border-0 bg-muted/60 data-[state=checked]:bg-primary/20 text-primary" />
+                      <RadioGroupItem id="vac-nao" value="nao" className={RADIO_ITEM_CLASS} />
                       <Label htmlFor="vac-nao">Não</Label>
                     </div>
                   </RadioGroup>

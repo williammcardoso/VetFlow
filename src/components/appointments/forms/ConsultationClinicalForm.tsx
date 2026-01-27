@@ -60,6 +60,9 @@ export default function ConsultationClinicalForm({
   const errClass = (has?: boolean) =>
     has ? "border-destructive focus-visible:ring-destructive focus-visible:border-destructive" : "";
 
+  const RADIO_ITEM_CLASS =
+    "h-5 w-5 border-2 border-primary bg-card data-[state=checked]:border-primary";
+
   const retornoEmDias = details.retornoRecomendadoEmDias || 0;
   const suggestedReturnDate = retornoEmDias ? addDaysISO(dateISO, retornoEmDias) : "";
 
@@ -132,15 +135,20 @@ export default function ConsultationClinicalForm({
                 </Label>
                 <RadioGroup
                   value={details.usoMedicacao || ""}
-                  onValueChange={(v) => patch({ usoMedicacao: v as any, usoMedicacaoQuais: v === "sim" ? (details.usoMedicacaoQuais || "") : "" })}
+                  onValueChange={(v) =>
+                    patch({
+                      usoMedicacao: v as any,
+                      usoMedicacaoQuais: v === "sim" ? details.usoMedicacaoQuais || "" : "",
+                    })
+                  }
                   className="flex gap-4"
                 >
                   <div className="flex items-center gap-2">
-                    <RadioGroupItem id="med-sim" value="sim" />
+                    <RadioGroupItem id="med-sim" value="sim" className={RADIO_ITEM_CLASS} />
                     <Label htmlFor="med-sim">Sim</Label>
                   </div>
                   <div className="flex items-center gap-2">
-                    <RadioGroupItem id="med-nao" value="nao" />
+                    <RadioGroupItem id="med-nao" value="nao" className={RADIO_ITEM_CLASS} />
                     <Label htmlFor="med-nao">Não</Label>
                   </div>
                 </RadioGroup>
@@ -160,15 +168,20 @@ export default function ConsultationClinicalForm({
                 </Label>
                 <RadioGroup
                   value={details.alergiasPaciente || ""}
-                  onValueChange={(v) => patch({ alergiasPaciente: v as any, alergiasPacienteObs: v === "sim" ? (details.alergiasPacienteObs || "") : "" })}
+                  onValueChange={(v) =>
+                    patch({
+                      alergiasPaciente: v as any,
+                      alergiasPacienteObs: v === "sim" ? details.alergiasPacienteObs || "" : "",
+                    })
+                  }
                   className="flex gap-4"
                 >
                   <div className="flex items-center gap-2">
-                    <RadioGroupItem id="alergia-sim" value="sim" />
+                    <RadioGroupItem id="alergia-sim" value="sim" className={RADIO_ITEM_CLASS} />
                     <Label htmlFor="alergia-sim">Sim</Label>
                   </div>
                   <div className="flex items-center gap-2">
-                    <RadioGroupItem id="alergia-nao" value="nao" />
+                    <RadioGroupItem id="alergia-nao" value="nao" className={RADIO_ITEM_CLASS} />
                     <Label htmlFor="alergia-nao">Não</Label>
                   </div>
                 </RadioGroup>
@@ -293,7 +306,12 @@ export default function ConsultationClinicalForm({
                 <Label htmlFor="dor">Dor</Label>
                 <Select
                   value={(details.dor as any) || ""}
-                  onValueChange={(v) => patch({ dor: v as any, dorEscala: v === "escala" ? (details.dorEscala ?? 0) : undefined })}
+                  onValueChange={(v) =>
+                    patch({
+                      dor: v as any,
+                      dorEscala: v === "escala" ? details.dorEscala ?? 0 : undefined,
+                    })
+                  }
                 >
                   <SelectTrigger id="dor">
                     <SelectValue placeholder="Selecione" />
@@ -432,7 +450,9 @@ export default function ConsultationClinicalForm({
                   }}
                 />
                 {errors?.diagnostico && (
-                  <p className="text-xs text-destructive">Preencha ao menos um diagnóstico (suspeita/presuntivo/definitivo).</p>
+                  <p className="text-xs text-destructive">
+                    Preencha ao menos um diagnóstico (suspeita/presuntivo/definitivo).
+                  </p>
                 )}
               </div>
 
@@ -491,10 +511,14 @@ export default function ConsultationClinicalForm({
                   type="number"
                   min={0}
                   value={details.retornoRecomendadoEmDias || ""}
-                  onChange={(e) => patch({ retornoRecomendadoEmDias: e.target.value ? Number(e.target.value) : undefined })}
+                  onChange={(e) =>
+                    patch({ retornoRecomendadoEmDias: e.target.value ? Number(e.target.value) : undefined })
+                  }
                 />
                 {suggestedReturnDate && (
-                  <p className="text-xs text-muted-foreground">Sugestão de data: {suggestedReturnDate.split("-").reverse().join("/")}</p>
+                  <p className="text-xs text-muted-foreground">
+                    Sugestão de data: {suggestedReturnDate.split("-").reverse().join("/")}
+                  </p>
                 )}
               </div>
 
