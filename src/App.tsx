@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Layout from "./components/Layout";
 import Dashboard from "./pages/Dashboard";
+import Index from "./pages/Index";
 import ClientsPage from "./pages/ClientsPage";
 import ClientFormPage from "./pages/ClientFormPage"; // Importar a nova página de formulário
 import AddAnimalPage from "./pages/AddAnimalPage";
@@ -88,7 +89,8 @@ const App = () => (
         <BrowserRouter>
           <Layout>
             <Routes>
-              <Route path="/" element={<Dashboard />} />
+              <Route path="/" element={<Index />} />
+              <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/clients" element={<ClientsPage />} />
               <Route path="/clients/add" element={<ClientFormPage />} /> {/* Rota para adicionar cliente */}
               <Route path="/clients/:clientId/edit" element={<ClientFormPage />} /> {/* Nova rota para editar cliente */}
