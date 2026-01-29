@@ -68,6 +68,7 @@ import {
   CheckCircle2,
   AlertCircle,
   BadgeDollarSign,
+  UserRound
 } from "lucide-react";
 
 // Tipos locais para documentos e observações
@@ -881,57 +882,60 @@ const PatientRecordPage = () => {
 
   return (
     <div className="flex flex-col min-h-screen layered-bg-warm overflow-x-hidden font-exo">
-      {/* CABEÇALHO DO PRONTUÁRIO (mais baixo e discreto) */}
-      <div className="mx-auto w-full max-w-7xl px-5 pt-3 pb-2 border-b border-border/60">
-        <div className="flex items-start justify-between gap-4">
-          <div className="min-w-0">
-            <h1 className="text-[1.05rem] sm:text-[1.15rem] leading-tight font-semibold flex items-center gap-2 text-foreground">
-              <FaUser className="h-4 w-4 text-muted-foreground" />
-              Prontuário Consolidado
-            </h1>
-            <p className="text-xs text-muted-foreground mt-0.5">Visão completa do histórico clínico</p>
-          </div>
+      {/* CABEÇALHO DO PRONTUÁRIO */}
+      <div className="mx-auto w-full max-w-7xl px-5 pt-4 pb-3">
+        <div className="premium-card rounded-xl border border-border/60 bg-white px-4 py-3">
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <div className="flex items-center gap-3">
+                <div className="h-9 w-9 rounded-xl bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200/60 flex items-center justify-center">
+                  <FileTextIcon className="h-4.5 w-4.5" strokeWidth={1.8} />
+                </div>
+                <div className="min-w-0">
+                  <h1 className="text-lg sm:text-xl leading-tight font-semibold text-foreground">
+                    Prontuário Consolidado
+                  </h1>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Visão completa do histórico clínico
+                  </p>
+                </div>
+              </div>
+            </div>
 
-          <div className="flex items-center gap-2">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
+            <div className="flex items-center gap-2">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-8 w-8 rounded-lg border-border/50 text-muted-foreground hover:text-foreground hover:bg-muted/40"
+                  >
+                    <FaEllipsisV className="h-4 w-4" />
+                    <span className="sr-only">Ações</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onSelect={() => window.print()}>
+                    <FaPrint className="mr-2 h-4 w-4" /> Imprimir
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => window.print()}>
+                    <FaDownload className="mr-2 h-4 w-4" /> Exportar PDF
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              <Link to={`/clients/${currentClient.id}`}>
                 <Button
-                  variant="outline"
-                  size="icon"
-                  className="h-8 w-8 rounded-lg border-border/50 text-muted-foreground hover:text-foreground hover:bg-muted/40"
+                  variant="ghost"
+                  className="h-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/40 px-2"
                 >
-                  <FaEllipsisV className="h-4 w-4" />
-                  <span className="sr-only">Ações</span>
+                  <FaArrowLeft className="mr-2 h-4 w-4" />
+                  <span className="hidden sm:inline">Voltar</span>
                 </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onSelect={() => window.print()}>
-                  <FaPrint className="mr-2 h-4 w-4" /> Imprimir
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => window.print()}>
-                  <FaDownload className="mr-2 h-4 w-4" /> Exportar PDF
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-
-            <Link to={`/clients/${currentClient.id}`}>
-              <Button
-                variant="ghost"
-                className="h-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/40 px-2"
-              >
-                <FaArrowLeft className="mr-2 h-4 w-4" />
-                <span className="hidden sm:inline">Voltar</span>
-              </Button>
-            </Link>
+              </Link>
+            </div>
           </div>
         </div>
-
-        <p className="mt-2 text-xs text-muted-foreground/80">
-          Painel &gt;{" "}
-          <Link to="/clients" className="hover:text-primary">Clientes</Link> &gt;{" "}
-          <Link to={`/clients/${currentClient.id}`} className="hover:text-primary">{currentClient.name}</Link> &gt;{" "}
-          <span className="text-muted-foreground">{currentAnimal.name}</span>
-        </p>
       </div>
 
       <div className="flex-1 p-6 mx-auto w-full max-w-7xl">
@@ -941,7 +945,7 @@ const PatientRecordPage = () => {
             <CardContent className="p-5">
               <div className="flex items-start justify-between gap-4">
                 <div className="flex items-start gap-4 min-w-0">
-                  {/* Avatar ligeiramente menor */}
+                  {/* Avatar */}
                   <div className="h-12 w-12 rounded-2xl bg-[rgb(240,253,248)] text-[rgb(5,150,105)] ring-1 ring-[rgba(5,150,105,0.12)] flex items-center justify-center">
                     <FaPaw className="h-5 w-5" />
                   </div>
@@ -964,86 +968,161 @@ const PatientRecordPage = () => {
                 </Button>
               </div>
 
-              {/* CHIPS DO PACIENTE: 3 linhas com hierarquia */}
-              <div className="mt-4 space-y-2">
-                {/* Linha 1: Identidade fixa (menor destaque) */}
-                <div className="flex flex-wrap gap-2">
-                  <span className="inline-flex items-center gap-2 rounded-full border border-border bg-white px-3 py-1 text-[12.5px] text-foreground/80">
-                    <FaPaw className="h-3.5 w-3.5 text-muted-foreground" />
-                    <span className="text-muted-foreground">Espécie</span>
-                    <span className="font-medium text-foreground/85">{currentAnimal.species || "-"}</span>
+              {/* CHIPS DO PACIENTE */}
+              <div className="mt-4 flex flex-wrap gap-2 max-h-[3.4rem] overflow-hidden">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-white px-3 py-1 text-[12px] leading-5">
+                  <FaPaw className="h-3 w-3 text-teal-600" />
+                  <span className="text-muted-foreground">Espécie:</span>
+                  <span className="font-semibold text-foreground">{currentAnimal.species || "-"}</span>
+                </span>
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-white px-3 py-1 text-[12px] leading-5">
+                  <FaTag className="h-3 w-3 text-violet-600" />
+                  <span className="text-muted-foreground">Raça:</span>
+                  <span className="font-semibold text-foreground">{currentAnimal.breed || "-"}</span>
+                </span>
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-white px-3 py-1 text-[12px] leading-5">
+                  <FaMale className="h-3 w-3 text-amber-600" />
+                  <span className="text-muted-foreground">Sexo:</span>
+                  <span className="font-semibold text-foreground">{currentAnimal.gender || "-"}</span>
+                </span>
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-white px-3 py-1 text-[12px] leading-5">
+                  <FaClock className="h-3 w-3 text-emerald-600" />
+                  <span className="text-muted-foreground">Idade:</span>
+                  <span className="font-semibold text-foreground">{formatAgeYearsMonths(currentAnimal.birthday)}</span>
+                </span>
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-white px-3 py-1 text-[12px] leading-5">
+                  <FaWeightHanging className="h-3 w-3 text-emerald-600" />
+                  <span className="text-muted-foreground">Peso:</span>
+                  <span className="font-semibold text-foreground">{formatWeightLabel(latestWeight)}</span>
+                </span>
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-white px-3 py-1 text-[12px] leading-5">
+                  <FaCalendarAlt className="h-3 w-3 text-slate-600" />
+                  <span className="text-muted-foreground">Nascimento:</span>
+                  <span className="font-semibold text-foreground">
+                    {currentAnimal.birthday ? formatDateTime(currentAnimal.birthday) : "-"}
                   </span>
-                  <span className="inline-flex items-center gap-2 rounded-full border border-border bg-white px-3 py-1 text-[12.5px] text-foreground/80">
-                    <FaTag className="h-3.5 w-3.5 text-muted-foreground" />
-                    <span className="text-muted-foreground">Raça</span>
-                    <span className="font-medium text-foreground/85">{currentAnimal.breed || "-"}</span>
-                  </span>
-                  <span className="inline-flex items-center gap-2 rounded-full border border-border bg-white px-3 py-1 text-[12.5px] text-foreground/80">
-                    <FaMale className="h-3.5 w-3.5 text-muted-foreground" />
-                    <span className="text-muted-foreground">Sexo</span>
-                    <span className="font-medium text-foreground/85">{currentAnimal.gender || "-"}</span>
-                  </span>
-                </div>
-
-                {/* Linha 2: Estado atual (maior destaque) */}
-                <div className="flex flex-wrap gap-2">
-                  <span className="inline-flex items-center gap-2 rounded-full border border-border bg-white px-3 py-1.5 text-sm">
-                    <FaClock className="h-3.5 w-3.5 text-[rgb(5,150,105)]" />
-                    <span className="text-muted-foreground">Idade</span>
-                    <span className="font-semibold text-foreground">{formatAgeYearsMonths(currentAnimal.birthday)}</span>
-                  </span>
-                  <span className="inline-flex items-center gap-2 rounded-full border border-border bg-white px-3 py-1.5 text-sm">
-                    <FaWeightHanging className="h-3.5 w-3.5 text-[rgb(5,150,105)]" />
-                    <span className="text-muted-foreground">Peso</span>
-                    <span className="font-semibold text-foreground">{formatWeightLabel(latestWeight)}</span>
-                  </span>
-                </div>
-
-                {/* Linha 3: Informação histórica (mais discreta) */}
-                <div className="flex flex-wrap gap-2">
-                  <span className="inline-flex items-center gap-2 rounded-full border border-border bg-white px-3 py-1 text-[12.5px]">
-                    <FaCalendarAlt className="h-3.5 w-3.5 text-muted-foreground" />
-                    <span className="text-muted-foreground">Nascimento</span>
-                    <span className="font-medium text-foreground/85">
-                      {currentAnimal.birthday ? formatDateTime(currentAnimal.birthday) : "-"}
-                    </span>
-                  </span>
-                </div>
+                </span>
               </div>
 
-              {/* Tutor + Financeiro (mesma altura visual / alinhados) */}
+              {/* Tutor + Financeiro */}
               <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-3 items-stretch">
                 {/* TUTOR */}
                 <div className="rounded-xl border border-border bg-white h-full">
-                  <Collapsible open={isTutorExpanded} onOpenChange={setIsTutorExpanded} className="h-full flex flex-col">
-                    <div className="p-4 flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Tutor</div>
-                        <div className="mt-1 font-medium text-foreground truncate">{currentClient.name}</div>
-                        <div className="mt-1 text-sm text-muted-foreground flex items-center gap-2">
-                          <FaPhone className="h-3.5 w-3.5" />
-                          <span className="truncate">{currentClient.mainPhoneContact || "-"}</span>
+                  <Collapsible
+                    open={isTutorExpanded}
+                    onOpenChange={setIsTutorExpanded}
+                    className="h-full flex flex-col"
+                  >
+                    <div className="p-3 flex items-start justify-between gap-3">
+                      <div className="flex items-start gap-3 min-w-0">
+                        <div className="h-9 w-9 rounded-xl bg-sky-50 text-sky-700 ring-1 ring-sky-200/60 flex items-center justify-center shrink-0">
+                          <UserRound className="h-4 w-4" />
+                        </div>
+
+                        <div className="min-w-0">
+                          <div className="text-sm font-semibold text-foreground">Tutor</div>
+                          <div className="mt-0.5 text-sm text-foreground/90 font-medium truncate">
+                            {currentClient.name}
+                          </div>
+
+                          <div className="mt-2 space-y-1 text-xs text-muted-foreground">
+                            <div className="flex items-center gap-1.5">
+                              <FaPhone className="h-3 w-3 text-sky-600" />
+                              <span className="truncate">
+                                <span className="text-muted-foreground">Telefone:</span> {currentClient.mainPhoneContact || "-"}
+                              </span>
+                            </div>
+                            <div className="flex items-start gap-1.5">
+                              <FaMapMarkerAlt className="mt-0.5 h-3 w-3 text-sky-600" />
+                              <span className="line-clamp-1">
+                                <span className="text-muted-foreground">Endereço:</span>{" "}
+                                {currentClient.address?.street ? `${currentClient.address.street}, ${currentClient.address.number}` : "-"}
+                                {currentClient.address?.neighborhood ? ` • ${currentClient.address.neighborhood}` : ""}
+                                {currentClient.address?.city ? ` • ${currentClient.address.city}` : ""}
+                                {currentClient.address?.state ? ` - ${currentClient.address.state}` : ""}
+                              </span>
+                            </div>
+                          </div>
                         </div>
                       </div>
+
                       <CollapsibleTrigger asChild>
-                        <Button variant="ghost" className="h-9 px-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/40">
+                        <Button
+                          variant="ghost"
+                          className="h-8 px-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/40"
+                        >
                           <span className="text-xs">{isTutorExpanded ? "Menos" : "Mais"}</span>
-                          {isTutorExpanded ? <FaChevronUp className="ml-2 h-3.5 w-3.5" /> : <FaChevronDown className="ml-2 h-3.5 w-3.5" />}
+                          {isTutorExpanded ? (
+                            <FaChevronUp className="ml-2 h-3.5 w-3.5" />
+                          ) : (
+                            <FaChevronDown className="ml-2 h-3.5 w-3.5" />
+                          )}
                         </Button>
                       </CollapsibleTrigger>
                     </div>
+
                     <CollapsibleContent>
-                      <div className="px-4 pb-4 text-sm text-muted-foreground space-y-2">
-                        <div className="flex items-center gap-2">
-                          <FaIdCard className="h-3.5 w-3.5" />
-                          <span className="truncate">{currentClient.clientType === "physical" ? "CPF" : "CNPJ"}: {currentClient.identificationNumber || "-"}</span>
+                      <div className="px-3 pb-3 text-xs text-muted-foreground space-y-2">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
+                          <div className="flex items-center gap-1.5">
+                            <FaIdCard className="h-3 w-3 text-sky-600" />
+                            <span>
+                              <span className="text-muted-foreground">
+                                {currentClient.clientType === "physical" ? "CPF" : "CNPJ"}:
+                              </span>{" "}
+                              <span className="font-medium text-foreground/90">{currentClient.identificationNumber || "-"}</span>
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <FaIdCard className="h-3 w-3 text-sky-600" />
+                            <span>
+                              <span className="text-muted-foreground">
+                                {currentClient.clientType === "physical" ? "RG" : "IE"}:
+                              </span>{" "}
+                              <span className="font-medium text-foreground/90">{currentClient.secondaryIdentification || "-"}</span>
+                            </span>
+                          </div>
                         </div>
-                        <div className="flex items-start gap-2">
-                          <FaMapMarkerAlt className="mt-0.5 h-3.5 w-3.5" />
-                          <span>
-                            {`${currentClient.address.street}, ${currentClient.address.number}`}<br />
-                            {`${currentClient.address.neighborhood} • ${currentClient.address.city} - ${currentClient.address.state}`}
-                          </span>
+
+                        <div className="rounded-lg border border-border bg-muted/20 px-3 py-2">
+                          <div className="flex flex-wrap gap-x-3 gap-y-1">
+                            {currentClient.mainEmailContact ? (
+                              <span>
+                                <span className="text-muted-foreground">E-mail:</span>{" "}
+                                <span className="font-medium text-foreground/90">{currentClient.mainEmailContact}</span>
+                              </span>
+                            ) : null}
+                            {currentClient.birthday ? (
+                              <span>
+                                <span className="text-muted-foreground">Nascimento:</span>{" "}
+                                <span className="font-medium text-foreground/90">{formatDateTime(currentClient.birthday)}</span>
+                              </span>
+                            ) : null}
+                            {currentClient.profession ? (
+                              <span>
+                                <span className="text-muted-foreground">Profissão:</span>{" "}
+                                <span className="font-medium text-foreground/90">{currentClient.profession}</span>
+                              </span>
+                            ) : null}
+                            {currentClient.nationality ? (
+                              <span>
+                                <span className="text-muted-foreground">Nacionalidade:</span>{" "}
+                                <span className="font-medium text-foreground/90">{currentClient.nationality}</span>
+                              </span>
+                            ) : null}
+                            {currentClient.dynamicContacts?.length ? (
+                              <span>
+                                <span className="text-muted-foreground">Contatos:</span>{" "}
+                                <span className="font-medium text-foreground/90">
+                                  {currentClient.dynamicContacts
+                                    .filter((c) => c.value)
+                                    .slice(0, 3)
+                                    .map((c) => `${c.label}: ${c.value}`)
+                                    .join(" • ")}
+                                </span>
+                              </span>
+                            ) : null}
+                          </div>
                         </div>
                       </div>
                     </CollapsibleContent>
@@ -1051,7 +1130,7 @@ const PatientRecordPage = () => {
                 </div>
 
                 {/* FINANCEIRO */}
-                <div className="rounded-xl border border-border bg-white p-4 h-full">
+                <div className="rounded-xl border border-border bg-white p-3 h-full">
                   {(() => {
                     const income = mockFinancialTransactions
                       .filter((t) => t.relatedAnimalId === animalId && t.type === 'income')
@@ -1062,36 +1141,40 @@ const PatientRecordPage = () => {
                     const net = income - expense;
                     const pending = Math.max(
                       0,
-                      patientSales.reduce((sum, s) => sum + s.total, 0) - patientPayments.reduce((sum, p) => sum + p.amount, 0)
+                      patientSales.reduce((sum, s) => sum + s.total, 0) -
+                        patientPayments.reduce((sum, p) => sum + p.amount, 0)
                     );
 
                     const fmt = (v: number) =>
                       new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
 
                     return (
-                      <div>
-                        <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Financeiro</div>
-                        <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-2">
-                          <div className="rounded-lg border border-border bg-white p-3">
-                            <div className="flex items-center gap-2 text-[11px] text-muted-foreground/75">
-                              <CheckCircle2 className="h-4 w-4 text-emerald-600" strokeWidth={1.6} />
-                              Pago neste prontuário
-                            </div>
-                            <div className="mt-1 text-sm font-semibold text-emerald-600">{fmt(income)}</div>
+                      <div className="h-full">
+                        <div className="flex items-center gap-3">
+                          <div className="h-9 w-9 rounded-xl bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200/60 flex items-center justify-center">
+                            <BadgeDollarSign className="h-4 w-4" strokeWidth={1.8} />
                           </div>
-                          <div className="rounded-lg border border-border bg-white p-3">
-                            <div className="flex items-center gap-2 text-[11px] text-muted-foreground/75">
+                          <div className="min-w-0">
+                            <div className="text-sm font-semibold text-foreground">Financeiro</div>
+                            <div className="text-xs text-muted-foreground">Resumo do prontuário</div>
+                          </div>
+                        </div>
+
+                        <div className="mt-3 grid grid-cols-2 gap-2">
+                          <div className="rounded-xl border border-border bg-white px-3 py-2.5">
+                            <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
                               <AlertCircle className="h-4 w-4 text-rose-600" strokeWidth={1.6} />
-                              Pendências ativas
+                              Pendências
                             </div>
                             <div className="mt-1 text-sm font-semibold text-rose-600">{fmt(pending)}</div>
                           </div>
-                          <div className="rounded-lg border border-border bg-white p-3">
-                            <div className="flex items-center gap-2 text-[11px] text-muted-foreground/75">
-                              <BadgeDollarSign className="h-4 w-4 text-sky-600" strokeWidth={1.6} />
-                              Saldo do paciente
+
+                          <div className="rounded-xl border border-border bg-white px-3 py-2.5">
+                            <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                              <BadgeDollarSign className="h-4 w-4 text-emerald-600" strokeWidth={1.6} />
+                              Saldo financeiro
                             </div>
-                            <div className="mt-1 text-sm font-semibold text-sky-600">{fmt(net)}</div>
+                            <div className="mt-1 text-sm font-semibold text-emerald-700">{fmt(net)}</div>
                           </div>
                         </div>
                       </div>
