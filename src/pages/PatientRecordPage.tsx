@@ -278,6 +278,14 @@ const PatientRecordPage = () => {
     }
   }, [currentAnimal?.weightHistory]);
 
+  const sortedWeightHistory = useMemo(() => {
+    return [...weightHistory].sort((a, b) => {
+      const da = new Date(`${a.date}T${a.time || "00:00"}`).getTime();
+      const db = new Date(`${b.date}T${b.time || "00:00"}`).getTime();
+      return db - da;
+    });
+  }, [weightHistory]);
+
   const [documents, setDocuments] = useState<DocumentEntry[]>([
     { id: "d1", date: "2023-05-01", time: "10:00", name: "Termo de Adoção", fileUrl: "#" },
     { id: "d2", date: "2024-02-10", time: "14:30", name: "Autorização Cirúrgica", fileUrl: "#" },
