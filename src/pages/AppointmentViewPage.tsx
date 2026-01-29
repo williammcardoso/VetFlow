@@ -124,6 +124,7 @@ export default function AppointmentViewPage() {
               {renderField("Queixa principal", d.queixaPrincipal)}
               {renderField("História / evolução", d.historicoClinico)}
               {renderField("Vacinação", vacStatus)}
+              {!isOld && renderField("Obs. vacinação", (d as any).vacinacaoEmDiaObs)}
               {renderField("Uso de medicação", d.usoMedicacao)}
               {d.usoMedicacao === "sim" && renderField("Medicação (quais)", d.usoMedicacaoQuais)}
               {renderField("Alergias", d.alergiasPaciente)}

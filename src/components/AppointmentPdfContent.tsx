@@ -65,6 +65,8 @@ export default function AppointmentPdfContent({
           <Text style={styles.sectionTitle}>Consulta Clínica (Novo Modelo)</Text>
           <Field label="Queixa principal" value={d.queixaPrincipal} />
           <Field label="História / evolução" value={d.historicoClinico} />
+          <Field label="Vacinação em dia" value={d.vacinacaoEmDia} />
+          <Field label="Obs. vacinação" value={(d as any).vacinacaoEmDiaObs} />
           <View style={styles.row}>
             <Field label="Peso (kg)" value={appointment.pesoAtual} />
             <Field label="Temperatura (°C)" value={appointment.temperaturaCorporal} />

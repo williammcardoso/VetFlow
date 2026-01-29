@@ -32,6 +32,7 @@ export interface ConsultationDetails extends BaseAppointmentDetails {
 
   // Anamnese (modo simplificado)
   vacinacaoEmDia?: 'sim' | 'nao' | 'nao_informado' | '';
+  vacinacaoEmDiaObs?: string;
 
   // Avaliação clínica (resumo)
   estadoGeral?: 'bom' | 'regular' | 'grave' | '';

@@ -196,20 +196,46 @@ export default function ConsultationClinicalForm({
               </div>
 
               <div className="space-y-2 md:col-span-2">
-                <Label htmlFor="vacinacaoEmDia">Vacinação em dia?</Label>
-                <Select
+                <Label className="flex items-center justify-between gap-3">
+                  <span>Vacinação em dia?</span>
+                  <span className="text-xs text-muted-foreground">(opcional)</span>
+                </Label>
+
+                <RadioGroup
                   value={(details.vacinacaoEmDia as any) || ""}
-                  onValueChange={(v) => patch({ vacinacaoEmDia: v as any })}
+                  onValueChange={(v) =>
+                    patch({
+                      vacinacaoEmDia: v as any,
+                      vacinacaoEmDiaObs: v === "sim" ? "" : details.vacinacaoEmDiaObs || "",
+                    })
+                  }
+                  className="flex flex-wrap gap-4"
                 >
-                  <SelectTrigger id="vacinacaoEmDia">
-                    <SelectValue placeholder="Selecione" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="sim">Sim</SelectItem>
-                    <SelectItem value="nao">Não</SelectItem>
-                    <SelectItem value="nao_informado">Não informado</SelectItem>
-                  </SelectContent>
-                </Select>
+                  <div className="flex items-center gap-2">
+                    <RadioGroupItem id="vac-sim" value="sim" className={RADIO_ITEM_CLASS} />
+                    <Label htmlFor="vac-sim">Sim</Label>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <RadioGroupItem id="vac-nao" value="nao" className={RADIO_ITEM_CLASS} />
+                    <Label htmlFor="vac-nao">Não</Label>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <RadioGroupItem
+                      id="vac-ni"
+                      value="nao_informado"
+                      className={RADIO_ITEM_CLASS}
+                    />
+                    <Label htmlFor="vac-ni">Não informado</Label>
+                  </div>
+                </RadioGroup>
+
+                {details.vacinacaoEmDia && details.vacinacaoEmDia !== "sim" ? (
+                  <Input
+                    value={details.vacinacaoEmDiaObs || ""}
+                    onChange={(e) => patch({ vacinacaoEmDiaObs: e.target.value })}
+                    placeholder="Observações da vacinação (ex.: não trouxe carteira, atrasada...)"
+                  />
+                ) : null}
               </div>
             </div>
           </AccordionContent>

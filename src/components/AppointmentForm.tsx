@@ -232,12 +232,22 @@ export default function AppointmentForm({
 
   const hydratedFromDraftRef = useRef(false);
   const skipTypeResetOnceRef = useRef(!!initialData);
+  const suppressDraftWriteRef = useRef(false);
 
   // Carregar rascunho antigo (compatibilidade) somente na criação por querystring.
   useEffect(() => {
     if (initialData) return;
 
-    const saved = safeParseJSON<any>(localStorage.getItem(`systemvet:appointment:draft:${clientId}:${animalId}`));
+    const qsType = searchParams.get("type");
+    if (qsType && !type) {
+      setType(qsType as AllowedType);
+      return;
+    }
+
+    // Compat: rascunho antigo (chave única) — somente quando não há tipo forçado por querystring
+    const saved = safeParseJSON<any>(
+      localStorage.getItem(`systemvet:appointment:draft:${clientId}:${animalId}`)
+    );
     if (saved) {
       hydratedFromDraftRef.current = true;
 
@@ -257,12 +267,6 @@ export default function AppointmentForm({
 
       setDetails(saved.details || {});
       setConsultationMode(saved.consultationMode || "simplificado");
-      return;
-    }
-
-    const qsType = searchParams.get("type");
-    if (qsType && !type) {
-      setType(qsType as AllowedType);
     }
   }, [initialData, clientId, animalId, searchParams, type]);
 
@@ -467,11 +471,13 @@ export default function AppointmentForm({
   // Auto-salvar rascunho a cada 1 minuto + na desmontagem
   useEffect(() => {
     const t = window.setInterval(() => {
+      if (suppressDraftWriteRef.current) return;
       upsertDraftNow();
     }, 60_000);
 
     return () => {
       window.clearInterval(t);
+      if (suppressDraftWriteRef.current) return;
       upsertDraftNow();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -486,7 +492,12 @@ export default function AppointmentForm({
     const ok = window.confirm(msg);
     if (!ok) return;
 
-    if (draftIdRef.current) {
+    // Evita que o autosave na desmontagem recrie/atualize o rascunho
+    suppressDraftWriteRef.current = true;
+
+    // Regra: ao cancelar, apagamos o rascunho automático —
+    // EXCETO quando estamos editando um rascunho do histórico (ele deve permanecer).
+    if (draftIdRef.current && !isDraftInitial) {
       removeAppointmentDraft(clientId, animalId, draftIdRef.current);
     }
 
@@ -550,6 +561,9 @@ export default function AppointmentForm({
     }
 
     setErrors({});
+
+    // Evita que o autosave na desmontagem recrie/atualize o rascunho depois do salvar.
+    suppressDraftWriteRef.current = true;
 
     // Se existe um draft em andamento, reaproveita o id do draft.
     const draftId = draftIdRef.current;
