@@ -301,7 +301,7 @@ body,
   right: 0.35rem;
   bottom: -1px;
   height: 2px;
-  background: hsl(var(--accent-foreground));
+  background: var(--tab-accent, hsl(var(--accent-foreground)));
   opacity: 0.95;
   border-radius: 1px;
 }
