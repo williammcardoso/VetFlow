@@ -63,11 +63,11 @@ const typeMeta = (type: AppointmentEntry["type"]): TypeMeta => {
       label: "Consulta",
       icon: Stethoscope,
       buttonClass:
-        "border-2 border-teal-300 bg-teal-50/40 text-teal-900 hover:bg-teal-50/70 hover:shadow-lg hover:shadow-teal-200/70 hover:-translate-y-0.5",
+        "border border-teal-300 bg-teal-50/20 text-teal-900 hover:bg-teal-50/40 hover:shadow-md hover:shadow-teal-200/60 hover:-translate-y-0.5",
       iconClass: "text-teal-600",
       cardBorderClass: "border-teal-300",
-      cardHoverShadowClass: "hover:shadow-teal-200/70",
-      iconWrapBgClass: "bg-teal-50",
+      cardHoverShadowClass: "hover:shadow-teal-200/60",
+      iconWrapBgClass: "bg-teal-50/70",
     };
   }
 
@@ -76,11 +76,11 @@ const typeMeta = (type: AppointmentEntry["type"]): TypeMeta => {
       label: "Cirurgia",
       icon: Scissors,
       buttonClass:
-        "border-2 border-rose-300 bg-rose-50/40 text-rose-900 hover:bg-rose-50/70 hover:shadow-lg hover:shadow-rose-200/70 hover:-translate-y-0.5",
+        "border border-rose-300 bg-rose-50/20 text-rose-900 hover:bg-rose-50/40 hover:shadow-md hover:shadow-rose-200/60 hover:-translate-y-0.5",
       iconClass: "text-rose-600",
       cardBorderClass: "border-rose-300",
-      cardHoverShadowClass: "hover:shadow-rose-200/70",
-      iconWrapBgClass: "bg-rose-50",
+      cardHoverShadowClass: "hover:shadow-rose-200/60",
+      iconWrapBgClass: "bg-rose-50/70",
     };
   }
 
@@ -89,11 +89,11 @@ const typeMeta = (type: AppointmentEntry["type"]): TypeMeta => {
       label: "Vacinação",
       icon: Syringe,
       buttonClass:
-        "border-2 border-sky-300 bg-sky-50/40 text-sky-900 hover:bg-sky-50/70 hover:shadow-lg hover:shadow-sky-200/70 hover:-translate-y-0.5",
+        "border border-sky-300 bg-sky-50/20 text-sky-900 hover:bg-sky-50/40 hover:shadow-md hover:shadow-sky-200/60 hover:-translate-y-0.5",
       iconClass: "text-sky-600",
       cardBorderClass: "border-sky-300",
-      cardHoverShadowClass: "hover:shadow-sky-200/70",
-      iconWrapBgClass: "bg-sky-50",
+      cardHoverShadowClass: "hover:shadow-sky-200/60",
+      iconWrapBgClass: "bg-sky-50/70",
     };
   }
 
@@ -102,11 +102,11 @@ const typeMeta = (type: AppointmentEntry["type"]): TypeMeta => {
       label: "Retorno",
       icon: Repeat2,
       buttonClass:
-        "border-2 border-slate-300 bg-slate-50/60 text-slate-900 hover:bg-slate-50/80 hover:shadow-lg hover:shadow-slate-200/70 hover:-translate-y-0.5",
-      iconClass: "text-slate-600",
-      cardBorderClass: "border-slate-300",
-      cardHoverShadowClass: "hover:shadow-slate-200/70",
-      iconWrapBgClass: "bg-slate-50",
+        "border border-violet-300 bg-violet-50/20 text-violet-900 hover:bg-violet-50/40 hover:shadow-md hover:shadow-violet-200/60 hover:-translate-y-0.5",
+      iconClass: "text-violet-600",
+      cardBorderClass: "border-violet-300",
+      cardHoverShadowClass: "hover:shadow-violet-200/60",
+      iconWrapBgClass: "bg-violet-50/70",
     };
   }
 
@@ -116,11 +116,11 @@ const typeMeta = (type: AppointmentEntry["type"]): TypeMeta => {
       icon: AlertTriangle,
       // Único com fundo levemente mais forte
       buttonClass:
-        "border-2 border-orange-300 bg-orange-100/70 text-orange-950 hover:bg-orange-100 hover:shadow-lg hover:shadow-orange-200/80 hover:-translate-y-0.5",
+        "border border-orange-300 bg-orange-100/45 text-orange-950 hover:bg-orange-100/60 hover:shadow-md hover:shadow-orange-200/70 hover:-translate-y-0.5",
       iconClass: "text-orange-700",
       cardBorderClass: "border-orange-300",
-      cardHoverShadowClass: "hover:shadow-orange-200/80",
-      iconWrapBgClass: "bg-orange-100/70",
+      cardHoverShadowClass: "hover:shadow-orange-200/70",
+      iconWrapBgClass: "bg-orange-100/60",
     };
   }
 
@@ -128,7 +128,7 @@ const typeMeta = (type: AppointmentEntry["type"]): TypeMeta => {
     label: t,
     icon: Calendar,
     buttonClass:
-      "border-2 border-border bg-white hover:bg-white hover:shadow-lg hover:shadow-muted-foreground/10 hover:-translate-y-0.5",
+      "border border-border bg-white hover:bg-white hover:shadow-md hover:shadow-muted-foreground/10 hover:-translate-y-0.5",
     iconClass: "text-muted-foreground",
     cardBorderClass: "border-border",
     cardHoverShadowClass: "hover:shadow-muted-foreground/10",
@@ -365,7 +365,7 @@ export default function PatientAppointmentsTab({
                   <div
                     key={app.id}
                     className={cn(
-                      "rounded-xl border-2 bg-white p-4 transition-all duration-200",
+                      "rounded-xl border bg-white p-4 transition-all duration-200",
                       "hover:shadow-lg hover:-translate-y-0.5",
                       meta.cardHoverShadowClass,
                       meta.cardBorderClass
@@ -375,12 +375,11 @@ export default function PatientAppointmentsTab({
                       <div className="flex items-start gap-3 min-w-0">
                         <div
                           className={cn(
-                            "h-11 w-11 shrink-0 rounded-2xl border-2 flex items-center justify-center",
-                            meta.cardBorderClass,
+                            "h-12 w-12 shrink-0 rounded-2xl flex items-center justify-center",
                             meta.iconWrapBgClass
                           )}
                         >
-                          <Icon className={cn("h-5 w-5", meta.iconClass)} />
+                          <Icon className={cn("h-6 w-6", meta.iconClass)} />
                         </div>
 
                         <div className="min-w-0">

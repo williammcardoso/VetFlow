@@ -38,6 +38,7 @@ import ConsultationClinicalForm, {
 import SurgeryForm from "@/components/appointments/forms/SurgeryForm";
 import EmergencyForm from "@/components/appointments/forms/EmergencyForm";
 import DateInputBR, { isoToBR } from "@/components/appointments/inputs/DateInputBR";
+import DatePickerBR from "@/components/appointments/inputs/DatePickerBR";
 import LegacyConsultationForm from "@/components/appointments/forms/LegacyConsultationForm";
 
 import AppointmentPdfContent from "@/components/AppointmentPdfContent";
@@ -218,6 +219,9 @@ export default function AppointmentForm({
 
   const [consultationMode, setConsultationMode] = useState<ConsultationMode>("simplificado");
 
+  // Estado de UI para "Outra" (não salva no registro)
+  const [vaccineNameChoice, setVaccineNameChoice] = useState<string>("");
+
   const hydratedFromDraftRef = useRef(false);
 
   // Carregar rascunho (apenas em criação). Prioridade: initialData > draft > querystring
@@ -252,6 +256,27 @@ export default function AppointmentForm({
       setType(qsType as AllowedType);
     }
   }, [initialData, clientId, animalId, searchParams, type]);
+
+  // Sincroniza estado do select da vacina (para suportar "Outra" sem mostrar o textbox sempre)
+  useEffect(() => {
+    if (type !== "Vacina") return;
+    const v = (details || {}) as VaccinationDetails;
+    const nome = (v.tipoVacina || "").trim();
+
+    const isOption = (VACCINE_NAME_OPTIONS as readonly string[]).includes(nome);
+    if (isOption) {
+      setVaccineNameChoice(nome);
+      return;
+    }
+
+    if (nome) {
+      setVaccineNameChoice("Outra");
+      return;
+    }
+
+    // Sem valor ainda
+    setVaccineNameChoice("");
+  }, [type, details]);
 
   // Resetar estrutura específica quando o tipo muda (exceto quando o tipo veio do rascunho)
   useEffect(() => {
@@ -334,6 +359,7 @@ export default function AppointmentForm({
 
     if (type === "Vacina") {
       setDetails({} as VaccinationDetails);
+      setVaccineNameChoice("");
       // Pré-vacinal usa peso/temperatura
       setPesoAtual(initialData?.type === "Vacina" ? initialData.pesoAtual ?? "" : lastWeight ?? "");
       setTemperaturaCorporal(initialData?.type === "Vacina" ? initialData.temperaturaCorporal ?? "" : "");
@@ -674,7 +700,6 @@ export default function AppointmentForm({
       const v = (details || {}) as VaccinationDetails;
       const tempOk = isWithinPhysiologicalTemp(temperaturaCorporal);
 
-      const vacinaValue = (v.tipoVacina || "").trim();
       const doseValue = (v.dose || "").trim();
       const localValue = (v.localAplicacao || "").trim();
 
@@ -756,10 +781,16 @@ export default function AppointmentForm({
               <div className="space-y-2">
                 <Label>Nome da Vacina *</Label>
                 <Select
-                  value={vacinaValue}
+                  value={vaccineNameChoice}
                   onValueChange={(val) => {
                     clearError("tipoVacina");
-                    setDetails({ ...v, tipoVacina: val === "Outra" ? "" : val });
+                    setVaccineNameChoice(val);
+                    if (val !== "Outra") {
+                      setDetails({ ...v, tipoVacina: val });
+                    } else {
+                      // mantém tipoVacina para digitação manual (input abaixo)
+                      setDetails({ ...v, tipoVacina: (v.tipoVacina || "").trim() });
+                    }
                   }}
                 >
                   <SelectTrigger className={errClass(errors.tipoVacina)}>
@@ -773,7 +804,8 @@ export default function AppointmentForm({
                     ))}
                   </SelectContent>
                 </Select>
-                {(vacinaValue === "" || vacinaValue === "Outra") && (
+
+                {vaccineNameChoice === "Outra" ? (
                   <Input
                     className={errClass(errors.tipoVacina)}
                     value={v.tipoVacina || ""}
@@ -783,7 +815,7 @@ export default function AppointmentForm({
                     }}
                     placeholder="Digite o nome da vacina"
                   />
-                )}
+                ) : null}
               </div>
 
               <div className="space-y-2">
@@ -838,7 +870,7 @@ export default function AppointmentForm({
 
               <div className="space-y-2">
                 <Label>Validade</Label>
-                <DateInputBR
+                <DatePickerBR
                   valueISO={v.dataValidade || ""}
                   onChangeISO={(val) => setDetails({ ...v, dataValidade: val || undefined })}
                 />
@@ -858,7 +890,15 @@ export default function AppointmentForm({
                   value={localValue}
                   onValueChange={(val) => {
                     const via =
-                      val.startsWith("Subcutâneo") ? "SC" : val === "Intramuscular" ? "IM" : val === "Intranasal" ? "IN" : val === "Oral" ? "VO" : "";
+                      val.startsWith("Subcutâneo")
+                        ? "SC"
+                        : val === "Intramuscular"
+                          ? "IM"
+                          : val === "Intranasal"
+                            ? "IN"
+                            : val === "Oral"
+                              ? "VO"
+                              : "";
                     setDetails({ ...v, localAplicacao: val, viaAdministracao: via as any });
                   }}
                 >
@@ -877,7 +917,7 @@ export default function AppointmentForm({
 
               <div className="space-y-2">
                 <Label>Data da Próxima Dose</Label>
-                <DateInputBR
+                <DatePickerBR
                   valueISO={v.proximaDose || ""}
                   onChangeISO={(val) => setDetails({ ...v, proximaDose: val || undefined })}
                 />

@@ -34,6 +34,16 @@ export function brToISO(br?: string) {
   return iso;
 }
 
+function maskDDMMYYYY(input: string) {
+  const digits = input.replace(/\D/g, "").slice(0, 8);
+  const d = digits.slice(0, 2);
+  const m = digits.slice(2, 4);
+  const y = digits.slice(4, 8);
+  if (digits.length <= 2) return d;
+  if (digits.length <= 4) return `${d}/${m}`;
+  return `${d}/${m}/${y}`;
+}
+
 type Props = {
   id?: string;
   valueISO: string;
@@ -44,8 +54,8 @@ type Props = {
 };
 
 /**
- * Input de data em pt-BR (DD/MM/AAAA), editável manualmente.
- * Mantém o valor de saída em ISO (YYYY-MM-DD) para compatibilidade com dados existentes.
+ * Input de data em pt-BR (DD/MM/AAAA), com máscara leve.
+ * Mantém o valor de saída em ISO (YYYY-MM-DD) para compatibilidade.
  */
 export default function DateInputBR({
   id,
@@ -72,11 +82,11 @@ export default function DateInputBR({
       required={required}
       className={className}
       onChange={(e) => {
-        const v = e.target.value;
-        setRaw(v);
-        const iso = brToISO(v);
+        const masked = maskDDMMYYYY(e.target.value);
+        setRaw(masked);
+        const iso = brToISO(masked);
         if (iso) onChangeISO(iso);
-        if (v.trim() === "") onChangeISO("");
+        if (masked.trim() === "") onChangeISO("");
       }}
     />
   );
