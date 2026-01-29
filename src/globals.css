@@ -44,9 +44,19 @@ body,
     --muted: 220 20% 96%;
     --muted-foreground: 220 8% 46%;
 
-    /* Mantemos accent neutro para não poluir */
-    --accent: 220 20% 96%;
-    --accent-foreground: 222 20% 12%;
+    /* ------------------------------------------------------------
+       SystemVet — HOVER GLOBAL LARANJA (tokens)
+       ------------------------------------------------------------ */
+    --sv-accent: 34 94% 50%;         /* #F79009 */
+    --sv-accent-hover: 39 100% 56%;  /* #FFB020 */
+    --sv-accent-active: 33 100% 44%; /* #E07A00 */
+    --sv-accent-soft: 34 100% 94%;   /* #FFF3E0 */
+    --sv-accent-ring: 39 98% 57%;    /* #FDB022 */
+
+    /* shadcn/ui usa accent principalmente para hover/focus.
+       Aqui, accent vira o fundo suave e accent-foreground vira o laranja principal (ícones/textos). */
+    --accent: var(--sv-accent-soft);
+    --accent-foreground: var(--sv-accent);
 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
@@ -55,7 +65,9 @@ body,
     --border: 220 14% 86%;
     /* Input/background de componentes (bg-input) deve ser branco no light */
     --input: 0 0% 100%;
-    --ring: 156 38% 34%;
+
+    /* Focus ring global (acessibilidade) */
+    --ring: var(--sv-accent-ring);
 
     /* Radius premium */
     --radius: 0.9rem;
@@ -65,10 +77,10 @@ body,
     --sidebar-foreground: 222 12% 22%;
     --sidebar-primary: 156 40% 94%;
     --sidebar-primary-foreground: 156 42% 22%;
-    --sidebar-accent: 220 20% 96%;
-    --sidebar-accent-foreground: 222 12% 22%;
+    --sidebar-accent: var(--sv-accent-soft);
+    --sidebar-accent-foreground: var(--sv-accent);
     --sidebar-border: 220 16% 90%;
-    --sidebar-ring: 156 38% 34%;
+    --sidebar-ring: var(--sv-accent-ring);
   }
 
   .dark {
@@ -91,8 +103,15 @@ body,
     --muted: 222 16% 18%;
     --muted-foreground: 220 8% 64%;
 
-    --accent: 222 16% 18%;
-    --accent-foreground: 220 20% 92%;
+    /* Tokens laranja no dark (suaves, para não "gritar") */
+    --sv-accent: 39 100% 66%;        /* laranja para texto/ícone */
+    --sv-accent-hover: 39 100% 60%;  /* hover um pouco mais forte */
+    --sv-accent-active: 33 100% 48%; /* pressed */
+    --sv-accent-soft: 34 45% 18%;    /* fundo suave no dark */
+    --sv-accent-ring: 39 98% 57%;
+
+    --accent: var(--sv-accent-soft);
+    --accent-foreground: var(--sv-accent);
 
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 210 40% 98%;
@@ -100,16 +119,16 @@ body,
     --border: 222 14% 30%;
     /* Mantém bg-input utilizável no dark */
     --input: 222 16% 18%;
-    --ring: 156 38% 48%;
+    --ring: var(--sv-accent-ring);
 
     --sidebar-background: 222 16% 14%;
     --sidebar-foreground: 220 20% 92%;
     --sidebar-primary: 156 18% 20%;
     --sidebar-primary-foreground: 220 20% 92%;
-    --sidebar-accent: 222 16% 18%;
-    --sidebar-accent-foreground: 220 20% 92%;
+    --sidebar-accent: var(--sv-accent-soft);
+    --sidebar-accent-foreground: var(--sv-accent);
     --sidebar-border: 222 14% 24%;
-    --sidebar-ring: 156 38% 48%;
+    --sidebar-ring: var(--sv-accent-ring);
   }
 }
 
@@ -125,6 +144,36 @@ body,
 
   p {
     line-height: 1.75;
+  }
+
+  /* Focus ring global (navegação por teclado) */
+  :where(a, button, [role="button"], [role="menuitem"], [role="option"], [tabindex]):focus-visible {
+    outline: 2px solid hsl(var(--sv-accent-ring));
+    outline-offset: 2px;
+  }
+}
+
+@layer utilities {
+  /*
+   * Hover global laranja: substitui hovers cinza comuns (hover:bg-muted...)
+   * por accentSoft, mantendo o layout e evitando ajustes por página.
+   */
+  [class*="hover:bg-muted"]:hover,
+  [class*="hover:bg-muted/"]:hover,
+  [class*="hover:bg-sidebar-accent"]:hover {
+    background-color: hsl(var(--accent)) !important;
+  }
+
+  [class*="hover:bg-muted"]:active,
+  [class*="hover:bg-muted/"]:active,
+  [class*="hover:bg-sidebar-accent"]:active {
+    background-color: hsl(var(--sv-accent-active)) !important;
+  }
+
+  /* Dropdowns/combobox: hover em itens Radix */
+  :where([role="menuitem"], [role="option"], [data-radix-collection-item]):hover {
+    background-color: hsl(var(--accent));
+    color: hsl(var(--accent-foreground));
   }
 }
 
@@ -252,8 +301,8 @@ body,
   right: 0.35rem;
   bottom: -1px;
   height: 2px;
-  background: hsl(var(--primary));
-  opacity: 0.9;
+  background: hsl(var(--accent-foreground));
+  opacity: 0.95;
   border-radius: 1px;
 }
 

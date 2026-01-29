@@ -996,7 +996,7 @@ const PatientRecordPage = () => {
                   <span className="font-semibold text-foreground">{formatWeightLabel(latestWeight)}</span>
                 </span>
                 <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-white px-3 py-1 text-[12px] leading-5">
-                  <FaCalendarAlt className="h-3 w-3 text-slate-600" />
+                  <FaCalendarAlt className="h-3 w-3 text-[#F79009]" />
                   <span className="text-muted-foreground">Nascimento:</span>
                   <span className="font-semibold text-foreground">
                     {currentAnimal.birthday ? formatDateTime(currentAnimal.birthday) : "-"}
@@ -1020,26 +1020,29 @@ const PatientRecordPage = () => {
                         </div>
 
                         <div className="min-w-0">
-                          <div className="text-sm font-semibold text-foreground">Tutor</div>
-                          <div className="mt-0.5 text-sm text-foreground/90 font-medium truncate">
+                          <div className="text-[15px] font-semibold text-foreground">Tutor</div>
+                          <div className="mt-0.5 text-[15px] text-foreground/90 font-medium truncate">
                             {currentClient.name}
                           </div>
 
-                          <div className="mt-2 space-y-1 text-xs text-muted-foreground">
+                          <div className="mt-2 space-y-1 text-sm text-muted-foreground">
                             <div className="flex items-center gap-1.5">
-                              <FaPhone className="h-3 w-3 text-sky-600" />
+                              <FaPhone className="h-3.5 w-3.5 text-sky-600" />
                               <span className="truncate">
-                                <span className="text-muted-foreground">Telefone:</span> {currentClient.mainPhoneContact || "-"}
+                                <span className="text-foreground/70 font-medium">Telefone:</span>{" "}
+                                <span className="text-foreground/90">{currentClient.mainPhoneContact || "-"}</span>
                               </span>
                             </div>
                             <div className="flex items-start gap-1.5">
-                              <FaMapMarkerAlt className="mt-0.5 h-3 w-3 text-sky-600" />
+                              <FaMapMarkerAlt className="mt-0.5 h-3.5 w-3.5 text-sky-600" />
                               <span className="line-clamp-1">
-                                <span className="text-muted-foreground">Endereço:</span>{" "}
-                                {currentClient.address?.street ? `${currentClient.address.street}, ${currentClient.address.number}` : "-"}
-                                {currentClient.address?.neighborhood ? ` • ${currentClient.address.neighborhood}` : ""}
-                                {currentClient.address?.city ? ` • ${currentClient.address.city}` : ""}
-                                {currentClient.address?.state ? ` - ${currentClient.address.state}` : ""}
+                                <span className="text-foreground/70 font-medium">Endereço:</span>{" "}
+                                <span className="text-foreground/90">
+                                  {currentClient.address?.street ? `${currentClient.address.street}, ${currentClient.address.number}` : "-"}
+                                  {currentClient.address?.neighborhood ? ` • ${currentClient.address.neighborhood}` : ""}
+                                  {currentClient.address?.city ? ` • ${currentClient.address.city}` : ""}
+                                  {currentClient.address?.state ? ` - ${currentClient.address.state}` : ""}
+                                </span>
                               </span>
                             </div>
                           </div>
@@ -1062,24 +1065,24 @@ const PatientRecordPage = () => {
                     </div>
 
                     <CollapsibleContent>
-                      <div className="px-3 pb-3 text-xs text-muted-foreground space-y-2">
+                      <div className="px-3 pb-3 text-sm text-muted-foreground space-y-2">
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
                           <div className="flex items-center gap-1.5">
-                            <FaIdCard className="h-3 w-3 text-sky-600" />
+                            <FaIdCard className="h-3.5 w-3.5 text-sky-600" />
                             <span>
-                              <span className="text-muted-foreground">
+                              <span className="text-foreground/70 font-medium">
                                 {currentClient.clientType === "physical" ? "CPF" : "CNPJ"}:
                               </span>{" "}
-                              <span className="font-medium text-foreground/90">{currentClient.identificationNumber || "-"}</span>
+                              <span className="font-semibold text-foreground/90">{currentClient.identificationNumber || "-"}</span>
                             </span>
                           </div>
                           <div className="flex items-center gap-1.5">
-                            <FaIdCard className="h-3 w-3 text-sky-600" />
+                            <FaIdCard className="h-3.5 w-3.5 text-sky-600" />
                             <span>
-                              <span className="text-muted-foreground">
+                              <span className="text-foreground/70 font-medium">
                                 {currentClient.clientType === "physical" ? "RG" : "IE"}:
                               </span>{" "}
-                              <span className="font-medium text-foreground/90">{currentClient.secondaryIdentification || "-"}</span>
+                              <span className="font-semibold text-foreground/90">{currentClient.secondaryIdentification || "-"}</span>
                             </span>
                           </div>
                         </div>
@@ -1088,32 +1091,32 @@ const PatientRecordPage = () => {
                           <div className="flex flex-wrap gap-x-3 gap-y-1">
                             {currentClient.mainEmailContact ? (
                               <span>
-                                <span className="text-muted-foreground">E-mail:</span>{" "}
-                                <span className="font-medium text-foreground/90">{currentClient.mainEmailContact}</span>
+                                <span className="text-foreground/70 font-medium">E-mail:</span>{" "}
+                                <span className="font-semibold text-foreground/90">{currentClient.mainEmailContact}</span>
                               </span>
                             ) : null}
                             {currentClient.birthday ? (
                               <span>
-                                <span className="text-muted-foreground">Nascimento:</span>{" "}
-                                <span className="font-medium text-foreground/90">{formatDateTime(currentClient.birthday)}</span>
+                                <span className="text-foreground/70 font-medium">Nascimento:</span>{" "}
+                                <span className="font-semibold text-foreground/90">{formatDateTime(currentClient.birthday)}</span>
                               </span>
                             ) : null}
                             {currentClient.profession ? (
                               <span>
-                                <span className="text-muted-foreground">Profissão:</span>{" "}
-                                <span className="font-medium text-foreground/90">{currentClient.profession}</span>
+                                <span className="text-foreground/70 font-medium">Profissão:</span>{" "}
+                                <span className="font-semibold text-foreground/90">{currentClient.profession}</span>
                               </span>
                             ) : null}
                             {currentClient.nationality ? (
                               <span>
-                                <span className="text-muted-foreground">Nacionalidade:</span>{" "}
-                                <span className="font-medium text-foreground/90">{currentClient.nationality}</span>
+                                <span className="text-foreground/70 font-medium">Nacionalidade:</span>{" "}
+                                <span className="font-semibold text-foreground/90">{currentClient.nationality}</span>
                               </span>
                             ) : null}
                             {currentClient.dynamicContacts?.length ? (
                               <span>
-                                <span className="text-muted-foreground">Contatos:</span>{" "}
-                                <span className="font-medium text-foreground/90">
+                                <span className="text-foreground/70 font-medium">Contatos:</span>{" "}
+                                <span className="font-semibold text-foreground/90">
                                   {currentClient.dynamicContacts
                                     .filter((c) => c.value)
                                     .slice(0, 3)
@@ -1155,26 +1158,26 @@ const PatientRecordPage = () => {
                             <BadgeDollarSign className="h-4 w-4" strokeWidth={1.8} />
                           </div>
                           <div className="min-w-0">
-                            <div className="text-sm font-semibold text-foreground">Financeiro</div>
-                            <div className="text-xs text-muted-foreground">Resumo do prontuário</div>
+                            <div className="text-[15px] font-semibold text-foreground">Financeiro</div>
+                            <div className="text-sm text-muted-foreground">Resumo do prontuário</div>
                           </div>
                         </div>
 
                         <div className="mt-3 grid grid-cols-2 gap-2">
                           <div className="rounded-xl border border-border bg-white px-3 py-2.5">
-                            <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
                               <AlertCircle className="h-4 w-4 text-rose-600" strokeWidth={1.6} />
-                              Pendências
+                              <span className="font-medium text-foreground/70">Pendências</span>
                             </div>
-                            <div className="mt-1 text-sm font-semibold text-rose-600">{fmt(pending)}</div>
+                            <div className="mt-1 text-base font-semibold text-rose-600">{fmt(pending)}</div>
                           </div>
 
                           <div className="rounded-xl border border-border bg-white px-3 py-2.5">
-                            <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
                               <BadgeDollarSign className="h-4 w-4 text-emerald-600" strokeWidth={1.6} />
-                              Saldo financeiro
+                              <span className="font-medium text-foreground/70">Saldo financeiro</span>
                             </div>
-                            <div className="mt-1 text-sm font-semibold text-emerald-700">{fmt(net)}</div>
+                            <div className="mt-1 text-base font-semibold text-emerald-700">{fmt(net)}</div>
                           </div>
                         </div>
                       </div>
@@ -1191,47 +1194,47 @@ const PatientRecordPage = () => {
           <div ref={tabScrollRef} className="relative w-full overflow-x-auto overflow-y-hidden no-scrollbar scroll-smooth select-none">
             <TabsList className="inline-flex w-max items-center whitespace-nowrap border-b border-border/40 bg-transparent p-0 rounded-none gap-1">
               <TabsTrigger value="timeline" className="tab-active-line relative -mb-px pb-2 px-2.5 md:px-3.5 shrink-0 text-sm md:text-[0.95rem] text-muted-foreground hover:text-foreground hover:bg-muted/30 rounded-md transition-colors data-[state=active]:text-foreground data-[state=active]:font-semibold">
-                <FaClock className="h-4 w-4 mr-1.5 md:mr-2 text-current opacity-70" />
+                <FaClock className="h-4 w-4 mr-1.5 md:mr-2 text-[#F79009]" />
                 <span className="max-w-[9.5rem] md:max-w-none truncate">Linha do Tempo</span>
                 <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[10px] bg-muted text-foreground/70">{sortedTimelineEvents.length}</span>
               </TabsTrigger>
               <TabsTrigger value="appointments" className="tab-active-line relative -mb-px pb-2 px-2.5 md:px-3.5 shrink-0 text-sm md:text-[0.95rem] text-muted-foreground hover:text-foreground hover:bg-muted/30 rounded-md transition-colors data-[state=active]:text-foreground data-[state=active]:font-semibold">
-                <FaStethoscope className="h-4 w-4 mr-1.5 md:mr-2 text-current opacity-70" />
+                <FaStethoscope className="h-4 w-4 mr-1.5 md:mr-2 text-[#F79009]" />
                 <span className="max-w-[9.5rem] md:max-w-none truncate">Atendimento</span>
                 <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[10px] bg-muted text-foreground/70">{animalAppointments.length}</span>
               </TabsTrigger>
               <TabsTrigger value="exams" className="tab-active-line relative -mb-px pb-2 px-2.5 md:px-3.5 shrink-0 text-sm md:text-[0.95rem] text-muted-foreground hover:text-foreground hover:bg-muted/30 rounded-md transition-colors data-[state=active]:text-foreground data-[state=active]:font-semibold">
-                <FaFlask className="h-4 w-4 mr-1.5 md:mr-2 text-current opacity-70" />
+                <FaFlask className="h-4 w-4 mr-1.5 md:mr-2 text-[#F79009]" />
                 <span className="max-w-[9.5rem] md:max-w-none truncate">Exames</span>
                 <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[10px] bg-muted text-foreground/70">{examsList.length}</span>
               </TabsTrigger>
               <TabsTrigger value="vaccines" className="tab-active-line relative -mb-px pb-2 px-2.5 md:px-3.5 shrink-0 text-sm md:text-[0.95rem] text-muted-foreground hover:text-foreground hover:bg-muted/30 rounded-md transition-colors data-[state=active]:text-foreground data-[state=active]:font-semibold">
-                <FaSyringe className="h-4 w-4 mr-1.5 md:mr-2 text-current opacity-70" />
+                <FaSyringe className="h-4 w-4 mr-1.5 md:mr-2 text-[#F79009]" />
                 <span className="max-w-[9.5rem] md:max-w-none truncate">Vacinas</span>
                 <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[10px] bg-muted text-foreground/70">{vaccineAppointmentsCount}</span>
               </TabsTrigger>
               <TabsTrigger value="weight" className="tab-active-line relative -mb-px pb-2 px-2.5 md:px-3.5 shrink-0 text-sm md:text-[0.95rem] text-muted-foreground hover:text-foreground hover:bg-muted/30 rounded-md transition-colors data-[state=active]:text-foreground data-[state=active]:font-semibold">
-                <FaWeightHanging className="h-4 w-4 mr-1.5 md:mr-2 text-current opacity-70" />
+                <FaWeightHanging className="h-4 w-4 mr-1.5 md:mr-2 text-[#F79009]" />
                 <span className="max-w-[9.5rem] md:max-w-none truncate">Peso</span>
                 <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[10px] bg-muted text-foreground/70">{weightHistory.length}</span>
               </TabsTrigger>
               <TabsTrigger value="documents" className="tab-active-line relative -mb-px pb-2 px-2.5 md:px-3.5 shrink-0 text-sm md:text-[0.95rem] text-muted-foreground hover:text-foreground hover:bg-muted/30 rounded-md transition-colors data-[state=active]:text-foreground data-[state=active]:font-semibold">
-                <FaFileAlt className="h-4 w-4 mr-1.5 md:mr-2 text-current opacity-70" />
+                <FaFileAlt className="h-4 w-4 mr-1.5 md:mr-2 text-[#F79009]" />
                 <span className="max-w-[9.5rem] md:max-w-none truncate">Documentos</span>
                 <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[10px] bg-muted text-foreground/70">{documents.length}</span>
               </TabsTrigger>
               <TabsTrigger value="prescriptions" className="tab-active-line relative -mb-px pb-2 px-2.5 md:px-3.5 shrink-0 text-sm md:text-[0.95rem] text-muted-foreground hover:text-foreground hover:bg-muted/30 rounded-md transition-colors data-[state=active]:text-foreground data-[state=active]:font-semibold">
-                <FaPrescriptionBottleAlt className="h-4 w-4 mr-1.5 md:mr-2 text-current opacity-70" />
+                <FaPrescriptionBottleAlt className="h-4 w-4 mr-1.5 md:mr-2 text-[#F79009]" />
                 <span className="max-w-[9.5rem] md:max-w-none truncate">Receitas</span>
                 <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[10px] bg-muted text-foreground/70">{prescriptions.length}</span>
               </TabsTrigger>
               <TabsTrigger value="observations" className="tab-active-line relative -mb-px pb-2 px-2.5 md:px-3.5 shrink-0 text-sm md:text-[0.95rem] text-muted-foreground hover:text-foreground hover:bg-muted/30 rounded-md transition-colors data-[state=active]:text-foreground data-[state=active]:font-semibold">
-                <FaCommentAlt className="h-4 w-4 mr-1.5 md:mr-2 text-current opacity-70" />
+                <FaCommentAlt className="h-4 w-4 mr-1.5 md:mr-2 text-[#F79009]" />
                 <span className="max-w-[9.5rem] md:max-w-none truncate">Observações</span>
                 <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[10px] bg-muted text-foreground/70">{observations.length}</span>
               </TabsTrigger>
               <TabsTrigger value="financial" className="tab-active-line relative -mb-px pb-2 px-2.5 md:px-3.5 shrink-0 text-sm md:text-[0.95rem] text-muted-foreground hover:text-foreground hover:bg-muted/30 rounded-md transition-colors data-[state=active]:text-foreground data-[state=active]:font-semibold">
-                <FaMoneyBillWave className="h-4 w-4 mr-1.5 md:mr-2 text-current opacity-70" />
+                <FaMoneyBillWave className="h-4 w-4 mr-1.5 md:mr-2 text-[#F79009]" />
                 <span className="max-w-[9.5rem] md:max-w-none truncate">Financeiro</span>
                 <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[10px] bg-muted text-foreground/70">{patientSales.length}</span>
               </TabsTrigger>
