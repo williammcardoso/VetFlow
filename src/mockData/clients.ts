@@ -269,7 +269,7 @@ export const addMockAnimalToClient = (clientId: string, newAnimal: Omit<Animal, 
   return null;
 };
 
-export const updateAnimalDetails = (clientId: string, animalId: string, updates: Partial<Animal>) => {
+export const updateAnimalDetails = (clientId: string, animalId: string, updates: Partial<Animal>, meta?: { date?: string; time?: string }) => {
   const clientIndex = mockClients.findIndex(c => c.id === clientId);
   if (clientIndex !== -1) {
     const animalIndex = mockClients[clientIndex].animals.findIndex(a => a.id === animalId);
@@ -282,10 +282,11 @@ export const updateAnimalDetails = (clientId: string, animalId: string, updates:
 
       // If weight is updated, add to history
       if (updates.weight !== undefined && updates.weight !== currentAnimal.weight) {
+        const now = new Date();
         const newWeightEntry: WeightEntry = {
           id: `wh-${Date.now()}`,
-          date: new Date().toISOString().split('T')[0],
-          time: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }), // Adicionado time
+          date: meta?.date || now.toISOString().split('T')[0],
+          time: meta?.time || now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
           weight: updates.weight,
           source: updates.lastWeightSource || "Atualização Manual", // Default source
         };

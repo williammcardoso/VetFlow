@@ -70,6 +70,7 @@ import {
   BadgeDollarSign,
   UserRound
 } from "lucide-react";
+import { Calendar } from "lucide-react";
 
 // Tipos locais para documentos e observações
 interface DocumentEntry {
@@ -1560,7 +1561,7 @@ const PatientRecordPage = () => {
                       const success = updateAnimalDetails(clientId!, animalId!, {
                         weight: parseFloat(newWeight),
                         lastWeightSource: "Manual",
-                      });
+                      }, { date: newWeightDate, time: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) });
                       if (success) {
                         setNewWeight("");
                         setNewWeightDate(new Date().toISOString().split('T')[0]);
@@ -1575,31 +1576,73 @@ const PatientRecordPage = () => {
                 </div>
               </CardHeader>
               <CardContent className="pt-0">
-                {weightHistory.length > 0 ? (
-                  <div className="space-y-4">
-                    {weightHistory.map((entry) => (
-                      <Card key={entry.id} className="p-4 bg-input shadow-sm border border-border">
-                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-2 gap-2">
-                          <div className="flex items-center gap-2">
-                            <FaWeightHanging className="h-4 w-4 text-muted-foreground" />
-                            <p className="text-lg font-semibold text-foreground">
-                              {entry.weight.toFixed(2)} kg
-                            </p>
+                {sortedWeightHistory.length > 0 ? (
+                  <div className="space-y-3">
+                    {sortedWeightHistory.map((entry, idx) => {
+                      const prevEntry = sortedWeightHistory[idx + 1];
+                      const weightDiff = prevEntry ? entry.weight - prevEntry.weight : 0;
+                      const isIncrease = weightDiff > 0;
+                      const isDecrease = weightDiff < 0;
+                      const diffPercent = prevEntry ? ((weightDiff / prevEntry.weight) * 100).toFixed(1) : "0";
+
+                      return (
+                        <div
+                          key={entry.id}
+                          className="premium-card rounded-xl p-4 transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5 border-emerald-200 hover:shadow-emerald-200/60"
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex items-start gap-3 min-w-0">
+                              <div className="h-12 w-12 shrink-0 rounded-2xl bg-emerald-50/70 flex items-center justify-center">
+                                <FaWeightHanging className="h-6 w-6 text-emerald-600" />
+                              </div>
+
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-2 text-base font-bold text-emerald-900">
+                                  <span>{entry.weight.toFixed(2)} kg</span>
+                                  {prevEntry && (
+                                    <div className="flex items-center gap-1 text-xs font-medium">
+                                      {isIncrease ? (
+                                        <div className="flex items-center gap-0.5 text-emerald-600">
+                                          <FaArrowUp className="h-3 w-3" />
+                                          <span>+{diffPercent}%</span>
+                                        </div>
+                                      ) : isDecrease ? (
+                                        <div className="flex items-center gap-0.5 text-rose-600">
+                                          <FaArrowDown className="h-3 w-3" />
+                                          <span>{diffPercent}%</span>
+                                        </div>
+                                      ) : (
+                                        <span className="text-muted-foreground">0%</span>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+
+                                <div className="mt-1 text-sm text-muted-foreground leading-relaxed">
+                                  {entry.source || "-"}
+                                </div>
+
+                                <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+                                  <span className="inline-flex items-center gap-1.5 text-foreground/80 font-medium">
+                                    <Calendar className="h-4 w-4 text-muted-foreground" />
+                                    {formatDateTime(entry.date, entry.time)}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => { setSelectedWeight(entry); setWeightModalOpen(true); }}
+                              className="rounded-md hover:bg-muted hover:text-foreground transition-colors duration-200"
+                            >
+                              <FaEye className="h-4 w-4" />
+                            </Button>
                           </div>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => { setSelectedWeight(entry); setWeightModalOpen(true); }}
-                            className="rounded-md hover:bg-muted hover:text-foreground transition-colors duration-200"
-                          >
-                             <FaEye className="h-4 w-4" />
-                           </Button>
                         </div>
-                        <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                          <FaCalendarAlt className="h-3 w-3" /> {formatDateTime(entry.date, entry.time)} {entry.source && <span className="text-xs italic">({entry.source})</span>}
-                        </div>
-                      </Card>
-                    ))}
+                      );
+                    })}
                   </div>
                 ) : (
                   <p className="text-muted-foreground py-4">Nenhum registro de peso.</p>
