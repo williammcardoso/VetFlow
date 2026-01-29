@@ -23,6 +23,7 @@ import {
   Stethoscope,
   Syringe,
   Trash2,
+  UserRound,
 } from "lucide-react";
 
 import type {
@@ -35,7 +36,7 @@ import type {
   EmergencyDetails,
 } from "@/types/appointment";
 import { mockAppointments } from "@/mockData/appointments";
-import { formatDateTime } from "@/lib/utils";
+import { cn, formatDateTime } from "@/lib/utils";
 
 const displayType = (type: AppointmentEntry["type"]) => {
   if (type === "Consulta" || type === "Consulta (Modelo Antigo)") return "Consulta";
@@ -43,53 +44,95 @@ const displayType = (type: AppointmentEntry["type"]) => {
   return type;
 };
 
-const typeMeta = (type: AppointmentEntry["type"]) => {
+type TypeMeta = {
+  label: string;
+  icon: React.ElementType;
+  buttonClass: string;
+  iconClass: string;
+  cardBorderClass: string;
+  cardHoverShadowClass: string;
+  iconWrapBgClass: string;
+};
+
+const typeMeta = (type: AppointmentEntry["type"]): TypeMeta => {
   const t = displayType(type);
+
+  // Paleta premium (mesmas cores nos botões e nos cards)
   if (t === "Consulta") {
     return {
       label: "Consulta",
       icon: Stethoscope,
-      badge: "badge-soft-blue",
-      left: "bg-blue-400",
+      buttonClass:
+        "border-2 border-teal-300 bg-teal-50/40 text-teal-900 hover:bg-teal-50/70 hover:shadow-lg hover:shadow-teal-200/70 hover:-translate-y-0.5",
+      iconClass: "text-teal-600",
+      cardBorderClass: "border-teal-300",
+      cardHoverShadowClass: "hover:shadow-teal-200/70",
+      iconWrapBgClass: "bg-teal-50",
     };
   }
+
   if (t === "Cirurgia") {
     return {
       label: "Cirurgia",
       icon: Scissors,
-      badge: "badge-soft-purple",
-      left: "bg-purple-400",
+      buttonClass:
+        "border-2 border-rose-300 bg-rose-50/40 text-rose-900 hover:bg-rose-50/70 hover:shadow-lg hover:shadow-rose-200/70 hover:-translate-y-0.5",
+      iconClass: "text-rose-600",
+      cardBorderClass: "border-rose-300",
+      cardHoverShadowClass: "hover:shadow-rose-200/70",
+      iconWrapBgClass: "bg-rose-50",
     };
   }
+
   if (t === "Vacinação") {
     return {
       label: "Vacinação",
       icon: Syringe,
-      badge: "badge-soft-teal",
-      left: "bg-teal-400",
+      buttonClass:
+        "border-2 border-sky-300 bg-sky-50/40 text-sky-900 hover:bg-sky-50/70 hover:shadow-lg hover:shadow-sky-200/70 hover:-translate-y-0.5",
+      iconClass: "text-sky-600",
+      cardBorderClass: "border-sky-300",
+      cardHoverShadowClass: "hover:shadow-sky-200/70",
+      iconWrapBgClass: "bg-sky-50",
     };
   }
+
   if (t === "Retorno") {
     return {
       label: "Retorno",
       icon: Repeat2,
-      badge: "badge-soft-amber",
-      left: "bg-amber-400",
+      buttonClass:
+        "border-2 border-slate-300 bg-slate-50/60 text-slate-900 hover:bg-slate-50/80 hover:shadow-lg hover:shadow-slate-200/70 hover:-translate-y-0.5",
+      iconClass: "text-slate-600",
+      cardBorderClass: "border-slate-300",
+      cardHoverShadowClass: "hover:shadow-slate-200/70",
+      iconWrapBgClass: "bg-slate-50",
     };
   }
+
   if (t === "Emergência") {
     return {
       label: "Emergência",
       icon: AlertTriangle,
-      badge: "bg-red-100 text-red-800",
-      left: "bg-red-400",
+      // Único com fundo levemente mais forte
+      buttonClass:
+        "border-2 border-orange-300 bg-orange-100/70 text-orange-950 hover:bg-orange-100 hover:shadow-lg hover:shadow-orange-200/80 hover:-translate-y-0.5",
+      iconClass: "text-orange-700",
+      cardBorderClass: "border-orange-300",
+      cardHoverShadowClass: "hover:shadow-orange-200/80",
+      iconWrapBgClass: "bg-orange-100/70",
     };
   }
+
   return {
     label: t,
     icon: Calendar,
-    badge: "badge-soft-gray",
-    left: "bg-slate-300",
+    buttonClass:
+      "border-2 border-border bg-white hover:bg-white hover:shadow-lg hover:shadow-muted-foreground/10 hover:-translate-y-0.5",
+    iconClass: "text-muted-foreground",
+    cardBorderClass: "border-border",
+    cardHoverShadowClass: "hover:shadow-muted-foreground/10",
+    iconWrapBgClass: "bg-muted/30",
   };
 };
 
@@ -123,10 +166,10 @@ function buildSummary(app: AppointmentEntry) {
 
   if (type === "Vacinação") {
     const v = app.details as VaccinationDetails;
-    const main = v.tipoVacina || "Vacinação";
-    const dose = v.dose ? ` • ${v.dose}` : "";
-    const local = v.localAplicacao ? ` • ${v.localAplicacao}` : "";
-    return `${main}${dose}${local}`;
+    const nomeVacina = (v.tipoVacina || "-").trim() || "-";
+    const dose = (v.dose || "-").trim() || "-";
+    const nomeComercial = (v.nomeComercial || "-").trim() || "-";
+    return `Vacina: ${nomeVacina} - ${dose} - ${nomeComercial}`;
   }
 
   if (type === "Retorno") {
@@ -139,7 +182,12 @@ function buildSummary(app: AppointmentEntry) {
     return e.condicaoGeral || app.observacoesGerais || "Emergência";
   }
 
-  return base.suspeitaDiagnostica || base.condutaTratamento || app.observacoesGerais || `Atendimento de ${type}`;
+  return (
+    base.suspeitaDiagnostica ||
+    base.condutaTratamento ||
+    app.observacoesGerais ||
+    `Atendimento de ${type}`
+  );
 }
 
 export default function PatientAppointmentsTab({
@@ -179,6 +227,12 @@ export default function PatientAppointmentsTab({
     }
   };
 
+  const metaConsulta = typeMeta("Consulta");
+  const metaCirurgia = typeMeta("Cirurgia");
+  const metaVacina = typeMeta("Vacina");
+  const metaRetorno = typeMeta("Retorno");
+  const metaEmerg = typeMeta("Emergência");
+
   return (
     <div className="space-y-4">
       <Card className="premium-card rounded-xl">
@@ -189,26 +243,57 @@ export default function PatientAppointmentsTab({
           <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
             <SaasButton
               saasVariant="outline"
-              className="justify-start gap-2"
+              className={cn(
+                "justify-start gap-2 transition-all duration-200",
+                metaConsulta.buttonClass
+              )}
               onClick={() => setConsultDialogOpen(true)}
             >
-              <Stethoscope className="h-4 w-4 text-primary" /> Consulta
+              <Stethoscope className={cn("h-4 w-4", metaConsulta.iconClass)} /> Consulta
             </SaasButton>
-            <SaasButton saasVariant="outline" className="justify-start gap-2" onClick={() => goNew("Cirurgia")}>
-              <Scissors className="h-4 w-4 text-primary" /> Cirurgia
-            </SaasButton>
-            <SaasButton saasVariant="outline" className="justify-start gap-2" onClick={() => goNew("Vacina")}>
-              <Syringe className="h-4 w-4 text-primary" /> Vacina
-            </SaasButton>
-            <SaasButton saasVariant="outline" className="justify-start gap-2" onClick={() => goNew("Retorno")}>
-              <Repeat2 className="h-4 w-4 text-primary" /> Retorno
-            </SaasButton>
+
             <SaasButton
               saasVariant="outline"
-              className="justify-start gap-2"
+              className={cn(
+                "justify-start gap-2 transition-all duration-200",
+                metaCirurgia.buttonClass
+              )}
+              onClick={() => goNew("Cirurgia")}
+            >
+              <Scissors className={cn("h-4 w-4", metaCirurgia.iconClass)} /> Cirurgia
+            </SaasButton>
+
+            <SaasButton
+              saasVariant="outline"
+              className={cn(
+                "justify-start gap-2 transition-all duration-200",
+                metaVacina.buttonClass
+              )}
+              onClick={() => goNew("Vacina")}
+            >
+              <Syringe className={cn("h-4 w-4", metaVacina.iconClass)} /> Vacinação
+            </SaasButton>
+
+            <SaasButton
+              saasVariant="outline"
+              className={cn(
+                "justify-start gap-2 transition-all duration-200",
+                metaRetorno.buttonClass
+              )}
+              onClick={() => goNew("Retorno")}
+            >
+              <Repeat2 className={cn("h-4 w-4", metaRetorno.iconClass)} /> Retorno
+            </SaasButton>
+
+            <SaasButton
+              saasVariant="outline"
+              className={cn(
+                "justify-start gap-2 transition-all duration-200",
+                metaEmerg.buttonClass
+              )}
               onClick={() => goNew("Emergência")}
             >
-              <AlertTriangle className="h-4 w-4 text-destructive" /> Emergência
+              <AlertTriangle className={cn("h-4 w-4", metaEmerg.iconClass)} /> Emergência
             </SaasButton>
           </div>
         </CardContent>
@@ -218,21 +303,34 @@ export default function PatientAppointmentsTab({
         <DialogContent className="premium-card rounded-xl">
           <DialogHeader>
             <DialogTitle>Consulta</DialogTitle>
-            <DialogDescription>Selecione qual modelo de consulta deseja utilizar.</DialogDescription>
+            <DialogDescription>
+              Selecione qual modelo de consulta deseja utilizar.
+            </DialogDescription>
           </DialogHeader>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            <SaasButton onClick={() => { setConsultDialogOpen(false); goNew("Consulta"); }}>
+            <SaasButton
+              onClick={() => {
+                setConsultDialogOpen(false);
+                goNew("Consulta");
+              }}
+            >
               Consulta (Novo Modelo)
             </SaasButton>
             <SaasButton
               saasVariant="outline"
-              onClick={() => { setConsultDialogOpen(false); goNew("Consulta (Modelo Antigo)"); }}
+              onClick={() => {
+                setConsultDialogOpen(false);
+                goNew("Consulta (Modelo Antigo)");
+              }}
             >
               Consulta (Modelo Antigo)
             </SaasButton>
           </div>
           <DialogFooter>
-            <SaasButton saasVariant="outline" onClick={() => setConsultDialogOpen(false)}>
+            <SaasButton
+              saasVariant="outline"
+              onClick={() => setConsultDialogOpen(false)}
+            >
               Cancelar
             </SaasButton>
           </DialogFooter>
@@ -241,7 +339,9 @@ export default function PatientAppointmentsTab({
 
       <Card className="premium-card rounded-xl">
         <CardHeader className="flex flex-row items-center justify-between pb-3">
-          <CardTitle className="text-lg font-semibold text-foreground">Histórico de atendimentos</CardTitle>
+          <CardTitle className="text-lg font-semibold text-foreground">
+            Histórico de atendimentos
+          </CardTitle>
           <SaasButton
             saasVariant="soft"
             size="sm"
@@ -258,49 +358,74 @@ export default function PatientAppointmentsTab({
                 const meta = typeMeta(app.type);
                 const Icon = meta.icon;
                 const summary = buildSummary(app);
+                const timeSafe = app.time || "00:00";
+                const dateLabel = `${formatDateTime(app.date)} às ${timeSafe}`;
 
                 return (
                   <div
                     key={app.id}
-                    className="premium-card premium-card--soft card-hover relative rounded-xl overflow-hidden"
+                    className={cn(
+                      "rounded-xl border-2 bg-white p-4 transition-all duration-200",
+                      "hover:shadow-lg hover:-translate-y-0.5",
+                      meta.cardHoverShadowClass,
+                      meta.cardBorderClass
+                    )}
                   >
-                    <div className={`absolute left-0 top-0 bottom-0 w-1 ${meta.left}`} />
-                    <div className="p-4">
-                      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className={`chip-soft ${meta.badge}`}>
-                              <Icon className="h-3.5 w-3.5" /> {meta.label}
-                            </span>
-                            <span className="text-xs text-muted-foreground">
-                              {formatDateTime(app.date, app.time)} • {app.vet}
-                            </span>
-                          </div>
-                          <div className="mt-2 text-[15px] font-semibold text-foreground leading-snug truncate">
-                            {summary}
-                          </div>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-start gap-3 min-w-0">
+                        <div
+                          className={cn(
+                            "h-11 w-11 shrink-0 rounded-2xl border-2 flex items-center justify-center",
+                            meta.cardBorderClass,
+                            meta.iconWrapBgClass
+                          )}
+                        >
+                          <Icon className={cn("h-5 w-5", meta.iconClass)} />
                         </div>
 
-                        <div className="flex gap-2">
-                          <SaasButton
-                            saasVariant="ghost"
-                            size="icon"
-                            onClick={() => navigate(`/clients/${clientId}/animals/${animalId}/view-appointment/${app.id}`)}
-                            className="rounded-md"
-                            title="Ver"
-                          >
-                            <Eye className="h-4 w-4" />
-                          </SaasButton>
-                          <SaasButton
-                            saasVariant="ghost"
-                            size="icon"
-                            onClick={() => removeAppointment(app.id)}
-                            className="rounded-md"
-                            title="Excluir"
-                          >
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </SaasButton>
+                        <div className="min-w-0">
+                          <div className={cn("text-base font-bold", meta.iconClass)}>
+                            {meta.label}
+                          </div>
+
+                          <div className="mt-1 text-sm text-muted-foreground leading-relaxed">
+                            {summary}
+                          </div>
+
+                          <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+                            <span className="inline-flex items-center gap-1.5 text-foreground/80 font-medium">
+                              <Calendar className="h-4 w-4 text-muted-foreground" />
+                              {dateLabel}
+                            </span>
+                            <span className="inline-flex items-center gap-1.5 text-muted-foreground font-medium">
+                              <UserRound className="h-4 w-4" />
+                              {app.vet}
+                            </span>
+                          </div>
                         </div>
+                      </div>
+
+                      <div className="flex gap-2">
+                        <SaasButton
+                          saasVariant="ghost"
+                          size="icon"
+                          onClick={() =>
+                            navigate(`/clients/${clientId}/animals/${animalId}/view-appointment/${app.id}`)
+                          }
+                          className="rounded-md"
+                          title="Ver"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </SaasButton>
+                        <SaasButton
+                          saasVariant="ghost"
+                          size="icon"
+                          onClick={() => removeAppointment(app.id)}
+                          className="rounded-md"
+                          title="Excluir"
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </SaasButton>
                       </div>
                     </div>
                   </div>

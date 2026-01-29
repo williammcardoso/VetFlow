@@ -19,7 +19,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-import { MoreHorizontal, Save, X } from "lucide-react";
+import { CheckCircle2, MoreHorizontal, Save, Thermometer, Weight, X } from "lucide-react";
 
 import type {
   AppointmentEntry,
@@ -57,34 +57,39 @@ const mockVets = [
   { id: "3", name: "Dr. Carlos Eduardo" },
 ];
 
-const VACCINE_TYPE_PRESETS = [
-  "V8",
-  "V10",
-  "V4",
-  "V3",
+const VACCINE_NAME_OPTIONS = [
+  "V8 (Óctupla)",
+  "V10 (Déctupla)",
   "Antirrábica",
-  "Giárdia",
+  "Gripe Canina (Tosse dos Canis)",
+  "Giardia",
   "Leishmaniose",
-  "Gripe Canina",
-  "Bordetella",
-  "FeLV",
-  "FIV",
-];
+  "V3 Felina (Tríplice)",
+  "V4 Felina (Quadrúpla)",
+  "V5 Felina (Quíntupla)",
+  "FeLV (Leucemia Felina)",
+  "Outra",
+] as const;
 
-const VACCINE_DOSE_PRESETS = ["1ª dose", "2ª dose", "3ª dose", "Reforço"];
+const VACCINE_DOSE_OPTIONS = [
+  "1ª Dose",
+  "2ª Dose",
+  "3ª Dose",
+  "4ª Dose",
+  "Reforço Anual",
+  "Dose Única",
+] as const;
 
-const VACCINE_APPLICATION_SITE_PRESETS = [
-  "Interescapular",
-  "Escapular direita",
-  "Escapular esquerda",
-  "Coxa direita",
-  "Coxa esquerda",
-  "Membro anterior direito",
-  "Membro anterior esquerdo",
-  "Outro",
-];
-
-const VACCINE_OTHER_VALUE = "__other__";
+const VACCINE_APPLICATION_SITE_OPTIONS = [
+  "Subcutâneo – Região interescapular",
+  "Subcutâneo – Flanco direito",
+  "Subcutâneo – Flanco esquerdo",
+  "Subcutâneo – Membro posterior direito",
+  "Subcutâneo – Membro posterior esquerdo",
+  "Intramuscular",
+  "Intranasal",
+  "Oral",
+] as const;
 
 const draftKey = (clientId: string, animalId: string) =>
   `systemvet:appointment:draft:${clientId}:${animalId}`;
@@ -129,6 +134,32 @@ function getLastKnownWeight(clientId: string, animalId: string): number | undefi
   }
 
   return (animal as any).weight as number | undefined;
+}
+
+function addDaysISO(iso: string, days: number) {
+  const [y, m, d] = iso.split("-").map(Number);
+  const dt = new Date(y, (m || 1) - 1, d || 1);
+  dt.setDate(dt.getDate() + days);
+  const yyyy = dt.getFullYear();
+  const mm = String(dt.getMonth() + 1).padStart(2, "0");
+  const dd = String(dt.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function addYearsISO(iso: string, years: number) {
+  const [y, m, d] = iso.split("-").map(Number);
+  const dt = new Date(y, (m || 1) - 1, d || 1);
+  dt.setFullYear(dt.getFullYear() + years);
+  const yyyy = dt.getFullYear();
+  const mm = String(dt.getMonth() + 1).padStart(2, "0");
+  const dd = String(dt.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function isWithinPhysiologicalTemp(temp?: number | "") {
+  if (temp === "" || temp === undefined) return false;
+  // Faixa segura (simplificada) para pequenos animais
+  return temp >= 37.5 && temp <= 39.2;
 }
 
 export default function AppointmentForm({
@@ -303,8 +334,9 @@ export default function AppointmentForm({
 
     if (type === "Vacina") {
       setDetails({} as VaccinationDetails);
-      setPesoAtual("");
-      setTemperaturaCorporal("");
+      // Pré-vacinal usa peso/temperatura
+      setPesoAtual(initialData?.type === "Vacina" ? initialData.pesoAtual ?? "" : lastWeight ?? "");
+      setTemperaturaCorporal(initialData?.type === "Vacina" ? initialData.temperaturaCorporal ?? "" : "");
       setFrequenciaCardiaca("");
       setFrequenciaRespiratoria("");
       return;
@@ -321,6 +353,46 @@ export default function AppointmentForm({
 
     // Tipos legados: mantemos o conteúdo atual (sem reconstrução automática)
   }, [type, initialData, lastWeight]);
+
+  // Regras inteligentes (UX) para vacinação
+  useEffect(() => {
+    if (type !== "Vacina") return;
+    const v = (details || {}) as VaccinationDetails;
+
+    const nome = (v.tipoVacina || "").trim();
+    const dose = (v.dose || "").trim();
+
+    const isAntiRabica = nome === "Antirrábica";
+    const isVSeries =
+      nome === "V8 (Óctupla)" ||
+      nome === "V10 (Déctupla)" ||
+      nome === "V3 Felina (Tríplice)" ||
+      nome === "V4 Felina (Quadrúpla)" ||
+      nome === "V5 Felina (Quíntupla)";
+
+    // Antirrábica: sugerir Dose Única e próxima dose +1 ano
+    if (isAntiRabica) {
+      const nextDose = dose ? dose : "Dose Única";
+      const nextProxima = v.proximaDose ? v.proximaDose : addYearsISO(date, 1);
+
+      if (nextDose !== dose || nextProxima !== v.proximaDose) {
+        setDetails({
+          ...v,
+          dose: nextDose,
+          proximaDose: nextProxima,
+        });
+      }
+      return;
+    }
+
+    // V8/V10/V3/V4/V5: se 1ª Dose → sugerir próxima dose em 21–30 dias
+    if (isVSeries && dose === "1ª Dose") {
+      const suggested = v.proximaDose ? v.proximaDose : addDaysISO(date, 28);
+      if (suggested !== v.proximaDose) {
+        setDetails({ ...v, proximaDose: suggested });
+      }
+    }
+  }, [type, details, date]);
 
   const saveDraft = () => {
     const payload = {
@@ -386,10 +458,9 @@ export default function AppointmentForm({
 
     if (type === "Vacina") {
       const v = details as VaccinationDetails;
+      // Obrigatórios
       if (!v.tipoVacina || !v.tipoVacina.trim()) nextErrors.tipoVacina = true;
-      if (!v.dose || !v.dose.trim()) nextErrors.dose = true;
-      if (!v.viaAdministracao) nextErrors.viaAdministracao = true;
-      if (!v.localAplicacao || !v.localAplicacao.trim()) nextErrors.localAplicacao = true;
+      if (!v.lote || !v.lote.trim()) nextErrors.lote = true;
     }
 
     if (Object.keys(nextErrors).length > 0) {
@@ -403,8 +474,14 @@ export default function AppointmentForm({
     const isLegacy = !!type && !isPrimaryType(type);
     const isOldConsult = type === "Consulta (Modelo Antigo)";
     const shouldKeepVitals =
-      type === "Consulta" || isOldConsult || type === "Cirurgia" || type === "Emergência" || isLegacy;
-    const shouldKeepCardioVitals = isOldConsult || type === "Cirurgia" || type === "Emergência" || isLegacy;
+      type === "Consulta" ||
+      isOldConsult ||
+      type === "Cirurgia" ||
+      type === "Emergência" ||
+      type === "Vacina" ||
+      isLegacy;
+    const shouldKeepCardioVitals =
+      isOldConsult || type === "Cirurgia" || type === "Emergência" || isLegacy;
 
     const detailsToSave: AppointmentEntry["details"] =
       type === "Vacina"
@@ -459,7 +536,8 @@ export default function AppointmentForm({
     }
 
     const isLegacy = !!type && !isPrimaryType(type);
-    const shouldKeepVitals = type === "Consulta" || type === "Cirurgia" || type === "Emergência" || isLegacy;
+    const shouldKeepVitals =
+      type === "Consulta" || type === "Cirurgia" || type === "Emergência" || type === "Vacina" || isLegacy;
     const shouldKeepCardioVitals = type === "Cirurgia" || type === "Emergência" || isLegacy;
 
     const detailsForPdf: AppointmentEntry["details"] =
@@ -593,239 +671,237 @@ export default function AppointmentForm({
     }
 
     if (type === "Vacina") {
-      const v = details as VaccinationDetails;
+      const v = (details || {}) as VaccinationDetails;
+      const tempOk = isWithinPhysiologicalTemp(temperaturaCorporal);
 
-      const isPresetType = VACCINE_TYPE_PRESETS.includes(v.tipoVacina || "");
-      const typeSelectValue = isPresetType ? (v.tipoVacina as string) : VACCINE_OTHER_VALUE;
-
-      const isPresetDose = VACCINE_DOSE_PRESETS.includes(v.dose || "");
-      const doseSelectValue = isPresetDose ? (v.dose as string) : VACCINE_OTHER_VALUE;
-
-      const isPresetSite = VACCINE_APPLICATION_SITE_PRESETS.includes(v.localAplicacao || "");
-      const siteSelectValue = isPresetSite ? (v.localAplicacao as string) : VACCINE_OTHER_VALUE;
+      const vacinaValue = (v.tipoVacina || "").trim();
+      const doseValue = (v.dose || "").trim();
+      const localValue = (v.localAplicacao || "").trim();
 
       return (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="space-y-2">
-            <Label>Vacina *</Label>
-            <Select
-              value={typeSelectValue}
-              onValueChange={(val) => {
-                clearError("tipoVacina");
-                if (val === VACCINE_OTHER_VALUE) {
-                  setDetails({ ...v, tipoVacina: "" });
-                } else {
-                  setDetails({ ...v, tipoVacina: val });
-                }
-              }}
-            >
-              <SelectTrigger className={errClass(errors.tipoVacina)}>
-                <SelectValue placeholder="Selecione" />
-              </SelectTrigger>
-              <SelectContent>
-                {VACCINE_TYPE_PRESETS.map((x) => (
-                  <SelectItem key={x} value={x}>
-                    {x}
-                  </SelectItem>
-                ))}
-                <SelectItem value={VACCINE_OTHER_VALUE}>Outra</SelectItem>
-              </SelectContent>
-            </Select>
-            {typeSelectValue === VACCINE_OTHER_VALUE && (
-              <Input
-                className={errClass(errors.tipoVacina)}
-                value={v.tipoVacina || ""}
-                onChange={(e) => {
-                  clearError("tipoVacina");
-                  setDetails({ ...v, tipoVacina: e.target.value });
-                }}
-                placeholder="Digite o nome da vacina"
-              />
-            )}
-          </div>
+        <div className="space-y-4">
+          {/* Seção: Avaliação Pré-Vacinal */}
+          <Card className="rounded-2xl border border-amber-200 bg-amber-50/60 shadow-sm">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-semibold text-amber-950">
+                Avaliação Pré-Vacinal
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="temp">Temperatura (°C)</Label>
+                  <div className="relative">
+                    <Thermometer className="absolute left-3 top-2.5 h-4 w-4 text-amber-700/80" />
+                    <Input
+                      id="temp"
+                      type="number"
+                      step="0.1"
+                      inputMode="decimal"
+                      placeholder="Ex: 38.5"
+                      value={temperaturaCorporal}
+                      onChange={(e) =>
+                        setTemperaturaCorporal(e.target.value === "" ? "" : Number(e.target.value))
+                      }
+                      className="pl-9 bg-white border-amber-200 focus-visible:ring-amber-300"
+                    />
+                  </div>
+                </div>
 
-          <div className="space-y-2">
-            <Label>Dose *</Label>
-            <Select
-              value={doseSelectValue}
-              onValueChange={(val) => {
-                clearError("dose");
-                if (val === VACCINE_OTHER_VALUE) {
-                  setDetails({ ...v, dose: "" });
-                } else {
-                  setDetails({ ...v, dose: val });
-                }
-              }}
-            >
-              <SelectTrigger className={errClass(errors.dose)}>
-                <SelectValue placeholder="Selecione" />
-              </SelectTrigger>
-              <SelectContent>
-                {VACCINE_DOSE_PRESETS.map((x) => (
-                  <SelectItem key={x} value={x}>
-                    {x}
-                  </SelectItem>
-                ))}
-                <SelectItem value={VACCINE_OTHER_VALUE}>Outra</SelectItem>
-              </SelectContent>
-            </Select>
-            {doseSelectValue === VACCINE_OTHER_VALUE && (
-              <Input
-                className={errClass(errors.dose)}
-                value={v.dose || ""}
-                onChange={(e) => {
-                  clearError("dose");
-                  setDetails({ ...v, dose: e.target.value });
-                }}
-                placeholder="Digite a dose"
-              />
-            )}
-          </div>
+                <div className="space-y-2">
+                  <Label htmlFor="peso">Peso (kg)</Label>
+                  <div className="relative">
+                    <Weight className="absolute left-3 top-2.5 h-4 w-4 text-amber-700/80" />
+                    <Input
+                      id="peso"
+                      type="number"
+                      step="0.1"
+                      inputMode="decimal"
+                      placeholder="Peso atual"
+                      value={pesoAtual}
+                      onChange={(e) => setPesoAtual(e.target.value === "" ? "" : Number(e.target.value))}
+                      className="pl-9 bg-white border-amber-200 focus-visible:ring-amber-300"
+                    />
+                  </div>
+                </div>
+              </div>
 
-          <div className="space-y-2">
-            <Label>Local *</Label>
-            <Select
-              value={siteSelectValue}
-              onValueChange={(val) => {
-                clearError("localAplicacao");
-                if (val === VACCINE_OTHER_VALUE) {
-                  setDetails({ ...v, localAplicacao: "" });
-                } else {
-                  setDetails({ ...v, localAplicacao: val });
-                }
-              }}
-            >
-              <SelectTrigger className={errClass(errors.localAplicacao)}>
-                <SelectValue placeholder="Selecione" />
-              </SelectTrigger>
-              <SelectContent>
-                {VACCINE_APPLICATION_SITE_PRESETS.filter((x) => x !== "Outro").map((x) => (
-                  <SelectItem key={x} value={x}>
-                    {x}
-                  </SelectItem>
-                ))}
-                <SelectItem value={VACCINE_OTHER_VALUE}>Outro</SelectItem>
-              </SelectContent>
-            </Select>
-            {siteSelectValue === VACCINE_OTHER_VALUE && (
-              <Input
-                className={errClass(errors.localAplicacao)}
-                value={v.localAplicacao || ""}
-                onChange={(e) => {
-                  clearError("localAplicacao");
-                  setDetails({ ...v, localAplicacao: e.target.value });
-                }}
-                placeholder="Digite o local de aplicação"
-              />
-            )}
-          </div>
+              {tempOk ? (
+                <div className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-900">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                  Animal está saudável para vacinar
+                </div>
+              ) : null}
 
-          <div className="space-y-2">
-            <Label htmlFor="viaAdministracao">Via de administração *</Label>
-            <Select
-              value={(v.viaAdministracao as any) || ""}
-              onValueChange={(val) => {
-                clearError("viaAdministracao");
-                setDetails({ ...v, viaAdministracao: val as any });
-              }}
-            >
-              <SelectTrigger id="viaAdministracao" className={errClass(errors.viaAdministracao)}>
-                <SelectValue placeholder="Selecione" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="SC">Subcutânea (SC)</SelectItem>
-                <SelectItem value="IM">Intramuscular (IM)</SelectItem>
-                <SelectItem value="VO">Via oral (VO)</SelectItem>
-                <SelectItem value="IN">Intranasal (IN)</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+              <div className="space-y-2">
+                <Label htmlFor="anamnese">Anamnese Pré-Vacinal</Label>
+                <Textarea
+                  id="anamnese"
+                  placeholder="Estado geral, alimentação, comportamento..."
+                  value={v.anamnesePreVacinal || ""}
+                  onChange={(e) => setDetails({ ...v, anamnesePreVacinal: e.target.value })}
+                  rows={4}
+                  className="bg-white border-amber-200 focus-visible:ring-amber-300"
+                />
+              </div>
+            </CardContent>
+          </Card>
 
-          <div className="space-y-2">
-            <Label htmlFor="proximaDose">Próxima dose</Label>
-            <DateInputBR
-              id="proximaDose"
-              valueISO={v.proximaDose || ""}
-              onChangeISO={(val) => setDetails({ ...v, proximaDose: val || undefined })}
-            />
-          </div>
+          {/* Seção: Dados da Vacina */}
+          <Card className="premium-card rounded-2xl">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-semibold">Dados da Vacina</CardTitle>
+            </CardHeader>
+            <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Nome da Vacina *</Label>
+                <Select
+                  value={vacinaValue}
+                  onValueChange={(val) => {
+                    clearError("tipoVacina");
+                    setDetails({ ...v, tipoVacina: val === "Outra" ? "" : val });
+                  }}
+                >
+                  <SelectTrigger className={errClass(errors.tipoVacina)}>
+                    <SelectValue placeholder="Selecione" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {VACCINE_NAME_OPTIONS.map((x) => (
+                      <SelectItem key={x} value={x}>
+                        {x}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {(vacinaValue === "" || vacinaValue === "Outra") && (
+                  <Input
+                    className={errClass(errors.tipoVacina)}
+                    value={v.tipoVacina || ""}
+                    onChange={(e) => {
+                      clearError("tipoVacina");
+                      setDetails({ ...v, tipoVacina: e.target.value });
+                    }}
+                    placeholder="Digite o nome da vacina"
+                  />
+                )}
+              </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="doseAplicada">Dose (mL)</Label>
-            <Input
-              id="doseAplicada"
-              type="number"
-              step="0.1"
-              value={v.doseAplicada ?? ""}
-              onChange={(e) =>
-                setDetails({
-                  ...v,
-                  doseAplicada: e.target.value ? Number(e.target.value) : undefined,
-                })
-              }
-            />
-          </div>
+              <div className="space-y-2">
+                <Label>Dose</Label>
+                <Select
+                  value={doseValue}
+                  onValueChange={(val) => setDetails({ ...v, dose: val })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {VACCINE_DOSE_OPTIONS.map((x) => (
+                      <SelectItem key={x} value={x}>
+                        {x}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="nomeComercial">Nome comercial</Label>
-            <Input
-              id="nomeComercial"
-              value={v.nomeComercial || ""}
-              onChange={(e) => setDetails({ ...v, nomeComercial: e.target.value })}
-            />
-          </div>
+              <div className="space-y-2">
+                <Label>Nome comercial</Label>
+                <Input
+                  value={v.nomeComercial || ""}
+                  onChange={(e) => setDetails({ ...v, nomeComercial: e.target.value })}
+                  placeholder="Ex: Recombitek, Vanguard"
+                />
+              </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="lote">Lote</Label>
-            <Input id="lote" value={v.lote || ""} onChange={(e) => setDetails({ ...v, lote: e.target.value })} />
-          </div>
+              <div className="space-y-2">
+                <Label>Fabricante</Label>
+                <Input
+                  value={v.fabricante || ""}
+                  onChange={(e) => setDetails({ ...v, fabricante: e.target.value })}
+                  placeholder="Ex: Zoetis, MSD"
+                />
+              </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="fabricante">Fabricante</Label>
-            <Input
-              id="fabricante"
-              value={v.fabricante || ""}
-              onChange={(e) => setDetails({ ...v, fabricante: e.target.value })}
-            />
-          </div>
+              <div className="space-y-2">
+                <Label>Lote *</Label>
+                <Input
+                  className={errClass(errors.lote)}
+                  value={v.lote || ""}
+                  onChange={(e) => {
+                    clearError("lote");
+                    setDetails({ ...v, lote: e.target.value });
+                  }}
+                  placeholder="Número do lote"
+                />
+              </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="dataFabricacao">Data de fabricação</Label>
-            <DateInputBR
-              id="dataFabricacao"
-              valueISO={v.dataFabricacao || ""}
-              onChangeISO={(val) => setDetails({ ...v, dataFabricacao: val || undefined })}
-            />
-          </div>
+              <div className="space-y-2">
+                <Label>Validade</Label>
+                <DateInputBR
+                  valueISO={v.dataValidade || ""}
+                  onChangeISO={(val) => setDetails({ ...v, dataValidade: val || undefined })}
+                />
+              </div>
+            </CardContent>
+          </Card>
 
-          <div className="space-y-2">
-            <Label htmlFor="dataValidade">Data de validade</Label>
-            <DateInputBR
-              id="dataValidade"
-              valueISO={v.dataValidade || ""}
-              onChangeISO={(val) => setDetails({ ...v, dataValidade: val || undefined })}
-            />
-          </div>
+          {/* Seção: Aplicação */}
+          <Card className="premium-card rounded-2xl">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-semibold">Aplicação</CardTitle>
+            </CardHeader>
+            <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Local de Aplicação</Label>
+                <Select
+                  value={localValue}
+                  onValueChange={(val) => {
+                    const via =
+                      val.startsWith("Subcutâneo") ? "SC" : val === "Intramuscular" ? "IM" : val === "Intranasal" ? "IN" : val === "Oral" ? "VO" : "";
+                    setDetails({ ...v, localAplicacao: val, viaAdministracao: via as any });
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {VACCINE_APPLICATION_SITE_OPTIONS.map((x) => (
+                      <SelectItem key={x} value={x}>
+                        {x}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-          <div className="space-y-2 md:col-span-3">
-            <Label htmlFor="reacao">Reação adversa observada</Label>
-            <Textarea
-              id="reacao"
-              value={v.reacaoAdversaObservada || ""}
-              onChange={(e) => setDetails({ ...v, reacaoAdversaObservada: e.target.value })}
-              rows={2}
-            />
-          </div>
+              <div className="space-y-2">
+                <Label>Data da Próxima Dose</Label>
+                <DateInputBR
+                  valueISO={v.proximaDose || ""}
+                  onChangeISO={(val) => setDetails({ ...v, proximaDose: val || undefined })}
+                />
+              </div>
+            </CardContent>
+          </Card>
 
-          <div className="space-y-2 md:col-span-3">
-            <Label htmlFor="profAplicou">Profissional que aplicou</Label>
-            <Input
-              id="profAplicou"
-              value={v.profissionalAplicou || vet}
-              onChange={(e) => setDetails({ ...v, profissionalAplicou: e.target.value })}
-              placeholder="Nome do profissional"
-            />
-          </div>
+          {/* Seção: Pós-Vacinação */}
+          <Card className="premium-card rounded-2xl">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-semibold">Pós-Vacinação</CardTitle>
+            </CardHeader>
+            <CardContent className="grid grid-cols-1 gap-4">
+              <div className="space-y-2">
+                <Label>Reações Adversas Observadas</Label>
+                <Textarea
+                  value={v.reacaoAdversaObservada || ""}
+                  onChange={(e) => setDetails({ ...v, reacaoAdversaObservada: e.target.value })}
+                  rows={3}
+                  placeholder='Descreva qualquer reação observada (ou "Nenhuma")...'
+                />
+              </div>
+            </CardContent>
+          </Card>
         </div>
       );
     }

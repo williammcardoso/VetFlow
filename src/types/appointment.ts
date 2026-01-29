@@ -130,19 +130,31 @@ export interface ConsultationDetails extends BaseAppointmentDetails {
 }
 
 export interface VaccinationDetails {
+  // Pré-vacinal
+  anamnesePreVacinal?: string;
+
+  // Dados da vacina
   tipoVacina?: string; // Ex: V10, Antirrábica
-  dose?: string; // Ex: 1ª dose, 2ª dose, reforço
+  dose?: string; // Ex: 1ª Dose, 2ª Dose, Reforço Anual
   nomeComercial?: string;
-  lote?: string;
   fabricante?: string;
-  dataFabricacao?: string;
+  lote?: string;
   dataValidade?: string;
-  doseAplicada?: number;
+
+  // Aplicação
   viaAdministracao?: 'SC' | 'IM' | 'VO' | 'IN' | '';
   localAplicacao?: string;
-  reacaoAdversaObservada?: string;
-  profissionalAplicou?: string; // Pré-preenchido com o veterinário logado
   proximaDose?: string; // Data ISO (opcional)
+
+  // Pós-vacinação
+  reacaoAdversaObservada?: string;
+
+  // Metadados
+  profissionalAplicou?: string; // Pré-preenchido com o veterinário logado
+
+  // Campos legados mantidos (compatibilidade)
+  dataFabricacao?: string;
+  doseAplicada?: number;
 }
 
 export interface SurgerySutureItem {
