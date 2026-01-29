@@ -367,42 +367,34 @@ export default function AppointmentForm({
   }, [type, lastWeight]);
 
   // Regras inteligentes (UX) para vacinação
+  const vaccineDoseValue = useMemo(() => {
+    if (type !== "Vacina") return "";
+    return (((details || {}) as VaccinationDetails).dose || "").trim();
+  }, [type, details]);
+
   useEffect(() => {
     if (type !== "Vacina") return;
+    if (!vaccineDoseValue) return;
+
     const v = (details || {}) as VaccinationDetails;
 
-    const nome = (v.tipoVacina || "").trim();
-    const dose = (v.dose || "").trim();
+    const isNumericDose = /^[1-4]ª Dose$/.test(vaccineDoseValue);
+    const isAnnual = vaccineDoseValue === "Reforço Anual";
+    const isSingle = vaccineDoseValue === "Dose Única";
 
-    const isAntiRabica = nome === "Antirrábica";
-    const isVSeries =
-      nome === "V8 (Óctupla)" ||
-      nome === "V10 (Déctupla)" ||
-      nome === "V3 Felina (Tríplice)" ||
-      nome === "V4 Felina (Quadrúpla)" ||
-      nome === "V5 Felina (Quíntupla)";
+    const suggested = isNumericDose
+      ? addDaysISO(date, 21)
+      : isAnnual || isSingle
+        ? addDaysISO(date, 365)
+        : "";
 
-    if (isAntiRabica) {
-      const nextDose = dose ? dose : "Dose Única";
-      const nextProxima = v.proximaDose ? v.proximaDose : addYearsISO(date, 1);
+    if (!suggested) return;
 
-      if (nextDose !== dose || nextProxima !== v.proximaDose) {
-        setDetails({
-          ...v,
-          dose: nextDose,
-          proximaDose: nextProxima,
-        });
-      }
-      return;
+    // Sugestão automática: quando a dose muda, atualiza a próxima data.
+    if ((v.proximaDose || "") !== suggested) {
+      setDetails({ ...v, proximaDose: suggested });
     }
-
-    if (isVSeries && dose === "1ª Dose") {
-      const suggested = v.proximaDose ? v.proximaDose : addDaysISO(date, 28);
-      if (suggested !== v.proximaDose) {
-        setDetails({ ...v, proximaDose: suggested });
-      }
-    }
-  }, [type, details, date]);
+  }, [type, date, vaccineDoseValue]);
 
   const buildDraftAppointment = (): AppointmentEntry => {
     const draftId = draftIdRef.current || `draft-${Date.now()}`;
@@ -613,16 +605,21 @@ export default function AppointmentForm({
     onSave(newAppointment);
 
     // Atualizar peso do animal (se informado)
-    if (newAppointment.pesoAtual !== undefined && !String(newAppointment.id).startsWith("draft-")) {
+    if (newAppointment.pesoAtual !== undefined) {
       const currentClient = mockClients.find((c) => c.id === clientId);
       const currentAnimal = currentClient?.animals.find((a) => a.id === animalId);
       const currentWeight = (currentAnimal as any)?.weight as number | undefined;
 
       if (currentAnimal && currentWeight !== newAppointment.pesoAtual) {
-        updateAnimalDetails(clientId, animalId, {
-          weight: newAppointment.pesoAtual,
-          lastWeightSource: "Atendimento",
-        });
+        updateAnimalDetails(
+          clientId,
+          animalId,
+          {
+            weight: newAppointment.pesoAtual,
+            lastWeightSource: "Atendimento",
+          },
+          { date, time }
+        );
       }
     }
   };
@@ -892,10 +889,7 @@ export default function AppointmentForm({
 
               <div className="space-y-2">
                 <Label>Dose</Label>
-                <Select
-                  value={doseValue}
-                  onValueChange={(val) => setDetails({ ...v, dose: val })}
-                >
+                <Select value={doseValue} onValueChange={(val) => setDetails({ ...v, dose: val })}>
                   <SelectTrigger>
                     <SelectValue placeholder="Selecione" />
                   </SelectTrigger>
@@ -907,6 +901,9 @@ export default function AppointmentForm({
                     ))}
                   </SelectContent>
                 </Select>
+                <p className="text-xs text-muted-foreground">
+                  Sugestão automática da próxima dose: 21 dias (1ª–4ª) • 365 dias (reforço anual / dose única)
+                </p>
               </div>
 
               <div className="space-y-2">
