@@ -1193,47 +1193,47 @@ const PatientRecordPage = () => {
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full mt-6">
           <div ref={tabScrollRef} className="relative w-full overflow-x-auto overflow-y-hidden no-scrollbar scroll-smooth select-none">
             <TabsList className="inline-flex w-max items-center whitespace-nowrap border-b border-border/40 bg-transparent p-0 rounded-none gap-1">
-              <TabsTrigger value="timeline" className="tab-active-line relative -mb-px pb-2 px-2.5 md:px-3.5 shrink-0 text-sm md:text-[0.95rem] text-muted-foreground hover:text-foreground hover:bg-muted/30 rounded-md transition-colors data-[state=active]:text-foreground data-[state=active]:font-semibold">
-                <FaClock className="h-4 w-4 mr-1.5 md:mr-2 text-[#F79009]" />
+              <TabsTrigger value="timeline" className="tab-active-line relative -mb-px pb-2 px-2.5 md:px-3.5 shrink-0 text-sm md:text-[0.95rem] text-slate-600 dark:text-slate-300 hover:text-foreground hover:bg-muted/30 rounded-md transition-colors data-[state=active]:text-foreground data-[state=active]:font-semibold">
+                <FaClock className="h-4 w-4 mr-1.5 md:mr-2 text-amber-600" />
                 <span className="max-w-[9.5rem] md:max-w-none truncate">Linha do Tempo</span>
                 <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[10px] bg-muted text-foreground/70">{sortedTimelineEvents.length}</span>
               </TabsTrigger>
-              <TabsTrigger value="appointments" className="tab-active-line relative -mb-px pb-2 px-2.5 md:px-3.5 shrink-0 text-sm md:text-[0.95rem] text-muted-foreground hover:text-foreground hover:bg-muted/30 rounded-md transition-colors data-[state=active]:text-foreground data-[state=active]:font-semibold">
-                <FaStethoscope className="h-4 w-4 mr-1.5 md:mr-2 text-[#F79009]" />
+              <TabsTrigger value="appointments" className="tab-active-line relative -mb-px pb-2 px-2.5 md:px-3.5 shrink-0 text-sm md:text-[0.95rem] text-slate-600 dark:text-slate-300 hover:text-foreground hover:bg-muted/30 rounded-md transition-colors data-[state=active]:text-foreground data-[state=active]:font-semibold">
+                <FaStethoscope className="h-4 w-4 mr-1.5 md:mr-2 text-teal-600" />
                 <span className="max-w-[9.5rem] md:max-w-none truncate">Atendimento</span>
                 <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[10px] bg-muted text-foreground/70">{animalAppointments.length}</span>
               </TabsTrigger>
-              <TabsTrigger value="exams" className="tab-active-line relative -mb-px pb-2 px-2.5 md:px-3.5 shrink-0 text-sm md:text-[0.95rem] text-muted-foreground hover:text-foreground hover:bg-muted/30 rounded-md transition-colors data-[state=active]:text-foreground data-[state=active]:font-semibold">
-                <FaFlask className="h-4 w-4 mr-1.5 md:mr-2 text-[#F79009]" />
+              <TabsTrigger value="exams" className="tab-active-line relative -mb-px pb-2 px-2.5 md:px-3.5 shrink-0 text-sm md:text-[0.95rem] text-slate-600 dark:text-slate-300 hover:text-foreground hover:bg-muted/30 rounded-md transition-colors data-[state=active]:text-foreground data-[state=active]:font-semibold">
+                <FaFlask className="h-4 w-4 mr-1.5 md:mr-2 text-violet-600" />
                 <span className="max-w-[9.5rem] md:max-w-none truncate">Exames</span>
                 <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[10px] bg-muted text-foreground/70">{examsList.length}</span>
               </TabsTrigger>
-              <TabsTrigger value="vaccines" className="tab-active-line relative -mb-px pb-2 px-2.5 md:px-3.5 shrink-0 text-sm md:text-[0.95rem] text-muted-foreground hover:text-foreground hover:bg-muted/30 rounded-md transition-colors data-[state=active]:text-foreground data-[state=active]:font-semibold">
-                <FaSyringe className="h-4 w-4 mr-1.5 md:mr-2 text-[#F79009]" />
+              <TabsTrigger value="vaccines" className="tab-active-line relative -mb-px pb-2 px-2.5 md:px-3.5 shrink-0 text-sm md:text-[0.95rem] text-slate-600 dark:text-slate-300 hover:text-foreground hover:bg-muted/30 rounded-md transition-colors data-[state=active]:text-foreground data-[state=active]:font-semibold">
+                <FaSyringe className="h-4 w-4 mr-1.5 md:mr-2 text-sky-600" />
                 <span className="max-w-[9.5rem] md:max-w-none truncate">Vacinas</span>
                 <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[10px] bg-muted text-foreground/70">{vaccineAppointmentsCount}</span>
               </TabsTrigger>
-              <TabsTrigger value="weight" className="tab-active-line relative -mb-px pb-2 px-2.5 md:px-3.5 shrink-0 text-sm md:text-[0.95rem] text-muted-foreground hover:text-foreground hover:bg-muted/30 rounded-md transition-colors data-[state=active]:text-foreground data-[state=active]:font-semibold">
-                <FaWeightHanging className="h-4 w-4 mr-1.5 md:mr-2 text-[#F79009]" />
+              <TabsTrigger value="weight" className="tab-active-line relative -mb-px pb-2 px-2.5 md:px-3.5 shrink-0 text-sm md:text-[0.95rem] text-slate-600 dark:text-slate-300 hover:text-foreground hover:bg-muted/30 rounded-md transition-colors data-[state=active]:text-foreground data-[state=active]:font-semibold">
+                <FaWeightHanging className="h-4 w-4 mr-1.5 md:mr-2 text-emerald-600" />
                 <span className="max-w-[9.5rem] md:max-w-none truncate">Peso</span>
                 <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[10px] bg-muted text-foreground/70">{weightHistory.length}</span>
               </TabsTrigger>
-              <TabsTrigger value="documents" className="tab-active-line relative -mb-px pb-2 px-2.5 md:px-3.5 shrink-0 text-sm md:text-[0.95rem] text-muted-foreground hover:text-foreground hover:bg-muted/30 rounded-md transition-colors data-[state=active]:text-foreground data-[state=active]:font-semibold">
-                <FaFileAlt className="h-4 w-4 mr-1.5 md:mr-2 text-[#F79009]" />
+              <TabsTrigger value="documents" className="tab-active-line relative -mb-px pb-2 px-2.5 md:px-3.5 shrink-0 text-sm md:text-[0.95rem] text-slate-600 dark:text-slate-300 hover:text-foreground hover:bg-muted/30 rounded-md transition-colors data-[state=active]:text-foreground data-[state=active]:font-semibold">
+                <FaFileAlt className="h-4 w-4 mr-1.5 md:mr-2 text-slate-600 dark:text-slate-200" />
                 <span className="max-w-[9.5rem] md:max-w-none truncate">Documentos</span>
                 <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[10px] bg-muted text-foreground/70">{documents.length}</span>
               </TabsTrigger>
-              <TabsTrigger value="prescriptions" className="tab-active-line relative -mb-px pb-2 px-2.5 md:px-3.5 shrink-0 text-sm md:text-[0.95rem] text-muted-foreground hover:text-foreground hover:bg-muted/30 rounded-md transition-colors data-[state=active]:text-foreground data-[state=active]:font-semibold">
-                <FaPrescriptionBottleAlt className="h-4 w-4 mr-1.5 md:mr-2 text-[#F79009]" />
+              <TabsTrigger value="prescriptions" className="tab-active-line relative -mb-px pb-2 px-2.5 md:px-3.5 shrink-0 text-sm md:text-[0.95rem] text-slate-600 dark:text-slate-300 hover:text-foreground hover:bg-muted/30 rounded-md transition-colors data-[state=active]:text-foreground data-[state=active]:font-semibold">
+                <FaPrescriptionBottleAlt className="h-4 w-4 mr-1.5 md:mr-2 text-emerald-700" />
                 <span className="max-w-[9.5rem] md:max-w-none truncate">Receitas</span>
                 <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[10px] bg-muted text-foreground/70">{prescriptions.length}</span>
               </TabsTrigger>
-              <TabsTrigger value="observations" className="tab-active-line relative -mb-px pb-2 px-2.5 md:px-3.5 shrink-0 text-sm md:text-[0.95rem] text-muted-foreground hover:text-foreground hover:bg-muted/30 rounded-md transition-colors data-[state=active]:text-foreground data-[state=active]:font-semibold">
-                <FaCommentAlt className="h-4 w-4 mr-1.5 md:mr-2 text-[#F79009]" />
+              <TabsTrigger value="observations" className="tab-active-line relative -mb-px pb-2 px-2.5 md:px-3.5 shrink-0 text-sm md:text-[0.95rem] text-slate-600 dark:text-slate-300 hover:text-foreground hover:bg-muted/30 rounded-md transition-colors data-[state=active]:text-foreground data-[state=active]:font-semibold">
+                <FaCommentAlt className="h-4 w-4 mr-1.5 md:mr-2 text-rose-600" />
                 <span className="max-w-[9.5rem] md:max-w-none truncate">Observações</span>
                 <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[10px] bg-muted text-foreground/70">{observations.length}</span>
               </TabsTrigger>
-              <TabsTrigger value="financial" className="tab-active-line relative -mb-px pb-2 px-2.5 md:px-3.5 shrink-0 text-sm md:text-[0.95rem] text-muted-foreground hover:text-foreground hover:bg-muted/30 rounded-md transition-colors data-[state=active]:text-foreground data-[state=active]:font-semibold">
+              <TabsTrigger value="financial" className="tab-active-line relative -mb-px pb-2 px-2.5 md:px-3.5 shrink-0 text-sm md:text-[0.95rem] text-slate-600 dark:text-slate-300 hover:text-foreground hover:bg-muted/30 rounded-md transition-colors data-[state=active]:text-foreground data-[state=active]:font-semibold">
                 <FaMoneyBillWave className="h-4 w-4 mr-1.5 md:mr-2 text-[#F79009]" />
                 <span className="max-w-[9.5rem] md:max-w-none truncate">Financeiro</span>
                 <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[10px] bg-muted text-foreground/70">{patientSales.length}</span>
