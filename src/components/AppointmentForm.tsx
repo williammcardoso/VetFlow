@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { pdf } from "@react-pdf/renderer";
 
@@ -42,6 +42,7 @@ import DatePickerBR from "@/components/appointments/inputs/DatePickerBR";
 import LegacyConsultationForm from "@/components/appointments/forms/LegacyConsultationForm";
 
 import AppointmentPdfContent from "@/components/AppointmentPdfContent";
+import { removeAppointmentDraft, upsertAppointmentDraft } from "@/lib/appointmentDrafts";
 
 interface AppointmentFormProps {
   animalId: string;
@@ -91,9 +92,6 @@ const VACCINE_APPLICATION_SITE_OPTIONS = [
   "Intranasal",
   "Oral",
 ] as const;
-
-const draftKey = (clientId: string, animalId: string) =>
-  `systemvet:appointment:draft:${clientId}:${animalId}`;
 
 type AllowedType = AppointmentEntry["type"]; // Mantém compatibilidade com tipos legados
 
@@ -190,6 +188,16 @@ export default function AppointmentForm({
     [clientId, animalId]
   );
 
+  const isDraftInitial = !!initialData?.id && initialData.id.startsWith("draft-");
+  // Se está editando um atendimento existente, o rascunho fica como draft-<idReal>
+  const draftIdRef = useRef<string | null>(
+    isDraftInitial
+      ? initialData!.id
+      : initialData?.id
+        ? `draft-${initialData.id}`
+        : null
+  );
+
   const [date, setDate] = useState(initialData?.date || new Date().toISOString().split("T")[0]);
   const [time, setTime] = useState(
     initialData?.time ||
@@ -201,7 +209,7 @@ export default function AppointmentForm({
     initialData?.observacoesGerais || ""
   );
 
-  // Sinais vitais/medidas (aparecem apenas após seleção do tipo e apenas nos fluxos que usam)
+  // Sinais vitais/medidas
   const [pesoAtual, setPesoAtual] = useState<number | "">(initialData?.pesoAtual ?? "");
   const [temperaturaCorporal, setTemperaturaCorporal] = useState<number | "">(
     initialData?.temperaturaCorporal ?? ""
@@ -223,12 +231,13 @@ export default function AppointmentForm({
   const [vaccineNameChoice, setVaccineNameChoice] = useState<string>("");
 
   const hydratedFromDraftRef = useRef(false);
+  const skipTypeResetOnceRef = useRef(!!initialData);
 
-  // Carregar rascunho (apenas em criação). Prioridade: initialData > draft > querystring
+  // Carregar rascunho antigo (compatibilidade) somente na criação por querystring.
   useEffect(() => {
     if (initialData) return;
 
-    const saved = safeParseJSON<any>(localStorage.getItem(draftKey(clientId, animalId)));
+    const saved = safeParseJSON<any>(localStorage.getItem(`systemvet:appointment:draft:${clientId}:${animalId}`));
     if (saved) {
       hydratedFromDraftRef.current = true;
 
@@ -274,29 +283,31 @@ export default function AppointmentForm({
       return;
     }
 
-    // Sem valor ainda
     setVaccineNameChoice("");
   }, [type, details]);
 
-  // Resetar estrutura específica quando o tipo muda (exceto quando o tipo veio do rascunho)
+  // Resetar estrutura específica quando o tipo muda
   useEffect(() => {
     if (!type) return;
+
+    // Evita limpar os campos ao abrir o formulário já em modo edição.
+    if (skipTypeResetOnceRef.current) {
+      skipTypeResetOnceRef.current = false;
+      return;
+    }
+
     if (hydratedFromDraftRef.current) {
       hydratedFromDraftRef.current = false;
       return;
     }
 
-    // Limpar erros do formulário ao trocar o tipo (evita bordas vermelhas "presas")
     setErrors({});
 
-    // Ao trocar de tipo, reconstruir apenas o bloco abaixo do administrativo
     if (type === "Consulta") {
       setConsultationMode("simplificado");
       setDetails({} as ConsultationDetails);
-      setPesoAtual(initialData?.type === "Consulta" ? initialData.pesoAtual ?? "" : lastWeight ?? "");
-      setTemperaturaCorporal(
-        initialData?.type === "Consulta" ? initialData.temperaturaCorporal ?? "" : ""
-      );
+      setPesoAtual(lastWeight ?? "");
+      setTemperaturaCorporal("");
       setFrequenciaCardiaca("");
       setFrequenciaRespiratoria("");
       return;
@@ -304,65 +315,36 @@ export default function AppointmentForm({
 
     if (type === "Consulta (Modelo Antigo)") {
       setDetails({} as ConsultationDetails);
-      setPesoAtual(
-        initialData?.type === "Consulta (Modelo Antigo)"
-          ? initialData.pesoAtual ?? ""
-          : lastWeight ?? ""
-      );
-      setTemperaturaCorporal(
-        initialData?.type === "Consulta (Modelo Antigo)"
-          ? initialData.temperaturaCorporal ?? ""
-          : ""
-      );
-      setFrequenciaCardiaca(
-        initialData?.type === "Consulta (Modelo Antigo)"
-          ? initialData.frequenciaCardiaca ?? ""
-          : ""
-      );
-      setFrequenciaRespiratoria(
-        initialData?.type === "Consulta (Modelo Antigo)"
-          ? initialData.frequenciaRespiratoria ?? ""
-          : ""
-      );
+      setPesoAtual(lastWeight ?? "");
+      setTemperaturaCorporal("");
+      setFrequenciaCardiaca("");
+      setFrequenciaRespiratoria("");
       return;
     }
 
     if (type === "Cirurgia") {
       setDetails({ suturas: [] } as SurgeryDetails);
-      setPesoAtual(initialData?.type === "Cirurgia" ? initialData.pesoAtual ?? "" : lastWeight ?? "");
-      setTemperaturaCorporal(
-        initialData?.type === "Cirurgia" ? initialData.temperaturaCorporal ?? "" : ""
-      );
-      setFrequenciaCardiaca(
-        initialData?.type === "Cirurgia" ? initialData.frequenciaCardiaca ?? "" : ""
-      );
-      setFrequenciaRespiratoria(
-        initialData?.type === "Cirurgia" ? initialData.frequenciaRespiratoria ?? "" : ""
-      );
+      setPesoAtual(lastWeight ?? "");
+      setTemperaturaCorporal("");
+      setFrequenciaCardiaca("");
+      setFrequenciaRespiratoria("");
       return;
     }
 
     if (type === "Emergência") {
       setDetails({} as EmergencyDetails);
-      setPesoAtual(initialData?.type === "Emergência" ? initialData.pesoAtual ?? "" : lastWeight ?? "");
-      setTemperaturaCorporal(
-        initialData?.type === "Emergência" ? initialData.temperaturaCorporal ?? "" : ""
-      );
-      setFrequenciaCardiaca(
-        initialData?.type === "Emergência" ? initialData.frequenciaCardiaca ?? "" : ""
-      );
-      setFrequenciaRespiratoria(
-        initialData?.type === "Emergência" ? initialData.frequenciaRespiratoria ?? "" : ""
-      );
+      setPesoAtual(lastWeight ?? "");
+      setTemperaturaCorporal("");
+      setFrequenciaCardiaca("");
+      setFrequenciaRespiratoria("");
       return;
     }
 
     if (type === "Vacina") {
       setDetails({} as VaccinationDetails);
       setVaccineNameChoice("");
-      // Pré-vacinal usa peso/temperatura
-      setPesoAtual(initialData?.type === "Vacina" ? initialData.pesoAtual ?? "" : lastWeight ?? "");
-      setTemperaturaCorporal(initialData?.type === "Vacina" ? initialData.temperaturaCorporal ?? "" : "");
+      setPesoAtual(lastWeight ?? "");
+      setTemperaturaCorporal("");
       setFrequenciaCardiaca("");
       setFrequenciaRespiratoria("");
       return;
@@ -376,9 +358,7 @@ export default function AppointmentForm({
       setFrequenciaRespiratoria("");
       return;
     }
-
-    // Tipos legados: mantemos o conteúdo atual (sem reconstrução automática)
-  }, [type, initialData, lastWeight]);
+  }, [type, lastWeight]);
 
   // Regras inteligentes (UX) para vacinação
   useEffect(() => {
@@ -396,7 +376,6 @@ export default function AppointmentForm({
       nome === "V4 Felina (Quadrúpla)" ||
       nome === "V5 Felina (Quíntupla)";
 
-    // Antirrábica: sugerir Dose Única e próxima dose +1 ano
     if (isAntiRabica) {
       const nextDose = dose ? dose : "Dose Única";
       const nextProxima = v.proximaDose ? v.proximaDose : addYearsISO(date, 1);
@@ -411,7 +390,6 @@ export default function AppointmentForm({
       return;
     }
 
-    // V8/V10/V3/V4/V5: se 1ª Dose → sugerir próxima dose em 21–30 dias
     if (isVSeries && dose === "1ª Dose") {
       const suggested = v.proximaDose ? v.proximaDose : addDaysISO(date, 28);
       if (suggested !== v.proximaDose) {
@@ -420,22 +398,99 @@ export default function AppointmentForm({
     }
   }, [type, details, date]);
 
-  const saveDraft = () => {
-    const payload = {
+  const buildDraftAppointment = (): AppointmentEntry => {
+    const draftId = draftIdRef.current || `draft-${Date.now()}`;
+    draftIdRef.current = draftId;
+
+    const isLegacy = !!type && !isPrimaryType(type);
+    const isOldConsult = type === "Consulta (Modelo Antigo)";
+
+    const shouldKeepVitals =
+      type === "Consulta" ||
+      isOldConsult ||
+      type === "Cirurgia" ||
+      type === "Emergência" ||
+      type === "Vacina" ||
+      isLegacy;
+    const shouldKeepCardioVitals =
+      isOldConsult || type === "Cirurgia" || type === "Emergência" || isLegacy;
+
+    const detailsToSave: AppointmentEntry["details"] =
+      type === "Vacina"
+        ? ({
+            ...(details as VaccinationDetails),
+            profissionalAplicou: (details as VaccinationDetails).profissionalAplicou || vet,
+          } as VaccinationDetails)
+        : details;
+
+    return {
+      id: draftId,
+      animalId,
       date,
       time,
       type,
       vet,
-      administrativeNote,
-      pesoAtual,
-      temperaturaCorporal,
-      frequenciaCardiaca,
-      frequenciaRespiratoria,
-      details,
-      consultationMode,
+      observacoesGerais: administrativeNote.trim() || undefined,
+      pesoAtual: shouldKeepVitals && pesoAtual !== "" ? Number(pesoAtual) : undefined,
+      temperaturaCorporal:
+        shouldKeepVitals && temperaturaCorporal !== "" ? Number(temperaturaCorporal) : undefined,
+      frequenciaCardiaca:
+        shouldKeepCardioVitals && frequenciaCardiaca !== "" ? Number(frequenciaCardiaca) : undefined,
+      frequenciaRespiratoria:
+        shouldKeepCardioVitals && frequenciaRespiratoria !== ""
+          ? Number(frequenciaRespiratoria)
+          : undefined,
+      details: detailsToSave,
     };
-    localStorage.setItem(draftKey(clientId, animalId), JSON.stringify(payload));
-    toast.success("Rascunho salvo.");
+  };
+
+  const upsertDraftNow = () => {
+    const draftAppointment = buildDraftAppointment();
+    // salvar somente se houver algo para preservar
+    const hasAny =
+      !!draftAppointment.type ||
+      !!draftAppointment.vet ||
+      !!draftAppointment.observacoesGerais ||
+      Object.keys((draftAppointment.details || {}) as any).length > 0;
+
+    if (!hasAny) return;
+
+    upsertAppointmentDraft(clientId, animalId, {
+      id: draftAppointment.id,
+      animalId,
+      clientId,
+      updatedAtISO: new Date().toISOString(),
+      appointment: draftAppointment,
+    });
+  };
+
+  // Auto-salvar rascunho a cada 1 minuto + na desmontagem
+  useEffect(() => {
+    const t = window.setInterval(() => {
+      upsertDraftNow();
+    }, 60_000);
+
+    return () => {
+      window.clearInterval(t);
+      upsertDraftNow();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clientId, animalId, date, time, type, vet, administrativeNote, pesoAtual, temperaturaCorporal, frequenciaCardiaca, frequenciaRespiratoria, details]);
+
+  const handleCancelClick = () => {
+    const hasDraft = !!draftIdRef.current;
+    const msg = hasDraft
+      ? "Cancelar sem salvar? As alterações serão perdidas."
+      : "Cancelar e voltar para o prontuário?";
+
+    const ok = window.confirm(msg);
+    if (!ok) return;
+
+    if (draftIdRef.current) {
+      removeAppointmentDraft(clientId, animalId, draftIdRef.current);
+    }
+
+    onCancel();
   };
 
   const handleSave = () => {
@@ -484,7 +539,6 @@ export default function AppointmentForm({
 
     if (type === "Vacina") {
       const v = details as VaccinationDetails;
-      // Obrigatórios
       if (!v.tipoVacina || !v.tipoVacina.trim()) nextErrors.tipoVacina = true;
       if (!v.lote || !v.lote.trim()) nextErrors.lote = true;
     }
@@ -496,6 +550,9 @@ export default function AppointmentForm({
     }
 
     setErrors({});
+
+    // Se existe um draft em andamento, reaproveita o id do draft.
+    const draftId = draftIdRef.current;
 
     const isLegacy = !!type && !isPrimaryType(type);
     const isOldConsult = type === "Consulta (Modelo Antigo)";
@@ -518,7 +575,7 @@ export default function AppointmentForm({
         : details;
 
     const newAppointment: AppointmentEntry = {
-      id: initialData?.id || `app-${Date.now()}`,
+      id: draftId || initialData?.id || `app-${Date.now()}`,
       animalId,
       date,
       time,
@@ -538,10 +595,9 @@ export default function AppointmentForm({
     };
 
     onSave(newAppointment);
-    localStorage.removeItem(draftKey(clientId, animalId));
 
     // Atualizar peso do animal (se informado)
-    if (newAppointment.pesoAtual !== undefined) {
+    if (newAppointment.pesoAtual !== undefined && !String(newAppointment.id).startsWith("draft-")) {
       const currentClient = mockClients.find((c) => c.id === clientId);
       const currentAnimal = currentClient?.animals.find((a) => a.id === animalId);
       const currentWeight = (currentAnimal as any)?.weight as number | undefined;
@@ -1091,7 +1147,7 @@ export default function AppointmentForm({
       }}
       className="space-y-6 pb-24"
     >
-      {/* ETAPA 1 — Dados administrativos (sem campos clínicos) */}
+      {/* Dados administrativos */}
       <Card className="premium-card rounded-xl">
         <CardHeader>
           <CardTitle className="text-base">Dados gerais do atendimento</CardTitle>
@@ -1151,7 +1207,6 @@ export default function AppointmentForm({
                   </SelectItem>
                 ))}
 
-                {/* Compatibilidade: exibir o tipo atual se for legado */}
                 {!!type && !isPrimaryType(type) && (
                   <SelectItem value={type}>{`${type} (legado)`}</SelectItem>
                 )}
@@ -1194,7 +1249,7 @@ export default function AppointmentForm({
         </CardContent>
       </Card>
 
-      {/* ETAPA 2 — Formulário dinâmico por tipo */}
+      {/* Formulário dinâmico */}
       {type ? (
         <Card className="premium-card rounded-xl">
           <CardHeader>
@@ -1211,12 +1266,8 @@ export default function AppointmentForm({
       {/* Rodapé fixo de ações */}
       <div className="sticky bottom-0 z-10 -mx-6 px-6 py-4 border-t border-border bg-background/90 backdrop-blur">
         <div className="flex flex-col sm:flex-row gap-2 sm:items-center sm:justify-end">
-          <SaasButton type="button" saasVariant="outline" onClick={onCancel} className="w-full sm:w-auto">
+          <SaasButton type="button" saasVariant="outline" onClick={handleCancelClick} className="w-full sm:w-auto">
             <X className="h-4 w-4 mr-2" /> Cancelar
-          </SaasButton>
-
-          <SaasButton type="button" saasVariant="soft" onClick={saveDraft} className="w-full sm:w-auto">
-            Salvar rascunho
           </SaasButton>
 
           <DropdownMenu>
@@ -1228,11 +1279,6 @@ export default function AppointmentForm({
             <DropdownMenuContent align="end">
               <DropdownMenuItem onSelect={() => generatePdf()}>
                 Gerar PDF do atendimento
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link to={`/clients/${clientId}/animals/${animalId}/add-prescription`}>
-                  Gerar prescrição
-                </Link>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
@@ -12,11 +12,22 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 import {
   AlertTriangle,
   Calendar,
   Eye,
+  Pencil,
   Plus,
   Repeat2,
   Scissors,
@@ -37,6 +48,7 @@ import type {
 } from "@/types/appointment";
 import { mockAppointments } from "@/mockData/appointments";
 import { cn, formatDateTime } from "@/lib/utils";
+import { readAppointmentDrafts, removeAppointmentDraft } from "@/lib/appointmentDrafts";
 
 const displayType = (type: AppointmentEntry["type"]) => {
   if (type === "Consulta" || type === "Consulta (Modelo Antigo)") return "Consulta";
@@ -204,13 +216,29 @@ export default function PatientAppointmentsTab({
   const navigate = useNavigate();
   const [consultDialogOpen, setConsultDialogOpen] = useState(false);
 
+  const [draftAppointments, setDraftAppointments] = useState<AppointmentEntry[]>([]);
+  useEffect(() => {
+    try {
+      const drafts = readAppointmentDrafts(clientId, animalId).map((d) => d.appointment);
+      setDraftAppointments(drafts);
+    } catch {
+      setDraftAppointments([]);
+    }
+  }, [clientId, animalId]);
+
+  const [deleteTarget, setDeleteTarget] = useState<
+    | { id: string; kind: "draft" | "definitive" }
+    | null
+  >(null);
+
   const sorted = useMemo(() => {
-    return [...animalAppointments].sort(
+    const merged = [...animalAppointments, ...draftAppointments];
+    return merged.sort(
       (a, b) =>
         new Date(`${b.date}T${b.time || "00:00"}`).getTime() -
         new Date(`${a.date}T${a.time || "00:00"}`).getTime()
     );
-  }, [animalAppointments]);
+  }, [animalAppointments, draftAppointments]);
 
   const goNew = (type: AppointmentEntry["type"]) => {
     const qp = new URLSearchParams();
@@ -225,6 +253,21 @@ export default function PatientAppointmentsTab({
       setAnimalAppointments(mockAppointments.filter((a) => a.animalId === animalId));
       toast.info("Atendimento excluído.");
     }
+  };
+
+  const confirmDelete = () => {
+    if (!deleteTarget) return;
+
+    if (deleteTarget.kind === "draft") {
+      removeAppointmentDraft(clientId, animalId, deleteTarget.id);
+      setDraftAppointments((prev) => prev.filter((d) => d.id !== deleteTarget.id));
+      toast.info("Rascunho excluído.");
+      setDeleteTarget(null);
+      return;
+    }
+
+    removeAppointment(deleteTarget.id);
+    setDeleteTarget(null);
   };
 
   const metaConsulta = typeMeta("Consulta");
@@ -361,6 +404,8 @@ export default function PatientAppointmentsTab({
                 const timeSafe = app.time || "00:00";
                 const dateLabel = `${formatDateTime(app.date)} às ${timeSafe}`;
 
+                const isDraft = app.id.startsWith("draft-");
+
                 return (
                   <div
                     key={app.id}
@@ -383,8 +428,13 @@ export default function PatientAppointmentsTab({
                         </div>
 
                         <div className="min-w-0">
-                          <div className={cn("text-base font-bold", meta.iconClass)}>
-                            {meta.label}
+                          <div className={cn("flex items-center gap-2 text-base font-bold", meta.iconClass)}>
+                            <span>{meta.label}</span>
+                            {isDraft ? (
+                              <span className="rounded-full border border-border bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
+                                Rascunho
+                              </span>
+                            ) : null}
                           </div>
 
                           <div className="mt-1 text-sm text-muted-foreground leading-relaxed">
@@ -405,21 +455,45 @@ export default function PatientAppointmentsTab({
                       </div>
 
                       <div className="flex gap-2">
+                        {isDraft ? (
+                          <SaasButton
+                            saasVariant="ghost"
+                            size="icon"
+                            onClick={() =>
+                              navigate(
+                                `/clients/${clientId}/animals/${animalId}/edit-appointment/${app.id}`
+                              )
+                            }
+                            className="rounded-md"
+                            title="Continuar edição"
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </SaasButton>
+                        ) : (
+                          <SaasButton
+                            saasVariant="ghost"
+                            size="icon"
+                            onClick={() =>
+                              navigate(
+                                `/clients/${clientId}/animals/${animalId}/view-appointment/${app.id}`
+                              )
+                            }
+                            className="rounded-md"
+                            title="Ver"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </SaasButton>
+                        )}
+
                         <SaasButton
                           saasVariant="ghost"
                           size="icon"
                           onClick={() =>
-                            navigate(`/clients/${clientId}/animals/${animalId}/view-appointment/${app.id}`)
+                            setDeleteTarget({
+                              id: app.id,
+                              kind: isDraft ? "draft" : "definitive",
+                            })
                           }
-                          className="rounded-md"
-                          title="Ver"
-                        >
-                          <Eye className="h-4 w-4" />
-                        </SaasButton>
-                        <SaasButton
-                          saasVariant="ghost"
-                          size="icon"
-                          onClick={() => removeAppointment(app.id)}
                           className="rounded-md"
                           title="Excluir"
                         >
@@ -436,6 +510,21 @@ export default function PatientAppointmentsTab({
           )}
         </CardContent>
       </Card>
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir este {deleteTarget?.kind === "draft" ? "rascunho" : "atendimento"}? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete}>Excluir</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
