@@ -239,12 +239,14 @@ export default function AppointmentForm({
     if (initialData) return;
 
     const qsType = searchParams.get("type");
-    if (qsType && !type) {
-      setType(qsType as AllowedType);
+    // Se o tipo veio por querystring (atalhos de Novo atendimento), ele sempre tem prioridade.
+    // Importante: também impede que o rascunho legado sobrescreva o tipo após o primeiro render.
+    if (qsType) {
+      if (!type) setType(qsType as AllowedType);
       return;
     }
 
-    // Compat: rascunho antigo (chave única) — somente quando não há tipo forçado por querystring
+    // Compat: rascunho antigo (chave única)
     const saved = safeParseJSON<any>(
       localStorage.getItem(`systemvet:appointment:draft:${clientId}:${animalId}`)
     );
