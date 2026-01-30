@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useMemo, useState, useEffect } from "react";
 import { Link, useParams, useNavigate, useSearchParams } from "react-router-dom";
 import {
@@ -105,7 +107,7 @@ interface TimelineEvent {
   id: string;
   date: string;
   time: string;
-  type: 'Atendimento' | 'Exame' | 'Receita' | 'Peso' | 'Observação' | 'Venda' | 'Vacina' | 'Documento' | 'Financeiro';
+  type: 'Atendimento' | 'Exame' | 'Receita' | 'Peso' | 'Observação' | 'Venda' | 'Vacina' | 'Documento';
   description: string;
   icon: React.ElementType;
   link?: string;
@@ -709,7 +711,7 @@ const PatientRecordPage = () => {
   };
 
   const formatAgeLabel = (birthday?: string) => {
-    if (!birthday) return "- ";
+    if (!birthday) return "-";
     const birthDate = new Date(birthday);
     const today = new Date();
     let age = today.getFullYear() - birthDate.getFullYear();
@@ -719,7 +721,7 @@ const PatientRecordPage = () => {
     return age === 1 ? "1 ano" : `${age} anos`;
   };
   const formatWeightLabel = (weight?: number) => {
-    if (weight === undefined || weight === null || isNaN(Number(weight))) return "- ";
+    if (weight === undefined || weight === null || isNaN(Number(weight))) return "-";
     const text = Number(weight).toLocaleString("pt-BR", { minimumFractionDigits: 0, maximumFractionDigits: 1 });
     return `${text} kg`;
   };
@@ -734,7 +736,7 @@ const PatientRecordPage = () => {
       <div className="p-6 text-center">
         <h1 className="text-3xl font-bold mb-4">Animal ou Cliente não encontrado.</h1>
         <Link to="/clients">
-          <Button variant="outline" className="bg-card border border-border text-foreground hover:bg-muted/40 rounded-md transition-all duration-200 shadow-sm hover:shadow-md">
+          <Button variant="outline" className="bg-card border border-border text-foreground hover:bg-muted rounded-md transition-all duration-200 shadow-sm hover:shadow-md">
             <FaArrowLeft className="mr-2 h-4 w-4" /> Voltar para Clientes
           </Button>
         </Link>
@@ -880,7 +882,7 @@ const PatientRecordPage = () => {
   })();
 
   const formatAgeYearsMonths = (birthday?: string) => {
-    if (!birthday) return "- ";
+    if (!birthday) return "-";
 
     const birth = new Date(birthday);
     const now = new Date();
@@ -932,7 +934,6 @@ const PatientRecordPage = () => {
                 <div className="h-9 w-9 rounded-xl bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200/60 flex items-center justify-center">
                   <FileTextIcon className="h-4.5 w-4.5" strokeWidth={1.8} />
                 </div>
-
                 <div className="min-w-0">
                   <h1 className="text-lg sm:text-xl leading-tight font-semibold text-foreground">
                     Prontuário Consolidado
@@ -1119,7 +1120,7 @@ const PatientRecordPage = () => {
 
                     <CollapsibleContent>
                       <div className="px-3 pb-3 text-sm text-muted-foreground space-y-2">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 gap-y-1">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
                           <div className="flex items-center gap-1.5">
                             <FaIdCard className="h-3.5 w-3.5 text-sky-600" />
                             <span>
@@ -1210,7 +1211,6 @@ const PatientRecordPage = () => {
                           <div className="h-9 w-9 rounded-xl bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200/60 flex items-center justify-center">
                             <BadgeDollarSign className="h-4 w-4" strokeWidth={1.8} />
                           </div>
-
                           <div className="min-w-0">
                             <div className="text-[15px] font-semibold text-foreground">Financeiro</div>
                             <div className="text-sm text-muted-foreground">Resumo do prontuário</div>
@@ -1435,64 +1435,6 @@ const PatientRecordPage = () => {
                         const MarkerIcon = getTimelineMarkerIcon(event);
                         const markerColor = getTimelineMarkerColor(dotClass);
 
-                        const getTimelineCardBorderClass = () => {
-                          if (isAlertObs) return "border-red-200";
-                          if (event.type === 'Atendimento') return "border-sky-300";
-                          if (event.type === 'Exame') return "border-violet-300";
-                          if (event.type === 'Peso') return "border-amber-300";
-                          if (event.type === 'Vacina') return "border-sky-300";
-                          if (event.type === 'Venda' || event.type === 'Financeiro') return "border-teal-300";
-                          if (event.type === 'Documento') return "border-slate-200";
-                          if (event.type === 'Observação') return "border-slate-200";
-                          if (event.type === 'Receita') {
-                            const desc = (event.description || "").toLowerCase();
-                            if (desc.includes("controlada")) return "border-amber-300";
-                            if (desc.includes("manipulada")) return "border-teal-300";
-                            return "border-emerald-300";
-                          }
-                          return "border-border";
-                        };
-
-                        const getTimelineCardHoverShadowClass = () => {
-                          if (isAlertObs) return "hover:shadow-red-200/60";
-                          if (event.type === 'Atendimento') return "hover:shadow-sky-200/60";
-                          if (event.type === 'Exame') return "hover:shadow-violet-200/60";
-                          if (event.type === 'Peso') return "hover:shadow-amber-200/60";
-                          if (event.type === 'Vacina') return "hover:shadow-sky-200/60";
-                          if (event.type === 'Venda' || event.type === 'Financeiro') return "hover:shadow-teal-200/60";
-                          if (event.type === 'Documento') return "hover:shadow-slate-200/60";
-                          if (event.type === 'Observação') return "hover:shadow-slate-200/60";
-                          if (event.type === 'Receita') {
-                            const desc = (event.description || "").toLowerCase();
-                            if (desc.includes("controlada")) return "hover:shadow-amber-200/60";
-                            if (desc.includes("manipulada")) return "hover:shadow-teal-200/60";
-                            return "hover:shadow-emerald-200/60";
-                          }
-                          return "hover:shadow-muted-foreground/10";
-                        };
-
-                        const getTimelineIconWrapBgClass = () => {
-                          if (isAlertObs) return "bg-red-50/70";
-                          if (event.type === 'Atendimento') return "bg-sky-50/70";
-                          if (event.type === 'Exame') return "bg-violet-50/70";
-                          if (event.type === 'Peso') return "bg-amber-50/70";
-                          if (event.type === 'Vacina') return "bg-sky-50/70";
-                          if (event.type === 'Venda' || event.type === 'Financeiro') return "bg-teal-50/70";
-                          if (event.type === 'Documento') return "bg-slate-50/70";
-                          if (event.type === 'Observação') return "bg-slate-50/70";
-                          if (event.type === 'Receita') {
-                            const desc = (event.description || "").toLowerCase();
-                            if (desc.includes("controlada")) return "bg-amber-50/70";
-                            if (desc.includes("manipulada")) return "bg-teal-50/70";
-                            return "bg-emerald-50/70";
-                          }
-                          return "bg-muted/30";
-                        };
-
-                        const cardBorderClass = getTimelineCardBorderClass();
-                        const cardHoverShadowClass = getTimelineCardHoverShadowClass();
-                        const iconWrapBgClass = getTimelineIconWrapBgClass();
-
                         return (
                           <div key={event.id} className="relative pl-9 sm:pl-11">
                             {/* Container maior, ícone no mesmo tamanho */}
@@ -1500,14 +1442,7 @@ const PatientRecordPage = () => {
                               <MarkerIcon className="h-4 w-4" strokeWidth={1.6} style={{ color: markerColor }} />
                             </span>
 
-                            <Card
-                              className={cn(
-                                "rounded-xl border bg-white p-4 sm:p-5 transition-all duration-200",
-                                "hover:shadow-lg hover:-translate-y-0.5",
-                                cardBorderClass,
-                                cardHoverShadowClass
-                              )}
-                            >
+                            <Card className="premium-card p-4 sm:p-5">
                               <div className="flex items-start justify-between gap-4">
                                 <div className="min-w-0">
                                   <div className="flex items-center gap-2">
@@ -1524,13 +1459,7 @@ const PatientRecordPage = () => {
                                   </div>
 
                                   <div className="mt-2 flex items-start gap-3">
-                                    <div
-                                      className={cn(
-                                        "h-9 w-9 rounded-xl flex items-center justify-center",
-                                        iconWrapBgClass,
-                                        iconColorClass
-                                      )}
-                                    >
+                                    <div className={cn("h-9 w-9 rounded-xl flex items-center justify-center bg-muted/30", iconColorClass)}>
                                       {React.createElement(event.icon, { className: "h-4 w-4" })}
                                     </div>
 
@@ -1618,9 +1547,7 @@ const PatientRecordPage = () => {
                               </div>
 
                               <div className="min-w-0">
-                                <div className="text-base font-bold text-purple-900 truncate">
-                                  {title}
-                                </div>
+                                <div className="text-base font-bold text-purple-900 truncate">{title}</div>
                                 <div className="mt-1 text-sm text-muted-foreground leading-relaxed line-clamp-2">
                                   {subtitle}
                                 </div>
@@ -1750,11 +1677,7 @@ const PatientRecordPage = () => {
                       return (
                         <div
                           key={entry.id}
-                          className={cn(
-                            "rounded-xl border bg-white p-4 transition-all duration-200",
-                            "hover:shadow-lg hover:-translate-y-0.5",
-                            "border-emerald-200 hover:shadow-emerald-200/60"
-                          )}
+                          className="premium-card rounded-xl p-4 transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5 border-emerald-200 hover:shadow-emerald-200/60"
                         >
                           <div className="flex items-start justify-between gap-3">
                             <div className="flex items-start gap-3 min-w-0">
@@ -1763,9 +1686,27 @@ const PatientRecordPage = () => {
                               </div>
 
                               <div className="min-w-0">
-                                <div className="text-base font-bold text-emerald-900 truncate">
-                                  {entry.weight.toFixed(2)} kg
+                                <div className="flex items-center gap-2 text-base font-bold text-emerald-900">
+                                  <span>{entry.weight.toFixed(2)} kg</span>
+                                  {prevEntry && (
+                                    <div className="flex items-center gap-1 text-xs font-medium">
+                                      {isIncrease ? (
+                                        <div className="flex items-center gap-0.5 text-emerald-600">
+                                          <FaArrowUp className="h-3 w-3" />
+                                          <span>+{diffPercent}%</span>
+                                        </div>
+                                      ) : isDecrease ? (
+                                        <div className="flex items-center gap-0.5 text-rose-600">
+                                          <FaArrowDown className="h-3 w-3" />
+                                          <span>{diffPercent}%</span>
+                                        </div>
+                                      ) : (
+                                        <span className="text-muted-foreground">0%</span>
+                                      )}
+                                    </div>
+                                  )}
                                 </div>
+
                                 <div className="mt-1 text-sm text-muted-foreground leading-relaxed">
                                   {entry.source || "-"}
                                 </div>
@@ -1875,8 +1816,8 @@ const PatientRecordPage = () => {
                               </div>
 
                               <div className="min-w-0">
-                                <div className="flex items-center gap-2">
-                                  <span className="text-base font-bold text-slate-900 truncate">{doc.name}</span>
+                                <div className="flex items-center gap-2 text-base font-bold text-slate-900">
+                                  <span className="truncate">{doc.name}</span>
                                 </div>
 
                                 <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
@@ -1934,43 +1875,22 @@ const PatientRecordPage = () => {
           <TabsContent value="prescriptions" className="mt-4">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
               <Link to={`/clients/${clientId}/animals/${animalId}/add-prescription?type=simple`}>
-                <Card
-                  className={cn(
-                    "flex flex-col items-center justify-center p-6 text-center h-full",
-                    "rounded-xl border bg-emerald-50/20 transition-all duration-200",
-                    "hover:bg-emerald-50/40 hover:shadow-lg hover:shadow-emerald-200/60 hover:-translate-y-0.5",
-                    "border-emerald-300"
-                  )}
-                >
-                  <FaFileMedical className="h-12 w-12 text-emerald-600 mb-3" />
+                <Card className="flex flex-col items-center justify-center p-6 text-center bg-card shadow-sm border border-border rounded-md h-full">
+                  <FaFileMedical className="h-12 w-12 text-primary mb-3" />
                   <CardTitle className="text-lg font-semibold text-foreground">Receita Simples</CardTitle>
                   <p className="text-sm text-muted-foreground mt-1">Medicamentos de uso comum</p>
                 </Card>
               </Link>
               <Link to={`/clients/${clientId}/animals/${animalId}/add-prescription?type=controlled`}>
-                <Card
-                  className={cn(
-                    "flex flex-col items-center justify-center p-6 text-center h-full",
-                    "rounded-xl border bg-rose-50/20 transition-all duration-200",
-                    "hover:bg-rose-50/40 hover:shadow-lg hover:shadow-rose-200/60 hover:-translate-y-0.5",
-                    "border-rose-300"
-                  )}
-                >
-                  <FaExclamationTriangle className="h-12 w-12 text-rose-600 mb-3" />
+                <Card className="flex flex-col items-center justify-center p-6 text-center bg-card shadow-sm border border-border rounded-md h-full">
+                  <FaExclamationTriangle className="h-12 w-12 text-destructive mb-3" />
                   <CardTitle className="text-lg font-semibold text-foreground">Receita Controlada</CardTitle>
                   <p className="text-sm text-muted-foreground mt-1">Medicamentos controlados</p>
                 </Card>
               </Link>
               <Link to={`/clients/${clientId}/animals/${animalId}/add-prescription?type=manipulated`}>
-                <Card
-                  className={cn(
-                    "flex flex-col items-center justify-center p-6 text-center h-full",
-                    "rounded-xl border bg-orange-100/45 transition-all duration-200",
-                    "hover:bg-orange-100/60 hover:shadow-lg hover:shadow-orange-200/70 hover:-translate-y-0.5",
-                    "border-orange-300"
-                  )}
-                >
-                  <FaFlask className="h-12 w-12 text-orange-700 mb-3" />
+                <Card className="flex flex-col items-center justify-center p-6 text-center bg-card shadow-sm border border-border rounded-md h-full">
+                  <FaFlask className="h-12 w-12 text-accent mb-3" />
                   <CardTitle className="text-lg font-semibold text-foreground">Receita Manipulada</CardTitle>
                   <p className="text-sm text-muted-foreground mt-1">Medicamentos manipulados</p>
                 </Card>
@@ -2048,10 +1968,9 @@ const PatientRecordPage = () => {
                                   <span className="text-xs text-muted-foreground">{formatDateTime(rx.date, rx.time)}</span>
                                 </div>
 
-                                <div className="mt-2 text-[15px] sm:text-base font-semibold leading-snug text-foreground">
+                                <div className={cn("mt-2 text-[15px] sm:text-base font-semibold leading-snug", iconClass)}>
                                   {title}
                                 </div>
-
                                 {subtitle ? (
                                   <div className="mt-1 text-sm text-muted-foreground leading-relaxed line-clamp-2">
                                     {subtitle}
@@ -2202,7 +2121,7 @@ const PatientRecordPage = () => {
                                       ALERTA
                                     </span>
                                   ) : null}
-                                  <span className="text-xs text-muted-foreground truncate">{formatDateTime(obs.date, obs.time)}</span>
+                                  <span className="text-xs text-muted-foreground">{formatDateTime(obs.date, obs.time)}</span>
                                 </div>
 
                                 <div className={cn("mt-2 text-[15px] sm:text-base font-semibold leading-snug", isAlert ? "text-red-900" : "text-foreground")}>
@@ -2308,7 +2227,7 @@ const PatientRecordPage = () => {
                                         </Badge>
                                       </div>
                                       <div className="text-sm font-semibold text-green-700">
-                                        {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(b.total)}
+                                        {new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(b.total)}
                                       </div>
                                     </div>
                                     <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mt-2 text-sm text-muted-foreground">
@@ -2317,10 +2236,10 @@ const PatientRecordPage = () => {
                                       {b.observations && <div className="flex items-center gap-1"><FaTag className="h-3 w-3" /> Obs.: {b.observations}</div>}
                                     </div>
                                     <div className="flex justify-end gap-2 mt-2">
-                                      <Button variant="outline" size="sm" onClick={() => approveBudget(b.id)} disabled={statusDisplay === "convertido" || statusDisplay === "cancelado"}>Aprovar</Button>
-                                      <Button variant="outline" size="sm" onClick={() => cancelBudget(b.id)} disabled={statusDisplay === "convertido" || statusDisplay === "cancelado"}>Cancelar</Button>
-                                      <Button variant="outline" size="sm" onClick={() => printBudget(b)}>Imprimir</Button>
-                                      <Button size="sm" onClick={() => openConvertModal(b.id)} disabled={!canConvert} className="rounded-md bg-[#0F4C5C] text-white hover:bg-[#0d3f4b]">
+                                      <Button variant="outline" size="sm" onClick={()=>approveBudget(b.id)} disabled={statusDisplay==="convertido" || statusDisplay==="cancelado"}>Aprovar</Button>
+                                      <Button variant="outline" size="sm" onClick={()=>cancelBudget(b.id)} disabled={statusDisplay==="convertido" || statusDisplay==="cancelado"}>Cancelar</Button>
+                                      <Button variant="outline" size="sm" onClick={()=>printBudget(b)}>Imprimir</Button>
+                                      <Button size="sm" onClick={()=>openConvertModal(b.id)} disabled={!canConvert} className="rounded-md bg-[#0F4C5C] text-white hover:bg-[#0d3f4b]">
                                         Converter em venda
                                       </Button>
                                     </div>
@@ -2360,7 +2279,7 @@ const PatientRecordPage = () => {
                                       "px-3 py-1 text-sm font-bold rounded-full",
                                       sale.saleStatus === "open" ? "bg-orange-600 text-white" : "bg-green-600 text-white"
                                     )}>
-                                      {sale.saleStatus === "open" ? "Venda Aberta" : "Venda Finalizada"} {sale.origin === "orcamento" ? " • (de orçamento)" : ""}
+                                      {sale.saleStatus === "open" ? "Venda Aberta" : "Venda Finalizada"} {sale.origin === "orcamento" ? "• (de orçamento)" : ""}
                                     </Badge>
                                     <p className="text-lg font-semibold text-foreground">
                                       {app ? `${app.type} • ${app.vet}` : `Atendimento ${sale.appointmentId}`}
@@ -2434,10 +2353,6 @@ const PatientRecordPage = () => {
                                         ))}
                                       </TableBody>
                                     </Table>
-                                    <div className="flex justify-between mt-2 text-sm font-semibold">
-                                      <span>Total:</span>
-                                      <span>{new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(sale.total)}</span>
-                                    </div>
                                   </div>
                                 )}
                               </Card>
@@ -2461,16 +2376,14 @@ const PatientRecordPage = () => {
                             <div>
                               <Label>Venda</Label>
                               <Select value={paymentSaleId || ""} onValueChange={(v) => setPaymentSaleId(v)}>
-                                <SelectTrigger className="bg-input border border-border rounded-md h-9">
-                                  <SelectValue placeholder="Selecione a venda" />
-                                </SelectTrigger>
+                                <SelectTrigger className="bg-input border border-border rounded-md h-9"><SelectValue placeholder="Selecione a venda" /></SelectTrigger>
                                 <SelectContent>
                                   {patientSales
-                                    .filter((s) => getPaidForSale(s.id) < s.total)
-                                    .map((s) => {
+                                    .filter(s => getPaidForSale(s.id) < s.total)
+                                    .map(s => {
                                       const paid = getPaidForSale(s.id);
                                       const saldo = Math.max(0, s.total - paid);
-                                      const app = animalAppointments.find((a) => a.id === s.appointmentId);
+                                      const app = animalAppointments.find(a => a.id === s.appointmentId);
                                       return (
                                         <SelectItem key={s.id} value={s.id}>
                                           {app ? `${app.type} • ${app.vet}` : `Atendimento ${s.appointmentId}`} — Total {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(s.total)} • Saldo {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(saldo)}
@@ -2480,66 +2393,37 @@ const PatientRecordPage = () => {
                                 </SelectContent>
                               </Select>
                             </div>
-
                             <div className="grid grid-cols-2 gap-2">
                               <div>
                                 <Label>Data</Label>
-                                <Input
-                                  type="date"
-                                  value={paymentDate}
-                                  onChange={(e) => setPaymentDate(e.target.value)}
-                                  className="h-9 bg-input border border-border rounded-md"
-                                />
+                                <Input type="date" value={paymentDate} onChange={(e)=>setPaymentDate(e.target.value)} className="h-9 bg-input border border-border rounded-md" />
                               </div>
                               <div>
                                 <Label>Hora</Label>
-                                <Input
-                                  value={paymentTime}
-                                  onChange={(e) => setPaymentTime(e.target.value)}
-                                  className="h-9 bg-input border border-border rounded-md"
-                                />
+                                <Input value={paymentTime} onChange={(e)=>setPaymentTime(e.target.value)} className="h-9 bg-input border border-border rounded-md" />
                               </div>
                             </div>
-
                             <div>
                               <Label>Valor</Label>
-                              <CurrencyInput
-                                value={paymentAmount}
-                                onValueChange={setPaymentAmount}
-                                className="h-9 w-full border border-border rounded-md"
-                              />
+                              <CurrencyInput value={paymentAmount} onValueChange={setPaymentAmount} className="h-9 w-full border border-border rounded-md" />
                             </div>
-
                             <div>
                               <Label>Método de pagamento</Label>
                               <Select value={paymentMethodId || ""} onValueChange={setPaymentMethodId}>
-                                <SelectTrigger className="bg-input border border-border rounded-md h-9">
-                                  <SelectValue placeholder="Selecione" />
-                                </SelectTrigger>
+                                <SelectTrigger className="bg-input border border-border rounded-md h-9"><SelectValue placeholder="Selecione" /></SelectTrigger>
                                 <SelectContent>
-                                  {pmRegistry.map((pm) => (
-                                    <SelectItem key={pm.id} value={pm.id}>
-                                      {pm.name}
-                                    </SelectItem>
+                                  {pmRegistry.map(pm => (
+                                    <SelectItem key={pm.id} value={pm.id}>{pm.name}</SelectItem>
                                   ))}
                                 </SelectContent>
                               </Select>
                             </div>
-
                             <div>
                               <Label>Observações</Label>
-                              <Textarea
-                                value={paymentObservations}
-                                onChange={(e) => setPaymentObservations(e.target.value)}
-                                className="bg-input border border-border rounded-md"
-                              />
+                              <Textarea value={paymentObservations} onChange={(e)=>setPaymentObservations(e.target.value)} className="bg-input border border-border rounded-md" />
                             </div>
-
                             <div className="flex justify-end">
-                              <Button
-                                onClick={handleAddPayment}
-                                className="rounded-md bg-[#0F4C5C] text-white hover:bg-[#0d3f4b] font-semibold transition-colors shadow-sm hover:shadow-md"
-                              >
+                              <Button onClick={handleAddPayment} className="rounded-md bg-[#0F4C5C] text-white hover:bg-[#0d3f4b] font-semibold transition-colors shadow-sm hover:shadow-md">
                                 Registrar pagamento
                               </Button>
                             </div>
@@ -2566,17 +2450,12 @@ const PatientRecordPage = () => {
                                   </TableHeader>
                                   <TableBody>
                                     {patientPayments.map((p, index) => {
-                                      const sale = patientSales.find((s) => s.id === p.saleId);
+                                      const app = patientSales.find(s => s.id === p.saleId)?.appointmentId;
                                       return (
                                         <TableRow key={p.id} className={cn(index % 2 === 1 && "bg-[#F9FAFB]")}>
-                                          <TableCell className="font-medium">
-                                            {p.saleId}
-                                            {sale ? ` • Atend. ${sale.appointmentId}` : ""}
-                                          </TableCell>
+                                          <TableCell className="font-medium">{p.saleId}{app ? ` • Atend. ${app}` : ""}</TableCell>
                                           <TableCell>{formatDateTime(p.date)}</TableCell>
-                                          <TableCell className="text-right font-bold">
-                                            {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(p.amount)}
-                                          </TableCell>
+                                          <TableCell className="text-right font-bold">{new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(p.amount)}</TableCell>
                                           <TableCell>{p.paymentMethod || "-"}</TableCell>
                                         </TableRow>
                                       );
@@ -2605,21 +2484,21 @@ const PatientRecordPage = () => {
                   <div className="grid grid-cols-12 gap-2 items-end">
                     <div className="col-span-2">
                       <Label>Data</Label>
-                      <Input type="date" value={budgetDate} onChange={(e) => setBudgetDate(e.target.value)} className="h-9 bg-input border border-border rounded-md" />
+                      <Input type="date" value={budgetDate} onChange={(e)=>setBudgetDate(e.target.value)} className="h-9 bg-input border border-border rounded-md" />
                     </div>
                     <div className="col-span-6">
                       <Label>Item</Label>
                       <AutocompleteSelect
                         value={budgetSelectedItemId}
                         onChange={setBudgetSelectedItemId}
-                        options={catalogItems.map(ci => ({ value: ci.id, label: `${ci.name} — ${new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(ci.price)}` }))}
+                        options={catalogItems.map(ci => ({ value: ci.id, label: `${ci.name} — ${new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(ci.price)}` }))}
                         placeholder="Selecione um item"
                         className="bg-input border border-border rounded-md"
                       />
                     </div>
                     <div className="col-span-2">
                       <Label>Qtd</Label>
-                      <Input type="number" value={budgetQty} onChange={(e) => setBudgetQty(Number(e.target.value) || 0)} className="h-9 bg-input border border-border rounded-md" />
+                      <Input type="number" value={budgetQty} onChange={(e)=>setBudgetQty(Number(e.target.value)||0)} className="h-9 bg-input border border-border rounded-md" />
                     </div>
                     <div className="col-span-2">
                       <Label>Preço Unitário</Label>
@@ -2645,15 +2524,15 @@ const PatientRecordPage = () => {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {budgetItems.map((it, idx) => (
+                          {budgetItems.map((it, idx)=>(
                             <TableRow key={`${it.itemId}-${idx}`}>
                               <TableCell className="font-medium">{it.name}</TableCell>
                               <TableCell className="capitalize">{it.type}</TableCell>
                               <TableCell>{it.qty}</TableCell>
-                              <TableCell>{new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(it.unitPrice)}</TableCell>
-                              <TableCell className="text-right">{new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(it.qty * it.unitPrice)}</TableCell>
+                              <TableCell>{new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(it.unitPrice)}</TableCell>
+                              <TableCell className="text-right">{new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(it.qty*it.unitPrice)}</TableCell>
                               <TableCell className="text-right">
-                                <Button variant="ghost" size="icon" onClick={() => removeBudgetItem(it.itemId, idx)}>
+                                <Button variant="ghost" size="icon" onClick={()=>removeBudgetItem(it.itemId, idx)}>
                                   <FaTrashAlt className="h-4 w-4 text-destructive" />
                                 </Button>
                               </TableCell>
@@ -2663,21 +2542,26 @@ const PatientRecordPage = () => {
                       </Table>
                       <div className="flex justify-between mt-2 text-sm font-semibold">
                         <span>Total:</span>
-                        <span>{new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(budgetTotal)}</span>
+                        <span>{new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(budgetTotal)}</span>
                       </div>
                     </div>
                   )}
+
+                  <div>
+                    <Label>Observações</Label>
+                    <Textarea value={budgetObservations} onChange={(e)=>setBudgetObservations(e.target.value)} className="bg-input border border-border rounded-md" />
+                  </div>
                 </div>
 
                 <DialogFooter className="flex items-end justify-between gap-2">
                   <div className="flex items-center gap-2">
                     <div>
-                      <Label>Observações</Label>
-                      <Textarea value={budgetObservations} onChange={(e) => setBudgetObservations(e.target.value)} className="bg-input border border-border rounded-md" />
+                      <Label>Validade (dias)</Label>
+                      <Input type="number" value={budgetValidityDays} onChange={(e)=>setBudgetValidityDays(parseInt(e.target.value)||0)} className="h-9 bg-input border border-border rounded-md w-28" />
                     </div>
                   </div>
                   <div className="flex gap-2">
-                    <Button variant="outline" onClick={() => setBudgetModalOpen(false)}>Cancelar</Button>
+                    <Button variant="outline" onClick={()=>setBudgetModalOpen(false)}>Cancelar</Button>
                     <Button onClick={saveBudget}>Salvar Orçamento</Button>
                   </div>
                 </DialogFooter>
@@ -2704,7 +2588,7 @@ const PatientRecordPage = () => {
                   </div>
                 </div>
                 <DialogFooter>
-                  <Button variant="outline" onClick={() => setConvertModalOpen(false)}>Cancelar</Button>
+                  <Button variant="outline" onClick={()=>setConvertModalOpen(false)}>Cancelar</Button>
                   <Button onClick={confirmConvert}>Converter</Button>
                 </DialogFooter>
               </DialogContent>
@@ -2753,7 +2637,9 @@ const PatientRecordPage = () => {
             </label>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setObservationEditOpen(false)}>Cancelar</Button>
+            <Button variant="outline" onClick={() => setObservationEditOpen(false)}>
+              Cancelar
+            </Button>
             <Button
               onClick={() => {
                 if (!selectedObservation) return;
@@ -2828,7 +2714,9 @@ const PatientRecordPage = () => {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDocumentEditOpen(false)}>Cancelar</Button>
+            <Button variant="outline" onClick={() => setDocumentEditOpen(false)}>
+              Cancelar
+            </Button>
             <Button
               onClick={() => {
                 if (!documentEditing) return;
@@ -2888,57 +2776,126 @@ const PatientRecordPage = () => {
             <DialogTitle>Adicionar Venda</DialogTitle>
             <DialogDescription>Registre tudo que foi cobrado neste atendimento.</DialogDescription>
           </DialogHeader>
-
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <Label>Data</Label>
-              <Input
-                type="date"
-                value={saleDate}
-                onChange={(e) => setSaleDate(e.target.value)}
-                className="h-9 bg-input border border-border rounded-md"
-              />
+              <Input type="date" value={saleDate} onChange={(e) => setSaleDate(e.target.value)} className="h-9 bg-input border border-border rounded-md" />
             </div>
             <div>
               <Label>Atendimento vinculado</Label>
               <Select value={saleAppointmentId} onValueChange={setSaleAppointmentId}>
-                <SelectTrigger className="bg-input border border-border rounded-md h-9">
-                  <SelectValue placeholder="Selecione" />
-                </SelectTrigger>
+                <SelectTrigger className="bg-input border border-border rounded-md h-9"><SelectValue placeholder="Selecione" /></SelectTrigger>
                 <SelectContent>
-                  {animalAppointments.map((a) => (
-                    <SelectItem key={a.id} value={a.id}>
-                      {a.type} • {formatDateTime(a.date, a.time)}
-                    </SelectItem>
+                  {animalAppointments.map(a => (
+                    <SelectItem key={a.id} value={a.id}>{a.type} • {formatDateTime(a.date, a.time)}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
-
             <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-5 gap-2 items-end">
               <div className="sm:col-span-2">
                 <Label>Item</Label>
                 <AutocompleteSelect
                   value={saleSelectedItemId}
                   onChange={setSaleSelectedItemId}
-                  options={catalogItems.map((ci) => ({
-                    value: ci.id,
-                    label: `${ci.name} — ${new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(ci.price)}`,
-                  }))}
+                  options={catalogItems.map(ci => ({ value: ci.id, label: `${ci.name} — ${new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(ci.price)}` }))}
                   placeholder="Selecione um item"
                   className="bg-input border border-border rounded-md"
                 />
               </div>
               <div>
                 <Label>Qtd</Label>
-                <Input
-                  type="number"
-                  value={saleQty}
-                  onChange={(e) => setSaleQty(Number(e.target.value) || 0)}
-                  className="h-9 bg-input border border-border rounded-md"
-                />
+                <Input type="number" value={saleQty} onChange={(e) => setSaleQty(Number(e.target.value) || 0)} className="h-9 bg-input border border-border rounded-md" />
               </div>
               <div>
                 <Label>Preço Unitário</Label>
-                <CurrencyInput
-                  value={saleUnitPrice}
+                <CurrencyInput value={saleUnitPrice} onValueChange={setSaleUnitPrice} className="h-9 w-full border border-border rounded-md" />
+              </div>
+              <div>
+                <Button onClick={addItemToSale} className="h-9 px-4">Adicionar</Button>
+              </div>
+            </div>
+            {saleItems.length > 0 && (
+              <div className="sm:col-span-2">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Item</TableHead>
+                      <TableHead>Tipo</TableHead>
+                      <TableHead>Qtd</TableHead>
+                      <TableHead>Preço</TableHead>
+                      <TableHead className="text-right">Subtotal</TableHead>
+                      <TableHead className="text-right">Ações</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {saleItems.map((it, idx) => (
+                      <TableRow key={`${it.itemId}-${idx}`}>
+                        <TableCell className="font-medium">{it.name}</TableCell>
+                        <TableCell className="capitalize">{it.type}</TableCell>
+                        <TableCell>{it.qty}</TableCell>
+                        <TableCell>{new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(it.unitPrice)}</TableCell>
+                        <TableCell className="text-right">
+                          {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(it.qty * it.unitPrice)}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button variant="ghost" size="icon" onClick={() => removeSaleItem(it.itemId, idx)}>
+                            <FaTrashAlt className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+                <div className="flex justify-between mt-2 text-sm font-semibold">
+                  <span>Total:</span>
+                  <span>{new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(saleTotal)}</span>
+                </div>
+              </div>
+            )}
+            <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-2 mt-3">
+              <div>
+                <Label>Responsável</Label>
+                <Input
+                  value={saleResponsible}
+                  onChange={(e) => setSaleResponsible(e.target.value)}
+                  className="h-9 bg-input border border-border rounded-md"
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <Label>Observações</Label>
+                <Textarea
+                  value={saleObservations}
+                  onChange={(e) => setSaleObservations(e.target.value)}
+                  className="bg-input border border-border rounded-md"
+                />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSaleModalOpen(false)}>Cancelar</Button>
+            <Button onClick={handleSaveSale}>Salvar Venda</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={weightModalOpen} onOpenChange={setWeightModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Registro de Peso</DialogTitle>
+            <DialogDescription>Detalhes do registro de peso.</DialogDescription>
+          </DialogHeader>
+          {selectedWeight && (
+            <div className="space-y-2">
+              <p className="text-foreground font-semibold">{selectedWeight.weight.toFixed(2)} kg</p>
+              <p className="text-sm text-muted-foreground">Origem: {selectedWeight.source || "-"}</p>
+              <p className="text-xs text-muted-foreground">Data: {formatDateTime(selectedWeight.date, selectedWeight.time)}</p>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+};
+
+export default PatientRecordPage;
