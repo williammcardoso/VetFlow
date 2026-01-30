@@ -58,6 +58,7 @@ export default function PatientVaccinesTab({
                 const d = v.details as VaccinationDetails;
                 const doseLabel = d.dose || "";
                 const nomeVacina = d.tipoVacina || "Vacina";
+                const titulo = `${nomeVacina}${doseLabel ? ` • ${doseLabel}` : ""}`;
 
                 return (
                   <div
@@ -76,11 +77,7 @@ export default function PatientVaccinesTab({
 
                         <div className="min-w-0">
                           <div className="flex items-center gap-2 text-base font-bold text-sky-900">
-                            <span>{nomeVacina}</span>
-                          </div>
-
-                          <div className="mt-1 text-sm text-muted-foreground leading-relaxed">
-                            {doseLabel}
+                            <span>{titulo}</span>
                           </div>
 
                           <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">

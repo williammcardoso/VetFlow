@@ -611,12 +611,30 @@ export default function AppointmentForm({
       const currentWeight = (currentAnimal as any)?.weight as number | undefined;
 
       if (currentAnimal && currentWeight !== newAppointment.pesoAtual) {
+        const getWeightSourceFromAppointmentType = (t: AllowedType): string => {
+          switch (t) {
+            case "Vacina":
+              return "Vacinação";
+            case "Retorno":
+              return "Retorno";
+            case "Cirurgia":
+              return "Cirurgia";
+            case "Emergência":
+              return "Emergência";
+            case "Consulta":
+            case "Consulta (Modelo Antigo)":
+              return "Atendimento";
+            default:
+              return "Atendimento";
+          }
+        };
+
         updateAnimalDetails(
           clientId,
           animalId,
           {
             weight: newAppointment.pesoAtual,
-            lastWeightSource: "Atendimento",
+            lastWeightSource: getWeightSourceFromAppointmentType(newAppointment.type as AllowedType),
           },
           { date, time }
         );

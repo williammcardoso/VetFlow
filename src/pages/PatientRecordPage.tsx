@@ -306,6 +306,19 @@ const PatientRecordPage = () => {
   const [newObservationAlert, setNewObservationAlert] = useState<boolean>(false);
   const isObservationEmpty = !newObservation || newObservation.trim().length === 0;
 
+  const sortedObservations = useMemo(() => {
+    return [...observations].sort(
+      (a, b) =>
+        new Date(`${b.date}T${b.time || "00:00"}`).getTime() -
+        new Date(`${a.date}T${a.time || "00:00"}`).getTime()
+    );
+  }, [observations]);
+
+  const alertObservationsCount = useMemo(
+    () => observations.filter((o) => !!o.displayAsAlert).length,
+    [observations]
+  );
+
   const [examsList, setExamsList] = useState<ExamEntry[]>(mockExams.filter(exam => exam.id.startsWith('exam')));
   useEffect(() => {
     setExamsList([...mockExams]);
@@ -963,6 +976,11 @@ const PatientRecordPage = () => {
                     <h2 className="text-2xl sm:text-[1.9rem] leading-tight font-semibold tracking-tight truncate">
                       {currentAnimal.name}
                     </h2>
+                    {alertObservationsCount > 0 ? (
+                      <span className="ml-2 inline-flex items-center rounded-full border border-red-300 bg-red-50 px-3 py-1 text-[11px] font-extrabold tracking-widest text-red-700">
+                        ALERTA
+                      </span>
+                    ) : null}
                   </div>
                 </div>
 
@@ -1882,31 +1900,60 @@ const PatientRecordPage = () => {
                     Exibir como Alerta no Prontuário
                   </label>
                 </div>
-                {observations.length > 0 ? (
-                  <div className="space-y-4">
-                    {observations.map((obs) => (
-                      <Card key={obs.id} className="p-4 bg-input shadow-sm border border-border">
-                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-2 gap-2">
-                          <div className="flex items-center gap-2">
-                            <FaCommentAlt className="h-4 w-4 text-muted-foreground" />
-                            <p className="text-lg font-semibold text-foreground">
-                              {obs.observation}
-                            </p>
+
+                {sortedObservations.length > 0 ? (
+                  <div className="space-y-3">
+                    {sortedObservations.map((obs) => {
+                      const isAlert = !!obs.displayAsAlert;
+                      return (
+                        <div
+                          key={obs.id}
+                          className={cn(
+                            "premium-card rounded-xl p-4 transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5",
+                            isAlert
+                              ? "border-red-200 hover:shadow-red-200/60"
+                              : "border-slate-200 hover:shadow-slate-200/60"
+                          )}
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex items-start gap-3 min-w-0">
+                              <div
+                                className={cn(
+                                  "h-12 w-12 shrink-0 rounded-2xl flex items-center justify-center",
+                                  isAlert ? "bg-red-50/70" : "bg-slate-50/70"
+                                )}
+                              >
+                                <FaCommentAlt className={cn("h-6 w-6", isAlert ? "text-red-600" : "text-slate-600")} />
+                              </div>
+
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-2">
+                                  {isAlert ? (
+                                    <span className="inline-flex items-center rounded-full bg-red-100 px-2.5 py-1 text-[11px] font-extrabold tracking-widest text-red-800">
+                                      ALERTA
+                                    </span>
+                                  ) : null}
+                                  <span className="text-xs text-muted-foreground">{formatDateTime(obs.date, obs.time)}</span>
+                                </div>
+
+                                <div className={cn("mt-2 text-[15px] sm:text-base font-semibold leading-snug", isAlert ? "text-red-900" : "text-foreground")}>
+                                  {obs.observation}
+                                </div>
+                              </div>
+                            </div>
+
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => { setSelectedObservation(obs); setObservationModalOpen(true); }}
+                              className="rounded-md hover:bg-muted hover:text-foreground transition-colors duration-200"
+                            >
+                              <FaEye className="h-4 w-4" />
+                            </Button>
                           </div>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => { setSelectedObservation(obs); setObservationModalOpen(true); }}
-                            className="rounded-md hover:bg-muted hover:text-foreground transition-colors duration-200"
-                          >
-                             <FaEye className="h-4 w-4" />
-                           </Button>
                         </div>
-                        <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                          <FaCalendarAlt className="h-3 w-3" /> {formatDateTime(obs.date, obs.time)}
-                        </div>
-                      </Card>
-                    ))}
+                      );
+                    })}
                   </div>
                 ) : (
                   <p className="text-muted-foreground py-4">Nenhuma observação registrada.</p>
