@@ -1414,6 +1414,108 @@ const PatientRecordPage = () => {
                           ? "text-red-700"
                           : (event.type === 'Receita' ? getRecipeIconClass() : iconClass);
 
+                        const recipeKind = (() => {
+                          if (event.type !== "Receita") return null;
+                          const d = (event.description || "").toLowerCase();
+                          if (d.includes("controlada")) return "controlled" as const;
+                          if (d.includes("manipulada")) return "manipulated" as const;
+                          return "simple" as const;
+                        })();
+
+                        const cardVariant = (() => {
+                          if (isAlertObs) {
+                            return {
+                              border: "border-red-200 hover:shadow-red-200/60",
+                              iconWrap: "bg-red-50/70",
+                              icon: "text-red-600",
+                            };
+                          }
+
+                          if (event.type === "Atendimento") {
+                            return {
+                              border: "border-teal-300 hover:shadow-teal-200/60",
+                              iconWrap: "bg-teal-50/70",
+                              icon: "text-teal-600",
+                            };
+                          }
+
+                          if (event.type === "Exame") {
+                            return {
+                              border: "border-purple-300 hover:shadow-purple-200/60",
+                              iconWrap: "bg-purple-50/70",
+                              icon: "text-purple-600",
+                            };
+                          }
+
+                          if (event.type === "Vacina") {
+                            return {
+                              border: "border-sky-300 hover:shadow-sky-200/60",
+                              iconWrap: "bg-sky-50/70",
+                              icon: "text-sky-600",
+                            };
+                          }
+
+                          if (event.type === "Peso") {
+                            return {
+                              border: "border-emerald-200 hover:shadow-emerald-200/60",
+                              iconWrap: "bg-emerald-50/70",
+                              icon: "text-emerald-600",
+                            };
+                          }
+
+                          if (event.type === "Documento") {
+                            return {
+                              border: "border-slate-200 hover:shadow-slate-200/60",
+                              iconWrap: "bg-slate-50/70",
+                              icon: "text-slate-600",
+                            };
+                          }
+
+                          if (event.type === "Venda") {
+                            return {
+                              border: "border-emerald-300 hover:shadow-emerald-200/60",
+                              iconWrap: "bg-emerald-50/70",
+                              icon: "text-emerald-600",
+                            };
+                          }
+
+                          if (event.type === "Observação") {
+                            return {
+                              border: "border-slate-200 hover:shadow-slate-200/60",
+                              iconWrap: "bg-slate-50/70",
+                              icon: "text-slate-600",
+                            };
+                          }
+
+                          if (event.type === "Receita") {
+                            if (recipeKind === "controlled") {
+                              return {
+                                border: "border-rose-300 hover:shadow-rose-200/60",
+                                iconWrap: "bg-rose-50/70",
+                                icon: "text-rose-600",
+                              };
+                            }
+                            if (recipeKind === "manipulated") {
+                              return {
+                                border: "border-orange-300 hover:shadow-orange-200/70",
+                                iconWrap: "bg-orange-100/60",
+                                icon: "text-orange-700",
+                              };
+                            }
+                            return {
+                              border: "border-emerald-300 hover:shadow-emerald-200/60",
+                              iconWrap: "bg-emerald-50/70",
+                              icon: "text-emerald-600",
+                            };
+                          }
+
+                          return {
+                            border: "border-slate-200 hover:shadow-slate-200/60",
+                            iconWrap: "bg-muted/30",
+                            icon: "text-muted-foreground",
+                          };
+                        })();
+
                         const meta = `${formatDateTime(event.date, event.time)}${event.author ? ` • ${event.author}` : ""}`;
 
                         const showView = !!event.link || event.type === 'Exame' || event.type === 'Atendimento' || event.type === 'Documento';
@@ -1442,7 +1544,13 @@ const PatientRecordPage = () => {
                               <MarkerIcon className="h-4 w-4" strokeWidth={1.6} style={{ color: markerColor }} />
                             </span>
 
-                            <Card className="premium-card p-4 sm:p-5">
+                            <div
+                              className={cn(
+                                "rounded-xl border bg-white p-4 sm:p-5 transition-all duration-200",
+                                "hover:shadow-lg hover:-translate-y-0.5",
+                                cardVariant.border
+                              )}
+                            >
                               <div className="flex items-start justify-between gap-4">
                                 <div className="min-w-0">
                                   <div className="flex items-center gap-2">
@@ -1459,8 +1567,8 @@ const PatientRecordPage = () => {
                                   </div>
 
                                   <div className="mt-2 flex items-start gap-3">
-                                    <div className={cn("h-9 w-9 rounded-xl flex items-center justify-center bg-muted/30", iconColorClass)}>
-                                      {React.createElement(event.icon, { className: "h-4 w-4" })}
+                                    <div className={cn("h-12 w-12 shrink-0 rounded-2xl flex items-center justify-center", cardVariant.iconWrap)}>
+                                      {React.createElement(event.icon, { className: cn("h-6 w-6", cardVariant.icon) })}
                                     </div>
 
                                     <div className="min-w-0">
@@ -1468,7 +1576,7 @@ const PatientRecordPage = () => {
                                         {title}
                                       </div>
                                       {subtitle && (
-                                        <div className="mt-0.5 text-sm text-muted-foreground leading-relaxed line-clamp-2">
+                                        <div className="mt-1 text-sm text-muted-foreground leading-relaxed line-clamp-2">
                                           {subtitle}
                                         </div>
                                       )}
@@ -1488,7 +1596,7 @@ const PatientRecordPage = () => {
                                   </Button>
                                 )}
                               </div>
-                            </Card>
+                            </div>
                           </div>
                         );
                       })}
@@ -1875,22 +1983,43 @@ const PatientRecordPage = () => {
           <TabsContent value="prescriptions" className="mt-4">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
               <Link to={`/clients/${clientId}/animals/${animalId}/add-prescription?type=simple`}>
-                <Card className="flex flex-col items-center justify-center p-6 text-center bg-card shadow-sm border border-border rounded-md h-full">
-                  <FaFileMedical className="h-12 w-12 text-primary mb-3" />
+                <Card
+                  className={cn(
+                    "flex flex-col items-center justify-center p-6 text-center h-full",
+                    "rounded-xl border transition-all duration-200",
+                    "hover:shadow-lg hover:-translate-y-0.5",
+                    "border-emerald-300 bg-emerald-50/20 hover:bg-emerald-50/40 hover:shadow-emerald-200/60"
+                  )}
+                >
+                  <FaFileMedical className="h-12 w-12 text-emerald-600 mb-3" />
                   <CardTitle className="text-lg font-semibold text-foreground">Receita Simples</CardTitle>
                   <p className="text-sm text-muted-foreground mt-1">Medicamentos de uso comum</p>
                 </Card>
               </Link>
               <Link to={`/clients/${clientId}/animals/${animalId}/add-prescription?type=controlled`}>
-                <Card className="flex flex-col items-center justify-center p-6 text-center bg-card shadow-sm border border-border rounded-md h-full">
-                  <FaExclamationTriangle className="h-12 w-12 text-destructive mb-3" />
+                <Card
+                  className={cn(
+                    "flex flex-col items-center justify-center p-6 text-center h-full",
+                    "rounded-xl border transition-all duration-200",
+                    "hover:shadow-lg hover:-translate-y-0.5",
+                    "border-rose-300 bg-rose-50/20 hover:bg-rose-50/40 hover:shadow-rose-200/60"
+                  )}
+                >
+                  <FaExclamationTriangle className="h-12 w-12 text-rose-600 mb-3" />
                   <CardTitle className="text-lg font-semibold text-foreground">Receita Controlada</CardTitle>
                   <p className="text-sm text-muted-foreground mt-1">Medicamentos controlados</p>
                 </Card>
               </Link>
               <Link to={`/clients/${clientId}/animals/${animalId}/add-prescription?type=manipulated`}>
-                <Card className="flex flex-col items-center justify-center p-6 text-center bg-card shadow-sm border border-border rounded-md h-full">
-                  <FaFlask className="h-12 w-12 text-accent mb-3" />
+                <Card
+                  className={cn(
+                    "flex flex-col items-center justify-center p-6 text-center h-full",
+                    "rounded-xl border transition-all duration-200",
+                    "hover:shadow-lg hover:-translate-y-0.5",
+                    "border-orange-300 bg-orange-100/45 hover:bg-orange-100/60 hover:shadow-orange-200/70"
+                  )}
+                >
+                  <FaFlask className="h-12 w-12 text-orange-700 mb-3" />
                   <CardTitle className="text-lg font-semibold text-foreground">Receita Manipulada</CardTitle>
                   <p className="text-sm text-muted-foreground mt-1">Medicamentos manipulados</p>
                 </Card>
@@ -2808,94 +2937,4 @@ const PatientRecordPage = () => {
                 <Input type="number" value={saleQty} onChange={(e) => setSaleQty(Number(e.target.value) || 0)} className="h-9 bg-input border border-border rounded-md" />
               </div>
               <div>
-                <Label>Preço Unitário</Label>
-                <CurrencyInput value={saleUnitPrice} onValueChange={setSaleUnitPrice} className="h-9 w-full border border-border rounded-md" />
-              </div>
-              <div>
-                <Button onClick={addItemToSale} className="h-9 px-4">Adicionar</Button>
-              </div>
-            </div>
-            {saleItems.length > 0 && (
-              <div className="sm:col-span-2">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Item</TableHead>
-                      <TableHead>Tipo</TableHead>
-                      <TableHead>Qtd</TableHead>
-                      <TableHead>Preço</TableHead>
-                      <TableHead className="text-right">Subtotal</TableHead>
-                      <TableHead className="text-right">Ações</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {saleItems.map((it, idx) => (
-                      <TableRow key={`${it.itemId}-${idx}`}>
-                        <TableCell className="font-medium">{it.name}</TableCell>
-                        <TableCell className="capitalize">{it.type}</TableCell>
-                        <TableCell>{it.qty}</TableCell>
-                        <TableCell>{new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(it.unitPrice)}</TableCell>
-                        <TableCell className="text-right">
-                          {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(it.qty * it.unitPrice)}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Button variant="ghost" size="icon" onClick={() => removeSaleItem(it.itemId, idx)}>
-                            <FaTrashAlt className="h-4 w-4 text-destructive" />
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-                <div className="flex justify-between mt-2 text-sm font-semibold">
-                  <span>Total:</span>
-                  <span>{new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(saleTotal)}</span>
-                </div>
-              </div>
-            )}
-            <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-2 mt-3">
-              <div>
-                <Label>Responsável</Label>
-                <Input
-                  value={saleResponsible}
-                  onChange={(e) => setSaleResponsible(e.target.value)}
-                  className="h-9 bg-input border border-border rounded-md"
-                />
-              </div>
-              <div className="sm:col-span-2">
-                <Label>Observações</Label>
-                <Textarea
-                  value={saleObservations}
-                  onChange={(e) => setSaleObservations(e.target.value)}
-                  className="bg-input border border-border rounded-md"
-                />
-              </div>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setSaleModalOpen(false)}>Cancelar</Button>
-            <Button onClick={handleSaveSale}>Salvar Venda</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={weightModalOpen} onOpenChange={setWeightModalOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Registro de Peso</DialogTitle>
-            <DialogDescription>Detalhes do registro de peso.</DialogDescription>
-          </DialogHeader>
-          {selectedWeight && (
-            <div className="space-y-2">
-              <p className="text-foreground font-semibold">{selectedWeight.weight.toFixed(2)} kg</p>
-              <p className="text-sm text-muted-foreground">Origem: {selectedWeight.source || "-"}</p>
-              <p className="text-xs text-muted-foreground">Data: {formatDateTime(selectedWeight.date, selectedWeight.time)}</p>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-    </div>
-  );
-};
-
-export default PatientRecordPage;
+                <Label>Preço Unitário</Label
