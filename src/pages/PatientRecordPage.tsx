@@ -21,6 +21,16 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
@@ -293,6 +303,12 @@ const PatientRecordPage = () => {
   const [newDocumentName, setNewDocumentName] = useState<string>("");
   const [newDocumentFile, setNewDocumentFile] = useState<File | null>(null);
 
+  const [documentEditOpen, setDocumentEditOpen] = useState(false);
+  const [documentEditing, setDocumentEditing] = useState<DocumentEntry | null>(null);
+  const [documentEditName, setDocumentEditName] = useState<string>("");
+  const [documentEditFile, setDocumentEditFile] = useState<File | null>(null);
+  const [documentDeleteId, setDocumentDeleteId] = useState<string | null>(null);
+
   const [prescriptions, setPrescriptions] = useState<PrescriptionEntry[]>(mockPrescriptions);
   useEffect(() => {
     setPrescriptions([...mockPrescriptions]);
@@ -314,9 +330,9 @@ const PatientRecordPage = () => {
     );
   }, [observations]);
 
-  const alertObservationsCount = useMemo(
-    () => observations.filter((o) => !!o.displayAsAlert).length,
-    [observations]
+  const alertObservations = useMemo(
+    () => sortedObservations.filter((o) => !!o.displayAsAlert),
+    [sortedObservations]
   );
 
   const [examsList, setExamsList] = useState<ExamEntry[]>(mockExams.filter(exam => exam.id.startsWith('exam')));
@@ -326,6 +342,11 @@ const PatientRecordPage = () => {
 
   const [observationModalOpen, setObservationModalOpen] = useState(false);
   const [selectedObservation, setSelectedObservation] = useState<ObservationEntry | null>(null);
+
+  const [observationEditOpen, setObservationEditOpen] = useState(false);
+  const [observationEditText, setObservationEditText] = useState<string>("");
+  const [observationEditAlert, setObservationEditAlert] = useState<boolean>(false);
+  const [observationDeleteId, setObservationDeleteId] = useState<string | null>(null);
 
   const [weightModalOpen, setWeightModalOpen] = useState(false);
   const [selectedWeight, setSelectedWeight] = useState<WeightEntry | null>(null);
@@ -973,14 +994,20 @@ const PatientRecordPage = () => {
                   </div>
 
                   <div className="min-w-0">
-                    <h2 className="text-2xl sm:text-[1.9rem] leading-tight font-semibold tracking-tight truncate">
-                      {currentAnimal.name}
-                    </h2>
-                    {alertObservationsCount > 0 ? (
-                      <span className="ml-2 inline-flex items-center rounded-full border border-red-300 bg-red-50 px-3 py-1 text-[11px] font-extrabold tracking-widest text-red-700">
-                        ALERTA
-                      </span>
-                    ) : null}
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h2 className="text-2xl sm:text-[1.9rem] leading-tight font-semibold tracking-tight">
+                        {currentAnimal.name}
+                      </h2>
+                      {alertObservations.map((o) => (
+                        <span
+                          key={o.id}
+                          className="inline-flex items-center rounded-full border border-red-300 bg-red-50 px-3 py-1 text-[11px] font-extrabold tracking-widest text-red-700 uppercase"
+                          title={o.observation}
+                        >
+                          • {o.observation.trim().toUpperCase()}
+                        </span>
+                      ))}
+                    </div>
                   </div>
                 </div>
 
@@ -1497,55 +1524,90 @@ const PatientRecordPage = () => {
               </CardHeader>
               <CardContent className="pt-0">
                 {examsList.length > 0 ? (
-                  <div className="space-y-4">
-                    {examsList.map((exam) => (
-                      <Card key={exam.id} className="p-4 bg-input shadow-sm border border-border">
-                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-2 gap-2">
-                          <div className="flex items-center gap-2">
-                            <Badge className="px-2 py-0.5 text-xs font-medium rounded-full bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
-                              {exam.type}
-                            </Badge>
-                            <p className="text-lg font-semibold text-foreground">
-                              {exam.type === "Hemograma Completo" ? "Hemograma Completo" : exam.result || "Ver detalhes"}
-                            </p>
-                          </div>
-                          <div className="flex gap-2">
-                            <Button variant="ghost" size="icon" onClick={() => {
-                              const tutorAddress = `${currentClient.address.street}, ${currentClient.address.number} - ${currentClient.address.city} - ${currentClient.address.state}`;
-                              pdf(
-                                <ExamReportPdfContent
-                                  animalName={currentAnimal.name}
-                                  animalId={currentAnimal.id}
-                                  animalSpecies={currentAnimal.species}
-                                  tutorName={currentClient.name}
-                                  tutorAddress={tutorAddress}
-                                  exam={exam}
-                                  hemogramReferences={hemogramReferences}
-                                />
-                              ).toBlob().then((blob) => {
-                                const url = URL.createObjectURL(blob);
-                                window.open(url, '_blank');
-                                URL.revokeObjectURL(url);
-                                toast.success("Laudo de exame enviado para impressão!");
-                              });
-                            }} className="rounded-md hover:bg-muted hover:text-foreground transition-colors duration-200">
-                              <FaPrint className="h-4 w-4" />
-                            </Button>
-                            <Button variant="ghost" size="icon" onClick={() => navigate(`/clients/${clientId}/animals/${animalId}/edit-exam/${exam.id}`)} className="rounded-md hover:bg-muted hover:text-foreground transition-colors duration-200">
-                              <FaEdit className="h-4 w-4" />
-                            </Button>
+                  <div className="space-y-3">
+                    {examsList.map((exam) => {
+                      const title = exam.type || "Exame";
+                      const subtitle = exam.type === "Hemograma Completo"
+                        ? "Hemograma Completo"
+                        : (exam.result || exam.nota || "Ver detalhes");
+
+                      return (
+                        <div
+                          key={exam.id}
+                          className={cn(
+                            "rounded-xl border bg-white p-4 transition-all duration-200",
+                            "hover:shadow-lg hover:-translate-y-0.5",
+                            "border-purple-300 hover:shadow-purple-200/60"
+                          )}
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex items-start gap-3 min-w-0">
+                              <div className="h-12 w-12 shrink-0 rounded-2xl bg-purple-50/70 flex items-center justify-center">
+                                <FaFlask className="h-6 w-6 text-purple-600" />
+                              </div>
+
+                              <div className="min-w-0">
+                                <div className="text-base font-bold text-purple-900 truncate">{title}</div>
+                                <div className="mt-1 text-sm text-muted-foreground leading-relaxed line-clamp-2">
+                                  {subtitle}
+                                </div>
+
+                                <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+                                  <span className="inline-flex items-center gap-1.5 text-foreground/80 font-medium">
+                                    <Calendar className="h-4 w-4 text-muted-foreground" />
+                                    {formatDateTime(exam.date, exam.time)}
+                                  </span>
+                                  <span className="inline-flex items-center gap-1.5 text-muted-foreground font-medium">
+                                    <FaStethoscope className="h-4 w-4" />
+                                    {exam.vet}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="flex gap-2">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => {
+                                  const tutorAddress = `${currentClient.address.street}, ${currentClient.address.number} - ${currentClient.address.city} - ${currentClient.address.state}`;
+                                  pdf(
+                                    <ExamReportPdfContent
+                                      animalName={currentAnimal.name}
+                                      animalId={currentAnimal.id}
+                                      animalSpecies={currentAnimal.species}
+                                      tutorName={currentClient.name}
+                                      tutorAddress={tutorAddress}
+                                      exam={exam}
+                                      hemogramReferences={hemogramReferences}
+                                    />
+                                  ).toBlob().then((blob) => {
+                                    const url = URL.createObjectURL(blob);
+                                    window.open(url, '_blank');
+                                    URL.revokeObjectURL(url);
+                                    toast.success("Laudo de exame enviado para impressão!");
+                                  });
+                                }}
+                                className="rounded-md hover:bg-muted hover:text-foreground transition-colors duration-200"
+                                title="Imprimir"
+                              >
+                                <FaPrint className="h-4 w-4" />
+                              </Button>
+
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => navigate(`/clients/${clientId}/animals/${animalId}/edit-exam/${exam.id}`)}
+                                className="rounded-md hover:bg-muted hover:text-foreground transition-colors duration-200"
+                                title="Editar"
+                              >
+                                <FaEdit className="h-4 w-4" />
+                              </Button>
+                            </div>
                           </div>
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-muted-foreground">
-                          <div className="flex items-center gap-1">
-                            <FaCalendarAlt className="h-3 w-3" /> {formatDateTime(exam.date, exam.time)}
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <FaStethoscope className="h-3 w-3" /> {exam.vet}
-                          </div>
-                        </div>
-                      </Card>
-                    ))}
+                      );
+                    })}
                   </div>
                 ) : (
                   <p className="text-muted-foreground py-4">Nenhum exame registrado.</p>
@@ -1559,6 +1621,7 @@ const PatientRecordPage = () => {
               clientId={clientId!}
               animalId={animalId!}
               animalAppointments={animalAppointments}
+              setAnimalAppointments={setAnimalAppointments}
             />
           </TabsContent>
 
@@ -1696,49 +1759,111 @@ const PatientRecordPage = () => {
                     onChange={(e) => setNewDocumentFile(e.target.files ? e.target.files[0] : null)}
                     className="w-full sm:w-[200px] bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200"
                   />
-                  <Button size="sm" onClick={() => {
-                    if (newDocumentName.trim() && newDocumentFile) {
-                      const now = new Date();
-                      const newEntry: DocumentEntry = {
-                        id: String(documents.length + 1),
-                        date: now.toISOString().split('T')[0],
-                        time: now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-                        name: newDocumentName.trim(),
-                        fileUrl: URL.createObjectURL(newDocumentFile),
-                      };
-                      setDocuments([...documents, newEntry]);
-                      setNewDocumentName("");
-                      setNewDocumentFile(null);
-                      toast.success("Anexo adicionado!");
-                    }
-                  }} disabled={!newDocumentName || !newDocumentFile} className="w-full sm:w-auto rounded-md bg-primary text-primary-foreground hover:bg-primary/90 font-semibold transition-all duration-200 shadow-md hover:shadow-lg">
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      if (newDocumentName.trim() && newDocumentFile) {
+                        const now = new Date();
+                        const newEntry: DocumentEntry = {
+                          id: String(documents.length + 1),
+                          date: now.toISOString().split('T')[0],
+                          time: now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+                          name: newDocumentName.trim(),
+                          fileUrl: URL.createObjectURL(newDocumentFile),
+                        };
+                        setDocuments([...documents, newEntry]);
+                        setNewDocumentName("");
+                        setNewDocumentFile(null);
+                        toast.success("Anexo adicionado!");
+                      }
+                    }}
+                    disabled={!newDocumentName || !newDocumentFile}
+                    className="w-full sm:w-auto rounded-md bg-primary text-primary-foreground hover:bg-primary/90 font-semibold transition-all duration-200 shadow-md hover:shadow-lg"
+                  >
                     <FaPlus className="h-4 w-4 mr-2" /> Adicionar Documento
                   </Button>
                 </div>
               </CardHeader>
               <CardContent className="pt-0">
                 {documents.length > 0 ? (
-                  <div className="space-y-4">
-                    {documents.map((doc) => (
-                      <Card key={doc.id} className="p-4 bg-input shadow-sm border border-border">
-                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-2 gap-2">
-                          <div className="flex items-center gap-2">
-                            <FaFileAlt className="h-4 w-4 text-muted-foreground" />
-                            <p className="text-lg font-semibold text-foreground">
-                              {doc.name}
-                            </p>
+                  <div className="space-y-3">
+                    {documents.map((doc) => {
+                      const onView = () => {
+                        if (!doc.fileUrl || doc.fileUrl === "#") return;
+                        window.open(doc.fileUrl, "_blank");
+                      };
+
+                      const onEdit = () => {
+                        setDocumentEditing(doc);
+                        setDocumentEditName(doc.name);
+                        setDocumentEditFile(null);
+                        setDocumentEditOpen(true);
+                      };
+
+                      return (
+                        <div
+                          key={doc.id}
+                          className={cn(
+                            "rounded-xl border bg-white p-4 transition-all duration-200",
+                            "hover:shadow-lg hover:-translate-y-0.5",
+                            "border-slate-200 hover:shadow-slate-200/60"
+                          )}
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex items-start gap-3 min-w-0">
+                              <div className="h-12 w-12 shrink-0 rounded-2xl bg-slate-50/70 flex items-center justify-center">
+                                <FaFileAlt className="h-6 w-6 text-slate-600" />
+                              </div>
+
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-2 text-base font-bold text-slate-900">
+                                  <span className="truncate">{doc.name}</span>
+                                </div>
+
+                                <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+                                  <span className="inline-flex items-center gap-1.5 text-foreground/80 font-medium">
+                                    <Calendar className="h-4 w-4 text-muted-foreground" />
+                                    {formatDateTime(doc.date, doc.time)}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="flex gap-2">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={onView}
+                                className="rounded-md hover:bg-muted hover:text-foreground transition-colors duration-200"
+                                title="Ver"
+                              >
+                                <FaEye className="h-4 w-4" />
+                              </Button>
+
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={onEdit}
+                                className="rounded-md hover:bg-muted hover:text-foreground transition-colors duration-200"
+                                title="Editar"
+                              >
+                                <FaEdit className="h-4 w-4" />
+                              </Button>
+
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => setDocumentDeleteId(doc.id)}
+                                className="rounded-md hover:bg-muted hover:text-foreground transition-colors duration-200"
+                                title="Excluir"
+                              >
+                                <FaTrashAlt className="h-4 w-4 text-destructive" />
+                              </Button>
+                            </div>
                           </div>
-                          <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer">
-                            <Button variant="ghost" size="icon" className="rounded-md hover:bg-muted hover:text-foreground transition-colors duration-200">
-                              <FaEye className="h-4 w-4" />
-                            </Button>
-                          </a>
                         </div>
-                        <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                          <FaCalendarAlt className="h-3 w-3" /> {formatDateTime(doc.date, doc.time)}
-                        </div>
-                      </Card>
-                    ))}
+                      );
+                    })}
                   </div>
                 ) : (
                   <p className="text-muted-foreground py-4">Nenhum documento registrado.</p>
@@ -1780,81 +1905,135 @@ const PatientRecordPage = () => {
               </CardHeader>
               <CardContent className="pt-0">
                 {prescriptions.length > 0 ? (
-                  <div className="space-y-4">
-                    {prescriptions.map((rx) => (
-                      <Card key={rx.id} className="p-4 bg-input shadow-sm border border-border">
-                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-2 gap-2">
-                          <div className="flex items-center gap-2">
-                            <Badge className={cn(
-                              "px-2 py-0.5 text-xs font-medium rounded-full",
-                              rx.type === 'simple' && "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
-                              rx.type === 'controlled' && "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
-                              rx.type === 'manipulated' && "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200"
-                            )}>
-                              {rx.type === 'simple' ? 'Receita Simples' : rx.type === 'controlled' ? 'Controlada' : 'Manipulada'}
-                            </Badge>
-                            <p className="text-lg font-semibold text-foreground">
-                              {rx.treatmentDescription || "Receita sem descrição"}
-                            </p>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Button variant="ghost" size="icon" onClick={() => {
-                              if (!currentClient || !currentAnimal) {
-                                toast.error("Erro: Dados do cliente ou animal não disponíveis para impressão.");
-                                return;
-                              }
-                              pdf(
-                                PrescriptionPdfContent({
-                                  animalName: currentAnimal.name,
-                                  animalId: currentAnimal.id,
-                                  animalSpecies: currentAnimal.species,
-                                  tutorName: currentClient.name,
-                                  tutorAddress: currentClient.address.street + ", " + currentClient.address.number + " - " + currentClient.address.city + " - " + currentClient.address.state,
-                                  medications: rx.medications || [],
-                                  generalObservations: rx.instructions,
-                                  showElectronicSignatureText: false,
-                                  prescriptionType: rx.type,
-                                  pharmacistName: "Farmacêutico(a) Responsável",
-                                  pharmacistCpf: "CPF: 000.000.000-00",
-                                  pharmacistCfr: "CRF: 00000",
-                                  pharmacistAddress: "Endereço da Farmácia, 000 - Cidade - UF",
-                                  pharmacistPhone: "Telefone: (00) 00000-0000",
-                                  manipulatedPrescription: rx.manipulatedPrescription,
-                                })
-                              ).toBlob().then((blob) => {
-                                const url = URL.createObjectURL(blob);
-                                window.open(url, '_blank');
-                                URL.revokeObjectURL(url);
-                                toast.success("Receita enviada para impressão!");
-                              });
-                            }} className="rounded-md hover:bg-muted hover:text-foreground transition-colors duration-200">
-                              <FaPrint className="h-4 w-4" />
-                            </Button>
-                            <Link to={`/clients/${clientId}/animals/${animalId}/edit-prescription/${rx.id}?type=${rx.type}`}>
-                              <Button variant="ghost" size="icon" className="rounded-md hover:bg-muted hover:text-foreground transition-colors duration-200">
-                                <FaEye className="h-4 w-4" />
+                  <div className="space-y-3">
+                    {prescriptions.map((rx) => {
+                      const isSimple = rx.type === 'simple';
+                      const isControlled = rx.type === 'controlled';
+                      const isManipulated = rx.type === 'manipulated';
+
+                      const borderClass = isControlled
+                        ? "border-rose-300 hover:shadow-rose-200/60"
+                        : isManipulated
+                          ? "border-purple-300 hover:shadow-purple-200/60"
+                          : "border-emerald-300 hover:shadow-emerald-200/60";
+
+                      const iconWrapClass = isControlled
+                        ? "bg-rose-50/70"
+                        : isManipulated
+                          ? "bg-purple-50/70"
+                          : "bg-emerald-50/70";
+
+                      const iconClass = isControlled
+                        ? "text-rose-600"
+                        : isManipulated
+                          ? "text-purple-600"
+                          : "text-emerald-600";
+
+                      const label = isControlled
+                        ? "Receita Controlada"
+                        : isManipulated
+                          ? "Receita Manipulada"
+                          : "Receita Simples";
+
+                      const title = rx.treatmentDescription || "Receita sem descrição";
+                      const subtitle = rx.instructions || rx.medicationName || "";
+
+                      return (
+                        <div
+                          key={rx.id}
+                          className={cn(
+                            "rounded-xl border bg-white p-4 transition-all duration-200",
+                            "hover:shadow-lg hover:-translate-y-0.5",
+                            borderClass
+                          )}
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex items-start gap-3 min-w-0">
+                              <div className={cn("h-12 w-12 shrink-0 rounded-2xl flex items-center justify-center", iconWrapClass)}>
+                                <FaPrescriptionBottleAlt className={cn("h-6 w-6", iconClass)} />
+                              </div>
+
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <span className={cn(
+                                    "inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-extrabold tracking-widest",
+                                    isControlled
+                                      ? "bg-rose-100 text-rose-800"
+                                      : isManipulated
+                                        ? "bg-purple-100 text-purple-800"
+                                        : "bg-emerald-100 text-emerald-800"
+                                  )}>
+                                    {label}
+                                  </span>
+                                  <span className="text-xs text-muted-foreground">{formatDateTime(rx.date, rx.time)}</span>
+                                </div>
+
+                                <div className={cn("mt-2 text-[15px] sm:text-base font-semibold leading-snug", iconClass)}>
+                                  {title}
+                                </div>
+                                {subtitle ? (
+                                  <div className="mt-1 text-sm text-muted-foreground leading-relaxed line-clamp-2">
+                                    {subtitle}
+                                  </div>
+                                ) : null}
+                              </div>
+                            </div>
+
+                            <div className="flex gap-2">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => {
+                                  if (!currentClient || !currentAnimal) {
+                                    toast.error("Erro: Dados do cliente ou animal não disponíveis para impressão.");
+                                    return;
+                                  }
+                                  pdf(
+                                    PrescriptionPdfContent({
+                                      animalName: currentAnimal.name,
+                                      animalId: currentAnimal.id,
+                                      animalSpecies: currentAnimal.species,
+                                      tutorName: currentClient.name,
+                                      tutorAddress: currentClient.address.street + ", " + currentClient.address.number + " - " + currentClient.address.city + " - " + currentClient.address.state,
+                                      medications: rx.medications || [],
+                                      generalObservations: rx.instructions,
+                                      showElectronicSignatureText: false,
+                                      prescriptionType: rx.type,
+                                      pharmacistName: "Farmacêutico(a) Responsável",
+                                      pharmacistCpf: "CPF: 000.000.000-00",
+                                      pharmacistCfr: "CRF: 00000",
+                                      pharmacistAddress: "Endereço da Farmácia, 000 - Cidade - UF",
+                                      pharmacistPhone: "Telefone: (00) 00000-0000",
+                                      manipulatedPrescription: rx.manipulatedPrescription,
+                                    })
+                                  ).toBlob().then((blob) => {
+                                    const url = URL.createObjectURL(blob);
+                                    window.open(url, '_blank');
+                                    URL.revokeObjectURL(url);
+                                    toast.success("Receita enviada para impressão!");
+                                  });
+                                }}
+                                className="rounded-md hover:bg-muted hover:text-foreground transition-colors duration-200"
+                                title="Imprimir"
+                              >
+                                <FaPrint className="h-4 w-4" />
                               </Button>
-                            </Link>
+
+                              <Link to={`/clients/${clientId}/animals/${animalId}/edit-prescription/${rx.id}?type=${rx.type}`}>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="rounded-md hover:bg-muted hover:text-foreground transition-colors duration-200"
+                                  title="Ver"
+                                >
+                                  <FaEye className="h-4 w-4" />
+                                </Button>
+                              </Link>
+                            </div>
                           </div>
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-muted-foreground mb-3">
-                          <div className="flex items-center gap-1">
-                            <FaCalendarAlt className="h-3 w-3" /> {formatDateTime(rx.date, rx.time)}
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <FaStethoscope className="h-3 w-3" /> Dr. William Cardoso
-                          </div>
-                          <div className="flex items-center gap-1 col-span-full">
-                            <FaClipboardList className="h-3 w-3" /> {rx.type === 'manipulated' ? (rx.manipulatedPrescription?.formulaComponents?.length || 0) : (rx.medications?.length || 0)} medicamento(s)
-                          </div>
-                        </div>
-                        {rx.medicationName && (
-                          <p className="text-sm text-foreground bg-muted/50 dark:bg-muted/30 p-3 rounded-md border border-border">
-                            Medicamentos: {rx.medicationName}
-                          </p>
-                        )}
-                      </Card>
-                    ))}
+                      );
+                    })}
                   </div>
                 ) : (
                   <p className="text-muted-foreground mt-4 py-4">Nenhuma receita registrada.</p>
@@ -1905,11 +2084,20 @@ const PatientRecordPage = () => {
                   <div className="space-y-3">
                     {sortedObservations.map((obs) => {
                       const isAlert = !!obs.displayAsAlert;
+
+                      const onEdit = () => {
+                        setSelectedObservation(obs);
+                        setObservationEditText(obs.observation);
+                        setObservationEditAlert(!!obs.displayAsAlert);
+                        setObservationEditOpen(true);
+                      };
+
                       return (
                         <div
                           key={obs.id}
                           className={cn(
-                            "premium-card rounded-xl p-4 transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5",
+                            "rounded-xl border bg-white p-4 transition-all duration-200",
+                            "hover:shadow-lg hover:-translate-y-0.5",
                             isAlert
                               ? "border-red-200 hover:shadow-red-200/60"
                               : "border-slate-200 hover:shadow-slate-200/60"
@@ -1942,14 +2130,37 @@ const PatientRecordPage = () => {
                               </div>
                             </div>
 
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => { setSelectedObservation(obs); setObservationModalOpen(true); }}
-                              className="rounded-md hover:bg-muted hover:text-foreground transition-colors duration-200"
-                            >
-                              <FaEye className="h-4 w-4" />
-                            </Button>
+                            <div className="flex gap-2">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => { setSelectedObservation(obs); setObservationModalOpen(true); }}
+                                className="rounded-md hover:bg-muted hover:text-foreground transition-colors duration-200"
+                                title="Ver"
+                              >
+                                <FaEye className="h-4 w-4" />
+                              </Button>
+
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={onEdit}
+                                className="rounded-md hover:bg-muted hover:text-foreground transition-colors duration-200"
+                                title="Editar"
+                              >
+                                <FaEdit className="h-4 w-4" />
+                              </Button>
+
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => setObservationDeleteId(obs.id)}
+                                className="rounded-md hover:bg-muted hover:text-foreground transition-colors duration-200"
+                                title="Excluir"
+                              >
+                                <FaTrashAlt className="h-4 w-4 text-destructive" />
+                              </Button>
+                            </div>
                           </div>
                         </div>
                       );
@@ -2401,21 +2612,163 @@ const PatientRecordPage = () => {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={weightModalOpen} onOpenChange={setWeightModalOpen}>
+      <Dialog open={observationEditOpen} onOpenChange={setObservationEditOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Registro de Peso</DialogTitle>
-            <DialogDescription>Detalhes do registro de peso.</DialogDescription>
+            <DialogTitle>Editar observação</DialogTitle>
+            <DialogDescription>Ajuste o texto e se deve aparecer como alerta.</DialogDescription>
           </DialogHeader>
-          {selectedWeight && (
+          <div className="space-y-3">
             <div className="space-y-2">
-              <p className="text-foreground font-semibold">{selectedWeight.weight.toFixed(2)} kg</p>
-              <p className="text-sm text-muted-foreground">Origem: {selectedWeight.source || "-"}</p>
-              <p className="text-xs text-muted-foreground">Data: {formatDateTime(selectedWeight.date, selectedWeight.time)}</p>
+              <Label>Observação</Label>
+              <Textarea
+                value={observationEditText}
+                onChange={(e) => setObservationEditText(e.target.value)}
+                className="bg-input border border-border rounded-md"
+              />
             </div>
-          )}
+
+            <label className="flex items-center gap-2 text-sm text-[#374151]">
+              <Checkbox
+                checked={observationEditAlert}
+                onCheckedChange={(v) => setObservationEditAlert(!!v)}
+              />
+              Exibir como Alerta no Prontuário
+            </label>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setObservationEditOpen(false)}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={() => {
+                if (!selectedObservation) return;
+                const nextText = observationEditText.trim();
+                if (!nextText) {
+                  toast.error("A observação não pode ficar vazia.");
+                  return;
+                }
+                setObservations((prev) =>
+                  prev.map((o) =>
+                    o.id === selectedObservation.id
+                      ? { ...o, observation: nextText, displayAsAlert: observationEditAlert }
+                      : o
+                  )
+                );
+                setObservationEditOpen(false);
+                toast.success("Observação atualizada!");
+              }}
+            >
+              Salvar
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={!!observationDeleteId} onOpenChange={(o) => !o && setObservationDeleteId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir esta observação? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (!observationDeleteId) return;
+                setObservations((prev) => prev.filter((o) => o.id !== observationDeleteId));
+                setObservationDeleteId(null);
+                toast.info("Observação excluída.");
+              }}
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <Dialog open={documentEditOpen} onOpenChange={setDocumentEditOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar documento</DialogTitle>
+            <DialogDescription>Altere o nome e, se necessário, substitua o arquivo.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-2">
+              <Label>Nome</Label>
+              <Input
+                value={documentEditName}
+                onChange={(e) => setDocumentEditName(e.target.value)}
+                className="bg-input border border-border rounded-md"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Substituir arquivo (opcional)</Label>
+              <Input
+                type="file"
+                onChange={(e) => setDocumentEditFile(e.target.files ? e.target.files[0] : null)}
+                className="bg-input border border-border rounded-md"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDocumentEditOpen(false)}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={() => {
+                if (!documentEditing) return;
+                const nextName = documentEditName.trim();
+                if (!nextName) {
+                  toast.error("Informe o nome do documento.");
+                  return;
+                }
+                setDocuments((prev) =>
+                  prev.map((d) =>
+                    d.id === documentEditing.id
+                      ? {
+                          ...d,
+                          name: nextName,
+                          fileUrl: documentEditFile ? URL.createObjectURL(documentEditFile) : d.fileUrl,
+                        }
+                      : d
+                  )
+                );
+                setDocumentEditOpen(false);
+                toast.success("Documento atualizado!");
+              }}
+            >
+              Salvar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={!!documentDeleteId} onOpenChange={(o) => !o && setDocumentDeleteId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir este documento? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (!documentDeleteId) return;
+                setDocuments((prev) => prev.filter((d) => d.id !== documentDeleteId));
+                setDocumentDeleteId(null);
+                toast.info("Documento excluído.");
+              }}
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <Dialog open={saleModalOpen} onOpenChange={setSaleModalOpen}>
         <DialogContent className="sm:max-w-3xl">
@@ -2523,6 +2876,22 @@ const PatientRecordPage = () => {
             <Button variant="outline" onClick={() => setSaleModalOpen(false)}>Cancelar</Button>
             <Button onClick={handleSaveSale}>Salvar Venda</Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={weightModalOpen} onOpenChange={setWeightModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Registro de Peso</DialogTitle>
+            <DialogDescription>Detalhes do registro de peso.</DialogDescription>
+          </DialogHeader>
+          {selectedWeight && (
+            <div className="space-y-2">
+              <p className="text-foreground font-semibold">{selectedWeight.weight.toFixed(2)} kg</p>
+              <p className="text-sm text-muted-foreground">Origem: {selectedWeight.source || "-"}</p>
+              <p className="text-xs text-muted-foreground">Data: {formatDateTime(selectedWeight.date, selectedWeight.time)}</p>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

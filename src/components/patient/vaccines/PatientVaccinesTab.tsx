@@ -1,27 +1,41 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 
 import SaasButton from "@/components/saas/SaasButton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
-import { Calendar, Plus, Syringe, Eye } from "lucide-react";
+import { Calendar, Plus, Syringe, Eye, Pencil, Trash2 } from "lucide-react";
 
 import type { AppointmentEntry, VaccinationDetails } from "@/types/appointment";
 import { formatDateTime } from "@/lib/utils";
 import { isoToBR } from "@/components/appointments/inputs/DateInputBR";
 import { cn } from "@/lib/utils";
+import { mockAppointments } from "@/mockData/appointments";
 
 export default function PatientVaccinesTab({
   clientId,
   animalId,
   animalAppointments,
+  setAnimalAppointments,
 }: {
   clientId: string;
   animalId: string;
   animalAppointments: AppointmentEntry[];
+  setAnimalAppointments: (next: AppointmentEntry[]) => void;
 }) {
   const navigate = useNavigate();
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
 
   const vaccines = useMemo(() => {
     return [...animalAppointments]
@@ -32,6 +46,21 @@ export default function PatientVaccinesTab({
           new Date(`${a.date}T${a.time || "00:00"}`).getTime()
       );
   }, [animalAppointments]);
+
+  const removeVaccineAppointment = (id: string) => {
+    const index = mockAppointments.findIndex((a) => a.id === id);
+    if (index > -1) {
+      mockAppointments.splice(index, 1);
+      setAnimalAppointments(mockAppointments.filter((a) => a.animalId === animalId));
+      toast.info("Vacina excluída.");
+    }
+  };
+
+  const confirmDelete = () => {
+    if (!deleteTargetId) return;
+    removeVaccineAppointment(deleteTargetId);
+    setDeleteTargetId(null);
+  };
 
   return (
     <div className="space-y-4">
@@ -109,15 +138,37 @@ export default function PatientVaccinesTab({
                         </div>
                       </div>
 
-                      <SaasButton
-                        saasVariant="ghost"
-                        size="icon"
-                        onClick={() => navigate(`/clients/${clientId}/animals/${animalId}/view-appointment/${v.id}`)}
-                        className="rounded-md"
-                        title="Ver"
-                      >
-                        <Eye className="h-4 w-4" />
-                      </SaasButton>
+                      <div className="flex gap-2">
+                        <SaasButton
+                          saasVariant="ghost"
+                          size="icon"
+                          onClick={() => navigate(`/clients/${clientId}/animals/${animalId}/view-appointment/${v.id}`)}
+                          className="rounded-md"
+                          title="Ver"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </SaasButton>
+
+                        <SaasButton
+                          saasVariant="ghost"
+                          size="icon"
+                          onClick={() => navigate(`/clients/${clientId}/animals/${animalId}/edit-appointment/${v.id}`)}
+                          className="rounded-md"
+                          title="Editar"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </SaasButton>
+
+                        <SaasButton
+                          saasVariant="ghost"
+                          size="icon"
+                          onClick={() => setDeleteTargetId(v.id)}
+                          className="rounded-md"
+                          title="Excluir"
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </SaasButton>
+                      </div>
                     </div>
                   </div>
                 );
@@ -128,6 +179,21 @@ export default function PatientVaccinesTab({
           )}
         </CardContent>
       </Card>
+
+      <AlertDialog open={!!deleteTargetId} onOpenChange={(o) => !o && setDeleteTargetId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir esta vacina? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete}>Excluir</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
