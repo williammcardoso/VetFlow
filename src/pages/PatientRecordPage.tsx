@@ -2888,6 +2888,7 @@ const PatientRecordPage = () => {
             <DialogTitle>Adicionar Venda</DialogTitle>
             <DialogDescription>Registre tudo que foi cobrado neste atendimento.</DialogDescription>
           </DialogHeader>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <Label>Data</Label>
