@@ -2891,45 +2891,75 @@ const PatientRecordPage = () => {
             <DialogTitle>Adicionar Venda</DialogTitle>
             <DialogDescription>Registre tudo que foi cobrado neste atendimento.</DialogDescription>
           </DialogHeader>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <Label>Data</Label>
-              <Input type="date" value={saleDate} onChange={(e) => setSaleDate(e.target.value)} className="h-9 bg-input border border-border rounded-md" />
+              <Input
+                type="date"
+                value={saleDate}
+                onChange={(e) => setSaleDate(e.target.value)}
+                className="h-9 bg-input border border-border rounded-md"
+              />
             </div>
+
             <div>
               <Label>Atendimento vinculado</Label>
               <Select value={saleAppointmentId} onValueChange={setSaleAppointmentId}>
-                <SelectTrigger className="bg-input border border-border rounded-md h-9"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                <SelectTrigger className="bg-input border border-border rounded-md h-9">
+                  <SelectValue placeholder="Selecione" />
+                </SelectTrigger>
                 <SelectContent>
-                  {animalAppointments.map(a => (
-                    <SelectItem key={a.id} value={a.id}>{a.type} • {formatDateTime(a.date, a.time)}</SelectItem>
+                  {animalAppointments.map((a) => (
+                    <SelectItem key={a.id} value={a.id}>
+                      {a.type} • {formatDateTime(a.date, a.time)}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
-            <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-5 gap-2 mt-3">
+
+            <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-5 gap-2 items-end">
               <div className="sm:col-span-2">
                 <Label>Item</Label>
                 <AutocompleteSelect
                   value={saleSelectedItemId}
                   onChange={setSaleSelectedItemId}
-                  options={catalogItems.map(ci => ({ value: ci.id, label: `${ci.name} — ${new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(ci.price)}` }))}
+                  options={catalogItems.map((ci) => ({
+                    value: ci.id,
+                    label: `${ci.name} — ${new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(ci.price)}`,
+                  }))}
                   placeholder="Selecione um item"
                   className="bg-input border border-border rounded-md"
                 />
               </div>
+
               <div>
                 <Label>Qtd</Label>
-                <Input type="number" value={saleQty} onChange={(e) => setSaleQty(Number(e.target.value) || 0)} className="h-9 bg-input border border-border rounded-md" />
+                <Input
+                  type="number"
+                  value={saleQty}
+                  onChange={(e) => setSaleQty(Number(e.target.value) || 0)}
+                  className="h-9 bg-input border border-border rounded-md"
+                />
               </div>
+
               <div>
                 <Label>Preço Unitário</Label>
-                <CurrencyInput value={saleUnitPrice} onValueChange={setSaleUnitPrice} className="h-9 w-full border border-border rounded-md" />
+                <CurrencyInput
+                  value={saleUnitPrice}
+                  onValueChange={setSaleUnitPrice}
+                  className="h-9 w-full border border-border rounded-md"
+                />
               </div>
+
               <div>
-                <Button onClick={addItemToSale} className="h-9 px-4">Adicionar</Button>
+                <Button onClick={addItemToSale} className="h-9 px-4">
+                  Adicionar
+                </Button>
               </div>
             </div>
+
             {saleItems.length > 0 && (
               <div className="sm:col-span-2">
                 <Table>
@@ -2949,16 +2979,12 @@ const PatientRecordPage = () => {
                         <TableCell className="font-medium">{it.name}</TableCell>
                         <TableCell className="capitalize">{it.type}</TableCell>
                         <TableCell>{it.qty}</TableCell>
-                        <TableCell>{new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(it.unitPrice)}</TableCell>
+                        <TableCell>
+                          {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(it.unitPrice)}
+                        </TableCell>
                         <TableCell className="text-right">
                           {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(it.qty * it.unitPrice)}
                         </TableCell>
                         <TableCell className="text-right">
                           <Button variant="ghost" size="icon" onClick={() => removeSaleItem(it.itemId, idx)}>
-                            <FaTrashAlt className="h-4 w-4 text-destructive" />
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table
+                            <
