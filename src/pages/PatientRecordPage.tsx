@@ -67,6 +67,7 @@ import { getRegistryList } from "@/mockData/registry";
 import BudgetReportPdfContent from "@/components/BudgetReportPdfContent";
 import PatientAppointmentsTab from "@/components/patient/appointments/PatientAppointmentsTab";
 import PatientVaccinesTab from "@/components/patient/vaccines/PatientVaccinesTab";
+import PatientSaleModal, { type SaleDraft } from "@/components/patient/PatientSaleModal";
 import {
   Circle as CircleIcon,
   FileText as FileTextIcon,
@@ -375,11 +376,61 @@ const PatientRecordPage = () => {
   const catalogItems = getCatalog().filter(i => i.active);
 
   const [saleModalOpen, setSaleModalOpen] = useState(false);
-  const [saleDate, setSaleDate] = useState<string>(new Date().toISOString().split("T")[0]);
-  const [saleAppointmentId, setSaleAppointmentId] = useState<string>("");
-  const [saleResponsible, setSaleResponsible] = useState<string>("");
-  const [saleObservations, setSaleObservations] = useState<string>("");
-  const [saleStatusLocal, setSaleStatusLocal] = useState<SaleStatusLocal>("open");
+
+  const handleSaveSale = (draft: SaleDraft) => {
+    if (!draft.appointmentId) {
+      toast.error("Selecione o atendimento vinculado.");
+      return;
+    }
+    if (!draft.items?.length) {
+      toast.error("Adicione itens à venda.");
+      return;
+    }
+    if (!currentClient || !currentAnimal) {
+      toast.error("Cliente/animal não encontrados.");
+      return;
+    }
+
+    const saleTotal = draft.items.reduce((sum, it) => sum + it.qty * it.unitPrice, 0);
+
+    const nextId = `ft${mockFinancialTransactions.length + 1}`;
+    addMockFinancialTransaction({
+      date: draft.date,
+      time: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
+      description: `Venda atendimento ${draft.appointmentId}: ${draft.items.map(i => `${i.name} x${i.qty}`).join(", ")}`,
+      type: "income",
+      amount: saleTotal,
+      category: "Venda de Produtos",
+      relatedAnimalId: currentAnimal.id,
+      relatedClientId: currentClient.id,
+    });
+
+    draft.items.forEach((it) => {
+      const cat = findCatalogItem(it.itemId);
+      if (cat && cat.type === "product") adjustStock(it.itemId, -it.qty);
+    });
+
+    const newSaleMeta: PatientSaleMeta = {
+      id: nextId,
+      date: draft.date,
+      appointmentId: draft.appointmentId,
+      items: draft.items,
+      total: saleTotal,
+      saleStatus: draft.status,
+      origin: "manual",
+      responsible:
+        draft.responsible || animalAppointments.find((a) => a.id === draft.appointmentId)?.vet || undefined,
+      observations: draft.observations || undefined,
+    };
+
+    const updated = [...patientSales, newSaleMeta];
+    setPatientSales(updated);
+    writePatientSales(animalId, updated);
+
+    toast.success("Venda registrada com sucesso!");
+  };
+
+  const [saleDraft, setSaleDraft] = useState<SaleDraft | null>(null);
 
   const [saleSelectedItemId, setSaleSelectedItemId] = useState<string>("");
   const [saleQty, setSaleQty] = useState<number>(1);
@@ -405,48 +456,6 @@ const PatientRecordPage = () => {
 
   const removeSaleItem = (itemId: string, index: number) => {
     setSaleItems(prev => prev.filter((_, i) => !(i === index && _.itemId === itemId)));
-  };
-
-  const handleSaveSale = () => {
-    if (!saleAppointmentId) { toast.error("Selecione o atendimento vinculado."); return; }
-    if (saleItems.length === 0) { toast.error("Adicione itens à venda."); return; }
-    if (!currentClient || !currentAnimal) { toast.error("Cliente/animal não encontrados."); return; }
-
-    const nextId = `ft${mockFinancialTransactions.length + 1}`;
-    addMockFinancialTransaction({
-      date: saleDate,
-      time: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
-      description: `Venda atendimento ${saleAppointmentId}: ${saleItems.map(i => `${i.name} x${i.qty}`).join(", ")}`,
-      type: "income",
-      amount: saleTotal,
-      category: "Venda de Produtos",
-      relatedAnimalId: currentAnimal.id,
-      relatedClientId: currentClient.id,
-    });
-
-    saleItems.forEach(it => {
-      const cat = findCatalogItem(it.itemId);
-      if (cat && cat.type === "product") adjustStock(it.itemId, -it.qty);
-    });
-
-    const newSaleMeta: PatientSaleMeta = {
-      id: nextId,
-      date: saleDate,
-      appointmentId: saleAppointmentId,
-      items: saleItems,
-      total: saleTotal,
-      saleStatus: saleStatusLocal,
-      origin: "manual",
-      responsible: saleResponsible || animalAppointments.find(a => a.id === saleAppointmentId)?.vet || undefined,
-      observations: saleObservations || undefined,
-    };
-    const updated = [...patientSales, newSaleMeta];
-    setPatientSales(updated); writePatientSales(animalId, updated);
-
-    setSaleModalOpen(false);
-    setSaleDate(new Date().toISOString().split("T")[0]);
-    setSaleAppointmentId(""); setSaleResponsible(""); setSaleObservations(""); setSaleStatusLocal("open"); setSaleItems([]);
-    toast.success("Venda registrada com sucesso!");
   };
 
   const updateSaleStatus = (saleId: string, status: SaleStatusLocal) => {
@@ -2885,6 +2894,7 @@ const PatientRecordPage = () => {
         </AlertDialogContent>
       </AlertDialog>
 
+      {/* Modal: Adicionar venda */}
       <Dialog open={saleModalOpen} onOpenChange={setSaleModalOpen}>
         <DialogContent className="sm:max-w-3xl">
           <DialogHeader>
@@ -2892,34 +2902,59 @@ const PatientRecordPage = () => {
             <DialogDescription>Registre tudo que foi cobrado neste atendimento.</DialogDescription>
           </DialogHeader>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <Label>Data</Label>
-              <Input
-                type="date"
-                value={saleDate}
-                onChange={(e) => setSaleDate(e.target.value)}
-                className="h-9 bg-input border border-border rounded-md"
-              />
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <Label>Data</Label>
+                <Input
+                  type="date"
+                  value={saleDate}
+                  onChange={(e) => setSaleDate(e.target.value)}
+                  className="h-9 bg-input border border-border rounded-md"
+                />
+              </div>
+
+              <div>
+                <Label>Atendimento vinculado</Label>
+                <Select value={saleAppointmentId} onValueChange={setSaleAppointmentId}>
+                  <SelectTrigger className="bg-input border border-border rounded-md h-9">
+                    <SelectValue placeholder="Selecione" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {animalAppointments.map((a) => (
+                      <SelectItem key={a.id} value={a.id}>
+                        {a.type} • {formatDateTime(a.date, a.time)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label>Responsável</Label>
+                <Input
+                  value={saleResponsible}
+                  onChange={(e) => setSaleResponsible(e.target.value)}
+                  placeholder="Ex.: Dr(a)."
+                  className="h-9 bg-input border border-border rounded-md"
+                />
+              </div>
+
+              <div>
+                <Label>Status</Label>
+                <Select value={saleStatusLocal} onValueChange={(v) => setSaleStatusLocal(v as SaleStatusLocal)}>
+                  <SelectTrigger className="bg-input border border-border rounded-md h-9">
+                    <SelectValue placeholder="Selecione" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="open">Venda aberta</SelectItem>
+                    <SelectItem value="finalized">Venda finalizada</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
-            <div>
-              <Label>Atendimento vinculado</Label>
-              <Select value={saleAppointmentId} onValueChange={setSaleAppointmentId}>
-                <SelectTrigger className="bg-input border border-border rounded-md h-9">
-                  <SelectValue placeholder="Selecione" />
-                </SelectTrigger>
-                <SelectContent>
-                  {animalAppointments.map((a) => (
-                    <SelectItem key={a.id} value={a.id}>
-                      {a.type} • {formatDateTime(a.date, a.time)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-5 gap-2 items-end">
+            <div className="grid grid-cols-1 sm:grid-cols-5 gap-2 items-end">
               <div className="sm:col-span-2">
                 <Label>Item</Label>
                 <AutocompleteSelect
@@ -2953,38 +2988,25 @@ const PatientRecordPage = () => {
                 />
               </div>
 
-              <div>
+              <div className="flex justify-end">
                 <Button onClick={addItemToSale} className="h-9 px-4">
                   Adicionar
                 </Button>
               </div>
             </div>
 
-            {saleItems.length > 0 && (
-              <div className="sm:col-span-2">
+            {saleItems.length > 0 ? (
+              <div className="overflow-x-auto rounded-lg border border-border bg-white">
                 <Table>
                   <TableHeader>
                     <TableRow>
                       <TableHead>Item</TableHead>
-                      <TableHead>Tipo</TableHead>
-                      <TableHead>Qtd</TableHead>
-                      <TableHead>Preço</TableHead>
+                      <TableHead className="text-right">Qtd</TableHead>
+                      <TableHead className="text-right">Preço</TableHead>
                       <TableHead className="text-right">Subtotal</TableHead>
-                      <TableHead className="text-right">Ações</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {saleItems.map((it, idx) => (
                       <TableRow key={`${it.itemId}-${idx}`}>
-                        <TableCell className="font-medium">{it.name}</TableCell>
-                        <TableCell className="capitalize">{it.type}</TableCell>
-                        <TableCell>{it.qty}</TableCell>
-                        <TableCell>
-                          {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(it.unitPrice)}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(it.qty * it.unitPrice)}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Button variant="ghost" size="icon" onClick={() => removeSaleItem(it.itemId, idx)}>
-                            <
+                        <TableCell className="font-medium">{it.name
