@@ -8,10 +8,10 @@ import { mockCompanySettings, mockUserSettings } from "@/mockData/settings";
 Font.register({
   family: "Exo",
   fonts: [
-    { src: '/fonts/Exo-Regular.ttf', fontWeight: 400, format: 'truetype' },
-    { src: '/fonts/Exo-Bold.ttf', fontWeight: 700, format: 'truetype' },
-    { src: '/fonts/Exo-Italic.ttf', fontStyle: 'italic', fontWeight: 400, format: 'truetype' },
-    { src: '/fonts/Exo-BoldItalic.ttf', fontStyle: 'italic', fontWeight: 700, format: 'truetype' },
+    { src: '/fonts/Exo-Regular.ttf', fontWeight: 400 },
+    { src: '/fonts/Exo-Bold.ttf', fontWeight: 700 },
+    { src: '/fonts/Exo-Italic.ttf', fontStyle: 'italic', fontWeight: 400 },
+    { src: '/fonts/Exo-BoldItalic.ttf', fontStyle: 'italic', fontWeight: 700 },
   ],
 });
 

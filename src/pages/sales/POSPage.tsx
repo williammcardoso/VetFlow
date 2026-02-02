@@ -15,10 +15,12 @@ import { getCatalog, findCatalogItem, adjustStock } from "@/mockData/catalog";
 import { getRegistryList } from "@/mockData/registry";
 
 // Mock data para produtos/serviços
-interface Product {
-  id: string;
+interface CartItem {
+  productId: string;
   name: string;
   price: number;
+  quantity: number;
+  total: number;
 }
 
 const POSPage = () => {
