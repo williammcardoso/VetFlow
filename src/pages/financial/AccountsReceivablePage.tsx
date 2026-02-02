@@ -49,19 +49,22 @@ const AccountsReceivablePage: React.FC = () => {
     return { clientName: client?.name || "N/A", animalName: animal?.name || "N/A" };
   };
 
-  const handleRegisterPayment = (sale: FinancialTransaction, remaining: number) => {
-    const payDate = payDateMap[sale.id] || new Date().toISOString().split("T")[0];
+  const handleRegisterPayment = (sale: any, remaining: number) => {
+    // Registrar recebimento manualmente para permitir data selecionada
+    const payDate = payDateMap[sale.id] || new Date().toISOString().split('T')[0];
     const payAmount = payAmountMap[sale.id] || remaining;
     const pmId = payMethodMap[sale.id];
     const pmName = pmId ? (pmRegistry.find(pm => pm.id === pmId)?.name || undefined) : undefined;
 
     if (payAmount <= 0) {
-      toast.error("Informe um valor válido.");
+      toast.error("Informe um valor válido para recebimento.");
       return;
     }
 
     // Registrar recebimento manualmente para permitir data selecionada
-    addMockFinancialTransaction({
+    const receiptId = `ft${mockFinancialTransactions.length + 1}`;
+    const receipt: Omit<FinancialTransaction, "id"> = {
+      id: receiptId,
       date: payDate,
       time: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
       description: `Recebimento da venda ${sale.id}`,
@@ -72,14 +75,18 @@ const AccountsReceivablePage: React.FC = () => {
       relatedClientId: sale.relatedClientId,
       relatedAnimalId: sale.relatedAnimalId,
       paymentMethod: pmName,
-    });
+    };
+    addMockFinancialTransaction(receipt);
 
     // Atualizar status/valor pago da venda
-    const newPaid = sumReceiptsForSale(sale.id);
+    const newPaid = sumReceiptsForSale(sale.id) + payAmount;
     const newStatus: FinancialTransaction["status"] = newPaid >= sale.amount ? "paid" : (newPaid > 0 ? "partial" : "pending");
     updateMockFinancialTransaction(sale.id, { paidAmount: newPaid, status: newStatus });
 
     toast.success("Pagamento registrado.");
+    setPayDateMap(prev => ({ ...prev, [sale.id]: payDate }));
+    setPayAmountMap(prev => ({ ...prev, [sale.id]: payAmount }));
+    setPayMethodMap(prev => ({ ...prev, [sale.id]: pmId }));
   };
 
   return (

@@ -53,7 +53,7 @@ import { mockClients, updateAnimalDetails } from "@/mockData/clients";
 import { Client, Animal, WeightEntry } from "@/types/client";
 import { mockAppointments } from "@/mockData/appointments";
 import { mockUserSettings } from "@/mockData/settings";
-import { Calendar, UserRound, AlertCircle, BadgeDollarSign } from "lucide-react";
+import { Calendar, UserRound, AlertCircle, BadgeDollarSign, StethoscopeIcon, FlaskConicalIcon, SyringeIcon, FileTextIcon, AlertTriangleIcon, CircleIcon } from "lucide-react";
 import PatientAppointmentsTab from "@/components/patient/appointments/PatientAppointmentsTab";
 import PatientVaccinesTab from "@/components/patient/vaccines/PatientVaccinesTab";
 
@@ -343,6 +343,15 @@ const PatientRecordPage = () => {
     if (dotClass.includes("timeline-dot-gray")) return "#cbd5e1";
     if (dotClass.includes("bg-red-300")) return "#fca5a5";
     return "#cbd5e1";
+  };
+
+  const getTimelineMarkerIcon = (event: TimelineEvent) => {
+    if (event.type === "Atendimento") return StethoscopeIcon;
+    if (event.type === "Exame") return FlaskConicalIcon;
+    if (event.type === "Vacina") return SyringeIcon;
+    if (event.type === "Receita") return FileTextIcon;
+    if (event.type === "Observação" && event.isAlert) return AlertTriangleIcon;
+    return CircleIcon;
   };
 
   return (
@@ -677,6 +686,15 @@ const PatientRecordPage = () => {
                           if (dotClass.includes("timeline-dot-gray")) return "#cbd5e1";
                           if (dotClass.includes("bg-red-300")) return "#fca5a5";
                           return "#cbd5e1";
+                        };
+
+                        const getTimelineMarkerIcon = (event: TimelineEvent) => {
+                          if (event.type === "Atendimento") return StethoscopeIcon;
+                          if (event.type === "Exame") return FlaskConicalIcon;
+                          if (event.type === "Vacina") return SyringeIcon;
+                          if (event.type === "Receita") return FileTextIcon;
+                          if (event.type === "Observação" && event.isAlert) return AlertTriangleIcon;
+                          return CircleIcon;
                         };
 
                         const MarkerIcon = getEventIcon(event);
