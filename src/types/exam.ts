@@ -62,9 +62,9 @@ export interface ExamEntry {
 export interface HemogramReferenceValue {
   relative?: string;
   absolute?: string;
-  full?: string; // For non-leukocyte fields
-  min?: number;
-  max?: number;
+  full?: string;
+  min: number;
+  max: number;
 }
 
 export interface HemogramReference {

@@ -998,7 +998,7 @@ export const ExamReportPdfContent = ({
     );
   };
 
-  // Helper para determinar o status do resultado bioquímico
+  // Helper para determinar o status do valor bioquímico
   const getBiochemicalValueStatus = (value: string | undefined, minRef: string | undefined, maxRef: string | undefined): 'normal' | 'high' | 'low' | 'invalid' => {
     if (!value || !minRef || !maxRef) return 'invalid';
     const numValue = normalizeNumber(value);

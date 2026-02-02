@@ -7,7 +7,8 @@ import {
   FaSyringe, FaWeightHanging, FaFileAlt, FaCommentAlt, FaMale, 
   FaPrint, FaTrashAlt, FaPrescriptionBottleAlt, FaEdit, FaIdCard, FaPhone,
   FaMapMarkerAlt, FaFlask, FaTag, FaClock, FaMoneyBillWave, FaDollarSign,
-  FaExclamationTriangle
+  FaExclamationTriangle,
+  FaArrowUp, FaArrowDown
 } from "react-icons/fa";
 import { FaChevronDown, FaChevronUp, FaEllipsisV } from "react-icons/fa";
 import { Button } from "@/components/ui/button";
@@ -166,7 +167,7 @@ const PatientRecordPage = () => {
   const [saleDate, setSaleDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [saleAppointmentId, setSaleAppointmentId] = useState<string>("");
   const [saleResponsible, setSaleResponsible] = useState<string>("");
-  const [saleStatusLocal, setSaleStatusLocal] = useState<"open" | "finalized">"open");
+  const [saleStatusLocal, setSaleStatusLocal] = useState<"open" | "finalized">("open");
 
   // Navegar para edição do animal
   const handleEditAnimal = () => {

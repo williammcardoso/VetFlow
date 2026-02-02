@@ -1,23 +1,4 @@
-export interface FinancialTransaction {
-  id: string;
-  date: string;
-  time: string; // Adicionado campo de hora
-  description: string;
-  type: 'income' | 'expense';
-  amount: number;
-  category: string;
-  relatedAnimalId?: string;
-  relatedClientId?: string;
-  paymentMethod?: string; // NEW: método de pagamento
-
-  // NEW FIELDS
-  status?: 'paid' | 'partial' | 'pending' | 'cancelled';
-  paidAmount?: number; // quanto já foi recebido desta venda
-  responsible?: string;
-  observations?: string;
-  paymentInstallments?: number; // número de parcelas, quando aplicável
-  saleId?: string; // para recebimentos vinculados a uma venda específica
-}
+import { FinancialTransaction } from "@/types/financial";
 
 export interface OverallFinancialSummary {
   totalRevenue: number;
