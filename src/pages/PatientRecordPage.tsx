@@ -356,6 +356,7 @@ const PatientRecordPage = () => {
                 <div className="h-9 w-9 rounded-xl bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200/60 flex items-center justify-center">
                   <FaFileAlt className="h-4 w-4" />
                 </div>
+
                 <div className="min-w-0">
                   <h1 className="text-lg sm:text-xl leading-tight font-semibold text-foreground">
                     Prontuário Consolidado
