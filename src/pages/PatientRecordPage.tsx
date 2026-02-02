@@ -60,7 +60,6 @@ import { ExamEntry } from "@/types/exam";
 import { mockExams } from "@/mockData/exams";
 import { hemogramReferences } from "@/constants/examReferences";
 import { mockUserSettings } from "@/mockData/settings";
-import { useHorizontalScroll } from "@/hooks/use-horizontal-scroll";
 import AutocompleteSelect from "@/components/AutocompleteSelect";
 import CurrencyInput from "@/components/CurrencyInput";
 import { getCatalog, findCatalogItem, adjustStock } from "@/mockData/catalog";
@@ -263,8 +262,6 @@ const PatientRecordPage = () => {
       localStorage.setItem(`patientRecordActiveTab-${animalId}`, activeTab);
     }
   }, [activeTab, animalId]);
-
-  const tabScrollRef = useHorizontalScroll<HTMLDivElement>();
 
   const [animalAppointments, setAnimalAppointments] = useState<AppointmentEntry[]>(
     mockAppointments.filter(app => app.animalId === animalId)
@@ -934,6 +931,7 @@ const PatientRecordPage = () => {
                 <div className="h-9 w-9 rounded-xl bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200/60 flex items-center justify-center">
                   <FileTextIcon className="h-4.5 w-4.5" strokeWidth={1.8} />
                 </div>
+
                 <div className="min-w-0">
                   <h1 className="text-lg sm:text-xl leading-tight font-semibold text-foreground">
                     Prontuário Consolidado
@@ -1113,7 +1111,7 @@ const PatientRecordPage = () => {
                             <FaChevronUp className="ml-2 h-3.5 w-3.5" />
                           ) : (
                             <FaChevronDown className="ml-2 h-3.5 w-3.5" />
-                          )}
+                          )}{" "}
                         </Button>
                       </CollapsibleTrigger>
                     </div>
@@ -1245,91 +1243,169 @@ const PatientRecordPage = () => {
 
         {/* ABAS (hierarquia melhor: ativo evidente e inativos discretos) */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full mt-6">
-          <div ref={tabScrollRef} className="relative w-full overflow-x-auto overflow-y-hidden no-scrollbar scroll-smooth select-none">
-            <TabsList className="inline-flex w-max items-center whitespace-nowrap border-b border-border/40 bg-transparent p-0 rounded-none gap-1">
-              <TabsTrigger
-                value="timeline"
-                style={{ ["--tab-accent" as any]: "#d97706" }}
-                className="tab-active-line relative -mb-px pb-2 px-2.5 md:px-3.5 shrink-0 text-sm md:text-[0.95rem] text-slate-600 dark:text-slate-300 hover:text-foreground hover:bg-muted/30 rounded-md transition-colors data-[state=active]:text-foreground data-[state=active]:font-semibold"
-              >
-                <FaClock className="h-4 w-4 mr-1.5 md:mr-2 text-amber-600" />
-                <span className="max-w-[9.5rem] md:max-w-none truncate">Linha do Tempo</span>
-                <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[10px] bg-muted text-foreground/70">{sortedTimelineEvents.length}</span>
-              </TabsTrigger>
-              <TabsTrigger
-                value="appointments"
-                style={{ ["--tab-accent" as any]: "#0d9488" }}
-                className="tab-active-line relative -mb-px pb-2 px-2.5 md:px-3.5 shrink-0 text-sm md:text-[0.95rem] text-slate-600 dark:text-slate-300 hover:text-foreground hover:bg-muted/30 rounded-md transition-colors data-[state=active]:text-foreground data-[state=active]:font-semibold"
-              >
-                <FaStethoscope className="h-4 w-4 mr-1.5 md:mr-2 text-teal-600" />
-                <span className="max-w-[9.5rem] md:max-w-none truncate">Atendimento</span>
-                <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[10px] bg-muted text-foreground/70">{animalAppointments.length}</span>
-              </TabsTrigger>
-              <TabsTrigger
-                value="exams"
-                style={{ ["--tab-accent" as any]: "#7c3aed" }}
-                className="tab-active-line relative -mb-px pb-2 px-2.5 md:px-3.5 shrink-0 text-sm md:text-[0.95rem] text-slate-600 dark:text-slate-300 hover:text-foreground hover:bg-muted/30 rounded-md transition-colors data-[state=active]:text-foreground data-[state=active]:font-semibold"
-              >
-                <FaFlask className="h-4 w-4 mr-1.5 md:mr-2 text-violet-600" />
-                <span className="max-w-[9.5rem] md:max-w-none truncate">Exames</span>
-                <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[10px] bg-muted text-foreground/70">{examsList.length}</span>
-              </TabsTrigger>
-              <TabsTrigger
-                value="vaccines"
-                style={{ ["--tab-accent" as any]: "#0284c7" }}
-                className="tab-active-line relative -mb-px pb-2 px-2.5 md:px-3.5 shrink-0 text-sm md:text-[0.95rem] text-slate-600 dark:text-slate-300 hover:text-foreground hover:bg-muted/30 rounded-md transition-colors data-[state=active]:text-foreground data-[state=active]:font-semibold"
-              >
-                <FaSyringe className="h-4 w-4 mr-1.5 md:mr-2 text-sky-600" />
-                <span className="max-w-[9.5rem] md:max-w-none truncate">Vacinas</span>
-                <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[10px] bg-muted text-foreground/70">{vaccineAppointmentsCount}</span>
-              </TabsTrigger>
-              <TabsTrigger
-                value="weight"
-                style={{ ["--tab-accent" as any]: "#059669" }}
-                className="tab-active-line relative -mb-px pb-2 px-2.5 md:px-3.5 shrink-0 text-sm md:text-[0.95rem] text-slate-600 dark:text-slate-300 hover:text-foreground hover:bg-muted/30 rounded-md transition-colors data-[state=active]:text-foreground data-[state=active]:font-semibold"
-              >
-                <FaWeightHanging className="h-4 w-4 mr-1.5 md:mr-2 text-emerald-600" />
-                <span className="max-w-[9.5rem] md:max-w-none truncate">Peso</span>
-                <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[10px] bg-muted text-foreground/70">{weightHistory.length}</span>
-              </TabsTrigger>
-              <TabsTrigger
-                value="documents"
-                style={{ ["--tab-accent" as any]: "#475569" }}
-                className="tab-active-line relative -mb-px pb-2 px-2.5 md:px-3.5 shrink-0 text-sm md:text-[0.95rem] text-slate-600 dark:text-slate-300 hover:text-foreground hover:bg-muted/30 rounded-md transition-colors data-[state=active]:text-foreground data-[state=active]:font-semibold"
-              >
-                <FaFileAlt className="h-4 w-4 mr-1.5 md:mr-2 text-slate-600 dark:text-slate-200" />
-                <span className="max-w-[9.5rem] md:max-w-none truncate">Documentos</span>
-                <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[10px] bg-muted text-foreground/70">{documents.length}</span>
-              </TabsTrigger>
-              <TabsTrigger
-                value="prescriptions"
-                style={{ ["--tab-accent" as any]: "#047857" }}
-                className="tab-active-line relative -mb-px pb-2 px-2.5 md:px-3.5 shrink-0 text-sm md:text-[0.95rem] text-slate-600 dark:text-slate-300 hover:text-foreground hover:bg-muted/30 rounded-md transition-colors data-[state=active]:text-foreground data-[state=active]:font-semibold"
-              >
-                <FaPrescriptionBottleAlt className="h-4 w-4 mr-1.5 md:mr-2 text-emerald-700" />
-                <span className="max-w-[9.5rem] md:max-w-none truncate">Receitas</span>
-                <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[10px] bg-muted text-foreground/70">{prescriptions.length}</span>
-              </TabsTrigger>
-              <TabsTrigger
-                value="observations"
-                style={{ ["--tab-accent" as any]: "#e11d48" }}
-                className="tab-active-line relative -mb-px pb-2 px-2.5 md:px-3.5 shrink-0 text-sm md:text-[0.95rem] text-slate-600 dark:text-slate-300 hover:text-foreground hover:bg-muted/30 rounded-md transition-colors data-[state=active]:text-foreground data-[state=active]:font-semibold"
-              >
-                <FaCommentAlt className="h-4 w-4 mr-1.5 md:mr-2 text-rose-600" />
-                <span className="max-w-[9.5rem] md:max-w-none truncate">Observações</span>
-                <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[10px] bg-muted text-foreground/70">{observations.length}</span>
-              </TabsTrigger>
-              <TabsTrigger
-                value="financial"
-                style={{ ["--tab-accent" as any]: "#F79009" }}
-                className="tab-active-line relative -mb-px pb-2 px-2.5 md:px-3.5 shrink-0 text-sm md:text-[0.95rem] text-slate-600 dark:text-slate-300 hover:text-foreground hover:bg-muted/30 rounded-md transition-colors data-[state=active]:text-foreground data-[state=active]:font-semibold"
-              >
-                <FaMoneyBillWave className="h-4 w-4 mr-1.5 md:mr-2 text-[#F79009]" />
-                <span className="max-w-[9.5rem] md:max-w-none truncate">Financeiro</span>
-                <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[10px] bg-muted text-foreground/70">{patientSales.length}</span>
-              </TabsTrigger>
-            </TabsList>
-          </div>
+          <TabsList className="!grid !h-auto w-full grid-cols-3 sm:grid-cols-6 gap-1.5 rounded-xl border border-border/60 bg-white p-1.5">
+            <TabsTrigger
+              value="timeline"
+              style={{
+                ["--tab-bg" as any]: "rgba(217,119,6,0.14)",
+                ["--tab-bg-hover" as any]: "rgba(217,119,6,0.09)",
+                ["--tab-bg-press" as any]: "rgba(217,119,6,0.18)",
+              }}
+              className="sm:col-span-1 w-full !justify-between gap-2 rounded-lg px-3 py-2 text-[13px] md:text-sm font-medium text-slate-700 hover:text-foreground hover:bg-[var(--tab-bg-hover)] active:bg-[var(--tab-bg-press)] data-[state=active]:!bg-[var(--tab-bg)] data-[state=active]:text-foreground data-[state=active]:shadow-none"
+            >
+              <span className="flex items-center gap-2 min-w-0">
+                <FaClock className="h-4 w-4 text-amber-600" />
+                <span className="truncate">Linha do Tempo</span>
+              </span>
+              <span className="ml-auto inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[10px] bg-muted text-foreground/70">
+                {sortedTimelineEvents.length}
+              </span>
+            </TabsTrigger>
+
+            <TabsTrigger
+              value="appointments"
+              style={{
+                ["--tab-bg" as any]: "rgba(13,148,136,0.14)",
+                ["--tab-bg-hover" as any]: "rgba(13,148,136,0.09)",
+                ["--tab-bg-press" as any]: "rgba(13,148,136,0.18)",
+              }}
+              className="sm:col-span-1 w-full !justify-between gap-2 rounded-lg px-3 py-2 text-[13px] md:text-sm font-medium text-slate-700 hover:text-foreground hover:bg-[var(--tab-bg-hover)] active:bg-[var(--tab-bg-press)] data-[state=active]:!bg-[var(--tab-bg)] data-[state=active]:text-foreground data-[state=active]:shadow-none"
+            >
+              <span className="flex items-center gap-2 min-w-0">
+                <FaStethoscope className="h-4 w-4 text-teal-600" />
+                <span className="truncate">Atendimento</span>
+              </span>
+              <span className="ml-auto inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[10px] bg-muted text-foreground/70">
+                {animalAppointments.length}
+              </span>
+            </TabsTrigger>
+
+            <TabsTrigger
+              value="exams"
+              style={{
+                ["--tab-bg" as any]: "rgba(124,58,237,0.14)",
+                ["--tab-bg-hover" as any]: "rgba(124,58,237,0.09)",
+                ["--tab-bg-press" as any]: "rgba(124,58,237,0.18)",
+              }}
+              className="sm:col-span-1 w-full !justify-between gap-2 rounded-lg px-3 py-2 text-[13px] md:text-sm font-medium text-slate-700 hover:text-foreground hover:bg-[var(--tab-bg-hover)] active:bg-[var(--tab-bg-press)] data-[state=active]:!bg-[var(--tab-bg)] data-[state=active]:text-foreground data-[state=active]:shadow-none"
+            >
+              <span className="flex items-center gap-2 min-w-0">
+                <FaFlask className="h-4 w-4 text-violet-600" />
+                <span className="truncate">Exames</span>
+              </span>
+              <span className="ml-auto inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[10px] bg-muted text-foreground/70">
+                {examsList.length}
+              </span>
+            </TabsTrigger>
+
+            <TabsTrigger
+              value="vaccines"
+              style={{
+                ["--tab-bg" as any]: "rgba(2,132,199,0.14)",
+                ["--tab-bg-hover" as any]: "rgba(2,132,199,0.09)",
+                ["--tab-bg-press" as any]: "rgba(2,132,199,0.18)",
+              }}
+              className="sm:col-span-1 w-full !justify-between gap-2 rounded-lg px-3 py-2 text-[13px] md:text-sm font-medium text-slate-700 hover:text-foreground hover:bg-[var(--tab-bg-hover)] active:bg-[var(--tab-bg-press)] data-[state=active]:!bg-[var(--tab-bg)] data-[state=active]:text-foreground data-[state=active]:shadow-none"
+            >
+              <span className="flex items-center gap-2 min-w-0">
+                <FaSyringe className="h-4 w-4 text-sky-600" />
+                <span className="truncate">Vacinas</span>
+              </span>
+              <span className="ml-auto inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[10px] bg-muted text-foreground/70">
+                {vaccineAppointmentsCount}
+              </span>
+            </TabsTrigger>
+
+            <TabsTrigger
+              value="weight"
+              style={{
+                ["--tab-bg" as any]: "rgba(5,150,105,0.14)",
+                ["--tab-bg-hover" as any]: "rgba(5,150,105,0.09)",
+                ["--tab-bg-press" as any]: "rgba(5,150,105,0.18)",
+              }}
+              className="sm:col-span-1 w-full !justify-between gap-2 rounded-lg px-3 py-2 text-[13px] md:text-sm font-medium text-slate-700 hover:text-foreground hover:bg-[var(--tab-bg-hover)] active:bg-[var(--tab-bg-press)] data-[state=active]:!bg-[var(--tab-bg)] data-[state=active]:text-foreground data-[state=active]:shadow-none"
+            >
+              <span className="flex items-center gap-2 min-w-0">
+                <FaWeightHanging className="h-4 w-4 text-emerald-600" />
+                <span className="truncate">Peso</span>
+              </span>
+              <span className="ml-auto inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[10px] bg-muted text-foreground/70">
+                {weightHistory.length}
+              </span>
+            </TabsTrigger>
+
+            <TabsTrigger
+              value="documents"
+              style={{
+                ["--tab-bg" as any]: "rgba(71,85,105,0.12)",
+                ["--tab-bg-hover" as any]: "rgba(71,85,105,0.08)",
+                ["--tab-bg-press" as any]: "rgba(71,85,105,0.16)",
+              }}
+              className="sm:col-span-1 w-full !justify-between gap-2 rounded-lg px-3 py-2 text-[13px] md:text-sm font-medium text-slate-700 hover:text-foreground hover:bg-[var(--tab-bg-hover)] active:bg-[var(--tab-bg-press)] data-[state=active]:!bg-[var(--tab-bg)] data-[state=active]:text-foreground data-[state=active]:shadow-none"
+            >
+              <span className="flex items-center gap-2 min-w-0">
+                <FaFileAlt className="h-4 w-4 text-slate-600 dark:text-slate-200" />
+                <span className="truncate">Documentos</span>
+              </span>
+              <span className="ml-auto inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[10px] bg-muted text-foreground/70">
+                {documents.length}
+              </span>
+            </TabsTrigger>
+
+            <TabsTrigger
+              value="prescriptions"
+              style={{
+                ["--tab-bg" as any]: "rgba(4,120,87,0.14)",
+                ["--tab-bg-hover" as any]: "rgba(4,120,87,0.09)",
+                ["--tab-bg-press" as any]: "rgba(4,120,87,0.18)",
+              }}
+              className="sm:col-span-2 w-full !justify-between gap-2 rounded-lg px-3 py-2 text-[13px] md:text-sm font-medium text-slate-700 hover:text-foreground hover:bg-[var(--tab-bg-hover)] active:bg-[var(--tab-bg-press)] data-[state=active]:!bg-[var(--tab-bg)] data-[state=active]:text-foreground data-[state=active]:shadow-none"
+            >
+              <span className="flex items-center gap-2 min-w-0">
+                <FaPrescriptionBottleAlt className="h-4 w-4 text-emerald-700" />
+                <span className="truncate">Receitas</span>
+              </span>
+              <span className="ml-auto inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[10px] bg-muted text-foreground/70">
+                {prescriptions.length}
+              </span>
+            </TabsTrigger>
+
+            <TabsTrigger
+              value="observations"
+              style={{
+                ["--tab-bg" as any]: "rgba(225,29,72,0.14)",
+                ["--tab-bg-hover" as any]: "rgba(225,29,72,0.09)",
+                ["--tab-bg-press" as any]: "rgba(225,29,72,0.18)",
+              }}
+              className="sm:col-span-2 w-full !justify-between gap-2 rounded-lg px-3 py-2 text-[13px] md:text-sm font-medium text-slate-700 hover:text-foreground hover:bg-[var(--tab-bg-hover)] active:bg-[var(--tab-bg-press)] data-[state=active]:!bg-[var(--tab-bg)] data-[state=active]:text-foreground data-[state=active]:shadow-none"
+            >
+              <span className="flex items-center gap-2 min-w-0">
+                <FaCommentAlt className="h-4 w-4 text-rose-600" />
+                <span className="truncate">Observações</span>
+              </span>
+              <span className="ml-auto inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[10px] bg-muted text-foreground/70">
+                {observations.length}
+              </span>
+            </TabsTrigger>
+
+            <TabsTrigger
+              value="financial"
+              style={{
+                ["--tab-bg" as any]: "rgba(247,144,9,0.14)",
+                ["--tab-bg-hover" as any]: "rgba(247,144,9,0.09)",
+                ["--tab-bg-press" as any]: "rgba(247,144,9,0.18)",
+              }}
+              className="sm:col-span-2 w-full !justify-between gap-2 rounded-lg px-3 py-2 text-[13px] md:text-sm font-medium text-slate-700 hover:text-foreground hover:bg-[var(--tab-bg-hover)] active:bg-[var(--tab-bg-press)] data-[state=active]:!bg-[var(--tab-bg)] data-[state=active]:text-foreground data-[state=active]:shadow-none"
+            >
+              <span className="flex items-center gap-2 min-w-0">
+                <FaMoneyBillWave className="h-4 w-4 text-[#F79009]" />
+                <span className="truncate">Financeiro</span>
+              </span>
+              <span className="ml-auto inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[10px] bg-muted text-foreground/70">
+                {patientSales.length}
+              </span>
+            </TabsTrigger>
+          </TabsList>
 
           <TabsContent value="timeline" className="mt-4">
             <Card className="premium-card">
@@ -1547,7 +1623,9 @@ const PatientRecordPage = () => {
                               </div>
 
                               <div className="min-w-0">
-                                <div className="text-base font-bold text-purple-900 truncate">{title}</div>
+                                <div className="text-base font-bold text-purple-900 truncate">
+                                  {title}
+                                </div>
                                 <div className="mt-1 text-sm text-muted-foreground leading-relaxed line-clamp-2">
                                   {subtitle}
                                 </div>
@@ -1677,7 +1755,11 @@ const PatientRecordPage = () => {
                       return (
                         <div
                           key={entry.id}
-                          className="premium-card rounded-xl p-4 transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5 border-emerald-200 hover:shadow-emerald-200/60"
+                          className={cn(
+                            "rounded-xl border bg-white p-4 transition-all duration-200",
+                            "hover:shadow-lg hover:-translate-y-0.5",
+                            "border-emerald-200 hover:shadow-emerald-200/60"
+                          )}
                         >
                           <div className="flex items-start justify-between gap-3">
                             <div className="flex items-start gap-3 min-w-0">
@@ -1686,7 +1768,7 @@ const PatientRecordPage = () => {
                               </div>
 
                               <div className="min-w-0">
-                                <div className="flex items-center gap-2 text-base font-bold text-emerald-900">
+                                <div className="text-base font-bold text-emerald-900">
                                   <span>{entry.weight.toFixed(2)} kg</span>
                                   {prevEntry && (
                                     <div className="flex items-center gap-1 text-xs font-medium">
@@ -2247,7 +2329,7 @@ const PatientRecordPage = () => {
                                 );
                               })}
                             </div>
-                          )}
+                          )}{" "}
                         </CardContent>
                       </Card>
                     </div>
@@ -2276,7 +2358,7 @@ const PatientRecordPage = () => {
                                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-2 gap-3">
                                   <div className="flex items-center gap-3">
                                     <Badge className={cn(
-                                      "px-3 py-1 text-sm font-bold rounded-full",
+                                      "px-3 py-0.5 text-sm font-bold rounded-full",
                                       sale.saleStatus === "open" ? "bg-orange-600 text-white" : "bg-green-600 text-white"
                                     )}>
                                       {sale.saleStatus === "open" ? "Venda Aberta" : "Venda Finalizada"} {sale.origin === "orcamento" ? "• (de orçamento)" : ""}
@@ -2376,54 +2458,87 @@ const PatientRecordPage = () => {
                             <div>
                               <Label>Venda</Label>
                               <Select value={paymentSaleId || ""} onValueChange={(v) => setPaymentSaleId(v)}>
-                                <SelectTrigger className="bg-input border border-border rounded-md h-9"><SelectValue placeholder="Selecione a venda" /></SelectTrigger>
+                                <SelectTrigger className="bg-input border border-border rounded-md h-9">
+                                  <SelectValue placeholder="Selecione a venda" />
+                                </SelectTrigger>
                                 <SelectContent>
                                   {patientSales
-                                    .filter(s => getPaidForSale(s.id) < s.total)
-                                    .map(s => {
+                                    .filter((s) => getPaidForSale(s.id) < s.total)
+                                    .map((s) => {
                                       const paid = getPaidForSale(s.id);
                                       const saldo = Math.max(0, s.total - paid);
-                                      const app = animalAppointments.find(a => a.id === s.appointmentId);
+                                      const app = animalAppointments.find((a) => a.id === s.appointmentId);
                                       return (
                                         <SelectItem key={s.id} value={s.id}>
-                                          {app ? `${app.type} • ${app.vet}` : `Atendimento ${s.appointmentId}`} — Total {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(s.total)} • Saldo {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(saldo)}
+                                          {app ? `${app.type} • ${app.vet}` : `Atendimento ${s.appointmentId}`} — Total{" "}
+                                          {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(s.total)} • Saldo{" "}
+                                          {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(saldo)}
                                         </SelectItem>
                                       );
                                     })}
                                 </SelectContent>
                               </Select>
                             </div>
+
                             <div className="grid grid-cols-2 gap-2">
                               <div>
                                 <Label>Data</Label>
-                                <Input type="date" value={paymentDate} onChange={(e)=>setPaymentDate(e.target.value)} className="h-9 bg-input border border-border rounded-md" />
+                                <Input
+                                  type="date"
+                                  value={paymentDate}
+                                  onChange={(e) => setPaymentDate(e.target.value)}
+                                  className="h-9 bg-input border border-border rounded-md"
+                                />
                               </div>
                               <div>
                                 <Label>Hora</Label>
-                                <Input value={paymentTime} onChange={(e)=>setPaymentTime(e.target.value)} className="h-9 bg-input border border-border rounded-md" />
+                                <Input
+                                  value={paymentTime}
+                                  onChange={(e) => setPaymentTime(e.target.value)}
+                                  className="h-9 bg-input border border-border rounded-md"
+                                />
                               </div>
                             </div>
+
                             <div>
                               <Label>Valor</Label>
-                              <CurrencyInput value={paymentAmount} onValueChange={setPaymentAmount} className="h-9 w-full border border-border rounded-md" />
+                              <CurrencyInput
+                                value={paymentAmount}
+                                onValueChange={setPaymentAmount}
+                                className="h-9 w-full border border-border rounded-md"
+                              />
                             </div>
+
                             <div>
                               <Label>Método de pagamento</Label>
                               <Select value={paymentMethodId || ""} onValueChange={setPaymentMethodId}>
-                                <SelectTrigger className="bg-input border border-border rounded-md h-9"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                                <SelectTrigger className="bg-input border border-border rounded-md h-9">
+                                  <SelectValue placeholder="Selecione" />
+                                </SelectTrigger>
                                 <SelectContent>
-                                  {pmRegistry.map(pm => (
-                                    <SelectItem key={pm.id} value={pm.id}>{pm.name}</SelectItem>
+                                  {pmRegistry.map((pm) => (
+                                    <SelectItem key={pm.id} value={pm.id}>
+                                      {pm.name}
+                                    </SelectItem>
                                   ))}
                                 </SelectContent>
                               </Select>
                             </div>
+
                             <div>
                               <Label>Observações</Label>
-                              <Textarea value={paymentObservations} onChange={(e)=>setPaymentObservations(e.target.value)} className="bg-input border border-border rounded-md" />
+                              <Textarea
+                                value={paymentObservations}
+                                onChange={(e) => setPaymentObservations(e.target.value)}
+                                className="bg-input border border-border rounded-md"
+                              />
                             </div>
+
                             <div className="flex justify-end">
-                              <Button onClick={handleAddPayment} className="rounded-md bg-[#0F4C5C] text-white hover:bg-[#0d3f4b] font-semibold transition-colors shadow-sm hover:shadow-md">
+                              <Button
+                                onClick={handleAddPayment}
+                                className="rounded-md bg-[#0F4C5C] text-white hover:bg-[#0d3f4b] font-semibold transition-colors shadow-sm hover:shadow-md"
+                              >
                                 Registrar pagamento
                               </Button>
                             </div>
@@ -2450,12 +2565,17 @@ const PatientRecordPage = () => {
                                   </TableHeader>
                                   <TableBody>
                                     {patientPayments.map((p, index) => {
-                                      const app = patientSales.find(s => s.id === p.saleId)?.appointmentId;
+                                      const sale = patientSales.find((s) => s.id === p.saleId);
                                       return (
                                         <TableRow key={p.id} className={cn(index % 2 === 1 && "bg-[#F9FAFB]")}>
-                                          <TableCell className="font-medium">{p.saleId}{app ? ` • Atend. ${app}` : ""}</TableCell>
+                                          <TableCell className="font-medium">
+                                            {p.saleId}
+                                            {sale ? ` • Atend. ${sale.appointmentId}` : ""}
+                                          </TableCell>
                                           <TableCell>{formatDateTime(p.date)}</TableCell>
-                                          <TableCell className="text-right font-bold">{new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(p.amount)}</TableCell>
+                                          <TableCell className="text-right font-bold">
+                                            {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(p.amount)}
+                                          </TableCell>
                                           <TableCell>{p.paymentMethod || "-"}</TableCell>
                                         </TableRow>
                                       );
@@ -2491,7 +2611,7 @@ const PatientRecordPage = () => {
                       <AutocompleteSelect
                         value={budgetSelectedItemId}
                         onChange={setBudgetSelectedItemId}
-                        options={catalogItems.map(ci => ({ value: ci.id, label: `${ci.name} — ${new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(ci.price)}` }))}
+                        options={catalogItems.map(ci => ({ value: ci.id, label: `${ci.name} — ${new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(ci.price)}` }))}
                         placeholder="Selecione um item"
                         className="bg-input border border-border rounded-md"
                       />
@@ -2546,7 +2666,6 @@ const PatientRecordPage = () => {
                       </div>
                     </div>
                   )}
-
                   <div>
                     <Label>Observações</Label>
                     <Textarea value={budgetObservations} onChange={(e)=>setBudgetObservations(e.target.value)} className="bg-input border border-border rounded-md" />
@@ -2637,9 +2756,7 @@ const PatientRecordPage = () => {
             </label>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setObservationEditOpen(false)}>
-              Cancelar
-            </Button>
+            <Button variant="outline" onClick={() => setObservationEditOpen(false)}>Cancelar</Button>
             <Button
               onClick={() => {
                 if (!selectedObservation) return;
@@ -2714,9 +2831,7 @@ const PatientRecordPage = () => {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDocumentEditOpen(false)}>
-              Cancelar
-            </Button>
+            <Button variant="outline" onClick={() => setDocumentEditOpen(false)}>Cancelar</Button>
             <Button
               onClick={() => {
                 if (!documentEditing) return;
@@ -2792,7 +2907,7 @@ const PatientRecordPage = () => {
                 </SelectContent>
               </Select>
             </div>
-            <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-5 gap-2 items-end">
+            <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-5 gap-2 mt-3">
               <div className="sm:col-span-2">
                 <Label>Item</Label>
                 <AutocompleteSelect
@@ -2846,56 +2961,4 @@ const PatientRecordPage = () => {
                       </TableRow>
                     ))}
                   </TableBody>
-                </Table>
-                <div className="flex justify-between mt-2 text-sm font-semibold">
-                  <span>Total:</span>
-                  <span>{new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(saleTotal)}</span>
-                </div>
-              </div>
-            )}
-            <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-2 mt-3">
-              <div>
-                <Label>Responsável</Label>
-                <Input
-                  value={saleResponsible}
-                  onChange={(e) => setSaleResponsible(e.target.value)}
-                  className="h-9 bg-input border border-border rounded-md"
-                />
-              </div>
-              <div className="sm:col-span-2">
-                <Label>Observações</Label>
-                <Textarea
-                  value={saleObservations}
-                  onChange={(e) => setSaleObservations(e.target.value)}
-                  className="bg-input border border-border rounded-md"
-                />
-              </div>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setSaleModalOpen(false)}>Cancelar</Button>
-            <Button onClick={handleSaveSale}>Salvar Venda</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={weightModalOpen} onOpenChange={setWeightModalOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Registro de Peso</DialogTitle>
-            <DialogDescription>Detalhes do registro de peso.</DialogDescription>
-          </DialogHeader>
-          {selectedWeight && (
-            <div className="space-y-2">
-              <p className="text-foreground font-semibold">{selectedWeight.weight.toFixed(2)} kg</p>
-              <p className="text-sm text-muted-foreground">Origem: {selectedWeight.source || "-"}</p>
-              <p className="text-xs text-muted-foreground">Data: {formatDateTime(selectedWeight.date, selectedWeight.time)}</p>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-    </div>
-  );
-};
-
-export default PatientRecordPage;
+                </Table
