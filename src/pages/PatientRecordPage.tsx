@@ -74,6 +74,19 @@ interface DocumentEntry {
   fileUrl: string;
 }
 
+interface TimelineEvent {
+  id: string;
+  type: "Atendimento" | "Exame" | "Vacina" | "Receita" | "Documento" | "Observação";
+  date: string;
+  time: string;
+  description?: string;
+  summary?: string;
+  author?: string;
+  link?: string;
+  isAlert?: boolean;
+  icon?: React.ComponentType<{ className?: string }>;
+}
+
 const PatientRecordPage = () => {
   const { clientId, animalId } = useParams<{ clientId: string; animalId: string }>();
   const navigate = useNavigate();
@@ -202,6 +215,134 @@ const PatientRecordPage = () => {
     if (weight === undefined || weight === null || isNaN(Number(weight))) return "-";
     const text = Number(weight).toLocaleString("pt-BR", { minimumFractionDigits: 0, maximumFractionDigits: 1 });
     return `${text} kg`;
+  };
+
+  // Timeline events
+  const timelineEvents: TimelineEvent[] = useMemo(() => {
+    const events: TimelineEvent[] = [];
+
+    // Atendimentos
+    animalAppointments.forEach(app => {
+      events.push({
+        id: `app-${app.id}`,
+        type: "Atendimento",
+        date: app.date,
+        time: app.time,
+        description: `${app.type} - ${app.details}`,
+        summary: app.notes || "",
+        author: app.responsible || "",
+        link: app.link || "",
+      });
+    });
+
+    // Exames
+    events.push({
+      id: "exam-1",
+      type: "Exame",
+      date: "2024-01-15",
+      time: "14:00",
+      description: "Exame de sangue completo",
+      summary: "Resultados normais",
+      author: "Dr. Silva",
+    });
+
+    // Vacinas
+    events.push({
+      id: "vaccine-1",
+      type: "Vacina",
+      date: "2024-02-01",
+      time: "10:00",
+      description: "Vacina contra raiva",
+      summary: "Dose completa",
+      author: "Dr. Oliveira",
+    });
+
+    // Receitas
+    events.push({
+      id: "prescription-1",
+      type: "Receita",
+      date: "2024-03-01",
+      time: "16:30",
+      description: "Medicação para dor",
+      summary: "Dose diária",
+      author: "Dr. Santos",
+    });
+
+    // Documentos
+    events.push({
+      id: "document-1",
+      type: "Documento",
+      date: "2024-04-01",
+      time: "11:00",
+      description: "Termo de admissão",
+      summary: "Documento oficial",
+      author: "Administração",
+    });
+
+    // Observações
+    events.push({
+      id: "observation-1",
+      type: "Observação",
+      date: "2024-05-01",
+      time: "13:00",
+      description: "Observação clínica",
+      summary: "Animal apresentou melhora",
+      author: "Dr. Oliveira",
+      isAlert: true,
+    });
+
+    return events;
+  }, [animalAppointments]);
+
+  const sortedTimelineEvents = useMemo(() => {
+    return [...timelineEvents].sort((a, b) => {
+      const da = new Date(`${a.date}T${a.time || "00:00"}`).getTime();
+      const db = new Date(`${b.date}T${b.time || "00:00"}`).getTime();
+      return db - da;
+    });
+  }, [timelineEvents]);
+
+  const getEventStyle = (type: string) => {
+    const styles = {
+      dot: "bg-muted/30",
+      badge: "bg-muted/30 text-muted-foreground",
+      icon: "text-muted-foreground",
+    };
+    return styles;
+  };
+
+  const getEventIconClass = (type: string) => {
+    const iconClass = {
+      "Atendimento": "text-teal-600",
+      "Exame": "text-slate-600",
+      "Vacina": "text-amber-600",
+      "Receita": "text-emerald-600",
+      "Documento": "text-slate-600",
+      "Observação": "text-rose-600",
+    };
+    return iconClass[type] || "text-muted-foreground";
+  };
+
+  const getEventIcon = (event: TimelineEvent) => {
+    if (event.type === "Atendimento") return FaStethoscope;
+    if (event.type === "Exame") return FaFlask;
+    if (event.type === "Vacina") return FaSyringe;
+    if (event.type === "Receita") return FaPrescriptionBottleAlt;
+    if (event.type === "Observação" && event.isAlert) return FaExclamationTriangle;
+    return FaCommentAlt;
+  };
+
+  const getTimelineMarkerColor = (dotClass: string) => {
+    if (dotClass.includes("timeline-dot-blue")) return "#93c5fd";
+    if (dotClass.includes("timeline-dot-purple")) return "#c4b5fd";
+    if (dotClass.includes("timeline-dot-green")) return "#86efac";
+    if (dotClass.includes("timeline-dot-amber")) return "#fcd34d";
+    if (dotClass.includes("timeline-dot-teal")) return "#99f6e4";
+    if (dotClass.includes("timeline-dot-orange")) return "#fdba74";
+    if (dotClass.includes("timeline-dot-slate")) return "#cbd5e1";
+    if (dotClass.includes("timeline-dot-gray")) return "#cbd5e1";
+    if (dotClass.includes("bg-red-300")) return "#fca5a5";
+    return "#cbd5e1";
   };
 
   return (
@@ -423,7 +564,184 @@ const PatientRecordPage = () => {
                 <p className="text-sm text-muted-foreground">Eventos clínicos em ordem cronológica</p>
               </CardHeader>
               <CardContent className="pt-0">
-                <p className="text-muted-foreground py-4">Funcionalidade em desenvolvimento...</p>
+                {sortedTimelineEvents.length > 0 ? (
+                  <div className="relative">
+                    <div className="absolute left-4 sm:left-5 top-0 bottom-0 w-px bg-border/70" />
+                    <div className="space-y-5">
+                      {sortedTimelineEvents.map((event) => {
+                        const styles = getEventStyle(event.type);
+                        const iconClass = getEventIconClass(event.type);
+                        const isAlertObs = event.type === 'Observação' && !!event.isAlert;
+
+                        const getRecipeVariantClass = () => {
+                          const desc = (event.description || "").toLowerCase();
+                          if (desc.includes("controlada")) return "badge-soft-amber";
+                          if (desc.includes("manipulada")) return "badge-soft-teal";
+                          return "badge-soft-green";
+                        };
+                        const getRecipeDotClass = () => {
+                          const desc = (event.description || "").toLowerCase();
+                          if (desc.includes("controlada")) return "timeline-dot-amber";
+                          if (desc.includes("manipulada")) return "timeline-dot-teal";
+                          return "timeline-dot-green";
+                        };
+                        const getRecipeIconClass = () => {
+                          const desc = (event.description || "").toLowerCase();
+                          if (desc.includes("controlada")) return "icon-soft-amber";
+                          if (desc.includes("manipulada")) return "icon-soft-teal";
+                          return "icon-soft-green";
+                        };
+
+                        const getTitle = () => {
+                          if (event.type === 'Atendimento') {
+                            return (event.description || "").split(":")[0]?.trim() || "Atendimento";
+                          }
+                          if (event.type === 'Exame') {
+                            return (event.description || "").split(":")[0]?.trim() || "Exame";
+                          }
+                          if (event.type === 'Vacina') {
+                            return (event.description || "").split(".")[0]?.trim() || "Vacina";
+                          }
+                          if (event.type === 'Receita') {
+                            const after = (event.description || "").split(":").slice(1).join(":").trim();
+                            return after || "Receita";
+                          }
+                          if (event.type === 'Documento') {
+                            return (event.description || "").replace(/^Documento\s*(:)?\s*/i, '').trim() || "Documento";
+                          }
+                          if (event.type === 'Observação') {
+                            return (event.summary || "").trim() || "Observação";
+                          }
+                          return event.type;
+                        };
+
+                        const getSubtitle = () => {
+                          if (event.type === 'Atendimento') return (event.summary || "").trim();
+                          if (event.type === 'Exame') return (event.summary || "").trim();
+                          if (event.type === 'Receita') return (event.summary || "").trim();
+                          if (event.type === 'Vacina') {
+                            const next = (event.description || "").match(/Próxima dose:\s*(.*)$/i)?.[1];
+                            return next ? `Próxima dose: ${next}` : (event.summary || "").trim();
+                          }
+                          return "";
+                        };
+
+                        const dotClass = isAlertObs
+                          ? "bg-red-300"
+                          : (event.type === 'Receita' ? getRecipeDotClass() : styles.dot);
+
+                        const badgeClass = isAlertObs
+                          ? "bg-red-100 text-red-800"
+                          : (event.type === 'Receita' ? getRecipeVariantClass() : styles.badge);
+
+                        const iconColorClass = isAlertObs
+                          ? "text-red-700"
+                          : (event.type === 'Receita' ? getRecipeIconClass() : iconClass);
+
+                        const meta = `${formatDateTime(event.date, event.time)}${event.author ? ` • ${event.author}` : ""}`;
+
+                        const showView = !!event.link || event.type === 'Exame' || event.type === 'Atendimento' || event.type === 'Documento';
+                        const onView = () => {
+                          if (event.type === 'Exame') {
+                            const examId = (event.id || "").replace(/^exam-/, "");
+                            if (examId) navigate(`/clients/${clientId}/animals/${animalId}/edit-exam/${examId}`);
+                            return;
+                          }
+                          if (event.link) {
+                            if (event.link.startsWith("http") || event.link.startsWith("blob:")) window.open(event.link, "_blank");
+                            else navigate(event.link);
+                          }
+                        };
+
+                        const title = getTitle();
+                        const subtitle = getSubtitle();
+
+                        const getEventIcon = (event: TimelineEvent) => {
+                          if (event.type === "Atendimento") return FaStethoscope;
+                          if (event.type === "Exame") return FaFlask;
+                          if (event.type === "Vacina") return FaSyringe;
+                          if (event.type === "Receita") return FaPrescriptionBottleAlt;
+                          if (event.type === "Observação" && event.isAlert) return FaExclamationTriangle;
+                          return FaCommentAlt;
+                        };
+
+                        const getTimelineMarkerColor = (dotClass: string) => {
+                          if (dotClass.includes("timeline-dot-blue")) return "#93c5fd";
+                          if (dotClass.includes("timeline-dot-purple")) return "#c4b5fd";
+                          if (dotClass.includes("timeline-dot-green")) return "#86efac";
+                          if (dotClass.includes("timeline-dot-amber")) return "#fcd34d";
+                          if (dotClass.includes("timeline-dot-teal")) return "#99f6e4";
+                          if (dotClass.includes("timeline-dot-orange")) return "#fdba74";
+                          if (dotClass.includes("timeline-dot-slate")) return "#cbd5e1";
+                          if (dotClass.includes("timeline-dot-gray")) return "#cbd5e1";
+                          if (dotClass.includes("bg-red-300")) return "#fca5a5";
+                          return "#cbd5e1";
+                        };
+
+                        const MarkerIcon = getEventIcon(event);
+                        const markerColor = getTimelineMarkerColor(dotClass);
+
+                        return (
+                          <div key={event.id} className="relative pl-9 sm:pl-11">
+                            <span className="absolute left-2.5 sm:left-3.5 top-4 h-10 w-10 rounded-full bg-white ring-1 ring-border flex items-center justify-center">
+                              <MarkerIcon className="h-4 w-4" strokeWidth={1.6} style={{ color: markerColor }} />
+                            </span>
+
+                            <Card className="premium-card p-4 sm:p-5">
+                              <div className="flex items-start justify-between gap-4">
+                                <div className="min-w-0">
+                                  <div className="flex items-center gap-2">
+                                    <span className={cn("chip-soft", badgeClass)}>
+                                      {isAlertObs
+                                        ? "Alerta"
+                                        : event.type === 'Receita'
+                                          ? ((event.description || "").toLowerCase().includes('controlada') ? 'Receita Controlada'
+                                            : (event.description || "").toLowerCase().includes('manipulada') ? 'Receita Manipulada'
+                                            : 'Receita Simples')
+                                          : event.type)}
+                                    </span>
+                                    <span className="text-xs text-muted-foreground truncate">{meta}</span>
+                                  </div>
+
+                                  <div className="mt-2 flex items-start gap-3">
+                                    <div className={cn("h-9 w-9 rounded-xl flex items-center justify-center bg-muted/30", iconColorClass)}>
+                                      {React.createElement(event.icon, { className: "h-4 w-4" })}
+                                    </div>
+
+                                    <div className="min-w-0">
+                                      <div className="text-[15px] sm:text-base font-semibold text-foreground leading-snug truncate">
+                                        {title}
+                                      </div>
+                                      {subtitle && (
+                                        <div className="mt-0.5 text-sm text-muted-foreground leading-relaxed line-clamp-2">
+                                          {subtitle}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {showView && (
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={onView}
+                                    className="h-9 w-9 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/40"
+                                  >
+                                    <FaEye className="h-4 w-4" />
+                                    <span className="sr-only">Ver</span>
+                                  </Button>
+                                )}
+                              </div>
+                            </Card>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-muted-foreground py-4">Nenhum evento registrado para este paciente.</p>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
