@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { mockFinancialTransactions } from "@/mockData/financial";
+import { mockFinancialTransactions, updateMockFinancialTransaction, FinancialTransaction, addMockFinancialTransaction } from "@/mockData/financial";
 import { mockClients } from "@/mockData/clients";
 import { getRegistryList } from "@/mockData/registry";
 import { formatDateTime } from "@/lib/utils";
@@ -49,22 +49,19 @@ const AccountsReceivablePage: React.FC = () => {
     return { clientName: client?.name || "N/A", animalName: animal?.name || "N/A" };
   };
 
-  const handleRegisterPayment = (sale: any, remaining: number) => {
-    // Registrar recebimento manualmente para permitir data selecionada
-    const payDate = payDateMap[sale.id] || new Date().toISOString().split('T')[0];
+  const handleRegisterPayment = (sale: FinancialTransaction, remaining: number) => {
+    const payDate = payDateMap[sale.id] || new Date().toISOString().split("T")[0];
     const payAmount = payAmountMap[sale.id] || remaining;
     const pmId = payMethodMap[sale.id];
     const pmName = pmId ? (pmRegistry.find(pm => pm.id === pmId)?.name || undefined) : undefined;
 
     if (payAmount <= 0) {
-      toast.error("Informe um valor válido para recebimento.");
+      toast.error("Informe um valor válido.");
       return;
     }
 
     // Registrar recebimento manualmente para permitir data selecionada
-    const receiptId = `ft${mockFinancialTransactions.length + 1}`;
-    const receipt: Omit<FinancialTransaction, "id"> = {
-      id: receiptId,
+    addMockFinancialTransaction({
       date: payDate,
       time: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
       description: `Recebimento da venda ${sale.id}`,
@@ -75,18 +72,14 @@ const AccountsReceivablePage: React.FC = () => {
       relatedClientId: sale.relatedClientId,
       relatedAnimalId: sale.relatedAnimalId,
       paymentMethod: pmName,
-    };
-    addMockFinancialTransaction(receipt);
+    });
 
     // Atualizar status/valor pago da venda
-    const newPaid = sumReceiptsForSale(sale.id) + payAmount;
+    const newPaid = sumReceiptsForSale(sale.id);
     const newStatus: FinancialTransaction["status"] = newPaid >= sale.amount ? "paid" : (newPaid > 0 ? "partial" : "pending");
     updateMockFinancialTransaction(sale.id, { paidAmount: newPaid, status: newStatus });
 
     toast.success("Pagamento registrado.");
-    setPayDateMap(prev => ({ ...prev, [sale.id]: payDate }));
-    setPayAmountMap(prev => ({ ...prev, [sale.id]: payAmount }));
-    setPayMethodMap(prev => ({ ...prev, [sale.id]: pmId }));
   };
 
   return (

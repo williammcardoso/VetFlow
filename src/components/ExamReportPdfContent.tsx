@@ -10,10 +10,10 @@ import { ExamEntry, HemogramReference, HemogramReferenceValue, ExamReportData, B
 Font.register({
   family: "Exo",
   fonts: [
-    { src: '/fonts/Exo-Regular.ttf', fontWeight: 400 },
-    { src: '/fonts/Exo-Bold.ttf', fontWeight: 700 },
-    { src: '/fonts/Exo-Italic.ttf', fontStyle: 'italic', fontWeight: 400 },
-    { src: '/fonts/Exo-BoldItalic.ttf', fontStyle: 'italic', fontWeight: 700 },
+    { src: '/fonts/Exo-Regular.ttf', fontWeight: 400, format: 'truetype' },
+    { src: '/fonts/Exo-Bold.ttf', fontWeight: 700, format: 'truetype' },
+    { src: '/fonts/Exo-Italic.ttf', fontStyle: 'italic', fontWeight: 400, format: 'truetype' },
+    { src: '/fonts/Exo-BoldItalic.ttf', fontStyle: 'italic', fontWeight: 700, format: 'truetype' },
   ],
 });
 
@@ -189,14 +189,14 @@ const styles = StyleSheet.create({
     textAlign: "right",
   },
   headerCellReference: {
-    width: 225, // REFERÊNCIA - AJUSTADO para acomodar o espaçamento
+    width: 225, // REFERÊNCIA - AJUSTADO para acomodar o espaçador
     textAlign: "right",
   },
   headerCellSpacer: { // Nova coluna de espaçamento
     width: 10,
   },
   headerCellIndicator: {
-    width: 100, // INDICADOR - AJUSTADO para acomodar o espaçamento
+    width: 100, // INDICADOR - AJUSTADO para acomodar o espaçador
     textAlign: "left", // ALTERADO para left
   },
 
@@ -231,7 +231,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   leukogramHeaderReferenceLabels: {
-    width: 225, // Ajustado para acomodar o espaçamento
+    width: 225, // Ajustado para acomodar o espaçador
     flexDirection: 'row',
     alignItems: 'flex-end', // Align sub-labels to the bottom
   },
@@ -252,7 +252,7 @@ const styles = StyleSheet.create({
     textAlign: 'center', // Centered
   },
   leukogramHeaderIndicatorLabel: {
-    width: 90, // Ajustado para acomodar o espaçamento
+    width: 90, // Ajustado para acomodar o espaçador
     fontSize: 8, // Smaller font
     fontWeight: "bold",
     color: "#333",
@@ -370,7 +370,7 @@ const styles = StyleSheet.create({
 
   // New styles for granular reference columns (9 columns) - REMOVIDAS BORDAS
   referenceContainer: { // This is now a flex container for its cells
-    width: 225, // Ajustado para acomodar o espaçamento
+    width: 225, // Ajustado para acomodar o espaçador
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-end', // Alinhado à direita
@@ -457,7 +457,7 @@ const styles = StyleSheet.create({
     width: 5,
   },
   indicatorColumn: {
-    width: 100, // Ajustado para acomodar o espaçamento
+    width: 100, // Ajustado para acomodar o espaçador
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-start', // ALTERADO para flex-start
@@ -998,7 +998,7 @@ export const ExamReportPdfContent = ({
     );
   };
 
-  // Helper para determinar o status do valor bioquímico
+  // Helper para determinar o status do resultado bioquímico
   const getBiochemicalValueStatus = (value: string | undefined, minRef: string | undefined, maxRef: string | undefined): 'normal' | 'high' | 'low' | 'invalid' => {
     if (!value || !minRef || !maxRef) return 'invalid';
     const numValue = normalizeNumber(value);

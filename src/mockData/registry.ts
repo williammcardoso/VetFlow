@@ -14,6 +14,7 @@ export type RegistryKeySimple =
 export interface RegistryItem {
   id: string;
   name: string;
+  [key: string]: any;
 }
 
 const STORAGE_PREFIX = "registry:";

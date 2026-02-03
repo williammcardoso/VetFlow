@@ -1,7 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { FaArrowLeft, FaMoneyCheckAlt, FaCalendarAlt, FaTag, FaPaw } from "react-icons/fa";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { mockFinancialTransactions, addMockReceipt } from "@/mockData/financial";
 import { formatDateTime } from "@/lib/utils";

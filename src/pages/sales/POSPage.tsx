@@ -15,12 +15,10 @@ import { getCatalog, findCatalogItem, adjustStock } from "@/mockData/catalog";
 import { getRegistryList } from "@/mockData/registry";
 
 // Mock data para produtos/serviços
-interface CartItem {
-  productId: string;
+interface Product {
+  id: string;
   name: string;
   price: number;
-  quantity: number;
-  total: number;
 }
 
 const POSPage = () => {
@@ -129,17 +127,17 @@ const POSPage = () => {
       date: currentDate,
       time: currentTime,
       description: description,
-      type: "income",
+      type: 'income',
       amount: finalTotal,
-      category: "Venda de Produtos",
+      category: 'Venda de Produtos',
       relatedClientId: saleWithoutClient ? undefined : selectedClientId,
       relatedAnimalId: selectedAnimalId,
-      paymentMethod: paymentMethodName,
+      paymentMethod: paymentMethodName, // NEW
       paidAmount: receivedNow || 0,
       status,
       responsible: responsible || undefined,
       observations: observations || undefined,
-      paymentInstallments: installments
+      paymentInstallments: installments,
     });
 
     // Ajustar estoque para produtos
