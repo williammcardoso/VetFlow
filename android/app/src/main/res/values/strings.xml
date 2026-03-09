@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">VetFlow</string>
+    <string name="title_activity_main">VetFlow</string>
+    <string name="package_name">com.example.vetflow</string>
+    <string name="custom_url_scheme">com.example.vetflow</string>
+</resources>
