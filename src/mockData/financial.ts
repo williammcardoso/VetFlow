@@ -115,10 +115,18 @@ export const getOverallFinancialSummary = (): OverallFinancialSummary => {
   return { totalRevenue, totalExpenses, netProfit };
 };
 
-// Função para adicionar uma nova transação (para uso no mock)
-export const addMockFinancialTransaction = (newTransaction: Omit<FinancialTransaction, 'id'>) => {
-  const id = `ft${mockFinancialTransactions.length + 1}`;
-  mockFinancialTransactions.push({ ...newTransaction, id });
+/** Gera ID único para transação (evita colisão em lançamentos simultâneos) */
+const generateTransactionId = () =>
+  `ft-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+
+// Função para adicionar uma nova transação (para uso no mock). Retorna a transação criada (com id).
+export const addMockFinancialTransaction = (
+  newTransaction: Omit<FinancialTransaction, 'id'>
+): FinancialTransaction => {
+  const id = generateTransactionId();
+  const tx: FinancialTransaction = { ...newTransaction, id };
+  mockFinancialTransactions.push(tx);
+  return tx;
 };
 
 // NEW: Atualizar uma transação existente por id
@@ -127,6 +135,57 @@ export const updateMockFinancialTransaction = (id: string, changes: Partial<Fina
   if (idx === -1) return false;
   mockFinancialTransactions[idx] = { ...mockFinancialTransactions[idx], ...changes };
   return true;
+};
+
+/** Soma todos os recebimentos vinculados a uma venda (fonte única de verdade) */
+export const sumReceiptsForSale = (saleId: string): number => {
+  const receipts = mockFinancialTransactions.filter(
+    (t) =>
+      t.type === 'income' &&
+      t.category === 'Recebimento' &&
+      (t.saleId === saleId || (t.description || '').includes(saleId))
+  );
+  return receipts.reduce((s, r) => s + r.amount, 0);
+};
+
+/**
+ * Registra recebimento com data/hora e atualiza a venda vinculada (paidAmount + status).
+ * Fonte única: usado por Contas a receber e pelo Prontuário.
+ */
+export const registerReceiptWithSale = (data: {
+  saleId: string;
+  amount: number;
+  date: string;
+  time: string;
+  paymentMethod?: string;
+  description?: string;
+  relatedClientId?: string;
+  relatedAnimalId?: string;
+}): void => {
+  const receipt: Omit<FinancialTransaction, 'id'> = {
+    date: data.date,
+    time: data.time,
+    description: data.description || `Recebimento da venda ${data.saleId}`,
+    type: 'income',
+    amount: data.amount,
+    category: 'Recebimento',
+    paymentMethod: data.paymentMethod,
+    saleId: data.saleId,
+    relatedClientId: data.relatedClientId,
+    relatedAnimalId: data.relatedAnimalId,
+  };
+  addMockFinancialTransaction(receipt); // receipt id é único (ft-timestamp-random)
+
+  const saleIdx = mockFinancialTransactions.findIndex(
+    (t) => t.id === data.saleId && t.category === 'Venda de Produtos'
+  );
+  if (saleIdx > -1) {
+    const sale = mockFinancialTransactions[saleIdx];
+    const newPaid = sumReceiptsForSale(data.saleId);
+    const newStatus: FinancialTransaction['status'] =
+      newPaid >= sale.amount ? 'paid' : newPaid > 0 ? 'partial' : 'pending';
+    mockFinancialTransactions[saleIdx] = { ...sale, paidAmount: newPaid, status: newStatus };
+  }
 };
 
 // NEW: Registrar recebimento (income) e atualizar o status/valor pago da venda vinculada, se houver
@@ -154,16 +213,40 @@ export const addMockReceipt = (data: {
   addMockFinancialTransaction(receipt);
 
   if (data.saleId) {
-    // Procurar a venda original e atualizar paidAmount/status
     const saleIdx = mockFinancialTransactions.findIndex(
       t => t.id === data.saleId && t.category === 'Venda de Produtos'
     );
     if (saleIdx > -1) {
       const sale = mockFinancialTransactions[saleIdx];
-      const alreadyPaid = sale.paidAmount || 0;
-      const newPaid = alreadyPaid + data.amount;
+      const newPaid = sumReceiptsForSale(data.saleId);
       const newStatus = newPaid >= sale.amount ? 'paid' : (newPaid > 0 ? 'partial' : 'pending');
       mockFinancialTransactions[saleIdx] = { ...sale, paidAmount: newPaid, status: newStatus };
     }
   }
+};
+
+/**
+ * Estorna um recebimento (remove a transação e recalcula o saldo da venda vinculada).
+ * Retorna true se o recebimento foi removido.
+ */
+export const removeReceipt = (receiptId: string): boolean => {
+  const idx = mockFinancialTransactions.findIndex((t) => t.id === receiptId);
+  if (idx === -1) return false;
+  const removed = mockFinancialTransactions[idx];
+  const saleId =
+    removed.category === "Recebimento" && removed.saleId ? removed.saleId : undefined;
+  mockFinancialTransactions.splice(idx, 1);
+  if (saleId) {
+    const saleIdx = mockFinancialTransactions.findIndex(
+      (t) => t.id === saleId && t.category === "Venda de Produtos"
+    );
+    if (saleIdx > -1) {
+      const sale = mockFinancialTransactions[saleIdx];
+      const newPaid = sumReceiptsForSale(saleId);
+      const newStatus: FinancialTransaction["status"] =
+        newPaid >= sale.amount ? "paid" : newPaid > 0 ? "partial" : "pending";
+      mockFinancialTransactions[saleIdx] = { ...sale, paidAmount: newPaid, status: newStatus };
+    }
+  }
+  return true;
 };

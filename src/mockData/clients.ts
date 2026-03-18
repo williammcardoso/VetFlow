@@ -1,5 +1,8 @@
 import { Client, Animal, DynamicContact, WeightEntry } from "@/types/client";
 
+// Starting numeric ID for animals when migrating from legacy "aN" ids.
+const START_ANIMAL_ID = 1854;
+
 export let mockClients: Client[] = [
   {
     id: "1",
@@ -29,7 +32,7 @@ export let mockClients: Client[] = [
     notes: "Cliente antigo e confiável.",
     animals: [
       {
-        id: "a1",
+        id: "1854",
         name: "Totó",
         species: "Canino", // Updated
         breed: "Labrador Retriever", // Updated
@@ -53,7 +56,7 @@ export let mockClients: Client[] = [
         ],
       },
       {
-        id: "a2",
+        id: "1855",
         name: "Bolinha",
         species: "Canino", // Updated
         breed: "Poodle", // Updated
@@ -105,7 +108,7 @@ export let mockClients: Client[] = [
     notes: "Nova cliente, muito atenciosa com os pets.",
     animals: [
       {
-        id: "a3",
+        id: "1856",
         name: "Fido",
         species: "Canino", // Updated
         breed: "SRD / Vira-lata", // Updated
@@ -128,7 +131,7 @@ export let mockClients: Client[] = [
         ],
       },
       {
-        id: "a4",
+        id: "1857",
         name: "Miau",
         species: "Felino", // Updated
         breed: "Siamês", // Still Siamês
@@ -178,7 +181,7 @@ export let mockClients: Client[] = [
     notes: "Cliente com vários animais.",
     animals: [
       {
-        id: "a5",
+        id: "1858",
         name: "Rex",
         species: "Canino", // Updated
         breed: "Pastor Alemão", // Still Pastor Alemão
@@ -251,8 +254,11 @@ export const updateMockClient = (updatedClient: Client) => {
 export const addMockAnimalToClient = (clientId: string, newAnimal: Omit<Animal, 'id'>) => {
   const clientIndex = mockClients.findIndex(c => c.id === clientId);
   if (clientIndex !== -1) {
-    const newAnimalId = String(mockClients[clientIndex].animals.length > 0 ? Math.max(...mockClients[clientIndex].animals.map(a => Number(a.id.replace('a', '')))) + 1 : 1);
-    const animalWithId: Animal = { ...newAnimal, id: `a${newAnimalId}`, weightHistory: newAnimal.weightHistory || [] };
+    // Determine next numeric ID. If there are existing numeric IDs, take the max and add 1.
+    const existingIds = mockClients[clientIndex].animals.map(a => Number(a.id)).filter(n => !isNaN(n));
+    const maxExisting = existingIds.length > 0 ? Math.max(...existingIds) : (START_ANIMAL_ID - 1);
+    const nextId = String(maxExisting + 1);
+    const animalWithId: Animal = { ...newAnimal, id: nextId, weightHistory: newAnimal.weightHistory || [] };
     // Add initial weight to history if not present
     if (animalWithId.weight !== undefined && animalWithId.weightHistory.length === 0) {
       animalWithId.weightHistory.push({

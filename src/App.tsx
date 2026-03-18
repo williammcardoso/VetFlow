@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Layout from "./components/Layout";
 import Dashboard from "./pages/Dashboard";
 import Index from "./pages/Index";
@@ -13,6 +13,7 @@ import ClientDetailPage from "./pages/ClientDetailPage";
 import PatientRecordPage from "./pages/PatientRecordPage";
 import AddExamPage from "./pages/AddExamPage";
 import AddPrescriptionPage from "./pages/AddPrescriptionPage";
+import AddDocumentPage from "./pages/AddDocumentPage";
 import AddAppointmentPage from "./pages/AddAppointmentPage"; // Importar a nova página de atendimento
 import AppointmentViewPage from "./pages/AppointmentViewPage"; // Importar a nova página de visualização de atendimento
 import SpeciesPage from "./pages/registrations/SpeciesPage";
@@ -22,17 +23,14 @@ import ExamReferencesPage from "./pages/registrations/ExamReferencesPage";
 import CompanySettingsPage from "./pages/settings/CompanySettingsPage";
 import UserSettingsPage from "./pages/settings/UserSettingsPage";
 // NEW registrations
-import PathologiesPage from "./pages/registrations/PathologiesPage";
 import AppointmentTypesPage from "./pages/registrations/AppointmentTypesPage";
 import VaccinesPage from "./pages/registrations/VaccinesPage";
 import ExamsPage from "./pages/registrations/ExamsPage";
-import ExamAttributesPage from "./pages/registrations/ExamAttributesPage";
-import ClientOriginsPage from "./pages/registrations/ClientOriginsPage";
 import DocumentModelPage from "./pages/registrations/DocumentModelPage";
-import RecipeModelPage from "./pages/registrations/RecipeModelPage";
 import AgendaPage from "./pages/AgendaPage";
 import FinancialPage from "./pages/FinancialPage";
 import NotFound from "./pages/NotFound";
+import HelpPage from "./pages/HelpPage";
 import { ThemeProvider } from "./components/ThemeProvider";
 
 // Sales Pages
@@ -45,10 +43,9 @@ import ReceiptsPage from "./pages/sales/ReceiptsPage";
 import PriceListPage from "./pages/sales/PriceListPage";
 import ClientRankingPage from "./pages/sales/ClientRankingPage";
 import ClientBalancePage from "./pages/sales/ClientBalancePage";
-import PaymentMethodsPage from "./pages/sales/PaymentMethodsPage";
 import BudgetsPage from "./pages/sales/BudgetsPage";
 import StatementModelPage from "./pages/sales/StatementModelPage";
-import SalesConfigurationPage from "./pages/sales/SalesConfigurationPage";
+import SalesReportsPage from "./pages/sales/SalesReportsPage";
 
 // Financial Sub-pages
 import TransactionsPage from "./pages/financial/TransactionsPage";
@@ -59,10 +56,8 @@ import CashFlowPage from "./pages/financial/CashFlowPage";
 import AccountsCardsPage from "./pages/financial/AccountsCardsPage";
 import CategoriesPage from "./pages/financial/CategoriesPage";
 import SuppliersPage from "./pages/financial/SuppliersPage";
-import FinancialPaymentMethodsPage from "./pages/financial/PaymentMethodsPage"; // Renomeado para evitar conflito
-import AccountsReceivablePage from "./pages/financial/AccountsReceivablePage";
-import ReceiptsHistoryPage from "./pages/financial/ReceiptsHistoryPage";
-import FinancialCashMovementsPage from "./pages/financial/CashMovementsPage";
+import FinancialPaymentMethodsPage from "./pages/financial/PaymentMethodsPage";
+import FinancialReportsPage from "./pages/financial/FinancialReportsPage";
 
 // ADDED: Stock pages
 import ProductsServicesPage from "./pages/stock/ProductsServicesPage";
@@ -106,43 +101,46 @@ const App = () => (
               <Route path="/clients/:clientId/animals/:animalId/add-appointment" element={<AddAppointmentPage />} />
               <Route path="/clients/:clientId/animals/:animalId/edit-appointment/:appointmentId" element={<AddAppointmentPage />} />
               <Route path="/clients/:clientId/animals/:animalId/view-appointment/:appointmentId" element={<AppointmentViewPage />} /> {/* Nova rota para visualizar atendimento */}
+              <Route path="/clients/:clientId/animals/:animalId/add-document" element={<AddDocumentPage />} />
               <Route path="/registrations/species" element={<SpeciesPage />} />
               <Route path="/registrations/breeds" element={<BreedsPage />} />
               <Route path="/registrations/coat-types" element={<CoatTypesPage />} />
               <Route path="/registrations/exam-references" element={<ExamReferencesPage />} />
-              {/* NEW registrations */}
-              <Route path="/registrations/pathologies" element={<PathologiesPage />} />
+              {/* Cadastros (removidos: patologias, atributos exames, origem clientes, modelo receita) */}
+              <Route path="/registrations/pathologies" element={<Navigate to="/registrations/species" replace />} />
+              <Route path="/registrations/exam-attributes" element={<Navigate to="/registrations/species" replace />} />
+              <Route path="/registrations/client-origins" element={<Navigate to="/registrations/species" replace />} />
+              <Route path="/registrations/recipe-model" element={<Navigate to="/registrations/species" replace />} />
               <Route path="/registrations/appointment-types" element={<AppointmentTypesPage />} />
               <Route path="/registrations/vaccines" element={<VaccinesPage />} />
               <Route path="/registrations/exams" element={<ExamsPage />} />
-              <Route path="/registrations/exam-attributes" element={<ExamAttributesPage />} />
-              <Route path="/registrations/client-origins" element={<ClientOriginsPage />} />
               <Route path="/registrations/document-model" element={<DocumentModelPage />} />
-              <Route path="/registrations/recipe-model" element={<RecipeModelPage />} />
               <Route path="/settings/company" element={<CompanySettingsPage />} />
               <Route path="/settings/user" element={<UserSettingsPage />} />
               <Route path="/agenda" element={<AgendaPage />} />
-              
-              {/* Rotas do Módulo de Vendas */}
+              <Route path="/help" element={<HelpPage />} />
+
+              {/* Rotas do Módulo de Vendas (caixa e consulta unificados em Financeiro / Vendas) */}
               <Route path="/sales/pos" element={<POSPage />} />
               <Route path="/sales/my-sales" element={<SalesPage />} />
-              <Route path="/sales/cash-movements" element={<CashMovementsPage />} />
-              <Route path="/sales/consult-sales" element={<ConsultSalesPage />} />
+              <Route path="/sales/reports" element={<SalesReportsPage />} />
+              <Route path="/sales/cash-movements" element={<Navigate to="/financial" replace />} />
+              <Route path="/sales/consult-sales" element={<Navigate to="/sales/my-sales" replace />} />
               <Route path="/sales/budgets" element={<BudgetsPage />} />
               <Route path="/sales/sold-packages" element={<SoldPackagesPage />} />
               <Route path="/sales/receipts" element={<ReceiptsPage />} />
               <Route path="/sales/price-list" element={<PriceListPage />} />
               <Route path="/sales/client-ranking" element={<ClientRankingPage />} />
               <Route path="/sales/client-balance" element={<ClientBalancePage />} />
-              <Route path="/sales/payment-methods" element={<PaymentMethodsPage />} />
+              <Route path="/sales/payment-methods" element={<Navigate to="/financial/payment-methods" replace />} />
               <Route path="/sales/statement-model" element={<StatementModelPage />} />
-              <Route path="/sales/configuration" element={<SalesConfigurationPage />} />
 
-              {/* Rotas do Módulo Financeiro */}
+              {/* Relatório financeiro: página dedicada (visualização e impressão por período) */}
+              <Route path="/financial/reports" element={<FinancialReportsPage />} />
               <Route path="/financial" element={<FinancialPage />} />
-              <Route path="/financial/accounts-receivable" element={<AccountsReceivablePage />} />
-              <Route path="/financial/receipts" element={<ReceiptsHistoryPage />} />
-              <Route path="/financial/cash-movements" element={<FinancialCashMovementsPage />} />
+              <Route path="/financial/accounts-receivable" element={<Navigate to="/financial" replace />} />
+              <Route path="/financial/receipts" element={<Navigate to="/financial" replace />} />
+              <Route path="/financial/cash-movements" element={<Navigate to="/financial" replace />} />
               <Route path="/financial/transactions" element={<TransactionsPage />} />
               <Route path="/financial/card-reconciliation" element={<CardReconciliationPage />} />
               <Route path="/financial/accounts-payable" element={<AccountsPayablePage />} />
