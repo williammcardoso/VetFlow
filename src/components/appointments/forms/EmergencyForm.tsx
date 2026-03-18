@@ -1,6 +1,7 @@
 import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import WeightInput from "@/components/inputs/WeightInput";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -51,13 +52,11 @@ export default function EmergencyForm({
         <CardContent className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div className="space-y-2">
             <Label>Peso (kg)</Label>
-            <Input
-              type="number"
-              step="0.1"
+            <WeightInput
               value={pesoAtual}
-              onChange={(e) => {
+              onChange={(v) => {
                 onClearError?.("pesoAtual");
-                onPesoAtualChange(e.target.value === "" ? "" : Number(e.target.value));
+                onPesoAtualChange(v);
               }}
             />
           </div>

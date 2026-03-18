@@ -3,14 +3,16 @@
 import React, { useMemo, useState, useEffect } from "react";
 import { Link, useParams, useNavigate, useSearchParams } from "react-router-dom";
 import {
-  FaArrowLeft, FaUsers, FaPaw, FaPlus, FaEye, FaStethoscope, FaCalendarAlt, FaDollarSign, FaSyringe, FaWeightHanging, FaFileAlt, FaClipboardList, FaCommentAlt, FaHeart, FaMale, FaUser, FaPrint, FaDownload, FaTimes, FaSave, FaBalanceScale, FaFileMedical, FaExclamationTriangle, FaFlask, FaTag, FaBox, FaClock, FaMoneyBillWave, FaArrowUp, FaArrowDown, FaTrashAlt, FaPrescriptionBottleAlt, FaEdit, FaIdCard, FaPhone
+  FaArrowLeft, FaUsers, FaPaw, FaPlus, FaEye, FaStethoscope, FaCalendarAlt, FaDollarSign, FaSyringe, FaWeightHanging, FaFileAlt, FaClipboardList, FaCommentAlt, FaHeart, FaMale, FaUser, FaPrint, FaDownload, FaTimes, FaSave, FaBalanceScale, FaFileMedical, FaExclamationTriangle, FaFlask, FaTag, FaBox, FaClock, FaMoneyBillWave, FaArrowUp, FaArrowDown, FaTrashAlt, FaPrescriptionBottleAlt, FaEdit, FaIdCard, FaPhone, FaUndo, FaShoppingCart, FaHandHoldingUsd
 } from "react-icons/fa";
+import { SiWhatsapp } from "react-icons/si";
 import { FaMapMarkerAlt } from "react-icons/fa";
 import { FaChevronDown, FaChevronUp, FaEllipsisV } from "react-icons/fa";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import WeightInput from "@/components/inputs/WeightInput";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import {
@@ -35,7 +37,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
 import { PrescriptionEntry } from "@/types/medication";
-import { mockPrescriptions } from "@/mockData/prescriptions";
 import { cn, formatDateTime } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -51,21 +52,28 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { pdf } from "@react-pdf/renderer";
 import { PrescriptionPdfContent } from "@/components/PrescriptionPdfContent";
 import { ExamReportPdfContent } from "@/components/ExamReportPdfContent";
-import { mockFinancialTransactions, addMockFinancialTransaction } from "@/mockData/financial";
+import ExamReportPdfContentHemogramaOnePage from "@/components/ExamReportPdfContent_Hemograma_OnePage";
+import type { FinancialTransaction } from "@/mockData/financial";
 import { AppointmentEntry, BaseAppointmentDetails } from "@/types/appointment";
 import { mockClients, updateAnimalDetails } from "@/mockData/clients";
 import { Client, Animal, WeightEntry } from "@/types/client";
-import { mockAppointments } from "@/mockData/appointments";
 import { ExamEntry } from "@/types/exam";
-import { mockExams } from "@/mockData/exams";
-import { hemogramReferences } from "@/constants/examReferences";
-import { mockUserSettings } from "@/mockData/settings";
-import { useHorizontalScroll } from "@/hooks/use-horizontal-scroll";
+import { useFinancialTransactions } from "@/hooks/useFinancialTransactions";
+import { useAppointments } from "@/hooks/useAppointments";
+import { usePrescriptions } from "@/hooks/usePrescriptions";
+import { useExams } from "@/hooks/useExams";
+import { useCatalog } from "@/hooks/useCatalog";
+import { useRegistryList } from "@/hooks/useRegistryList";
+import * as financialApi from "@/lib/financialApi";
+import * as catalogApi from "@/lib/catalogApi";
+import { getHemogramReferences } from "@/constants/examReferences";
+import { mockUserSettings, mockCompanySettings } from "@/mockData/settings";
 import AutocompleteSelect from "@/components/AutocompleteSelect";
 import CurrencyInput from "@/components/CurrencyInput";
-import { getCatalog, findCatalogItem, adjustStock } from "@/mockData/catalog";
-import { getRegistryList } from "@/mockData/registry";
 import BudgetReportPdfContent from "@/components/BudgetReportPdfContent";
+import DocumentPdfContent from "@/components/DocumentPdfContent";
+import { replaceTemplateVariables } from "@/utils/templateReplacements";
+import { getPatientDisplayId } from "@/utils/patientDisplayId";
 import PatientAppointmentsTab from "@/components/patient/appointments/PatientAppointmentsTab";
 import PatientVaccinesTab from "@/components/patient/vaccines/PatientVaccinesTab";
 import {
@@ -82,14 +90,15 @@ import {
 } from "lucide-react";
 import { Calendar } from "lucide-react";
 
-// Tipos locais para documentos e observações
-interface DocumentEntry {
-  id: string;
-  date: string;
-  time: string;
-  name: string;
-  fileUrl: string;
-}
+import {
+  readPatientDocuments,
+  // writePatientDocuments is not used in the Supabase-backed implementation
+  removePatientDocument,
+  type PatientDocumentEntry,
+} from "@/lib/documentsApi";
+import { useClientWithAnimals } from "@/hooks/useSupabaseClients";
+
+// Tipos locais para observações
 interface ObservationEntry {
   id: string;
   date: string;
@@ -130,7 +139,7 @@ const calculateAge = (birthday: string) => {
 };
 
 // Tipagens locais e storage para vendas e pagamentos
-type SaleStatusLocal = "open" | "finalized";
+type SaleStatusLocal = "open" | "finalized" | "cancelled";
 type SaleItemMeta = { itemId: string; name: string; type: "product" | "service"; qty: number; unitPrice: number };
 type PatientSaleMeta = {
   id: string;
@@ -233,23 +242,36 @@ const getEventIconClass = (type: string) => {
 };
 
 // PatientRecordPage
+const sumReceiptsForSaleLocal = (list: FinancialTransaction[], saleId: string) =>
+  list
+    .filter(
+      (t) =>
+        t.type === "income" &&
+        t.category === "Recebimento" &&
+        (t.saleId === saleId || (t.description || "").includes(saleId))
+    )
+    .reduce((s, r) => s + r.amount, 0);
+
 const PatientRecordPage = () => {
   const { clientId, animalId } = useParams<{ clientId: string; animalId: string }>();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const [currentClient, setCurrentClient] = useState<Client | undefined>(
-    mockClients.find(c => c.id === clientId)
-  );
-  const [currentAnimal, setCurrentAnimal] = useState<Animal | undefined>(
-    currentClient?.animals.find(a => a.id === animalId)
-  );
+  const { transactions: mockFinancialTransactions, refetch: refetchFinancial } = useFinancialTransactions();
+  const { appointments: animalAppointmentsFromHook, refetch: refetchAppointments } = useAppointments(animalId);
+  const { prescriptions: prescriptionsFromHook, refetch: refetchPrescriptions } = usePrescriptions(animalId);
+  const { exams: examsFromHook, refetch: refetchExams } = useExams(animalId);
+  const { items: catalogItemsFromHook, refetch: refetchCatalog } = useCatalog();
+  const { list: pmRegistry } = useRegistryList("paymentMethods");
+
+  const { data: clientData } = useClientWithAnimals(clientId);
+  const [currentClient, setCurrentClient] = useState<Client | undefined>(clientData ?? undefined);
+  const [currentAnimal, setCurrentAnimal] = useState<Animal | undefined>(clientData?.animals.find(a => a.id === animalId));
 
   useEffect(() => {
-    const updatedClient = mockClients.find(c => c.id === clientId);
-    setCurrentClient(updatedClient);
-    setCurrentAnimal(updatedClient?.animals.find(a => a.id === animalId));
-  }, [mockClients, clientId, animalId]);
+    setCurrentClient(clientData ?? undefined);
+    setCurrentAnimal(clientData?.animals.find(a => a.id === animalId));
+  }, [clientData, clientId, animalId]);
 
   const [activeTab, setActiveTab] = useState<string>(() => {
     if (typeof window !== 'undefined') {
@@ -264,14 +286,18 @@ const PatientRecordPage = () => {
     }
   }, [activeTab, animalId]);
 
-  const tabScrollRef = useHorizontalScroll<HTMLDivElement>();
-
-  const [animalAppointments, setAnimalAppointments] = useState<AppointmentEntry[]>(
-    mockAppointments.filter(app => app.animalId === animalId)
-  );
   useEffect(() => {
-    setAnimalAppointments(mockAppointments.filter(app => app.animalId === animalId));
-  }, [mockAppointments, animalId]);
+    const tab = searchParams.get("tab");
+    if (tab === "documents") {
+      setActiveTab("documents");
+      (async () => {
+        const list = await readPatientDocuments(animalId);
+        setDocuments(list);
+      })();
+    }
+  }, [searchParams, animalId]);
+
+  const animalAppointments = animalAppointmentsFromHook;
 
   const vaccineAppointmentsCount = useMemo(
     () => animalAppointments.filter((a) => a.type === "Vacina").length,
@@ -279,7 +305,7 @@ const PatientRecordPage = () => {
   );
 
   const [weightHistory, setWeightHistory] = useState<WeightEntry[]>(currentAnimal?.weightHistory || []);
-  const [newWeight, setNewWeight] = useState<string>("");
+  const [newWeight, setNewWeight] = useState<number | "">("");
   const [newWeightDate, setNewWeightDate] = useState<string>(new Date().toISOString().split('T')[0]);
 
   useEffect(() => {
@@ -296,28 +322,28 @@ const PatientRecordPage = () => {
     });
   }, [weightHistory]);
 
-  const [documents, setDocuments] = useState<DocumentEntry[]>([
-    { id: "d1", date: "2023-05-01", time: "10:00", name: "Termo de Adoção", fileUrl: "#" },
-    { id: "d2", date: "2024-02-10", time: "14:30", name: "Autorização Cirúrgica", fileUrl: "#" },
-  ]);
-  const [newDocumentName, setNewDocumentName] = useState<string>("");
-  const [newDocumentFile, setNewDocumentFile] = useState<File | null>(null);
+  const [documents, setDocuments] = useState<PatientDocumentEntry[]>([]);
 
-  const [documentEditOpen, setDocumentEditOpen] = useState(false);
-  const [documentEditing, setDocumentEditing] = useState<DocumentEntry | null>(null);
-  const [documentEditName, setDocumentEditName] = useState<string>("");
-  const [documentEditFile, setDocumentEditFile] = useState<File | null>(null);
+  useEffect(() => {
+    (async () => {
+      const list = await readPatientDocuments(animalId);
+      setDocuments(list);
+    })();
+  }, [animalId]);
+
   const [documentDeleteId, setDocumentDeleteId] = useState<string | null>(null);
 
-  const [prescriptions, setPrescriptions] = useState<PrescriptionEntry[]>(mockPrescriptions);
-  useEffect(() => {
-    setPrescriptions([...mockPrescriptions]);
-  }, [location.pathname]);
+  const prescriptions = prescriptionsFromHook;
 
-  const [observations, setObservations] = useState<ObservationEntry[]>([
-    { id: "o1", date: "2023-09-20", time: "10:00", observation: "Animal apresentou melhora significativa após tratamento." },
-    { id: "o2", date: "2024-01-05", time: "15:00", observation: "Recomendado check-up anual em 6 meses." },
-  ]);
+  const sortedPrescriptions = useMemo(() => {
+    return [...prescriptions].sort((a, b) => {
+      const da = new Date(`${a.date}T${a.time || "00:00"}`).getTime();
+      const db = new Date(`${b.date}T${b.time || "00:00"}`).getTime();
+      return db - da;
+    });
+  }, [prescriptions]);
+
+  const [observations, setObservations] = useState<ObservationEntry[]>([]);
   const [newObservation, setNewObservation] = useState<string>("");
   const [newObservationAlert, setNewObservationAlert] = useState<boolean>(false);
   const isObservationEmpty = !newObservation || newObservation.trim().length === 0;
@@ -335,10 +361,7 @@ const PatientRecordPage = () => {
     [sortedObservations]
   );
 
-  const [examsList, setExamsList] = useState<ExamEntry[]>(mockExams.filter(exam => exam.id.startsWith('exam')));
-  useEffect(() => {
-    setExamsList([...mockExams]);
-  }, [mockExams, animalId]);
+  const examsList = examsFromHook;
 
   const [observationModalOpen, setObservationModalOpen] = useState(false);
   const [selectedObservation, setSelectedObservation] = useState<ObservationEntry | null>(null);
@@ -372,10 +395,19 @@ const PatientRecordPage = () => {
   const [patientPayments, setPatientPayments] = useState<PatientPaymentMeta[]>(readPatientPayments(animalId));
   useEffect(() => { setPatientPayments(readPatientPayments(animalId)); }, [animalId]);
 
+  const animalReceipts = useMemo(() => {
+    return mockFinancialTransactions
+      .filter((t) => t.relatedAnimalId === animalId && t.type === "income" && t.category === "Recebimento")
+      .sort((a, b) => new Date(`${b.date}T${b.time}`).getTime() - new Date(`${a.date}T${a.time}`).getTime());
+  }, [mockFinancialTransactions, animalId]);
+
+  const [confirmOverpayProntuario, setConfirmOverpayProntuario] = useState<{ saleId: string; remaining: number; payAmount: number } | null>(null);
+  const [receiptIdToRefund, setReceiptIdToRefund] = useState<string | null>(null);
+
   const [patientBudgets, setPatientBudgets] = useState<PatientBudgetMeta[]>(readPatientBudgets(animalId));
   useEffect(() => { setPatientBudgets(readPatientBudgets(animalId)); }, [animalId]);
 
-  const catalogItems = getCatalog().filter(i => i.active);
+  const catalogItems = catalogItemsFromHook.filter(i => i.active);
 
   const [saleModalOpen, setSaleModalOpen] = useState(false);
   const [saleDate, setSaleDate] = useState<string>(new Date().toISOString().split("T")[0]);
@@ -391,16 +423,16 @@ const PatientRecordPage = () => {
 
   useEffect(() => {
     if (!saleSelectedItemId) { setSaleUnitPrice(0); return; }
-    const item = findCatalogItem(saleSelectedItemId);
+    const item = catalogItemsFromHook.find(i => i.id === saleSelectedItemId);
     setSaleUnitPrice(item?.price || 0);
-  }, [saleSelectedItemId]);
+  }, [saleSelectedItemId, catalogItemsFromHook]);
 
   const saleTotal = saleItems.reduce((sum, it) => sum + it.qty * it.unitPrice, 0);
 
   const addItemToSale = () => {
     if (!saleSelectedItemId) { toast.error("Selecione um item."); return; }
     if (saleQty <= 0 || saleUnitPrice <= 0) { toast.error("Qtd e preço devem ser válidos."); return; }
-    const catItem = findCatalogItem(saleSelectedItemId);
+    const catItem = catalogItemsFromHook.find(i => i.id === saleSelectedItemId);
     if (!catItem) { toast.error("Item não encontrado."); return; }
     setSaleItems(prev => [...prev, { itemId: catItem.id, name: catItem.name, type: catItem.type, qty: saleQty, unitPrice: saleUnitPrice }]);
     setSaleSelectedItemId(""); setSaleQty(1); setSaleUnitPrice(0);
@@ -410,37 +442,43 @@ const PatientRecordPage = () => {
     setSaleItems(prev => prev.filter((_, i) => !(i === index && _.itemId === itemId)));
   };
 
-  const handleSaveSale = () => {
-    if (!saleAppointmentId) { toast.error("Selecione o atendimento vinculado."); return; }
+  const handleSaveSale = async () => {
     if (saleItems.length === 0) { toast.error("Adicione itens à venda."); return; }
     if (!currentClient || !currentAnimal) { toast.error("Cliente/animal não encontrados."); return; }
 
-    const nextId = `ft${mockFinancialTransactions.length + 1}`;
-    addMockFinancialTransaction({
+    const description = saleAppointmentId
+      ? `Venda atendimento ${saleAppointmentId}: ${saleItems.map(i => `${i.name} x${i.qty}`).join(", ")}`
+      : `Venda: ${saleItems.map(i => `${i.name} x${i.qty}`).join(", ")}`;
+
+    const tx = await financialApi.addFinancialTransaction({
       date: saleDate,
       time: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
-      description: `Venda atendimento ${saleAppointmentId}: ${saleItems.map(i => `${i.name} x${i.qty}`).join(", ")}`,
+      description,
       type: "income",
       amount: saleTotal,
       category: "Venda de Produtos",
       relatedAnimalId: currentAnimal.id,
       relatedClientId: currentClient.id,
     });
+    const nextId = tx?.id;
+    if (!nextId) { toast.error("Erro ao registrar venda."); return; }
 
-    saleItems.forEach(it => {
-      const cat = findCatalogItem(it.itemId);
-      if (cat && cat.type === "product") adjustStock(it.itemId, -it.qty);
-    });
+    for (const it of saleItems) {
+      const cat = catalogItemsFromHook.find(c => c.id === it.itemId);
+      if (cat && cat.type === "product") await catalogApi.adjustStock(it.itemId, -it.qty);
+    }
+    await refetchCatalog();
+    await refetchFinancial();
 
     const newSaleMeta: PatientSaleMeta = {
       id: nextId,
       date: saleDate,
-      appointmentId: saleAppointmentId,
+      appointmentId: saleAppointmentId || undefined,
       items: saleItems,
       total: saleTotal,
       saleStatus: saleStatusLocal,
       origin: "manual",
-      responsible: saleResponsible || animalAppointments.find(a => a.id === saleAppointmentId)?.vet || undefined,
+      responsible: saleResponsible || (saleAppointmentId ? animalAppointments.find(a => a.id === saleAppointmentId)?.vet : undefined) || undefined,
       observations: saleObservations || undefined,
     };
     const updated = [...patientSales, newSaleMeta];
@@ -452,12 +490,17 @@ const PatientRecordPage = () => {
     toast.success("Venda registrada com sucesso!");
   };
 
-  const updateSaleStatus = (saleId: string, status: SaleStatusLocal) => {
+  const updateSaleStatus = async (saleId: string, status: SaleStatusLocal) => {
     const updated = patientSales.map(s => (s.id === saleId ? { ...s, saleStatus: status } : s));
-    setPatientSales(updated); writePatientSales(animalId, updated);
+    setPatientSales(updated);
+    writePatientSales(animalId, updated);
+    if (status === "cancelled") {
+      await financialApi.updateFinancialTransaction(saleId, { status: "cancelled" });
+      await refetchFinancial();
+    }
   };
 
-  const getPaidForSale = (saleId: string): number => patientPayments.filter(p => p.saleId === saleId).reduce((sum, p) => sum + p.amount, 0);
+  const getPaidForSale = (saleId: string): number => sumReceiptsForSaleLocal(mockFinancialTransactions, saleId);
   const getFinancialStatusForSale = (saleId: string, saleAmount: number): "paid" | "partial" | "pending" => {
     const paid = getPaidForSale(saleId);
     if (paid >= saleAmount) return "paid";
@@ -465,7 +508,6 @@ const PatientRecordPage = () => {
     return "pending";
   };
 
-  const pmRegistry = getRegistryList("paymentMethods");
   const [paymentSaleId, setPaymentSaleId] = useState<string | undefined>(undefined);
   const [paymentDate, setPaymentDate] = useState<string>(new Date().toISOString().split("T")[0]);
   const [paymentTime, setPaymentTime] = useState<string>(new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }));
@@ -476,7 +518,39 @@ const PatientRecordPage = () => {
   const canRegisterPayment = (saleId: string): boolean => {
     const sale = patientSales.find(s => s.id === saleId);
     if (!sale) return false;
+    if (sale.saleStatus === "cancelled") return false;
     return getFinancialStatusForSale(saleId, sale.total) !== "paid";
+  };
+
+  // Preencher valor com saldo ao selecionar a venda
+  useEffect(() => {
+    if (!paymentSaleId) return;
+    const sale = patientSales.find((s) => s.id === paymentSaleId);
+    if (sale) {
+      const paid = getPaidForSale(sale.id);
+      setPaymentAmount(Math.max(0, sale.total - paid));
+    }
+  }, [paymentSaleId, patientSales, mockFinancialTransactions]);
+
+  const doRegisterPaymentProntuario = async (saleId: string, amount: number) => {
+    const pmName = paymentMethodId ? (pmRegistry.find((pm) => pm.id === paymentMethodId)?.name || undefined) : undefined;
+    await financialApi.registerReceiptWithSale({
+      saleId,
+      amount,
+      date: paymentDate,
+      time: paymentTime,
+      paymentMethod: pmName,
+      relatedClientId: currentClient?.id,
+      relatedAnimalId: currentAnimal?.id,
+    });
+    await refetchFinancial();
+    setPaymentSaleId(undefined);
+    setPaymentDate(new Date().toISOString().split("T")[0]);
+    setPaymentTime(new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }));
+    setPaymentAmount(0);
+    setPaymentMethodId(undefined);
+    setPaymentObservations("");
+    toast.success("Pagamento registrado!");
   };
 
   const handleAddPayment = () => {
@@ -484,7 +558,7 @@ const PatientRecordPage = () => {
       toast.error("Selecione a venda vinculada.");
       return;
     }
-    const saleMeta = patientSales.find(s => s.id === paymentSaleId);
+    const saleMeta = patientSales.find((s) => s.id === paymentSaleId);
     if (!saleMeta) {
       toast.error("Venda não encontrada.");
       return;
@@ -497,41 +571,42 @@ const PatientRecordPage = () => {
       toast.error("Informe um valor de pagamento válido.");
       return;
     }
+    if (!paymentMethodId) {
+      toast.error("Selecione a forma de pagamento.");
+      return;
+    }
+    const today = new Date().toISOString().split("T")[0];
+    if (paymentDate > today) {
+      toast.error("Data do pagamento não pode ser futura.");
+      return;
+    }
 
-    const pmName = paymentMethodId ? (pmRegistry.find(pm => pm.id === paymentMethodId)?.name || undefined) : undefined;
+    const paid = getPaidForSale(paymentSaleId);
+    const remaining = Math.max(0, saleMeta.total - paid);
+    if (paymentAmount > remaining) {
+      setConfirmOverpayProntuario({ saleId: paymentSaleId, remaining, payAmount: paymentAmount });
+      return;
+    }
 
-    const nextReceiptId = `ft${mockFinancialTransactions.length + 1}`;
-    addMockFinancialTransaction({
-      date: paymentDate,
-      time: paymentTime,
-      description: `Recebimento da venda ${paymentSaleId}`,
-      type: "income",
-      amount: paymentAmount,
-      category: "Recebimento",
-      relatedAnimalId: currentAnimal.id,
-      relatedClientId: currentClient.id,
-      paymentMethod: pmName,
-    });
+    doRegisterPaymentProntuario(paymentSaleId, paymentAmount);
+  };
 
-    const newPayment: PatientPaymentMeta = {
-      id: nextReceiptId,
-      saleId: paymentSaleId,
-      date: paymentDate,
-      time: paymentTime,
-      amount: paymentAmount,
-      paymentMethod: pmName,
-      observations: paymentObservations || undefined,
-    };
-    const updatedPayments = [...patientPayments, newPayment];
-    setPatientPayments(updatedPayments); writePatientPayments(animalId, updatedPayments);
+  const handleConfirmOverpayProntuario = () => {
+    if (!confirmOverpayProntuario) return;
+    doRegisterPaymentProntuario(confirmOverpayProntuario.saleId, confirmOverpayProntuario.remaining);
+    setConfirmOverpayProntuario(null);
+  };
 
-    setPaymentSaleId(undefined);
-    setPaymentDate(new Date().toISOString().split("T")[0]);
-    setPaymentTime(new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }));
-    setPaymentAmount(0);
-    setPaymentMethodId(undefined);
-    setPaymentObservations("");
-    toast.success("Pagamento registrado!");
+  const handleConfirmEstorno = async () => {
+    if (!receiptIdToRefund) return;
+    const ok = await financialApi.removeReceipt(receiptIdToRefund);
+    if (ok) {
+      await refetchFinancial();
+      toast.success("Pagamento estornado.");
+    } else {
+      toast.error("Não foi possível estornar.");
+    }
+    setReceiptIdToRefund(null);
   };
 
   const [expandedSales, setExpandedSales] = useState<Record<string, boolean>>({});
@@ -548,16 +623,16 @@ const PatientRecordPage = () => {
 
   useEffect(() => {
     if (!budgetSelectedItemId) { setBudgetUnitPrice(0); return; }
-    const it = findCatalogItem(budgetSelectedItemId);
+    const it = catalogItemsFromHook.find(i => i.id === budgetSelectedItemId);
     setBudgetUnitPrice(it?.price || 0);
-  }, [budgetSelectedItemId]);
+  }, [budgetSelectedItemId, catalogItemsFromHook]);
 
   const budgetTotal = budgetItems.reduce((s, it) => s + it.qty * it.unitPrice, 0);
 
   const addItemToBudget = () => {
     if (!budgetSelectedItemId) { toast.error("Selecione um item."); return; }
     if (budgetQty <= 0 || budgetUnitPrice <= 0) { toast.error("Qtd e preço devem ser válidos."); return; }
-    const cat = findCatalogItem(budgetSelectedItemId);
+    const cat = catalogItemsFromHook.find(i => i.id === budgetSelectedItemId);
     if (!cat) { toast.error("Item não encontrado."); return; }
     setBudgetItems(prev => [...prev, { itemId: cat.id, name: cat.name, type: cat.type, qty: budgetQty, unitPrice: budgetUnitPrice }]);
     setBudgetSelectedItemId(""); setBudgetQty(1); setBudgetUnitPrice(0);
@@ -620,7 +695,7 @@ const PatientRecordPage = () => {
     };
 
     const newWin = window.open("", "_blank");
-    const blob = await pdf(<BudgetReportPdfContent budget={budgetForPdf} />).toBlob();
+    const blob = await pdf(<BudgetReportPdfContent budget={budgetForPdf} catalogItems={catalogItems} />).toBlob();
     const url = URL.createObjectURL(blob);
     if (newWin) {
       newWin.location.href = url;
@@ -649,14 +724,13 @@ const PatientRecordPage = () => {
     }
   };
 
-  const convertBudgetToSale = (id: string, appointmentId: string): boolean => {
+  const convertBudgetToSale = async (id: string, appointmentId: string): Promise<boolean> => {
     const b = patientBudgets.find(x => x.id === id);
     if (!b) return false;
     if (isBudgetExpired(b)) { toast.error("Orçamento expirado. Não é possível converter."); return false; }
     if (!currentClient || !currentAnimal) { toast.error("Cliente/animal não encontrados."); return false; }
 
-    const nextId = `ft${mockFinancialTransactions.length + 1}`;
-    addMockFinancialTransaction({
+    const tx = await financialApi.addFinancialTransaction({
       date: new Date().toISOString().split("T")[0],
       time: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
       description: `Orçamento convertido (atend. ${appointmentId}): ${b.items.map(i => `${i.name} x${i.qty}`).join(", ")}`,
@@ -666,11 +740,15 @@ const PatientRecordPage = () => {
       relatedAnimalId: currentAnimal.id,
       relatedClientId: currentClient.id,
     });
+    const nextId = tx?.id;
+    if (!nextId) return false;
 
-    b.items.forEach(it => {
-      const cat = findCatalogItem(it.itemId);
-      if (cat && cat.type === "product") adjustStock(it.itemId, -it.qty);
-    });
+    for (const it of b.items) {
+      const cat = catalogItemsFromHook.find(c => c.id === it.itemId);
+      if (cat && cat.type === "product") await catalogApi.adjustStock(it.itemId, -it.qty);
+    }
+    await refetchCatalog();
+    await refetchFinancial();
 
     const newSale: PatientSaleMeta = {
       id: nextId,
@@ -1025,6 +1103,11 @@ const PatientRecordPage = () => {
               {/* CHIPS DO PACIENTE */}
               <div className="mt-4 flex flex-wrap gap-2 max-h-[3.4rem] overflow-hidden">
                 <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-white px-3 py-1 text-[12px] leading-5">
+                  <FaIdCard className="h-3 w-3 text-primary" />
+                  <span className="text-muted-foreground">ID:</span>
+                  <span className="font-semibold text-foreground">{currentClient ? getPatientDisplayId(currentAnimal.id, currentClient.animals) : currentAnimal.id}</span>
+                </span>
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-white px-3 py-1 text-[12px] leading-5">
                   <FaPaw className="h-3 w-3 text-teal-600" />
                   <span className="text-muted-foreground">Espécie:</span>
                   <span className="font-semibold text-foreground">{currentAnimal.species || "-"}</span>
@@ -1199,7 +1282,7 @@ const PatientRecordPage = () => {
                     const pending = Math.max(
                       0,
                       patientSales.reduce((sum, s) => sum + s.total, 0) -
-                        patientPayments.reduce((sum, p) => sum + p.amount, 0)
+                        animalReceipts.reduce((sum, r) => sum + r.amount, 0)
                     );
 
                     const fmt = (v: number) =>
@@ -1245,91 +1328,99 @@ const PatientRecordPage = () => {
 
         {/* ABAS (hierarquia melhor: ativo evidente e inativos discretos) */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full mt-6">
-          <div ref={tabScrollRef} className="relative w-full overflow-x-auto overflow-y-hidden no-scrollbar scroll-smooth select-none">
-            <TabsList className="inline-flex w-max items-center whitespace-nowrap border-b border-border/40 bg-transparent p-0 rounded-none gap-1">
+          <TabsList className="flex flex-wrap items-center border-b border-border/40 bg-transparent p-0 rounded-none gap-x-1 gap-y-1.5 w-full h-auto min-h-9 pb-2">
               <TabsTrigger
                 value="timeline"
+                title="Linha do Tempo"
                 style={{ ["--tab-accent" as any]: "#d97706" }}
-                className="tab-active-line relative -mb-px pb-2 px-2.5 md:px-3.5 shrink-0 text-sm md:text-[0.95rem] text-slate-600 dark:text-slate-300 hover:text-foreground hover:bg-muted/30 rounded-md transition-colors data-[state=active]:text-foreground data-[state=active]:font-semibold"
+                className="tab-prontuario-trigger tab-active-line relative -mb-px pb-1.5 px-2 md:px-2.5 shrink-0 text-xs md:text-sm text-slate-600 dark:text-slate-300 hover:text-foreground rounded-md transition-colors data-[state=active]:text-foreground data-[state=active]:font-semibold"
               >
-                <FaClock className="h-4 w-4 mr-1.5 md:mr-2 text-amber-600" />
-                <span className="max-w-[9.5rem] md:max-w-none truncate">Linha do Tempo</span>
-                <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[10px] bg-muted text-foreground/70">{sortedTimelineEvents.length}</span>
+                <FaClock className="h-3.5 w-3.5 mr-1 md:mr-1.5 text-amber-600" />
+                <span className="max-w-[9.5rem] md:max-w-none truncate">Timeline</span>
+                <span className="ml-1.5 inline-flex items-center justify-center h-4 min-w-4 px-1.5 rounded-full text-[9px] bg-muted text-foreground/70">{sortedTimelineEvents.length}</span>
               </TabsTrigger>
               <TabsTrigger
                 value="appointments"
+                title="Atendimento"
                 style={{ ["--tab-accent" as any]: "#0d9488" }}
-                className="tab-active-line relative -mb-px pb-2 px-2.5 md:px-3.5 shrink-0 text-sm md:text-[0.95rem] text-slate-600 dark:text-slate-300 hover:text-foreground hover:bg-muted/30 rounded-md transition-colors data-[state=active]:text-foreground data-[state=active]:font-semibold"
+                className="tab-prontuario-trigger tab-active-line relative -mb-px pb-1.5 px-2 md:px-2.5 shrink-0 text-xs md:text-sm text-slate-600 dark:text-slate-300 hover:text-foreground rounded-md transition-colors data-[state=active]:text-foreground data-[state=active]:font-semibold"
               >
-                <FaStethoscope className="h-4 w-4 mr-1.5 md:mr-2 text-teal-600" />
-                <span className="max-w-[9.5rem] md:max-w-none truncate">Atendimento</span>
-                <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[10px] bg-muted text-foreground/70">{animalAppointments.length}</span>
+                <FaStethoscope className="h-3.5 w-3.5 mr-1 md:mr-1.5 text-teal-600" />
+                <span className="max-w-[9.5rem] md:max-w-none truncate">Atend.</span>
+                <span className="ml-1.5 inline-flex items-center justify-center h-4 min-w-4 px-1.5 rounded-full text-[9px] bg-muted text-foreground/70">{animalAppointments.length}</span>
               </TabsTrigger>
+            <TabsTrigger
+              value="prescriptions"
+              title="Receitas"
+              style={{ ["--tab-accent" as any]: "#047857" }}
+              className="tab-prontuario-trigger tab-active-line relative -mb-px pb-1.5 px-2 md:px-2.5 shrink-0 text-xs md:text-sm text-slate-600 dark:text-slate-300 hover:text-foreground rounded-md transition-colors data-[state=active]:text-foreground data-[state=active]:font-semibold"
+            >
+              <FaPrescriptionBottleAlt className="h-3.5 w-3.5 mr-1 md:mr-1.5 text-emerald-700" />
+              <span className="max-w-[9.5rem] md:max-w-none truncate">Receitas</span>
+              <span className="ml-1.5 inline-flex items-center justify-center h-4 min-w-4 px-1.5 rounded-full text-[9px] bg-muted text-foreground/70">{prescriptions.length}</span>
+            </TabsTrigger>
               <TabsTrigger
                 value="exams"
+                title="Exames"
                 style={{ ["--tab-accent" as any]: "#7c3aed" }}
-                className="tab-active-line relative -mb-px pb-2 px-2.5 md:px-3.5 shrink-0 text-sm md:text-[0.95rem] text-slate-600 dark:text-slate-300 hover:text-foreground hover:bg-muted/30 rounded-md transition-colors data-[state=active]:text-foreground data-[state=active]:font-semibold"
+                className="tab-prontuario-trigger tab-active-line relative -mb-px pb-1.5 px-2 md:px-2.5 shrink-0 text-xs md:text-sm text-slate-600 dark:text-slate-300 hover:text-foreground rounded-md transition-colors data-[state=active]:text-foreground data-[state=active]:font-semibold"
               >
-                <FaFlask className="h-4 w-4 mr-1.5 md:mr-2 text-violet-600" />
+                <FaFlask className="h-3.5 w-3.5 mr-1 md:mr-1.5 text-violet-600" />
                 <span className="max-w-[9.5rem] md:max-w-none truncate">Exames</span>
-                <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[10px] bg-muted text-foreground/70">{examsList.length}</span>
+                <span className="ml-1.5 inline-flex items-center justify-center h-4 min-w-4 px-1.5 rounded-full text-[9px] bg-muted text-foreground/70">{examsList.length}</span>
               </TabsTrigger>
               <TabsTrigger
                 value="vaccines"
+                title="Vacinas"
                 style={{ ["--tab-accent" as any]: "#0284c7" }}
-                className="tab-active-line relative -mb-px pb-2 px-2.5 md:px-3.5 shrink-0 text-sm md:text-[0.95rem] text-slate-600 dark:text-slate-300 hover:text-foreground hover:bg-muted/30 rounded-md transition-colors data-[state=active]:text-foreground data-[state=active]:font-semibold"
+                className="tab-prontuario-trigger tab-active-line relative -mb-px pb-1.5 px-2 md:px-2.5 shrink-0 text-xs md:text-sm text-slate-600 dark:text-slate-300 hover:text-foreground rounded-md transition-colors data-[state=active]:text-foreground data-[state=active]:font-semibold"
               >
-                <FaSyringe className="h-4 w-4 mr-1.5 md:mr-2 text-sky-600" />
+                <FaSyringe className="h-3.5 w-3.5 mr-1 md:mr-1.5 text-sky-600" />
                 <span className="max-w-[9.5rem] md:max-w-none truncate">Vacinas</span>
-                <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[10px] bg-muted text-foreground/70">{vaccineAppointmentsCount}</span>
+                <span className="ml-1.5 inline-flex items-center justify-center h-4 min-w-4 px-1.5 rounded-full text-[9px] bg-muted text-foreground/70">{vaccineAppointmentsCount}</span>
               </TabsTrigger>
               <TabsTrigger
                 value="weight"
+                title="Peso"
                 style={{ ["--tab-accent" as any]: "#059669" }}
-                className="tab-active-line relative -mb-px pb-2 px-2.5 md:px-3.5 shrink-0 text-sm md:text-[0.95rem] text-slate-600 dark:text-slate-300 hover:text-foreground hover:bg-muted/30 rounded-md transition-colors data-[state=active]:text-foreground data-[state=active]:font-semibold"
+                className="tab-prontuario-trigger tab-active-line relative -mb-px pb-1.5 px-2 md:px-2.5 shrink-0 text-xs md:text-sm text-slate-600 dark:text-slate-300 hover:text-foreground rounded-md transition-colors data-[state=active]:text-foreground data-[state=active]:font-semibold"
               >
-                <FaWeightHanging className="h-4 w-4 mr-1.5 md:mr-2 text-emerald-600" />
+                <FaWeightHanging className="h-3.5 w-3.5 mr-1 md:mr-1.5 text-emerald-600" />
                 <span className="max-w-[9.5rem] md:max-w-none truncate">Peso</span>
-                <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[10px] bg-muted text-foreground/70">{weightHistory.length}</span>
+                <span className="ml-1.5 inline-flex items-center justify-center h-4 min-w-4 px-1.5 rounded-full text-[9px] bg-muted text-foreground/70">{weightHistory.length}</span>
               </TabsTrigger>
               <TabsTrigger
                 value="documents"
+                title="Documentos"
                 style={{ ["--tab-accent" as any]: "#475569" }}
-                className="tab-active-line relative -mb-px pb-2 px-2.5 md:px-3.5 shrink-0 text-sm md:text-[0.95rem] text-slate-600 dark:text-slate-300 hover:text-foreground hover:bg-muted/30 rounded-md transition-colors data-[state=active]:text-foreground data-[state=active]:font-semibold"
+                className="tab-prontuario-trigger tab-active-line relative -mb-px pb-1.5 px-2 md:px-2.5 shrink-0 text-xs md:text-sm text-slate-600 dark:text-slate-300 hover:text-foreground rounded-md transition-colors data-[state=active]:text-foreground data-[state=active]:font-semibold"
               >
-                <FaFileAlt className="h-4 w-4 mr-1.5 md:mr-2 text-slate-600 dark:text-slate-200" />
-                <span className="max-w-[9.5rem] md:max-w-none truncate">Documentos</span>
-                <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[10px] bg-muted text-foreground/70">{documents.length}</span>
+                <FaFileAlt className="h-3.5 w-3.5 mr-1 md:mr-1.5 text-slate-600 dark:text-slate-200" />
+                <span className="max-w-[9.5rem] md:max-w-none truncate">Docs</span>
+                <span className="ml-1.5 inline-flex items-center justify-center h-4 min-w-4 px-1.5 rounded-full text-[9px] bg-muted text-foreground/70">{documents.length}</span>
               </TabsTrigger>
-              <TabsTrigger
-                value="prescriptions"
-                style={{ ["--tab-accent" as any]: "#047857" }}
-                className="tab-active-line relative -mb-px pb-2 px-2.5 md:px-3.5 shrink-0 text-sm md:text-[0.95rem] text-slate-600 dark:text-slate-300 hover:text-foreground hover:bg-muted/30 rounded-md transition-colors data-[state=active]:text-foreground data-[state=active]:font-semibold"
-              >
-                <FaPrescriptionBottleAlt className="h-4 w-4 mr-1.5 md:mr-2 text-emerald-700" />
-                <span className="max-w-[9.5rem] md:max-w-none truncate">Receitas</span>
-                <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[10px] bg-muted text-foreground/70">{prescriptions.length}</span>
-              </TabsTrigger>
+              
               <TabsTrigger
                 value="observations"
+                title="Observações"
                 style={{ ["--tab-accent" as any]: "#e11d48" }}
-                className="tab-active-line relative -mb-px pb-2 px-2.5 md:px-3.5 shrink-0 text-sm md:text-[0.95rem] text-slate-600 dark:text-slate-300 hover:text-foreground hover:bg-muted/30 rounded-md transition-colors data-[state=active]:text-foreground data-[state=active]:font-semibold"
+                className="tab-prontuario-trigger tab-active-line relative -mb-px pb-1.5 px-2 md:px-2.5 shrink-0 text-xs md:text-sm text-slate-600 dark:text-slate-300 hover:text-foreground rounded-md transition-colors data-[state=active]:text-foreground data-[state=active]:font-semibold"
               >
-                <FaCommentAlt className="h-4 w-4 mr-1.5 md:mr-2 text-rose-600" />
-                <span className="max-w-[9.5rem] md:max-w-none truncate">Observações</span>
-                <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[10px] bg-muted text-foreground/70">{observations.length}</span>
+                <FaCommentAlt className="h-3.5 w-3.5 mr-1 md:mr-1.5 text-rose-600" />
+                <span className="max-w-[9.5rem] md:max-w-none truncate">Observ.</span>
+                <span className="ml-1.5 inline-flex items-center justify-center h-4 min-w-4 px-1.5 rounded-full text-[9px] bg-muted text-foreground/70">{observations.length}</span>
               </TabsTrigger>
               <TabsTrigger
                 value="financial"
+                title="Financeiro"
                 style={{ ["--tab-accent" as any]: "#F79009" }}
-                className="tab-active-line relative -mb-px pb-2 px-2.5 md:px-3.5 shrink-0 text-sm md:text-[0.95rem] text-slate-600 dark:text-slate-300 hover:text-foreground hover:bg-muted/30 rounded-md transition-colors data-[state=active]:text-foreground data-[state=active]:font-semibold"
+                className="tab-prontuario-trigger tab-active-line relative -mb-px pb-1.5 px-2 md:px-2.5 shrink-0 text-xs md:text-sm text-slate-600 dark:text-slate-300 hover:text-foreground rounded-md transition-colors data-[state=active]:text-foreground data-[state=active]:font-semibold"
               >
-                <FaMoneyBillWave className="h-4 w-4 mr-1.5 md:mr-2 text-[#F79009]" />
+                <FaMoneyBillWave className="h-3.5 w-3.5 mr-1 md:mr-1.5 text-[#F79009]" />
                 <span className="max-w-[9.5rem] md:max-w-none truncate">Financeiro</span>
-                <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-[10px] bg-muted text-foreground/70">{patientSales.length}</span>
+                <span className="ml-1.5 inline-flex items-center justify-center h-4 min-w-4 px-1.5 rounded-full text-[9px] bg-muted text-foreground/70">{patientSales.length}</span>
               </TabsTrigger>
-            </TabsList>
-          </div>
+          </TabsList>
 
           <TabsContent value="timeline" className="mt-4">
             <Card className="premium-card">
@@ -1506,7 +1597,7 @@ const PatientRecordPage = () => {
               clientId={clientId!}
               animalId={animalId!}
               animalAppointments={animalAppointments}
-              setAnimalAppointments={setAnimalAppointments}
+              setAnimalAppointments={async () => { await refetchAppointments(); }}
             />
           </TabsContent>
 
@@ -1566,33 +1657,87 @@ const PatientRecordPage = () => {
                             </div>
 
                             <div className="flex gap-2">
+                              {/* Botão: Laudo padrão (modelo atual) */}
                               <Button
                                 variant="ghost"
                                 size="icon"
                                 onClick={() => {
                                   const tutorAddress = `${currentClient.address.street}, ${currentClient.address.number} - ${currentClient.address.city} - ${currentClient.address.state}`;
+                                  // Abre janela em branco sincronamente para evitar bloqueio de pop-up
+                                  const newWindow = window.open("", "_blank");
                                   pdf(
                                     <ExamReportPdfContent
                                       animalName={currentAnimal.name}
                                       animalId={currentAnimal.id}
+                                      displayId={getPatientDisplayId(currentAnimal.id, currentClient.animals)}
                                       animalSpecies={currentAnimal.species}
                                       tutorName={currentClient.name}
                                       tutorAddress={tutorAddress}
                                       exam={exam}
-                                      hemogramReferences={hemogramReferences}
+                                      hemogramReferences={getHemogramReferences()}
                                     />
                                   ).toBlob().then((blob) => {
                                     const url = URL.createObjectURL(blob);
-                                    window.open(url, '_blank');
-                                    URL.revokeObjectURL(url);
+                                    if (newWindow) {
+                                      newWindow.location.href = url;
+                                    } else {
+                                      // Fallback caso a janela não tenha sido aberta
+                                      window.open(url, "_blank");
+                                    }
+                                    // Não revogar imediatamente para evitar carregar URL inválida em alguns navegadores
+                                    setTimeout(() => URL.revokeObjectURL(url), 30000);
                                     toast.success("Laudo de exame enviado para impressão!");
+                                  }).catch((err) => {
+                                    console.error(err);
+                                    toast.error("Erro ao gerar o PDF.");
                                   });
                                 }}
                                 className="rounded-md hover:bg-muted hover:text-foreground transition-colors duration-200"
-                                title="Imprimir"
+                                title="Imprimir (Modelo atual)"
                               >
                                 <FaPrint className="h-4 w-4" />
                               </Button>
+
+                              {/* Botão: Laudo compacto — versão de teste */}
+                              {exam.type === "Hemograma Completo" && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => {
+                                    const tutorAddress = `${currentClient.address.street}, ${currentClient.address.number} - ${currentClient.address.city} - ${currentClient.address.state}`;
+                                    const newWindow = window.open("", "_blank");
+                                    pdf(
+                                      <ExamReportPdfContentHemogramaOnePage
+                                        animalName={currentAnimal.name}
+                                        animalId={currentAnimal.id}
+                                        displayId={getPatientDisplayId(currentAnimal.id, currentClient.animals)}
+                                        animalSpecies={currentAnimal.species}
+                                        animalBreed={currentAnimal.breed}
+                                        tutorName={currentClient.name}
+                                        tutorAddress={tutorAddress}
+                                        exam={exam}
+                                        hemogramReferences={getHemogramReferences()}
+                                      />
+                                    ).toBlob().then((blob) => {
+                                      const url = URL.createObjectURL(blob);
+                                      if (newWindow) {
+                                        newWindow.location.href = url;
+                                      } else {
+                                        window.open(url, "_blank");
+                                      }
+                                      setTimeout(() => URL.revokeObjectURL(url), 30000);
+                                      toast.success("Laudo compacto (hemograma) gerado!");
+                                    }).catch((err) => {
+                                      console.error(err);
+                                      toast.error("Erro ao gerar o PDF compacto.");
+                                    });
+                                  }}
+                                  className="rounded-md hover:bg-muted hover:text-foreground transition-colors duration-200"
+                                  title="Imprimir (Compacto)"
+                                >
+                                  <FaFileAlt className="h-4 w-4" />
+                                </Button>
+                              )}
 
                               <Button
                                 variant="ghost"
@@ -1621,7 +1766,7 @@ const PatientRecordPage = () => {
               clientId={clientId!}
               animalId={animalId!}
               animalAppointments={animalAppointments}
-              setAnimalAppointments={setAnimalAppointments}
+              setAnimalAppointments={async () => { await refetchAppointments(); }}
             />
           </TabsContent>
 
@@ -1638,17 +1783,16 @@ const PatientRecordPage = () => {
                     onChange={(e) => setNewWeightDate(e.target.value)}
                     className="w-full sm:w-[150px] bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200"
                   />
-                  <Input
-                    type="number"
+                  <WeightInput
                     placeholder="Peso (kg)"
                     value={newWeight}
-                    onChange={(e) => setNewWeight(e.target.value)}
+                    onChange={(v) => setNewWeight(v)}
                     className="w-full sm:w-[120px] bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200"
                   />
                   <Button size="sm" onClick={() => {
-                    if (newWeight.trim() && newWeightDate) {
+                    if (newWeight !== "" && newWeightDate) {
                       const success = updateAnimalDetails(clientId!, animalId!, {
-                        weight: parseFloat(newWeight),
+                        weight: Number(newWeight),
                         lastWeightSource: "Manual",
                       }, { date: newWeightDate, time: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) });
                       if (success) {
@@ -1659,7 +1803,7 @@ const PatientRecordPage = () => {
                         toast.error("Erro ao adicionar peso.");
                       }
                     }
-                  }} disabled={!newWeight.trim()} className="w-full sm:w-auto rounded-md bg-primary text-primary-foreground hover:bg-primary/90 font-semibold transition-all duration-200 shadow-md hover:shadow-lg">
+                  }} disabled={newWeight === ""} className="w-full sm:w-auto rounded-md bg-primary text-primary-foreground hover:bg-primary/90 font-semibold transition-all duration-200 shadow-md hover:shadow-lg">
                     <FaPlus className="h-4 w-4 mr-2" /> Adicionar Peso
                   </Button>
                 </div>
@@ -1746,60 +1890,73 @@ const PatientRecordPage = () => {
                 <CardTitle className="flex items-center gap-2 text-lg font-semibold text-foreground">
                   <FaFileAlt className="h-5 w-5 text-primary" /> Documentos
                 </CardTitle>
-                <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center flex-wrap">
-                  <Input
-                    type="text"
-                    placeholder="Nome do Documento"
-                    value={newDocumentName}
-                    onChange={(e) => setNewDocumentName(e.target.value)}
-                    className="w-full sm:w-[200px] bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200"
-                  />
-                  <Input
-                    type="file"
-                    onChange={(e) => setNewDocumentFile(e.target.files ? e.target.files[0] : null)}
-                    className="w-full sm:w-[200px] bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200"
-                  />
-                  <Button
-                    size="sm"
-                    onClick={() => {
-                      if (newDocumentName.trim() && newDocumentFile) {
-                        const now = new Date();
-                        const newEntry: DocumentEntry = {
-                          id: String(documents.length + 1),
-                          date: now.toISOString().split('T')[0],
-                          time: now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-                          name: newDocumentName.trim(),
-                          fileUrl: URL.createObjectURL(newDocumentFile),
-                        };
-                        setDocuments([...documents, newEntry]);
-                        setNewDocumentName("");
-                        setNewDocumentFile(null);
-                        toast.success("Anexo adicionado!");
-                      }
-                    }}
-                    disabled={!newDocumentName || !newDocumentFile}
-                    className="w-full sm:w-auto rounded-md bg-primary text-primary-foreground hover:bg-primary/90 font-semibold transition-all duration-200 shadow-md hover:shadow-lg"
-                  >
-                    <FaPlus className="h-4 w-4 mr-2" /> Adicionar Documento
-                  </Button>
-                </div>
+                <Button size="sm" asChild className="w-full sm:w-auto rounded-md bg-primary text-primary-foreground hover:bg-primary/90 font-semibold transition-all duration-200 shadow-md hover:shadow-lg">
+                  <Link to={`/clients/${clientId}/animals/${animalId}/add-document`}>
+                    <FaPlus className="h-4 w-4 mr-2" /> Cadastrar novo documento
+                  </Link>
+                </Button>
               </CardHeader>
               <CardContent className="pt-0">
                 {documents.length > 0 ? (
                   <div className="space-y-3">
                     {documents.map((doc) => {
-                      const onView = () => {
-                        if (!doc.fileUrl || doc.fileUrl === "#") return;
-                        window.open(doc.fileUrl, "_blank");
+                      const onView = async () => {
+                        if (doc.source === "editor" && doc.content) {
+                          try {
+                            // Apply template replacements in a case-insensitive way before generating PDF
+                            const contentWithVars = replaceTemplateVariables(doc.content || "", currentAnimal, currentClient);
+                            const blob = await pdf(<DocumentPdfContent documentName={doc.name} content={contentWithVars} />).toBlob();
+                            const url = URL.createObjectURL(blob);
+                            const w = window.open(url, "_blank");
+                            if (w) {
+                              setTimeout(() => w.print(), 500);
+                              setTimeout(() => URL.revokeObjectURL(url), 60000);
+                            } else {
+                              URL.revokeObjectURL(url);
+                            }
+                          } catch (err) {
+                            // eslint-disable-next-line no-console
+                            console.error("[pdf-error] Erro ao gerar PDF para document", doc.name, err);
+                            toast.error("Erro ao gerar PDF.");
+                          }
+                        } else if (doc.fileUrl) {
+                        } else if (doc.fileUrl) {
+                          if (doc.fileUrl.startsWith("data:")) {
+                            try {
+                              const [header, base64] = doc.fileUrl.split(",");
+                              const mime = header.match(/:(.*?);/)?.[1] || "application/octet-stream";
+                              const binary = atob(base64);
+                              const arr = new Uint8Array(binary.length);
+                              for (let i = 0; i < binary.length; i++) arr[i] = binary.charCodeAt(i);
+                              const blob = new Blob([arr], { type: mime });
+                              const url = URL.createObjectURL(blob);
+                              window.open(url, "_blank");
+                              setTimeout(() => URL.revokeObjectURL(url), 60000);
+                            } catch {
+                              window.open(doc.fileUrl, "_blank");
+                            }
+                          } else {
+                            window.open(doc.fileUrl, "_blank");
+                          }
+                        }
                       };
-
-                      const onEdit = () => {
-                        setDocumentEditing(doc);
-                        setDocumentEditName(doc.name);
-                        setDocumentEditFile(null);
-                        setDocumentEditOpen(true);
+                      const onDownload = () => {
+                        if (doc.source === "editor" && doc.content) {
+                          const blob = new Blob([doc.content], { type: "text/plain;charset=utf-8" });
+                          const url = URL.createObjectURL(blob);
+                          const a = document.createElement("a");
+                          a.href = url;
+                          a.download = `${doc.name.replace(/\s+/g, "_")}.txt`;
+                          a.click();
+                          URL.revokeObjectURL(url);
+                        } else if (doc.fileUrl) {
+                          const a = document.createElement("a");
+                          a.href = doc.fileUrl;
+                          a.download = doc.name;
+                          a.target = "_blank";
+                          a.click();
+                        }
                       };
-
                       return (
                         <div
                           key={doc.id}
@@ -1814,12 +1971,13 @@ const PatientRecordPage = () => {
                               <div className="h-12 w-12 shrink-0 rounded-2xl bg-slate-50/70 flex items-center justify-center">
                                 <FaFileAlt className="h-6 w-6 text-slate-600" />
                               </div>
-
                               <div className="min-w-0">
                                 <div className="flex items-center gap-2 text-base font-bold text-slate-900">
                                   <span className="truncate">{doc.name}</span>
+                                  {doc.source === "editor" && (
+                                    <span className="text-xs font-normal text-muted-foreground">(editor)</span>
+                                  )}
                                 </div>
-
                                 <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
                                   <span className="inline-flex items-center gap-1.5 text-foreground/80 font-medium">
                                     <Calendar className="h-4 w-4 text-muted-foreground" />
@@ -1828,28 +1986,38 @@ const PatientRecordPage = () => {
                                 </div>
                               </div>
                             </div>
-
                             <div className="flex gap-2">
                               <Button
                                 variant="ghost"
                                 size="icon"
                                 onClick={onView}
                                 className="rounded-md hover:bg-muted hover:text-foreground transition-colors duration-200"
-                                title="Ver"
+                                title={doc.source === "editor" ? "Imprimir / PDF" : "Visualizar"}
                               >
-                                <FaEye className="h-4 w-4" />
+                                {doc.source === "editor" ? <FaPrint className="h-4 w-4" /> : <FaEye className="h-4 w-4" />}
                               </Button>
-
+                              {doc.source === "editor" && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  asChild
+                                  className="rounded-md hover:bg-muted hover:text-foreground transition-colors duration-200"
+                                  title="Editar"
+                                >
+                                  <Link to={`/clients/${clientId}/animals/${animalId}/add-document?edit=${encodeURIComponent(doc.id)}`}>
+                                    <FaEdit className="h-4 w-4" />
+                                  </Link>
+                                </Button>
+                              )}
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                onClick={onEdit}
+                                onClick={onDownload}
                                 className="rounded-md hover:bg-muted hover:text-foreground transition-colors duration-200"
-                                title="Editar"
+                                title="Download"
                               >
-                                <FaEdit className="h-4 w-4" />
+                                <FaDownload className="h-4 w-4" />
                               </Button>
-
                               <Button
                                 variant="ghost"
                                 size="icon"
@@ -1866,7 +2034,7 @@ const PatientRecordPage = () => {
                     })}
                   </div>
                 ) : (
-                  <p className="text-muted-foreground py-4">Nenhum documento registrado.</p>
+                  <p className="text-muted-foreground py-4">Nenhum documento registrado. Use &quot;Cadastrar novo documento&quot; para enviar um arquivo ou criar um documento a partir de um template.</p>
                 )}
               </CardContent>
             </Card>
@@ -1890,7 +2058,7 @@ const PatientRecordPage = () => {
               </Link>
               <Link to={`/clients/${clientId}/animals/${animalId}/add-prescription?type=manipulated`}>
                 <Card className="flex flex-col items-center justify-center p-6 text-center bg-card shadow-sm border border-border rounded-md h-full">
-                  <FaFlask className="h-12 w-12 text-accent mb-3" />
+                  <FaFlask className="h-12 w-12 text-purple-600 mb-3" />
                   <CardTitle className="text-lg font-semibold text-foreground">Receita Manipulada</CardTitle>
                   <p className="text-sm text-muted-foreground mt-1">Medicamentos manipulados</p>
                 </Card>
@@ -1906,7 +2074,7 @@ const PatientRecordPage = () => {
               <CardContent className="pt-0">
                 {prescriptions.length > 0 ? (
                   <div className="space-y-3">
-                    {prescriptions.map((rx) => {
+                    {sortedPrescriptions.map((rx) => {
                       const isSimple = rx.type === 'simple';
                       const isControlled = rx.type === 'controlled';
                       const isManipulated = rx.type === 'manipulated';
@@ -1979,7 +2147,7 @@ const PatientRecordPage = () => {
                               </div>
                             </div>
 
-                            <div className="flex gap-2">
+                            <div className="flex flex-wrap gap-2">
                               <Button
                                 variant="ghost"
                                 size="icon"
@@ -1992,9 +2160,10 @@ const PatientRecordPage = () => {
                                     PrescriptionPdfContent({
                                       animalName: currentAnimal.name,
                                       animalId: currentAnimal.id,
+                                      displayId: getPatientDisplayId(currentAnimal.id, currentClient.animals),
                                       animalSpecies: currentAnimal.species,
                                       tutorName: currentClient.name,
-                                      tutorAddress: currentClient.address.street + ", " + currentClient.address.number + " - " + currentClient.address.city + " - " + currentClient.address.state,
+                                      tutorAddress: (currentClient.address?.street ?? "") + ", " + (currentClient.address?.number ?? "") + " - " + (currentClient.address?.city ?? "") + " - " + (currentClient.address?.state ?? ""),
                                       medications: rx.medications || [],
                                       generalObservations: rx.instructions,
                                       showElectronicSignatureText: false,
@@ -2008,7 +2177,7 @@ const PatientRecordPage = () => {
                                     })
                                   ).toBlob().then((blob) => {
                                     const url = URL.createObjectURL(blob);
-                                    window.open(url, '_blank');
+                                    window.open(url, "_blank");
                                     URL.revokeObjectURL(url);
                                     toast.success("Receita enviada para impressão!");
                                   });
@@ -2016,17 +2185,105 @@ const PatientRecordPage = () => {
                                 className="rounded-md hover:bg-muted hover:text-foreground transition-colors duration-200"
                                 title="Imprimir"
                               >
-                                <FaPrint className="h-4 w-4" />
+                                <FaPrint className="h-4 w-4 text-slate-600" />
                               </Button>
-
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => {
+                                  if (!currentClient || !currentAnimal) {
+                                    toast.error("Erro: Dados do cliente ou animal não disponíveis.");
+                                    return;
+                                  }
+                                  pdf(
+                                    PrescriptionPdfContent({
+                                      animalName: currentAnimal.name,
+                                      animalId: currentAnimal.id,
+                                      displayId: getPatientDisplayId(currentAnimal.id, currentClient.animals),
+                                      animalSpecies: currentAnimal.species,
+                                      tutorName: currentClient.name,
+                                      tutorAddress: (currentClient.address?.street ?? "") + ", " + (currentClient.address?.number ?? "") + " - " + (currentClient.address?.city ?? "") + " - " + (currentClient.address?.state ?? ""),
+                                      medications: rx.medications || [],
+                                      generalObservations: rx.instructions,
+                                      showElectronicSignatureText: true,
+                                      prescriptionType: rx.type,
+                                      pharmacistName: "Farmacêutico(a) Responsável",
+                                      pharmacistCpf: "CPF: 000.000.000-00",
+                                      pharmacistCfr: "CRF: 00000",
+                                      pharmacistAddress: "Endereço da Farmácia, 000 - Cidade - UF",
+                                      pharmacistPhone: "Telefone: (00) 00000-0000",
+                                      manipulatedPrescription: rx.manipulatedPrescription,
+                                    })
+                                  ).toBlob().then((blob) => {
+                                    const url = URL.createObjectURL(blob);
+                                    const link = document.createElement("a");
+                                    link.href = url;
+                                    link.download = `receita_${currentAnimal.name}_${currentClient.name}_${rx.date || "sem-data"}.pdf`;
+                                    document.body.appendChild(link);
+                                    link.click();
+                                    document.body.removeChild(link);
+                                    URL.revokeObjectURL(url);
+                                    toast.success("PDF baixado.");
+                                  });
+                                }}
+                                className="rounded-md hover:bg-muted hover:text-foreground transition-colors duration-200"
+                                title="Baixar PDF"
+                              >
+                                <FaDownload className="h-4 w-4 text-emerald-600" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                type="button"
+                                className="rounded-md hover:bg-muted hover:text-foreground transition-colors duration-200"
+                                title="Enviar PDF por WhatsApp (o arquivo será baixado para você anexar)"
+                                onClick={() => {
+                                  if (!currentClient || !currentAnimal) {
+                                    toast.error("Erro: Dados do cliente ou animal não disponíveis.");
+                                    return;
+                                  }
+                                  pdf(
+                                    PrescriptionPdfContent({
+                                      animalName: currentAnimal.name,
+                                      animalId: currentAnimal.id,
+                                      displayId: getPatientDisplayId(currentAnimal.id, currentClient.animals),
+                                      animalSpecies: currentAnimal.species,
+                                      tutorName: currentClient.name,
+                                      tutorAddress: (currentClient.address?.street ?? "") + ", " + (currentClient.address?.number ?? "") + " - " + (currentClient.address?.city ?? "") + " - " + (currentClient.address?.state ?? ""),
+                                      medications: rx.medications || [],
+                                      generalObservations: rx.instructions,
+                                      showElectronicSignatureText: true,
+                                      prescriptionType: rx.type,
+                                      pharmacistName: "Farmacêutico(a) Responsável",
+                                      pharmacistCpf: "CPF: 000.000.000-00",
+                                      pharmacistCfr: "CRF: 00000",
+                                      pharmacistAddress: "Endereço da Farmácia, 000 - Cidade - UF",
+                                      pharmacistPhone: "Telefone: (00) 00000-0000",
+                                      manipulatedPrescription: rx.manipulatedPrescription,
+                                    })
+                                  ).toBlob().then((blob) => {
+                                    const url = URL.createObjectURL(blob);
+                                    const link = document.createElement("a");
+                                    link.href = url;
+                                    link.download = `receita_${currentAnimal.name}_${currentClient.name}_${rx.date || "sem-data"}.pdf`;
+                                    document.body.appendChild(link);
+                                    link.click();
+                                    document.body.removeChild(link);
+                                    URL.revokeObjectURL(url);
+                                    const raw = (currentClient.mainPhoneContact ?? "").replace(/\D/g, "");
+                                    const withCountry = raw.length <= 10 ? "55" + raw : raw.startsWith("55") ? raw : "55" + raw;
+                                    const num = withCountry || "5500000000000";
+                                    const msg = encodeURIComponent(`Olá! Segue a receita de ${currentAnimal.name} (${formatDateTime(rx.date, rx.time)}). O PDF foi baixado - por favor anexe o arquivo e envie.`);
+                                    window.open(`https://wa.me/${num}?text=${msg}`, "_blank");
+                                    toast.success("PDF baixado. Abra o WhatsApp e anexe o arquivo para enviar ao tutor.");
+                                  });
+                                }}
+                              >
+                                <SiWhatsapp className="h-5 w-5 text-[#25D366]" />
+                              </Button>
                               <Link to={`/clients/${clientId}/animals/${animalId}/edit-prescription/${rx.id}?type=${rx.type}`}>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="rounded-md hover:bg-muted hover:text-foreground transition-colors duration-200"
-                                  title="Ver"
-                                >
-                                  <FaEye className="h-4 w-4" />
+                                <Button variant="ghost" size="icon" className="rounded-md hover:bg-muted hover:text-foreground transition-colors duration-200" title="Editar">
+                                  <FaEdit className="h-4 w-4 text-blue-600" />
                                 </Button>
                               </Link>
                             </div>
@@ -2271,15 +2528,21 @@ const PatientRecordPage = () => {
                             const saldo = Math.max(0, sale.total - paid);
                             const finStatus = getFinancialStatusForSale(sale.id, sale.total);
                             const app = animalAppointments.find(a => a.id === sale.appointmentId);
+                            const isCancelled = sale.saleStatus === "cancelled";
                             return (
-                              <Card key={sale.id} className="p-4 bg-white rounded-[12px] shadow-sm border border-[#E2E8F0]">
+                              <Card key={sale.id} className={cn(
+                                "p-4 bg-white rounded-xl shadow-sm border transition-all duration-200 hover:shadow-md",
+                                isCancelled ? "border-slate-300 bg-slate-50/50" : "border-[#E2E8F0]"
+                              )}>
                                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-2 gap-3">
-                                  <div className="flex items-center gap-3">
+                                  <div className="flex items-center gap-3 flex-wrap">
                                     <Badge className={cn(
                                       "px-3 py-1 text-sm font-bold rounded-full",
-                                      sale.saleStatus === "open" ? "bg-orange-600 text-white" : "bg-green-600 text-white"
+                                      isCancelled && "bg-slate-500 text-white",
+                                      sale.saleStatus === "open" && !isCancelled && "bg-orange-600 text-white",
+                                      sale.saleStatus === "finalized" && !isCancelled && "bg-green-600 text-white"
                                     )}>
-                                      {sale.saleStatus === "open" ? "Venda Aberta" : "Venda Finalizada"} {sale.origin === "orcamento" ? "• (de orçamento)" : ""}
+                                      {isCancelled ? "Cancelada" : sale.saleStatus === "open" ? "Venda Aberta" : "Venda Finalizada"} {sale.origin === "orcamento" ? "• (de orçamento)" : ""}
                                     </Badge>
                                     <p className="text-lg font-semibold text-foreground">
                                       {app ? `${app.type} • ${app.vet}` : `Atendimento ${sale.appointmentId}`}
@@ -2308,20 +2571,32 @@ const PatientRecordPage = () => {
                                 </div>
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-sm text-muted-foreground">
                                   <div className="flex items-center gap-1">
-                                    <FaCalendarAlt className="h-3 w-3" /> {formatDateTime(sale.date)}
+                                    <FaCalendarAlt className="h-3 w-3 text-blue-500" /> {formatDateTime(sale.date)}
                                   </div>
                                   <div className="flex items-center gap-1">
-                                    <FaTag className="h-3 w-3" /> Status financeiro: {finStatus === "paid" ? "Pago" : finStatus === "partial" ? "Parcial" : "Pendente"}
+                                    <FaTag className="h-3 w-3 text-amber-500" /> Status financeiro: {finStatus === "paid" ? "Pago" : finStatus === "partial" ? "Parcial" : "Pendente"}
                                   </div>
                                   <div className="flex items-center gap-1">
-                                    <FaStethoscope className="h-3 w-3" /> Atendimento: {sale.appointmentId}
+                                    <FaStethoscope className="h-3 w-3 text-teal-500" /> Atendimento: {sale.appointmentId}
                                   </div>
                                 </div>
-                                <div className="flex items-center justify-between mt-3">
-                                  <div className="flex gap-2">
-                                    <Button variant="outline" size="sm" onClick={() => updateSaleStatus(sale.id, sale.saleStatus === "open" ? "finalized" : "open")}>
-                                      {sale.saleStatus === "open" ? "Finalizar venda" : "Reabrir venda"}
-                                    </Button>
+                                <div className="flex flex-wrap items-center justify-between gap-2 mt-3 pt-3 border-t border-border">
+                                  <div className="flex flex-wrap gap-2">
+                                    {!isCancelled && (
+                                      <>
+                                        <Button variant="outline" size="sm" className="transition-all" onClick={() => updateSaleStatus(sale.id, sale.saleStatus === "open" ? "finalized" : "open")}>
+                                          {sale.saleStatus === "open" ? "Finalizar venda" : "Reabrir venda"}
+                                        </Button>
+                                        <Button variant="outline" size="sm" className="text-amber-700 border-amber-300 hover:bg-amber-50" onClick={() => updateSaleStatus(sale.id, "cancelled")} title="Cancelar / Devolução">
+                                          Cancelar venda
+                                        </Button>
+                                      </>
+                                    )}
+                                    {isCancelled && (
+                                      <Button variant="outline" size="sm" className="text-emerald-700 border-emerald-300 hover:bg-emerald-50" onClick={() => updateSaleStatus(sale.id, "open")}>
+                                        Reabrir venda
+                                      </Button>
+                                    )}
                                   </div>
                                   <Button variant="ghost" size="sm" onClick={() => toggleExpanded(sale.id)}>
                                     {expandedSales[sale.id] ? "Ocultar detalhes" : "Ver detalhes"}
@@ -2366,20 +2641,22 @@ const PatientRecordPage = () => {
                   </TabsContent>
 
                   <TabsContent value="financeiro">
-                    <div className="bg-[#F5F7FA] p-4 rounded-[12px]">
+                    <div className="bg-[#F5F7FA] p-4 rounded-[12px] space-y-4">
                       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                        <Card className="bg-white rounded-[12px] shadow-sm border border-[#E2E8F0]">
+                        <Card className="bg-white rounded-xl shadow-sm border border-[#E2E8F0] transition-all duration-200 hover:shadow-md">
                           <CardHeader className="pb-2">
-                            <CardTitle className="text-base">Registrar pagamento</CardTitle>
+                            <CardTitle className="text-base flex items-center gap-2">
+                              <FaHandHoldingUsd className="h-4 w-4 text-emerald-600" /> Registrar pagamento
+                            </CardTitle>
                           </CardHeader>
                           <CardContent className="space-y-3">
                             <div>
-                              <Label>Venda</Label>
+                              <Label className="flex items-center gap-1"><FaShoppingCart className="h-3 w-3 text-muted-foreground" /> Venda</Label>
                               <Select value={paymentSaleId || ""} onValueChange={(v) => setPaymentSaleId(v)}>
-                                <SelectTrigger className="bg-input border border-border rounded-md h-9"><SelectValue placeholder="Selecione a venda" /></SelectTrigger>
+                                <SelectTrigger className="bg-input border border-border rounded-md h-9 mt-1"><SelectValue placeholder="Selecione a venda" /></SelectTrigger>
                                 <SelectContent>
                                   {patientSales
-                                    .filter(s => getPaidForSale(s.id) < s.total)
+                                    .filter(s => s.saleStatus !== "cancelled" && getPaidForSale(s.id) < s.total)
                                     .map(s => {
                                       const paid = getPaidForSale(s.id);
                                       const saldo = Math.max(0, s.total - paid);
@@ -2393,24 +2670,33 @@ const PatientRecordPage = () => {
                                 </SelectContent>
                               </Select>
                             </div>
+                            {paymentSaleId && (() => {
+                              const s = patientSales.find((x) => x.id === paymentSaleId);
+                              const saldo = s ? Math.max(0, s.total - getPaidForSale(s.id)) : 0;
+                              return (
+                                <p className="text-sm font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
+                                  Saldo pendente: {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(saldo)}
+                                </p>
+                              );
+                            })()}
                             <div className="grid grid-cols-2 gap-2">
                               <div>
-                                <Label>Data</Label>
-                                <Input type="date" value={paymentDate} onChange={(e)=>setPaymentDate(e.target.value)} className="h-9 bg-input border border-border rounded-md" />
+                                <Label><FaCalendarAlt className="h-3 w-3 inline mr-1 text-muted-foreground" /> Data</Label>
+                                <Input type="date" value={paymentDate} onChange={(e)=>setPaymentDate(e.target.value)} className="h-9 bg-input border border-border rounded-md mt-1" />
                               </div>
                               <div>
-                                <Label>Hora</Label>
-                                <Input value={paymentTime} onChange={(e)=>setPaymentTime(e.target.value)} className="h-9 bg-input border border-border rounded-md" />
+                                <Label><FaClock className="h-3 w-3 inline mr-1 text-muted-foreground" /> Hora</Label>
+                                <Input value={paymentTime} onChange={(e)=>setPaymentTime(e.target.value)} className="h-9 bg-input border border-border rounded-md mt-1" />
                               </div>
                             </div>
                             <div>
                               <Label>Valor</Label>
-                              <CurrencyInput value={paymentAmount} onValueChange={setPaymentAmount} className="h-9 w-full border border-border rounded-md" />
+                              <CurrencyInput value={paymentAmount} onValueChange={setPaymentAmount} className="h-9 w-full border border-border rounded-md mt-1" />
                             </div>
                             <div>
-                              <Label>Método de pagamento</Label>
+                              <Label className="flex items-center gap-1">Método de pagamento</Label>
                               <Select value={paymentMethodId || ""} onValueChange={setPaymentMethodId}>
-                                <SelectTrigger className="bg-input border border-border rounded-md h-9"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                                <SelectTrigger className="bg-input border border-border rounded-md h-9 mt-1"><SelectValue placeholder="Selecione" /></SelectTrigger>
                                 <SelectContent>
                                   {pmRegistry.map(pm => (
                                     <SelectItem key={pm.id} value={pm.id}>{pm.name}</SelectItem>
@@ -2420,22 +2706,45 @@ const PatientRecordPage = () => {
                             </div>
                             <div>
                               <Label>Observações</Label>
-                              <Textarea value={paymentObservations} onChange={(e)=>setPaymentObservations(e.target.value)} className="bg-input border border-border rounded-md" />
+                              <Textarea value={paymentObservations} onChange={(e)=>setPaymentObservations(e.target.value)} className="bg-input border border-border rounded-md mt-1" />
                             </div>
-                            <div className="flex justify-end">
-                              <Button onClick={handleAddPayment} className="rounded-md bg-[#0F4C5C] text-white hover:bg-[#0d3f4b] font-semibold transition-colors shadow-sm hover:shadow-md">
+                            <div className="flex justify-end pt-1">
+                              <Button onClick={handleAddPayment} className="rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 font-semibold transition-all duration-200 shadow-sm hover:shadow-md">
+                                <FaHandHoldingUsd className="h-4 w-4 mr-2" />
                                 Registrar pagamento
                               </Button>
                             </div>
                           </CardContent>
                         </Card>
 
-                        <Card className="bg-white rounded-[12px] shadow-sm border border-[#E2E8F0]">
+                        <AlertDialog open={!!confirmOverpayProntuario} onOpenChange={(open) => !open && setConfirmOverpayProntuario(null)}>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle className="flex items-center gap-2 text-amber-600">
+                                <FaExclamationTriangle className="h-5 w-5" />
+                                Valor maior que o saldo
+                              </AlertDialogTitle>
+                              <AlertDialogDescription>
+                                O valor informado (R$ {confirmOverpayProntuario ? new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2 }).format(confirmOverpayProntuario.payAmount) : "0,00"}) é maior que o saldo pendente (R$ {confirmOverpayProntuario ? new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2 }).format(confirmOverpayProntuario.remaining) : "0,00"}). Deseja registrar apenas o saldo desta venda?
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                              <AlertDialogAction onClick={handleConfirmOverpayProntuario} className="bg-emerald-600 hover:bg-emerald-700">
+                                Registrar apenas o saldo
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+
+                        <Card className="bg-white rounded-xl shadow-sm border border-[#E2E8F0] transition-all duration-200 hover:shadow-md">
                           <CardHeader className="pb-2">
-                            <CardTitle className="text-base">Pagamentos registrados</CardTitle>
+                            <CardTitle className="text-base flex items-center gap-2">
+                              <FaMoneyBillWave className="h-4 w-4 text-emerald-600" /> Pagamentos registrados
+                            </CardTitle>
                           </CardHeader>
                           <CardContent>
-                            {patientPayments.length === 0 ? (
+                            {animalReceipts.length === 0 ? (
                               <p className="text-muted-foreground">Nenhum pagamento registrado.</p>
                             ) : (
                               <div className="overflow-x-auto">
@@ -2446,17 +2755,23 @@ const PatientRecordPage = () => {
                                       <TableHead>Data</TableHead>
                                       <TableHead className="text-right">Valor</TableHead>
                                       <TableHead>Método</TableHead>
+                                      <TableHead className="text-right w-24">Ações</TableHead>
                                     </TableRow>
                                   </TableHeader>
                                   <TableBody>
-                                    {patientPayments.map((p, index) => {
-                                      const app = patientSales.find(s => s.id === p.saleId)?.appointmentId;
+                                    {animalReceipts.map((r, index) => {
+                                      const app = patientSales.find((s) => s.id === r.saleId)?.appointmentId;
                                       return (
-                                        <TableRow key={p.id} className={cn(index % 2 === 1 && "bg-[#F9FAFB]")}>
-                                          <TableCell className="font-medium">{p.saleId}{app ? ` • Atend. ${app}` : ""}</TableCell>
-                                          <TableCell>{formatDateTime(p.date)}</TableCell>
-                                          <TableCell className="text-right font-bold">{new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(p.amount)}</TableCell>
-                                          <TableCell>{p.paymentMethod || "-"}</TableCell>
+                                        <TableRow key={r.id} className={cn(index % 2 === 1 && "bg-[#F9FAFB]", "transition-colors")}>
+                                          <TableCell className="font-medium">{r.saleId || r.description}{app ? ` • Atend. ${app}` : ""}</TableCell>
+                                          <TableCell>{formatDateTime(r.date, r.time)}</TableCell>
+                                          <TableCell className="text-right font-bold text-emerald-600">{new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(r.amount)}</TableCell>
+                                          <TableCell>{r.paymentMethod || "-"}</TableCell>
+                                          <TableCell className="text-right">
+                                            <Button variant="ghost" size="sm" className="text-amber-700 hover:text-amber-800 hover:bg-amber-50" onClick={() => setReceiptIdToRefund(r.id)} title="Estornar pagamento">
+                                              <FaUndo className="h-4 w-4 mr-1" /> Estornar
+                                            </Button>
+                                          </TableCell>
                                         </TableRow>
                                       );
                                     })}
@@ -2467,6 +2782,25 @@ const PatientRecordPage = () => {
                           </CardContent>
                         </Card>
                       </div>
+
+                      <AlertDialog open={!!receiptIdToRefund} onOpenChange={(open) => !open && setReceiptIdToRefund(null)}>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle className="flex items-center gap-2 text-amber-600">
+                              <FaUndo className="h-5 w-5" /> Estornar pagamento
+                            </AlertDialogTitle>
+                            <AlertDialogDescription>
+                              O valor deste recebimento voltará a aparecer como saldo pendente na venda. Confirma o estorno?
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                            <AlertDialogAction onClick={handleConfirmEstorno} className="bg-amber-600 hover:bg-amber-700">
+                              Estornar
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
                     </div>
                   </TabsContent>
                 </Tabs>
@@ -2689,63 +3023,6 @@ const PatientRecordPage = () => {
         </AlertDialogContent>
       </AlertDialog>
 
-      <Dialog open={documentEditOpen} onOpenChange={setDocumentEditOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Editar documento</DialogTitle>
-            <DialogDescription>Altere o nome e, se necessário, substitua o arquivo.</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3">
-            <div className="space-y-2">
-              <Label>Nome</Label>
-              <Input
-                value={documentEditName}
-                onChange={(e) => setDocumentEditName(e.target.value)}
-                className="bg-input border border-border rounded-md"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Substituir arquivo (opcional)</Label>
-              <Input
-                type="file"
-                onChange={(e) => setDocumentEditFile(e.target.files ? e.target.files[0] : null)}
-                className="bg-input border border-border rounded-md"
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDocumentEditOpen(false)}>
-              Cancelar
-            </Button>
-            <Button
-              onClick={() => {
-                if (!documentEditing) return;
-                const nextName = documentEditName.trim();
-                if (!nextName) {
-                  toast.error("Informe o nome do documento.");
-                  return;
-                }
-                setDocuments((prev) =>
-                  prev.map((d) =>
-                    d.id === documentEditing.id
-                      ? {
-                          ...d,
-                          name: nextName,
-                          fileUrl: documentEditFile ? URL.createObjectURL(documentEditFile) : d.fileUrl,
-                        }
-                      : d
-                  )
-                );
-                setDocumentEditOpen(false);
-                toast.success("Documento atualizado!");
-              }}
-            >
-              Salvar
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
       <AlertDialog open={!!documentDeleteId} onOpenChange={(o) => !o && setDocumentDeleteId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -2757,11 +3034,17 @@ const PatientRecordPage = () => {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => {
+              onClick={async () => {
                 if (!documentDeleteId) return;
-                setDocuments((prev) => prev.filter((d) => d.id !== documentDeleteId));
-                setDocumentDeleteId(null);
-                toast.info("Documento excluído.");
+                const ok = await removePatientDocument(animalId, documentDeleteId);
+                if (ok) {
+                  const list = await readPatientDocuments(animalId);
+                  setDocuments(list);
+                  setDocumentDeleteId(null);
+                  toast.info("Documento excluído.");
+                } else {
+                  toast.error("Não foi possível excluir o documento.");
+                }
               }}
             >
               Excluir
@@ -2771,10 +3054,12 @@ const PatientRecordPage = () => {
       </AlertDialog>
 
       <Dialog open={saleModalOpen} onOpenChange={setSaleModalOpen}>
-        <DialogContent className="sm:max-w-3xl">
+        <DialogContent className="sm:max-w-3xl transition-all duration-200">
           <DialogHeader>
-            <DialogTitle>Adicionar Venda</DialogTitle>
-            <DialogDescription>Registre tudo que foi cobrado neste atendimento.</DialogDescription>
+            <DialogTitle className="flex items-center gap-2">
+              <FaShoppingCart className="h-5 w-5 text-primary" /> Adicionar Venda
+            </DialogTitle>
+            <DialogDescription>Registre tudo que foi cobrado neste atendimento. A venda ficará vinculada ao atendimento e ao paciente.</DialogDescription>
           </DialogHeader>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
@@ -2782,10 +3067,11 @@ const PatientRecordPage = () => {
               <Input type="date" value={saleDate} onChange={(e) => setSaleDate(e.target.value)} className="h-9 bg-input border border-border rounded-md" />
             </div>
             <div>
-              <Label>Atendimento vinculado</Label>
-              <Select value={saleAppointmentId} onValueChange={setSaleAppointmentId}>
-                <SelectTrigger className="bg-input border border-border rounded-md h-9"><SelectValue placeholder="Selecione" /></SelectTrigger>
+              <Label>Atendimento vinculado (opcional)</Label>
+              <Select value={saleAppointmentId || "__none__"} onValueChange={(v) => setSaleAppointmentId(v === "__none__" ? "" : v)}>
+                <SelectTrigger className="bg-input border border-border rounded-md h-9"><SelectValue placeholder="Nenhum (opcional)" /></SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="__none__">Nenhum</SelectItem>
                   {animalAppointments.map(a => (
                     <SelectItem key={a.id} value={a.id}>{a.type} • {formatDateTime(a.date, a.time)}</SelectItem>
                   ))}

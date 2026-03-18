@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/accordion";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import WeightInput from "@/components/inputs/WeightInput";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -187,11 +188,9 @@ export default function LegacyConsultationForm({
         <CardContent className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div className="space-y-2">
             <Label>Peso atual (kg)</Label>
-            <Input
-              type="number"
-              step="0.1"
+            <WeightInput
               value={pesoAtual}
-              onChange={(e) => onPesoAtualChange(e.target.value === "" ? "" : Number(e.target.value))}
+              onChange={(v) => onPesoAtualChange(v)}
             />
           </div>
           <div className="space-y-2">

@@ -46,8 +46,8 @@ import type {
   VaccinationDetails,
   EmergencyDetails,
 } from "@/types/appointment";
-import { mockAppointments } from "@/mockData/appointments";
 import { cn, formatDateTime } from "@/lib/utils";
+import * as appointmentsApi from "@/lib/appointmentsApi";
 import { readAppointmentDrafts, removeAppointmentDraft } from "@/lib/appointmentDrafts";
 
 const displayType = (type: AppointmentEntry["type"]) => {
@@ -211,7 +211,7 @@ export default function PatientAppointmentsTab({
   clientId: string;
   animalId: string;
   animalAppointments: AppointmentEntry[];
-  setAnimalAppointments: (next: AppointmentEntry[]) => void;
+  setAnimalAppointments: (next?: AppointmentEntry[]) => void | Promise<void>;
 }) {
   const navigate = useNavigate();
   const [consultDialogOpen, setConsultDialogOpen] = useState(false);
@@ -246,16 +246,17 @@ export default function PatientAppointmentsTab({
     navigate(`/clients/${clientId}/animals/${animalId}/add-appointment?${qp.toString()}`);
   };
 
-  const removeAppointment = (id: string) => {
-    const index = mockAppointments.findIndex((a) => a.id === id);
-    if (index > -1) {
-      mockAppointments.splice(index, 1);
-      setAnimalAppointments(mockAppointments.filter((a) => a.animalId === animalId));
+  const removeAppointment = async (id: string) => {
+    const ok = await appointmentsApi.removeAppointment(id);
+    if (ok) {
+      setAnimalAppointments();
       toast.info("Atendimento excluído.");
+    } else {
+      toast.error("Não foi possível excluir.");
     }
   };
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (!deleteTarget) return;
 
     if (deleteTarget.kind === "draft") {
@@ -266,7 +267,7 @@ export default function PatientAppointmentsTab({
       return;
     }
 
-    removeAppointment(deleteTarget.id);
+    await removeAppointment(deleteTarget.id);
     setDeleteTarget(null);
   };
 

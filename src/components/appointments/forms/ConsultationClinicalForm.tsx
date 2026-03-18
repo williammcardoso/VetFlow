@@ -1,6 +1,7 @@
 import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import WeightInput from "@/components/inputs/WeightInput";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -247,15 +248,10 @@ export default function ConsultationClinicalForm({
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
               <div className="space-y-2">
                 <Label htmlFor="pesoAtual">Peso atual (kg)</Label>
-                <Input
+                <WeightInput
                   id="pesoAtual"
-                  type="number"
-                  step="0.1"
                   value={pesoAtual}
-                  onChange={(e) => {
-                    const v = e.target.value;
-                    onPesoAtualChange(v === "" ? "" : Number(v));
-                  }}
+                  onChange={(v) => onPesoAtualChange(v)}
                 />
                 <p className="text-xs text-muted-foreground">Pré-preenchido com o último peso salvo.</p>
               </div>

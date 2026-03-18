@@ -1,7 +1,9 @@
 import { HemogramReference, HemogramReferenceValue } from "@/types/exam";
 
-// Dados de referência para Hemograma (cão e gato)
-export const hemogramReferences: Record<string, HemogramReference> = {
+const EXAM_REFS_STORAGE_KEY = "examReferences";
+
+/** Referências padrão (usadas quando não há dados no localStorage) */
+const defaultHemogramReferences: Record<string, HemogramReference> = {
   eritrocitos: { dog: { full: "5.5 - 8.5 M/µL", min: 5.5, max: 8.5 }, cat: { full: "6.5 - 10.0 M/µL", min: 6.5, max: 10.0 } },
   hemoglobina: { dog: { full: "12.0 - 18.0 g/dL", min: 12.0, max: 18.0 }, cat: { full: "9.0 - 15.0 g/dL", min: 9.0, max: 15.0 } },
   hematocrito: { dog: { full: "37 - 55 %", min: 37, max: 55 }, cat: { full: "30 - 45 %", min: 30, max: 45 } },
@@ -60,3 +62,33 @@ export const hemogramReferences: Record<string, HemogramReference> = {
   },
   contagemPlaquetaria: { dog: { full: "166.000 - 575.000 /µL", min: 166000, max: 575000 }, cat: { full: "150.000 - 600.000 /µL", min: 150000, max: 600000 } },
 };
+
+/** Exportação com nome original para compatibilidade */
+export const hemogramReferences: Record<string, HemogramReference> = defaultHemogramReferences;
+
+/**
+ * Retorna as referências de hemograma: do localStorage (cadastro de referências) se existirem,
+ * senão as constantes padrão. Assim o laudo e a tela de exame usam o que foi editado em Cadastros.
+ */
+export function getHemogramReferences(): Record<string, HemogramReference> {
+  try {
+    const raw = localStorage.getItem(EXAM_REFS_STORAGE_KEY);
+    if (!raw) return defaultHemogramReferences;
+    const parsed = JSON.parse(raw);
+    const hemogram = parsed?.hemogram;
+    if (!hemogram || typeof hemogram !== "object") return defaultHemogramReferences;
+    const merged: Record<string, HemogramReference> = { ...defaultHemogramReferences };
+    for (const key of Object.keys(defaultHemogramReferences)) {
+      const incoming = hemogram[key];
+      if (incoming?.dog || incoming?.cat) {
+        merged[key] = {
+          dog: { ...defaultHemogramReferences[key].dog, ...incoming.dog },
+          cat: { ...defaultHemogramReferences[key].cat, ...incoming.cat },
+        };
+      }
+    }
+    return merged;
+  } catch {
+    return defaultHemogramReferences;
+  }
+}
