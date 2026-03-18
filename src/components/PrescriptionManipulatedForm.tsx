@@ -26,8 +26,8 @@ interface PrescriptionManipulatedFormProps {
   onSave: (data: ManipulatedPrescriptionData) => void;
 }
 
-const mockVehicleTypes = ["Bastão", "Cápsula", "Comprimido", "Creme", "Drágea", "Gel", "Gotas", "Líquido", "Pó", "Dose", "Outro"];
-const mockVehicleUnits = ["%", "Grama (g)", "Miligrama (mg)", "Mililitro (mL)", "Micrograma (mcg)", "UFC", "UFC/g", "UFC/kg", "Unidade(s)"];
+const mockVehicleTypes = ["bastão(s)", "cápsula(s)", "comprimido(s)", "creme(s)", "drágea(s)", "gel(es)", "gotas", "líquido(s)", "pó(s)", "dose(s)", "outro(s)"];
+const mockVehicleUnits = ["%", "grama(s) (g)", "miligrama(s) (mg)", "mililitro(s) (mL)", "micrograma(s) (mcg)", "ufc", "ufc/g", "ufc/kg", "unidade(s)"];
 
 const mockPosologyMeasures = ["Comprimido", "Cápsula", "Líquido (ml)", "Gotas", "Aplicação", "Spray", "Pomada", "Outro"];
 const mockPosologyFrequencies = ["1", "2", "3", "4", "6", "8", "12", "24", "Outro"]; // Valores numéricos
@@ -63,7 +63,7 @@ const PrescriptionManipulatedForm: React.FC<PrescriptionManipulatedFormProps> = 
   const [lastAddedComponentId, setLastAddedComponentId] = useState<string | null>(null); // Estado para focar o último componente adicionado
 
   const [vehicleExcipient, setVehicleExcipient] = useState<ManipulatedVehicleExcipient>(
-    initialData?.vehicleExcipient || { type: "", quantity: "", unit: "" }
+    initialData?.vehicleExcipient || { type: "Excipiente", quantity: "", unit: "" }
   );
   const [customVehicleType, setCustomVehicleType] = useState<string>(
     initialData?.vehicleExcipient?.type === "Outro" ? initialData.vehicleExcipient.customType || "" : ""
@@ -292,8 +292,8 @@ const PrescriptionManipulatedForm: React.FC<PrescriptionManipulatedFormProps> = 
       return;
     }
     
-    const finalVehicleType = vehicleExcipient.type === "Outro" ? customVehicleType.trim() : vehicleExcipient.type.trim();
-    if (!finalVehicleType || !vehicleExcipient.quantity.trim() || !vehicleExcipient.unit.trim()) {
+    const finalVehicleType = "Excipiente";
+    if (!vehicleExcipient.quantity.trim() || !vehicleExcipient.unit.trim()) {
       toast.error("Por favor, preencha todos os campos obrigatórios do veículo/excipiente.");
       return;
     }
@@ -324,8 +324,8 @@ const PrescriptionManipulatedForm: React.FC<PrescriptionManipulatedFormProps> = 
     const dataToSave: ManipulatedPrescriptionData = {
       formulaComponents,
       vehicleExcipient: {
-        type: vehicleExcipient.type,
-        customType: vehicleExcipient.type === "Outro" ? customVehicleType.trim() : undefined,
+        type: "Excipiente",
+        customType: undefined,
         quantity: vehicleExcipient.quantity,
         unit: vehicleExcipient.unit,
       },
@@ -352,7 +352,7 @@ const PrescriptionManipulatedForm: React.FC<PrescriptionManipulatedFormProps> = 
     onSave(dataToSave);
   };
 
-  const displayVehicleType = vehicleExcipient.type === "Outro" ? customVehicleType : vehicleExcipient.type;
+  const displayVehicleType = "Excipiente";
   const displayPosologyMeasure = posologyAutomatic.measure === "Outro" ? customPosologyMeasure : posologyAutomatic.measure;
   const displayPosologyFrequencyValue = posologyAutomatic.frequencyValue === "Outro" ? customPosologyFrequencyValue : posologyAutomatic.frequencyValue;
   const displayPosologyFrequencyUnit = posologyAutomatic.frequencyUnit === "Outro" ? customPosologyFrequencyUnit : posologyAutomatic.frequencyUnit;
@@ -398,27 +398,12 @@ const PrescriptionManipulatedForm: React.FC<PrescriptionManipulatedFormProps> = 
           <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-2">
               <Label htmlFor="vehicle-type">Tipo*</Label>
-              <Select onValueChange={(value) => setVehicleExcipient(prev => ({ ...prev, type: value }))} value={vehicleExcipient.type}>
-                <SelectTrigger id="vehicle-type" className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200">
-                  <SelectValue placeholder="Ex: Comprimido" />
-                </SelectTrigger>
-                <SelectContent>
-                  {mockVehicleTypes.map((type) => (
-                    <SelectItem key={type} value={type}>
-                      {type}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {vehicleExcipient.type === "Outro" && (
-                <Input
-                  ref={customVehicleTypeInputRef} // Aplicar o ref aqui
-                  placeholder="Digite o tipo personalizado"
-                  value={customVehicleType}
-                  onChange={(e) => setCustomVehicleType(e.target.value)}
-                  className="mt-2 bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200"
-                />
-              )}
+              <Input
+                id="vehicle-type"
+                value={"Excipiente"}
+                readOnly
+                className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200"
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="vehicle-quantity">Quantidade / q.s.p*</Label>
@@ -433,13 +418,16 @@ const PrescriptionManipulatedForm: React.FC<PrescriptionManipulatedFormProps> = 
             <div className="space-y-2">
               <Label htmlFor="vehicle-unit">Unidade*</Label>
               <Select onValueChange={(value) => setVehicleExcipient(prev => ({ ...prev, unit: value }))} value={vehicleExcipient.unit}>
-                <SelectTrigger id="vehicle-unit" className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200">
-                  <SelectValue placeholder="Ex: Unidade(s)" />
+                <SelectTrigger
+                  id="vehicle-unit"
+                  className={`bg-input rounded-md border-border focus:ring-2 focus:ring-ring transition-all duration-200 text-left`}
+                >
+                  <SelectValue placeholder="Ex: Comprimido" />
                 </SelectTrigger>
                 <SelectContent>
-                  {mockVehicleUnits.map((unit) => (
-                    <SelectItem key={unit} value={unit}>
-                      {unit}
+                  {mockVehicleTypes.map((type) => (
+                    <SelectItem key={type} value={type}>
+                      {type}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -476,7 +464,10 @@ const PrescriptionManipulatedForm: React.FC<PrescriptionManipulatedFormProps> = 
                   <div className="space-y-2">
                     <Label htmlFor="posology-measure">Medida*</Label>
                     <Select onValueChange={(value) => setPosologyAutomatic(prev => ({ ...prev, measure: value }))} value={posologyAutomatic.measure}>
-                      <SelectTrigger id="posology-measure" className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200">
+                      <SelectTrigger
+                        id="posology-measure"
+                        className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring transition-all duration-200 text-left"
+                      >
                         <SelectValue placeholder="Ex: Comprimido" />
                       </SelectTrigger>
                       <SelectContent>
@@ -501,7 +492,10 @@ const PrescriptionManipulatedForm: React.FC<PrescriptionManipulatedFormProps> = 
                     <Label htmlFor="posology-frequency-value">Frequência*</Label>
                     <div className="flex gap-2">
                       <Select onValueChange={(value) => setPosologyAutomatic(prev => ({ ...prev, frequencyValue: value }))} value={posologyAutomatic.frequencyValue}>
-                        <SelectTrigger id="posology-frequency-value" className="w-1/2 bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200">
+                        <SelectTrigger
+                          id="posology-frequency-value"
+                          className="w-1/2 bg-input rounded-md border-border focus:ring-2 focus:ring-ring transition-all duration-200 text-left"
+                        >
                           <SelectValue placeholder="Ex: 1" />
                         </SelectTrigger>
                         <SelectContent>
@@ -513,9 +507,12 @@ const PrescriptionManipulatedForm: React.FC<PrescriptionManipulatedFormProps> = 
                         </SelectContent>
                       </Select>
                       <Select onValueChange={(value) => setPosologyAutomatic(prev => ({ ...prev, frequencyUnit: value }))} value={posologyAutomatic.frequencyUnit}>
-                        <SelectTrigger id="posology-frequency-unit" className="w-1/2 bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200">
-                          <SelectValue placeholder="Ex: Dia" />
-                        </SelectTrigger>
+                      <SelectTrigger
+                        id="posology-frequency-unit"
+                        className="w-1/2 bg-input rounded-md border-border focus:ring-2 focus:ring-ring transition-all duration-200 text-left"
+                      >
+                        <SelectValue placeholder="Ex: Dia" />
+                      </SelectTrigger>
                         <SelectContent>
                           {mockPosologyFrequencyUnits.map((unit) => (
                             <SelectItem key={unit} value={unit}>
@@ -548,9 +545,12 @@ const PrescriptionManipulatedForm: React.FC<PrescriptionManipulatedFormProps> = 
                     <Label htmlFor="posology-duration-value">Duração*</Label>
                     <div className="flex gap-2">
                       <Select onValueChange={(value) => setPosologyAutomatic(prev => ({ ...prev, durationValue: value }))} value={posologyAutomatic.durationValue}>
-                        <SelectTrigger id="posology-duration-value" className="w-1/2 bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200">
-                          <SelectValue placeholder="Ex: 5" />
-                        </SelectTrigger>
+                      <SelectTrigger
+                        id="posology-duration-value"
+                        className="w-1/2 bg-input rounded-md border-border focus:ring-2 focus:ring-ring transition-all duration-200 text-left"
+                      >
+                        <SelectValue placeholder="Ex: 5" />
+                      </SelectTrigger>
                         <SelectContent>
                           {mockPosologyDurations.map((duration) => (
                             <SelectItem key={duration} value={duration}>
@@ -560,7 +560,10 @@ const PrescriptionManipulatedForm: React.FC<PrescriptionManipulatedFormProps> = 
                         </SelectContent>
                       </Select>
                       <Select onValueChange={(value) => setPosologyAutomatic(prev => ({ ...prev, durationUnit: value }))} value={posologyAutomatic.durationUnit}>
-                        <SelectTrigger id="posology-duration-unit" className="w-1/2 bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200">
+                        <SelectTrigger
+                          id="posology-duration-unit"
+                          className="w-1/2 bg-input rounded-md border-border focus:ring-2 focus:ring-ring transition-all duration-200 text-left"
+                        >
                           <SelectValue placeholder="Ex: Dia" />
                         </SelectTrigger>
                         <SelectContent>
@@ -625,9 +628,12 @@ const PrescriptionManipulatedForm: React.FC<PrescriptionManipulatedFormProps> = 
             <div className="space-y-2">
               <Label htmlFor="product-route">Via*</Label>
               <Select onValueChange={(value) => setProductDetails(prev => ({ ...prev, route: value }))} value={productDetails.route}>
-                <SelectTrigger id="product-route" className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200">
-                  <SelectValue placeholder="Selecione a via" />
-                </SelectTrigger>
+              <SelectTrigger
+                id="product-route"
+                className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring transition-all duration-200 text-left"
+              >
+                <SelectValue placeholder="Selecione a via" />
+              </SelectTrigger>
                 <SelectContent>
                   {mockProductRoutes.map((route) => (
                     <SelectItem key={route} value={route}>
@@ -677,14 +683,14 @@ const PrescriptionManipulatedForm: React.FC<PrescriptionManipulatedFormProps> = 
 
       {/* Prévia da Fórmula (Sidebar) */}
       <div className="col-span-1 lg:col-span-1">
-        <Card className="sticky top-20 shadow-sm border border-border rounded-md">
+        <Card className="sticky top-2 shadow-sm border border-border rounded-md">
           <CardHeader>
-            <CardTitle className="text-lg font-semibold text-foreground">Prévia da Fórmula</CardTitle>
+            <CardTitle className="text-sm">Prévia da Fórmula</CardTitle>
           </CardHeader>
-          <CardContent className="text-sm text-muted-foreground space-y-4">
+          <CardContent className="text-sm text-muted-foreground space-y-2 p-3">
             {displayProductRoute && (
-              <div className="pb-2 border-b border-border">
-                <p className="font-bold text-base text-foreground">VIA {displayProductRoute.toUpperCase()}</p>
+              <div className="pb-2">
+                <p className="font-semibold text-black mb-2 border-b border-border pb-2">VIA {displayProductRoute.toUpperCase()}</p>
               </div>
             )}
 
@@ -694,16 +700,16 @@ const PrescriptionManipulatedForm: React.FC<PrescriptionManipulatedFormProps> = 
                 <div className="space-y-1">
                   {formulaComponents.map((comp) => (
                     <div key={comp.id} className="flex items-end">
-                      <span className="flex-shrink-0">• {comp.name}</span>
+                      <span className="flex-shrink-0">{comp.name}</span>
                       <span className="flex-grow border-b border-dotted border-muted-foreground mx-1 h-3"></span>
                       <span className="flex-shrink-0">{comp.dosageQuantity} {getShortUnitAbbreviation(comp.dosageUnit)}</span>
                     </div>
                   ))}
-                  {vehicleExcipient.type && vehicleExcipient.quantity && vehicleExcipient.unit && (
+                  {vehicleExcipient.quantity && vehicleExcipient.unit && (
                     <div className="flex items-end">
-                      <span className="flex-shrink-0">• {displayVehicleType} q.s.p.</span>
+                      <span className="flex-shrink-0">{displayVehicleType} q.s.p.</span>
                       <span className="flex-grow border-b border-dotted border-muted-foreground mx-1 h-3"></span>
-                      <span className="flex-shrink-0">{vehicleExcipient.quantity} {getShortUnitAbbreviation(vehicleExcipient.unit)}</span>
+                      <span className="flex-shrink-0">{vehicleExcipient.quantity} {vehicleExcipient.unit}</span>
                     </div>
                   )}
                 </div>

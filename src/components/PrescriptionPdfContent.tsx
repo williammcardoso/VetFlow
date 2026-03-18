@@ -41,6 +41,8 @@ const getLongUnitAbbreviation = (unit: string): string => {
 interface PrescriptionPdfContentProps {
   animalName: string;
   animalId: string;
+  /** ID de exibição em 4 dígitos (ex.: 0001). Se não informado, usa animalId. */
+  displayId?: string;
   animalSpecies: string;
   tutorName: string;
   tutorAddress: string;
@@ -506,11 +508,12 @@ const getDynamicStyles = (isCompactSimplePrescription: boolean, prescriptionType
 
 
 export const PrescriptionPdfContent = ({
-  animalName, animalId, animalSpecies, tutorName, tutorAddress,
+  animalName, animalId, displayId, animalSpecies, tutorName, tutorAddress,
   medications, generalObservations, showElectronicSignatureText,
   prescriptionType, pharmacistName, pharmacistCpf, pharmacistCfr,
   pharmacistAddress, pharmacistPhone, manipulatedPrescription,
 }: PrescriptionPdfContentProps) => {
+  const patientId = displayId ?? animalId;
   const groupedMedications = medications.reduce((acc: Record<string, MedicationData[]>, med) => {
     const useType = med.useType || "Outros";
     if (!acc[useType]) { acc[useType] = []; }
@@ -585,7 +588,7 @@ export const PrescriptionPdfContent = ({
           <View style={styles.infoSectionContainer}>
             <View style={styles.infoCard}>
               <Text style={styles.infoTitle}>Animal</Text>
-              <Text style={styles.infoText}>ID: {animalId}</Text>
+              <Text style={styles.infoText}>ID: {patientId}</Text>
               <Text style={styles.infoText}>Nome: {animalName}</Text>
               <Text style={styles.infoText}>Espécie: {animalSpecies}</Text>
             </View>

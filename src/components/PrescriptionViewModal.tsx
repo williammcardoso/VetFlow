@@ -1,11 +1,13 @@
 import React from "react";
 import { MedicationData } from "./PrescriptionMedicationForm";
-import { Separator } from "@/components/ui/separator";
-import { FaUser } from "react-icons/fa"; // Importação de react-icons
+import { FaUser } from "react-icons/fa";
+import { mockCompanySettings } from "@/mockData/settings";
 
 interface PrescriptionViewModalProps {
   animalName: string;
   animalId: string;
+  /** ID de exibição em 4 dígitos (ex.: 0001). Se não informado, usa animalId. */
+  displayId?: string;
   animalSpecies: string;
   tutorName: string;
   tutorAddress: string; // Adicionado para o endereço do tutor
@@ -16,12 +18,14 @@ interface PrescriptionViewModalProps {
 const PrescriptionViewModal: React.FC<PrescriptionViewModalProps> = ({
   animalName,
   animalId,
+  displayId,
   animalSpecies,
   tutorName,
   tutorAddress,
   medications,
   generalObservations,
 }) => {
+  const patientId = displayId ?? animalId;
   // Agrupar medicamentos por tipo de uso
   const groupedMedications = medications.reduce((acc, med) => {
     const useType = med.useType || "Outros";
@@ -33,20 +37,20 @@ const PrescriptionViewModal: React.FC<PrescriptionViewModalProps> = ({
   }, {} as Record<string, MedicationData[]>);
 
   return (
-    <div className="p-6 bg-white text-gray-900 dark:bg-gray-900 dark:text-gray-100 font-sans">
+    <div className="p-6 bg-card text-card-foreground border border-border rounded-lg">
       {/* Header da Clínica */}
-      <div className="flex items-start justify-between mb-8 border-b pb-4">
+      <div className="flex items-start justify-between mb-8 border-b border-border pb-4">
         <div className="flex items-center gap-4">
-          <FaUser className="h-10 w-10 text-gray-600 dark:text-gray-400" />
+          <FaUser className="h-10 w-10 text-muted-foreground" />
           <div>
-            <h2 className="text-xl font-bold">Clínica Moraes Cardoso</h2>
-            <p className="text-sm text-gray-600 dark:text-gray-400">CRMV 56895 SP</p>
-            <p className="text-sm text-gray-600 dark:text-gray-400">Registro no MAPA MV0052750203</p>
+            <h2 className="text-xl font-bold">{mockCompanySettings.companyName}</h2>
+            <p className="text-sm text-muted-foreground">CRMV {mockCompanySettings.crmv}</p>
+            <p className="text-sm text-muted-foreground">Registro no MAPA {mockCompanySettings.mapaRegistration}</p>
           </div>
         </div>
-        <div className="text-right text-sm text-gray-700 dark:text-gray-300">
-          <p>Rua Campos Salles, 175, Centro - Itapira - CEP: 13970-170</p>
-          <p>Telefone: (19) 99363-1981</p>
+        <div className="text-right text-sm text-muted-foreground">
+          <p>{mockCompanySettings.address} - {mockCompanySettings.city} - CEP: {mockCompanySettings.zipCode}</p>
+          <p>Telefone: {mockCompanySettings.phone}</p>
         </div>
       </div>
 
@@ -54,16 +58,16 @@ const PrescriptionViewModal: React.FC<PrescriptionViewModalProps> = ({
 
       {/* Informações do Animal e Tutor */}
       <div className="grid grid-cols-2 gap-4 mb-8">
-        <div className="border p-4 rounded-lg">
+        <div className="border border-border p-4 rounded-lg">
           <h3 className="font-semibold mb-2">Animal</h3>
-          <p className="text-sm">ID: {animalId}</p>
+          <p className="text-sm text-muted-foreground">ID: {patientId}</p>
           <p className="text-sm">Nome: {animalName}</p>
           <p className="text-sm">Espécie: {animalSpecies}</p>
         </div>
-        <div className="border p-4 rounded-lg">
+        <div className="border border-border p-4 rounded-lg">
           <h3 className="font-semibold mb-2">Tutor</h3>
-          <p className="text-sm">Nome: {tutorName}</p>
-          <p className="text-sm">Endereço: {tutorAddress || "Não informado"}</p>
+          <p className="text-sm text-muted-foreground">Nome: {tutorName}</p>
+          <p className="text-sm text-muted-foreground">Endereço: {tutorAddress || "Não informado"}</p>
         </div>
       </div>
 
@@ -78,23 +82,23 @@ const PrescriptionViewModal: React.FC<PrescriptionViewModalProps> = ({
                   <span className="font-semibold text-base flex-shrink-0">
                     {med.medicationName} {med.concentration}
                   </span>
-                  <div className="flex-grow border-b border-gray-300 dark:border-gray-600 mx-2"></div> {/* Esta é a linha */}
+                  <div className="flex-grow border-b border-border mx-2"></div> {/* Esta é a linha */}
                   <div className="flex items-center gap-2 flex-shrink-0">
-                    <span className="px-2 py-0.5 text-xs font-medium border border-gray-400 text-gray-800 rounded-full dark:bg-gray-700 dark:text-gray-200">
+                    <span className="px-2 py-0.5 text-xs font-medium border border-border rounded-full bg-muted text-muted-foreground">
                       {med.pharmacyType === "Farmácia Veterinária" ? "VET" : "HUMANA"}
                     </span>
                     {med.totalQuantityDisplay && (
-                      <span className="px-2 py-0.5 text-xs font-medium border border-gray-400 bg-blue-100 text-blue-800 rounded-full dark:bg-blue-900 dark:text-blue-200">
+                      <span className="px-2 py-0.5 text-xs font-medium border border-border bg-primary/10 text-primary rounded-full">
                         {med.totalQuantityDisplay}
                       </span>
                     )}
                   </div>
                 </div>
-                <p className="text-sm text-gray-700 dark:text-gray-300 mt-1 ml-4">
+                <p className="text-sm text-muted-foreground mt-1 ml-4">
                   {med.generatedInstructions}
                 </p>
                 {med.generalObservations && (
-                  <p className="text-xs text-gray-600 dark:text-gray-400 ml-4 mt-1 italic">
+                  <p className="text-xs text-muted-foreground ml-4 mt-1 italic">
                     Obs. Medicamento: {med.generalObservations}
                   </p>
                 )}
@@ -108,11 +112,11 @@ const PrescriptionViewModal: React.FC<PrescriptionViewModalProps> = ({
       {generalObservations && (
         <div className="mt-8 border-t pt-4">
           <h3 className="text-lg font-bold mb-2">Observações Gerais da Receita</h3>
-          <p className="text-sm text-gray-700 dark:text-gray-300">{generalObservations}</p>
+          <p className="text-sm text-muted-foreground">{generalObservations}</p>
         </div>
       )}
 
-      <div className="mt-10 text-center text-sm text-gray-500 dark:text-gray-400">
+      <div className="mt-10 text-center text-sm text-muted-foreground">
         <p>Data: {new Date().toLocaleDateString()}</p>
         <p>Assinatura do Veterinário: _________________________</p>
       </div>
