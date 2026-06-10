@@ -6,7 +6,6 @@ import {
   ArrowLeft,
   FileText,
   Upload,
-  FileUp,
   Copy,
   Check,
   ExternalLink,
@@ -18,13 +17,14 @@ import { Label } from "@/components/ui/label";
 import TiptapRichText from "@/components/TiptapRichText";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { DOCUMENT_TEMPLATES } from "@/constants/documentTemplates";
 import { useRegistryList } from "@/hooks/useRegistryList";
 import { addPatientDocument, updatePatientDocument, readPatientDocuments } from "@/lib/documentsApi";
 import { useClientWithAnimals } from "@/hooks/useSupabaseClients";
-import { mockUserSettings, mockCompanySettings } from "@/mockData/settings";
 import type { Client, Animal } from "@/types/client";
 import { replaceTemplateVariables } from "@/utils/templateReplacements";
+import { PageShell } from "@/components/saas/PageShell";
+import { useCurrentUserProfile } from "@/hooks/useCurrentUserProfile";
+import { useAuth } from "@/contexts/AuthContext";
 
 const recordUrl = (clientId: string, animalId: string) =>
   `/clients/${clientId}/animals/${animalId}/record?tab=documents`;
@@ -83,6 +83,9 @@ const AddDocumentPage: React.FC = () => {
   const [copied, setCopied] = useState(false);
 
   const { data: clientData } = useClientWithAnimals(clientId);
+  const { profile: currentUserProfile } = useCurrentUserProfile();
+  const { canAccessModule } = useAuth();
+  const canEditDocuments = canAccessModule("prescriptions", "edit");
   const client = clientData ?? undefined;
   const animal = client?.animals?.find((a) => a.id === animalId);
 
@@ -100,42 +103,22 @@ const AddDocumentPage: React.FC = () => {
   const [templateAutoSizeToken, setTemplateAutoSizeToken] = useState(0);
 
   const { list: customTemplates } = useRegistryList("documentModels");
-  const allTemplates = [
-    ...Object.entries(DOCUMENT_TEMPLATES).map(([key, t]) => ({
-      key,
-      title: t.title,
-      type: t.type,
-      content: t.content,
-    })),
-    ...customTemplates.map((t) => ({
+  const allTemplates = customTemplates
+    .map((t) => ({
       key: (t as { id: string }).id,
       title: (t as { name: string }).name,
       type: "Modelo cadastrado",
       content: (t as { template?: string }).template ?? "",
-    })),
-  ].sort((a, b) => a.title.localeCompare(b.title, "pt-BR"));
+    }))
+    .sort((a, b) => a.title.localeCompare(b.title, "pt-BR"));
 
   const applyTemplate = (templateKey: string) => {
     setActiveTab("editor");
-    const builtIn = DOCUMENT_TEMPLATES[templateKey];
-    if (builtIn) {
-      const plain = replaceTemplateVariables(builtIn.content, animal, client);
-      const html = withDefaultTemplateTypography(plainTextToQuillHtml(plain));
-      if (debug) {
-        console.log("[applyTemplate] builtIn", { title: builtIn.title, plainLen: plain.length, htmlLen: html.length, htmlStart: html.slice(0, 80) });
-      }
-      setEditorTitle(builtIn.title);
-      setEditorContent(html);
-      setEditorTemplateKey(templateKey);
-      setTemplateAutoSizeToken((n) => n + 1);
-      toast.success("Template aplicado! Edite os campos marcados.");
-      return;
-    }
     const custom = customTemplates.find((t) => (t as { id: string }).id === templateKey) as
       | { id: string; name: string; template?: string }
       | undefined;
     if (custom) {
-      const plain = replaceTemplateVariables(custom.template ?? "", animal, client);
+      const plain = replaceTemplateVariables(custom.template ?? "", animal, client, currentUserProfile);
       const html = withDefaultTemplateTypography(plainTextToQuillHtml(plain));
       if (debug) {
         console.log("[applyTemplate] custom", { name: custom.name, plainLen: plain.length, htmlLen: html.length });
@@ -149,8 +132,9 @@ const AddDocumentPage: React.FC = () => {
   };
 
   useEffect(() => {
-    if (editDocId && animalId) {
-      const list = readPatientDocuments(animalId);
+    if (!editDocId || !animalId) return;
+    void (async () => {
+      const list = await readPatientDocuments(animalId);
       const doc = list.find((d) => d.id === editDocId);
       if (doc && doc.source === "editor") {
         setActiveTab("editor");
@@ -158,15 +142,19 @@ const AddDocumentPage: React.FC = () => {
         setEditorContent(doc.content ?? "");
         setEditorTemplateKey(doc.templateKey ?? "");
       }
-    }
+    })();
   }, [editDocId, animalId]);
 
   useEffect(() => {
     if (editorTemplateKey && !editorContent && allTemplates.length && !editDocId) {
       const t = allTemplates.find((t) => t.key === editorTemplateKey);
-      if (t) setEditorContent(withDefaultTemplateTypography(plainTextToQuillHtml(replaceTemplateVariables(t.content, animal, client))));
+      if (t) {
+        setEditorContent(
+          withDefaultTemplateTypography(plainTextToQuillHtml(replaceTemplateVariables(t.content, animal, client, currentUserProfile)))
+        );
+      }
     }
-  }, [editorTemplateKey, animal, client, editDocId]);
+  }, [editorTemplateKey, animal, client, editDocId, currentUserProfile]);
 
   const copyContent = () => {
     navigator.clipboard.writeText(editorContent);
@@ -177,6 +165,10 @@ const AddDocumentPage: React.FC = () => {
 
   const handleUploadSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canEditDocuments) {
+      toast.error("Você não possui permissão para editar documentos.");
+      return;
+    }
     if (!uploadName.trim() || !uploadFile || !animalId) {
       toast.error("Informe o nome e selecione o arquivo.");
       return;
@@ -209,6 +201,10 @@ const AddDocumentPage: React.FC = () => {
 
   const handleEditorSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canEditDocuments) {
+      toast.error("Você não possui permissão para editar documentos.");
+      return;
+    }
     if (!editorTitle.trim() || !editorContent.trim() || !animalId) {
       toast.error("Informe o título e o conteúdo do documento.");
       return;
@@ -258,7 +254,7 @@ const AddDocumentPage: React.FC = () => {
   }
 
   return (
-    <div className="flex flex-col min-h-screen layered-bg-warm font-exo p-4 sm:p-6">
+    <PageShell className="font-exo">
       <div className="mb-6">
         <Button variant="ghost" asChild className="mb-4 -ml-2">
           <Link to={recordLink}>
@@ -299,7 +295,7 @@ const AddDocumentPage: React.FC = () => {
           )}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2 space-y-4">
-              <Card className="border-border">
+              <Card className="vf-surface-card vf-tone-clinical card-hover border-border/80">
                 <CardContent className="p-6">
                   <Tabs value="editor-form" className="w-full">
                     <form onSubmit={handleEditorSubmit} className="space-y-4">
@@ -337,7 +333,7 @@ const AddDocumentPage: React.FC = () => {
                         />
                       </div>
                       <div className="flex gap-2">
-                        <Button type="submit" disabled={!editorTitle.trim() || !editorContent.trim()}>
+                        <Button type="submit" disabled={!canEditDocuments || !editorTitle.trim() || !editorContent.trim()}>
                           {editDocId ? "Salvar alterações" : "Salvar no prontuário"}
                         </Button>
                         <Button type="button" variant="outline" asChild>
@@ -351,13 +347,13 @@ const AddDocumentPage: React.FC = () => {
             </div>
 
             <div className="space-y-4">
-              <Card className="border-border sticky top-6">
-                <CardHeader>
+              <Card className="vf-surface-card vf-tone-clinical card-hover sticky top-6 border-border/80">
+                <CardHeader className="border-b border-primary/10 bg-card rounded-t-lg">
                   <CardTitle className="text-lg flex items-center gap-2">
-                    <FileText className="h-5 w-5 text-primary" /> Templates
+                    <FileText className="h-5 w-5 text-primary" /> Modelos cadastrados
                   </CardTitle>
                   <p className="text-sm text-muted-foreground">
-                    Selecione um modelo para preencher com os dados do paciente e do tutor. Cabeçalho e rodapé são adicionados na impressão.
+                    Selecione um modelo cadastrado para preencher com os dados do paciente e tutor. Cabeçalho e rodapé são adicionados na impressão.
                   </p>
                   <Button variant="outline" size="sm" className="mt-2 w-full gap-2" asChild>
                     <Link to="/registrations/document-model">
@@ -366,28 +362,28 @@ const AddDocumentPage: React.FC = () => {
                   </Button>
                 </CardHeader>
                 <CardContent className="space-y-2">
-                  {allTemplates.map((t) => (
-                    <button
-                      key={t.key}
-                      type="button"
-                      onClick={() => applyTemplate(t.key)}
-                      className="w-full text-left p-3 rounded-lg border border-border hover:border-primary/50 hover:bg-muted/50 transition-all text-sm"
-                    >
-                      <p className="font-medium text-foreground">{t.title}</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">{t.type}</p>
-                    </button>
-                  ))}
-                </CardContent>
-              </Card>
-              <Card className="border-border bg-muted/30">
-                <CardContent className="p-4">
-                  <h4 className="font-medium text-foreground mb-2">Dicas</h4>
-                  <ul className="text-sm text-muted-foreground space-y-1">
-                    <li>• Os templates já vêm com dados preenchidos</li>
-                    <li>• Campos com ___ devem ser completados manualmente</li>
-                    <li>• Após salvar, use Imprimir no card do documento para gerar PDF/impressão</li>
-                    <li>• Cadastre novos modelos em Cadastros → Modelos de Documento</li>
-                  </ul>
+                  {allTemplates.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                      Nenhum modelo cadastrado. Cadastre em Cadastros → Modelos de Documento.
+                    </p>
+                  ) : (
+                    allTemplates.map((t) => (
+                      <button
+                        key={t.key}
+                        type="button"
+                        onClick={() => applyTemplate(t.key)}
+                        className="w-full text-left p-3 rounded-lg border border-primary/20 bg-card shadow-sm hover:shadow-md hover:border-primary/50 hover:bg-primary/[0.04] transition-all text-sm"
+                      >
+                        <div className="flex items-start gap-2">
+                          <FileText className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+                          <div>
+                            <p className="font-medium text-foreground">{t.title}</p>
+                            <p className="text-xs text-muted-foreground mt-0.5">{t.type}</p>
+                          </div>
+                        </div>
+                      </button>
+                    ))
+                  )}
                 </CardContent>
               </Card>
             </div>
@@ -395,7 +391,7 @@ const AddDocumentPage: React.FC = () => {
         </TabsContent>
 
         <TabsContent value="upload" className="mt-4">
-          <Card className="border-border">
+          <Card className="vf-surface-card vf-tone-clinical card-hover border-border/80">
             <CardHeader>
               <CardTitle className="text-lg">Anexar documento ao prontuário</CardTitle>
               <p className="text-sm text-muted-foreground">
@@ -431,7 +427,7 @@ const AddDocumentPage: React.FC = () => {
                   </div>
                 </div>
                 <div className="flex gap-2">
-                  <Button type="submit" disabled={uploading || !uploadName.trim() || !uploadFile}>
+                  <Button type="submit" disabled={!canEditDocuments || uploading || !uploadName.trim() || !uploadFile}>
                     {uploading ? "Enviando..." : "Anexar ao prontuário"}
                   </Button>
                   <Button type="button" variant="outline" asChild>
@@ -444,7 +440,7 @@ const AddDocumentPage: React.FC = () => {
         </TabsContent>
 
       </Tabs>
-    </div>
+    </PageShell>
   );
 };
 

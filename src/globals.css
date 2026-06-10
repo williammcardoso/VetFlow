@@ -1,8 +1,8 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
 
 /* Tipografia global (SaaS premium) */
 html,
@@ -34,8 +34,8 @@ body,
     --popover: 0 0% 100%;
     --popover-foreground: 222 20% 12%;
 
-    /* VERDE primário suave (menos saturado, mais premium) */
-    --primary: 156 38% 34%;
+    /* Primário base neutro (evita viés cromático global) */
+    --primary: 222 16% 34%;
     --primary-foreground: 0 0% 100%;
 
     --secondary: 220 20% 96%;
@@ -45,16 +45,16 @@ body,
     --muted-foreground: 220 8% 46%;
 
     /* ------------------------------------------------------------
-       SystemVet — HOVER GLOBAL LARANJA (tokens)
+       SystemVet — HOVER GLOBAL VERDE (tokens)
        ------------------------------------------------------------ */
-    --sv-accent: 34 94% 50%;         /* #F79009 */
-    --sv-accent-hover: 39 100% 56%;  /* #FFB020 */
-    --sv-accent-active: 33 100% 44%; /* #E07A00 */
-    --sv-accent-soft: 34 100% 94%;   /* #FFF3E0 */
-    --sv-accent-ring: 39 98% 57%;    /* #FDB022 */
+    --sv-accent: 222 16% 34%;
+    --sv-accent-hover: 222 16% 30%;
+    --sv-accent-active: 222 16% 26%;
+    --sv-accent-soft: 220 18% 94%;
+    --sv-accent-ring: 222 18% 40%;
 
     /* shadcn/ui usa accent principalmente para hover/focus.
-       Aqui, accent vira o fundo suave e accent-foreground vira o laranja principal (ícones/textos). */
+       Aqui, accent vira o fundo suave e accent-foreground vira o tom principal (ícones/textos). */
     --accent: var(--sv-accent-soft);
     --accent-foreground: var(--sv-accent);
 
@@ -75,12 +75,20 @@ body,
     /* Sidebar clara */
     --sidebar-background: 0 0% 100%;
     --sidebar-foreground: 222 12% 22%;
-    --sidebar-primary: 156 40% 94%;
-    --sidebar-primary-foreground: 156 42% 22%;
+    --sidebar-primary: 220 55% 95%;
+    --sidebar-primary-foreground: 220 42% 28%;
     --sidebar-accent: var(--sv-accent-soft);
     --sidebar-accent-foreground: var(--sv-accent);
     --sidebar-border: 220 16% 90%;
     --sidebar-ring: var(--sv-accent-ring);
+
+    /* VetFlow — acentos por módulo (HSL sem "hsl()"; vivazes + uso disciplinado) */
+    --vf-clinical: 156 55% 36%;
+    --vf-sales: 262 52% 48%;
+    --vf-finance: 201 78% 42%;
+    --vf-stock: 32 92% 46%;
+    --vf-registry: 277 48% 46%;
+    --vf-settings: 215 70% 44%;
   }
 
   .dark {
@@ -93,8 +101,8 @@ body,
     --popover: 222 16% 15%;
     --popover-foreground: 220 20% 92%;
 
-    /* VERDE como primário no dark (suave) */
-    --primary: 156 38% 48%;
+    /* Primário em dark neutro para não dominar com cor */
+    --primary: 220 14% 72%;
     --primary-foreground: 222 16% 10%;
 
     --secondary: 222 16% 18%;
@@ -103,12 +111,12 @@ body,
     --muted: 222 16% 18%;
     --muted-foreground: 220 8% 64%;
 
-    /* Tokens laranja no dark (suaves, para não "gritar") */
-    --sv-accent: 39 100% 66%;        /* laranja para texto/ícone */
-    --sv-accent-hover: 39 100% 60%;  /* hover um pouco mais forte */
-    --sv-accent-active: 33 100% 48%; /* pressed */
-    --sv-accent-soft: 34 45% 18%;    /* fundo suave no dark */
-    --sv-accent-ring: 39 98% 57%;
+    /* Accent no dark sem viés verde dominante */
+    --sv-accent: 220 14% 72%;
+    --sv-accent-hover: 220 14% 66%;
+    --sv-accent-active: 220 14% 58%;
+    --sv-accent-soft: 220 16% 22%;
+    --sv-accent-ring: 220 16% 62%;
 
     --accent: var(--sv-accent-soft);
     --accent-foreground: var(--sv-accent);
@@ -123,12 +131,19 @@ body,
 
     --sidebar-background: 222 16% 14%;
     --sidebar-foreground: 220 20% 92%;
-    --sidebar-primary: 156 18% 20%;
+    --sidebar-primary: 220 24% 22%;
     --sidebar-primary-foreground: 220 20% 92%;
     --sidebar-accent: var(--sv-accent-soft);
     --sidebar-accent-foreground: var(--sv-accent);
     --sidebar-border: 222 14% 24%;
     --sidebar-ring: var(--sv-accent-ring);
+
+    --vf-clinical: 156 50% 58%;
+    --vf-sales: 262 55% 68%;
+    --vf-finance: 201 70% 58%;
+    --vf-stock: 32 85% 58%;
+    --vf-registry: 277 45% 62%;
+    --vf-settings: 215 65% 62%;
   }
 }
 
@@ -155,19 +170,19 @@ body,
 
 @layer utilities {
   /*
-   * Hover global laranja: substitui hovers cinza comuns (hover:bg-muted...)
+   * Hover global verde: substitui hovers cinza comuns (hover:bg-muted...)
    * por accentSoft, mantendo o layout e evitando ajustes por página.
    */
   [class*="hover:bg-muted"]:hover,
   [class*="hover:bg-muted/"]:hover,
   [class*="hover:bg-sidebar-accent"]:hover {
-    background-color: hsl(var(--accent)) !important;
+    background-color: hsl(var(--accent));
   }
 
   [class*="hover:bg-muted"]:active,
   [class*="hover:bg-muted/"]:active,
   [class*="hover:bg-sidebar-accent"]:active {
-    background-color: hsl(var(--sv-accent-active)) !important;
+    background-color: hsl(var(--sv-accent-active));
   }
 
   /* Dropdowns/combobox: hover em itens Radix */
@@ -229,6 +244,47 @@ body,
   box-shadow:
     0 1px 2px rgba(16, 24, 40, 0.04),
     0 18px 34px rgba(16, 24, 40, 0.08);
+}
+
+.no-card-lift.card-hover,
+.no-card-lift {
+  transition: box-shadow 180ms ease, border-color 180ms ease;
+}
+
+.no-card-lift.card-hover:hover,
+.no-card-lift:hover {
+  transform: none;
+  box-shadow:
+    0 1px 2px rgba(16, 24, 40, 0.04),
+    0 10px 22px rgba(16, 24, 40, 0.05);
+}
+
+.vf-sidebar-shell {
+  background-color: var(--vf-sidebar-bg-color, hsl(var(--sidebar-background)));
+  color: var(--vf-sidebar-text-color, hsl(var(--sidebar-foreground)));
+  border-color: var(--vf-sidebar-border-color, hsl(var(--sidebar-border)));
+}
+
+.vf-topbar-shell {
+  background-color: var(--vf-topbar-bg-color, hsl(var(--card)));
+  border-bottom-color: var(--vf-topbar-border-color, hsl(var(--border)));
+}
+
+.vf-nav-hover:hover {
+  background-color: var(--vf-nav-hover-color, hsl(var(--primary) / 0.1));
+}
+
+.vf-nav-active {
+  background-color: var(--vf-nav-active-color, hsl(var(--primary) / 0.16));
+  box-shadow: inset 0 0 0 1px hsl(var(--border));
+}
+
+.vf-sidebar-text {
+  color: var(--vf-sidebar-text-color, hsl(var(--sidebar-foreground)));
+}
+
+.vf-sidebar-text-soft {
+  color: var(--vf-sidebar-text-soft-color, hsl(var(--sidebar-foreground)));
 }
 
 /* Chips/tags suaves */
@@ -347,6 +403,12 @@ body,
 .timeline-dot-gray {
   background-color: #cbd5e1;
 }
+.timeline-dot-clinical {
+  background-color: hsl(var(--vf-clinical) / 0.55);
+}
+.timeline-dot-clinical-strong {
+  background-color: hsl(var(--vf-clinical) / 0.78);
+}
 
 /* badges suaves por tipo */
 .badge-soft-blue {
@@ -381,6 +443,14 @@ body,
   background-color: rgba(100, 116, 139, 0.16);
   color: #1f2937;
 }
+.badge-soft-clinical {
+  background-color: hsl(var(--vf-clinical) / 0.15);
+  color: hsl(var(--vf-clinical));
+}
+.badge-soft-clinical-strong {
+  background-color: hsl(var(--vf-clinical) / 0.2);
+  color: hsl(var(--vf-clinical));
+}
 
 .badge-soft-neutral {
   background-color: rgba(0, 0, 0, 0.04);
@@ -389,4 +459,118 @@ body,
   border-radius: 9999px;
   padding: 2px 8px;
   font-size: 12px;
+}
+
+/* --- VetFlow UI kit: painéis e cards consistentes --- */
+
+.vf-page-hero {
+  border-radius: 1rem;
+  border: 1px solid hsl(var(--border));
+  background-color: hsl(var(--card));
+  box-shadow:
+    0 1px 2px rgb(15 23 42 / 0.04),
+    0 10px 28px rgb(15 23 42 / 0.06);
+}
+
+.dark .vf-page-hero {
+  box-shadow:
+    0 1px 2px rgb(0 0 0 / 0.25),
+    0 12px 32px rgb(0 0 0 / 0.35);
+}
+
+.vf-surface-card {
+  border-radius: 1rem;
+  border: 1px solid hsl(var(--border));
+  background-color: hsl(var(--card));
+  box-shadow: 0 1px 2px rgb(15 23 42 / 0.05);
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.vf-surface-card:hover {
+  border-color: hsl(var(--primary) / 0.32);
+  box-shadow:
+    0 1px 2px rgb(15 23 42 / 0.04),
+    0 8px 22px rgb(15 23 42 / 0.08);
+}
+
+.dark .vf-surface-card:hover {
+  border-color: hsl(var(--primary) / 0.45);
+}
+
+/* Cards tonais por módulo (modo neutro premium: apenas acento sutil) */
+.vf-tone-clinical {
+  background-color: hsl(var(--card));
+  border-color: hsl(var(--border));
+  box-shadow: inset 0 0 0 1px hsl(var(--vf-clinical) / 0.05);
+}
+.vf-tone-sales {
+  background-color: hsl(var(--card));
+  border-color: hsl(var(--border));
+  box-shadow: inset 0 0 0 1px hsl(var(--vf-sales) / 0.05);
+}
+.vf-tone-finance {
+  background-color: hsl(var(--card));
+  border-color: hsl(var(--border));
+  box-shadow: inset 0 0 0 1px hsl(var(--vf-finance) / 0.05);
+}
+.vf-tone-stock {
+  background-color: hsl(var(--card));
+  border-color: hsl(var(--border));
+  box-shadow: inset 0 0 0 1px hsl(var(--vf-stock) / 0.05);
+}
+.vf-tone-registry {
+  background-color: hsl(var(--card));
+  border-color: hsl(var(--border));
+  box-shadow: inset 0 0 0 1px hsl(var(--vf-registry) / 0.05);
+}
+.vf-tone-settings {
+  background-color: hsl(var(--card));
+  border-color: hsl(var(--border));
+  box-shadow: inset 0 0 0 1px hsl(var(--vf-settings) / 0.05);
+}
+
+.vf-strip-clinical {
+  border-left: 4px solid hsl(var(--vf-clinical));
+}
+.vf-strip-sales {
+  border-left: 4px solid hsl(var(--vf-sales));
+}
+.vf-strip-finance {
+  border-left: 4px solid hsl(var(--vf-finance));
+}
+.vf-strip-stock {
+  border-left: 4px solid hsl(var(--vf-stock));
+}
+.vf-strip-registry {
+  border-left: 4px solid hsl(var(--vf-registry));
+}
+.vf-strip-settings {
+  border-left: 4px solid hsl(var(--vf-settings));
+}
+.vf-strip-default {
+  border-left: 4px solid hsl(var(--primary));
+}
+
+/* Agenda: diferencia hoje de dias com agendamento */
+.vf-calendar-day-today {
+  background-color: hsl(var(--accent));
+  color: hsl(var(--foreground));
+  border: 1px solid hsl(var(--border));
+  border-radius: 9999px;
+}
+
+.vf-calendar-day-has-appointments {
+  background-color: hsl(var(--vf-clinical) / 0.16);
+  color: hsl(var(--vf-clinical));
+  border: 1px solid hsl(var(--vf-clinical) / 0.32);
+  border-radius: 9999px;
+}
+
+.vf-calendar-day-today-has-appointments {
+  background-color: hsl(var(--vf-stock) / 0.18);
+  color: hsl(var(--vf-stock));
+  border: 1px solid hsl(var(--vf-stock) / 0.38);
+  border-radius: 9999px;
 }

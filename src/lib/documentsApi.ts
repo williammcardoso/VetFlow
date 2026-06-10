@@ -13,6 +13,28 @@ export type PatientDocumentEntry = {
 };
 
 const BUCKET = "documents";
+const LOCAL_KEY_PREFIX = "local:patient_documents:";
+
+function isLikelyUuid(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
+function localKey(animalId: string): string {
+  return `${LOCAL_KEY_PREFIX}${animalId}`;
+}
+
+function readLocal(animalId: string): PatientDocumentEntry[] {
+  try {
+    const raw = localStorage.getItem(localKey(animalId));
+    return raw ? (JSON.parse(raw) as PatientDocumentEntry[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeLocal(animalId: string, list: PatientDocumentEntry[]) {
+  localStorage.setItem(localKey(animalId), JSON.stringify(list));
+}
 
 function formatCreatedAtToDateTime(iso?: string) {
   if (!iso) {
@@ -25,6 +47,7 @@ function formatCreatedAtToDateTime(iso?: string) {
 
 export async function readPatientDocuments(animalId?: string): Promise<PatientDocumentEntry[]> {
   if (!animalId) return [];
+  if (!isLikelyUuid(animalId)) return readLocal(animalId);
   const { data, error } = await supabase
     .from("patient_documents")
     .select("*")
@@ -32,7 +55,7 @@ export async function readPatientDocuments(animalId?: string): Promise<PatientDo
     .order("created_at", { ascending: false });
   if (error) {
     console.error("[readPatientDocuments] error", error);
-    return [];
+    return readLocal(animalId);
   }
   return (data || []).map((r: any) => {
     const dt = formatCreatedAtToDateTime(r.created_at);
@@ -54,6 +77,22 @@ export async function addPatientDocument(
   entry: Partial<Pick<PatientDocumentEntry, "name" | "fileUrl" | "source" | "content" | "templateKey">>
 ): Promise<PatientDocumentEntry | null> {
   if (!animalId) throw new Error("animalId is required");
+  if (!isLikelyUuid(animalId)) {
+    const now = new Date();
+    const localEntry: PatientDocumentEntry = {
+      id: `local-doc-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      date: now.toISOString().split("T")[0],
+      time: now.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
+      name: entry.name || "Documento sem título",
+      fileUrl: entry.fileUrl || "",
+      source: entry.source ?? "editor",
+      content: entry.content ?? "",
+      templateKey: entry.templateKey ?? undefined,
+    };
+    const current = readLocal(animalId);
+    writeLocal(animalId, [localEntry, ...current]);
+    return localEntry;
+  }
 
   // handle upload with data URL => upload to storage
   let file_url = entry.fileUrl ?? null;
@@ -113,6 +152,22 @@ export async function updatePatientDocument(
   updates: Partial<Pick<PatientDocumentEntry, "name" | "content" | "templateKey">>
 ): Promise<PatientDocumentEntry | null> {
   if (!animalId) throw new Error("animalId is required");
+  if (!isLikelyUuid(animalId)) {
+    const current = readLocal(animalId);
+    let updatedEntry: PatientDocumentEntry | null = null;
+    const next = current.map((doc) => {
+      if (doc.id !== docId) return doc;
+      updatedEntry = {
+        ...doc,
+        name: updates.name ?? doc.name,
+        content: updates.content ?? doc.content,
+        templateKey: updates.templateKey ?? doc.templateKey,
+      };
+      return updatedEntry;
+    });
+    writeLocal(animalId, next);
+    return updatedEntry;
+  }
   const dbUpdates: any = {};
   if (updates.name != null) dbUpdates.name = updates.name;
   if (updates.content != null) dbUpdates.content = updates.content;
@@ -143,6 +198,11 @@ export async function updatePatientDocument(
 
 export async function removePatientDocument(animalId: string | undefined, docId: string): Promise<boolean> {
   if (!animalId) return false;
+  if (!isLikelyUuid(animalId)) {
+    const current = readLocal(animalId);
+    writeLocal(animalId, current.filter((d) => d.id !== docId));
+    return true;
+  }
   try {
     const { data: doc, error: selErr } = await supabase.from("patient_documents").select().match({ id: docId, animal_id: animalId }).single();
     if (selErr) {

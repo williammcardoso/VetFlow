@@ -1,10 +1,14 @@
 import React from "react";
+import { Microscope } from "lucide-react";
 import RegistryManager from "@/components/RegistryManager";
 
 const ExamsPage: React.FC = () => {
   return (
     <RegistryManager
+      icon={Microscope}
+      layoutVariant="C"
       storageKey="exams"
+      breadcrumb={<>Painel &gt; Cadastros &gt; Exames</>}
       title="Exames"
       columns={[
         { key: "sampleType", label: "Amostra", type: "text", placeholder: "Ex.: sangue, urina, fezes" },

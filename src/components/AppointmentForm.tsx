@@ -3,12 +3,12 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
-import { pdf } from "@react-pdf/renderer";
 
 import SaasButton from "@/components/saas/SaasButton";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import WeightInput from "@/components/inputs/WeightInput";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -19,7 +19,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-import { CheckCircle2, MoreHorizontal, Save, Thermometer, Weight, X } from "lucide-react";
+import { CheckCircle2, Loader2, MoreHorizontal, Save, Sparkles, Thermometer, Weight, X } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 
 import type {
   AppointmentEntry,
@@ -30,7 +31,9 @@ import type {
   VaccinationDetails,
 } from "@/types/appointment";
 import { mockUserSettings } from "@/mockData/settings";
-import { mockClients, updateAnimalDetails } from "@/mockData/clients";
+import { updateAnimalDetails as updateAnimalDetailsInDb } from "@/lib/clientsApi";
+import type { Animal } from "@/types/client";
+import { useRegistryList } from "@/hooks/useRegistryList";
 
 import ConsultationClinicalForm, {
   type ConsultationMode,
@@ -43,14 +46,21 @@ import LegacyConsultationForm from "@/components/appointments/forms/LegacyConsul
 
 import AppointmentPdfContent from "@/components/AppointmentPdfContent";
 import { removeAppointmentDraft, upsertAppointmentDraft } from "@/lib/appointmentDrafts";
+import { buildConsultationContext, fetchAISuggestions } from "@/lib/aiAssistant";
+import { createPdfBlob, openPdf } from "@/lib/pdfExport";
 
 interface AppointmentFormProps {
   animalId: string;
   clientId: string;
+  clientName?: string;
+  animal?: Animal;
   initialData?: AppointmentEntry;
   onSave: (appointment: AppointmentEntry) => void;
   onCancel: () => void;
   mockAppointments: AppointmentEntry[];
+  /** Nome e espécie do animal (opcional), usados pelo assistente de IA */
+  animalName?: string;
+  animalSpecies?: string;
 }
 
 const mockVets = [
@@ -113,9 +123,7 @@ function safeParseJSON<T>(raw: string | null): T | undefined {
   }
 }
 
-function getLastKnownWeight(clientId: string, animalId: string): number | undefined {
-  const client = mockClients.find((c) => c.id === clientId);
-  const animal = client?.animals.find((a) => a.id === animalId);
+function getLastKnownWeight(animal?: Animal): number | undefined {
   if (!animal) return undefined;
 
   // Preferir histórico se existir
@@ -164,12 +172,18 @@ function isWithinPhysiologicalTemp(temp?: number | "") {
 export default function AppointmentForm({
   animalId,
   clientId,
+  clientName,
+  animal,
   initialData,
   onSave,
   onCancel,
   mockAppointments,
+  animalName,
+  animalSpecies,
 }: AppointmentFormProps) {
   const [searchParams] = useSearchParams();
+  const { list: vaccinesList } = useRegistryList("vaccines");
+  const { list: appointmentTypesList } = useRegistryList("appointmentTypes");
 
   const errClass = (has?: boolean) =>
     has ? "border-destructive focus-visible:ring-destructive focus-visible:border-destructive" : "";
@@ -184,19 +198,28 @@ export default function AppointmentForm({
     });
 
   const lastWeight = useMemo(
-    () => getLastKnownWeight(clientId, animalId),
-    [clientId, animalId]
+    () => getLastKnownWeight(animal),
+    [animal]
   );
 
   const isDraftInitial = !!initialData?.id && initialData.id.startsWith("draft-");
-  // Se está editando um atendimento existente, o rascunho fica como draft-<idReal>
-  const draftIdRef = useRef<string | null>(
-    isDraftInitial
-      ? initialData!.id
-      : initialData?.id
-        ? `draft-${initialData.id}`
-        : null
-  );
+  /** Um único id de rascunho por sessão (novo atendimento): sobrevive ao Strict Mode via sessionStorage */
+  const sessionDraftStorageKey = `systemvet:session-draft-id:${clientId}:${animalId}`;
+  const draftIdRef = useRef<string | null>(null);
+  if (draftIdRef.current === null) {
+    if (isDraftInitial) draftIdRef.current = initialData!.id;
+    else if (initialData?.id) draftIdRef.current = `draft-${initialData.id}`;
+    else if (typeof sessionStorage !== "undefined") {
+      let sid = sessionStorage.getItem(sessionDraftStorageKey);
+      if (!sid) {
+        sid = `draft-${crypto.randomUUID()}`;
+        sessionStorage.setItem(sessionDraftStorageKey, sid);
+      }
+      draftIdRef.current = sid;
+    } else {
+      draftIdRef.current = `draft-${crypto.randomUUID()}`;
+    }
+  }
 
   const [date, setDate] = useState(initialData?.date || new Date().toISOString().split("T")[0]);
   const [time, setTime] = useState(
@@ -226,6 +249,12 @@ export default function AppointmentForm({
   );
 
   const [consultationMode, setConsultationMode] = useState<ConsultationMode>("simplificado");
+
+  // Assistente de IA (consultas)
+  const [useAssistantIA, setUseAssistantIA] = useState(false);
+  const [assistantLoading, setAssistantLoading] = useState(false);
+  const [assistantResponse, setAssistantResponse] = useState<string | null>(null);
+  const [assistantError, setAssistantError] = useState<string | null>(null);
 
   // Estado de UI para "Outra" (não salva no registro)
   const [vaccineNameChoice, setVaccineNameChoice] = useState<string>("");
@@ -278,7 +307,9 @@ export default function AppointmentForm({
     const v = (details || {}) as VaccinationDetails;
     const nome = (v.tipoVacina || "").trim();
 
-    const isOption = (VACCINE_NAME_OPTIONS as readonly string[]).includes(nome);
+    const isOption =
+      (VACCINE_NAME_OPTIONS as readonly string[]).includes(nome) ||
+      vaccinesList.some((v) => v.name === nome);
     if (isOption) {
       setVaccineNameChoice(nome);
       return;
@@ -442,40 +473,40 @@ export default function AppointmentForm({
     };
   };
 
-  const upsertDraftNow = () => {
-    const draftAppointment = buildDraftAppointment();
-    // salvar somente se houver algo para preservar
-    const hasAny =
-      !!draftAppointment.type ||
-      !!draftAppointment.vet ||
-      !!draftAppointment.observacoesGerais ||
-      Object.keys((draftAppointment.details || {}) as any).length > 0;
+  const buildDraftSnapshotRef = useRef<() => AppointmentEntry>(() => buildDraftAppointment());
+  buildDraftSnapshotRef.current = () => buildDraftAppointment();
 
-    if (!hasAny) return;
-
-    upsertAppointmentDraft(clientId, animalId, {
-      id: draftAppointment.id,
-      animalId,
-      clientId,
-      updatedAtISO: new Date().toISOString(),
-      appointment: draftAppointment,
-    });
-  };
-
-  // Auto-salvar rascunho a cada 1 minuto + na desmontagem
+  // Auto-salvar rascunho a cada 1 minuto + na desmontagem real (não a cada mudança de campo)
   useEffect(() => {
-    const t = window.setInterval(() => {
+    const cid = clientId;
+    const aid = animalId;
+
+    const persistForScope = () => {
       if (suppressDraftWriteRef.current) return;
-      upsertDraftNow();
-    }, 60_000);
+      const draftAppointment = buildDraftSnapshotRef.current();
+      if (draftAppointment.animalId !== aid) return;
+      const hasAny =
+        !!draftAppointment.type ||
+        !!draftAppointment.vet ||
+        !!draftAppointment.observacoesGerais ||
+        Object.keys((draftAppointment.details || {}) as any).length > 0;
+      if (!hasAny) return;
+      upsertAppointmentDraft(cid, aid, {
+        id: draftAppointment.id,
+        animalId: aid,
+        clientId: cid,
+        updatedAtISO: new Date().toISOString(),
+        appointment: draftAppointment,
+      });
+    };
+
+    const t = window.setInterval(persistForScope, 60_000);
 
     return () => {
       window.clearInterval(t);
-      if (suppressDraftWriteRef.current) return;
-      upsertDraftNow();
+      persistForScope();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [clientId, animalId, date, time, type, vet, administrativeNote, pesoAtual, temperaturaCorporal, frequenciaCardiaca, frequenciaRespiratoria, details]);
+  }, [clientId, animalId]);
 
   const handleCancelClick = () => {
     const hasDraft = !!draftIdRef.current;
@@ -489,6 +520,10 @@ export default function AppointmentForm({
     // Evita que o autosave na desmontagem recrie/atualize o rascunho
     suppressDraftWriteRef.current = true;
 
+    if (!initialData && typeof sessionStorage !== "undefined") {
+      sessionStorage.removeItem(sessionDraftStorageKey);
+    }
+
     // Regra: ao cancelar, apagamos o rascunho automático —
     // EXCETO quando estamos editando um rascunho do histórico (ele deve permanecer).
     if (draftIdRef.current && !isDraftInitial) {
@@ -498,7 +533,29 @@ export default function AppointmentForm({
     onCancel();
   };
 
-  const handleSave = () => {
+  const handleGenerateAISuggestions = async () => {
+    setAssistantError(null);
+    setAssistantResponse(null);
+    setAssistantLoading(true);
+    try {
+      const draft = buildDraftAppointment();
+      const context = buildConsultationContext(draft, {
+        name: animalName,
+        species: animalSpecies,
+      });
+      const result = await fetchAISuggestions(context);
+      if (result.ok) {
+        setAssistantResponse(result.text);
+      } else {
+        setAssistantError(result.error);
+        toast.error(result.error);
+      }
+    } finally {
+      setAssistantLoading(false);
+    }
+  };
+
+  const handleSave = async () => {
     const nextErrors: Record<string, boolean> = {};
 
     if (!date) nextErrors.date = true;
@@ -604,13 +661,18 @@ export default function AppointmentForm({
 
     onSave(newAppointment);
 
+    if (draftId) {
+      removeAppointmentDraft(clientId, animalId, draftId);
+    }
+    if (!initialData && typeof sessionStorage !== "undefined") {
+      sessionStorage.removeItem(sessionDraftStorageKey);
+    }
+
     // Atualizar peso do animal (se informado)
     if (newAppointment.pesoAtual !== undefined) {
-      const currentClient = mockClients.find((c) => c.id === clientId);
-      const currentAnimal = currentClient?.animals.find((a) => a.id === animalId);
-      const currentWeight = (currentAnimal as any)?.weight as number | undefined;
+      const currentWeight = animal?.weight as number | undefined;
 
-      if (currentAnimal && currentWeight !== newAppointment.pesoAtual) {
+      if (animal && currentWeight !== newAppointment.pesoAtual) {
         const getWeightSourceFromAppointmentType = (t: AllowedType): string => {
           switch (t) {
             case "Vacina":
@@ -629,7 +691,7 @@ export default function AppointmentForm({
           }
         };
 
-        updateAnimalDetails(
+        const updated = await updateAnimalDetailsInDb(
           clientId,
           animalId,
           {
@@ -638,6 +700,9 @@ export default function AppointmentForm({
           },
           { date, time }
         );
+        if (!updated) {
+          toast.error("Atendimento salvo, mas não foi possível atualizar o peso do animal no banco.");
+        }
       }
     }
   };
@@ -681,25 +746,25 @@ export default function AppointmentForm({
       details: detailsForPdf,
     };
 
-    const client = mockClients.find((c) => c.id === clientId);
-    const animal = client?.animals.find((a) => a.id === animalId);
-
-    if (!client || !animal) {
+    if (!clientName || !animal) {
       toast.error("Cliente/animal não encontrados para gerar PDF.");
       return;
     }
 
-    const blob = await pdf(
+    const blob = await createPdfBlob(
       <AppointmentPdfContent
         appointment={appointmentForPdf}
-        clientName={client.name}
+        clientName={clientName}
         animalName={animal.name}
         animalSpecies={animal.species}
       />
-    ).toBlob();
+    );
 
-    const url = URL.createObjectURL(blob);
-    window.open(url, "_blank");
+    await openPdf({
+      blob,
+      fileName: `atendimento_${animal.name}_${date}.pdf`,
+      persistOptions: { folder: "appointments" },
+    });
   };
 
   const renderTypeSpecific = () => {
@@ -824,14 +889,11 @@ export default function AppointmentForm({
                   <Label htmlFor="peso">Peso (kg)</Label>
                   <div className="relative">
                     <Weight className="absolute left-3 top-2.5 h-4 w-4 text-amber-700/80" />
-                    <Input
+                    <WeightInput
                       id="peso"
-                      type="number"
-                      step="0.1"
-                      inputMode="decimal"
                       placeholder="Peso atual"
                       value={pesoAtual}
-                      onChange={(e) => setPesoAtual(e.target.value === "" ? "" : Number(e.target.value))}
+                      onChange={(v) => setPesoAtual(v)}
                       className="pl-9 bg-white border-amber-200 focus-visible:ring-amber-300"
                     />
                   </div>
@@ -889,6 +951,13 @@ export default function AppointmentForm({
                         {x}
                       </SelectItem>
                     ))}
+                    {vaccinesList
+                      .filter((v) => !(VACCINE_NAME_OPTIONS as readonly string[]).includes(v.name))
+                      .map((v) => (
+                        <SelectItem key={v.id} value={v.name}>
+                          {v.name}
+                        </SelectItem>
+                      ))}
                   </SelectContent>
                 </Select>
 
@@ -1108,11 +1177,9 @@ export default function AppointmentForm({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label>Peso (kg)</Label>
-            <Input
-              type="number"
-              step="0.1"
+            <WeightInput
               value={pesoAtual}
-              onChange={(e) => setPesoAtual(e.target.value === "" ? "" : Number(e.target.value))}
+              onChange={(v) => setPesoAtual(v)}
             />
           </div>
           <div className="space-y-2">
@@ -1237,8 +1304,14 @@ export default function AppointmentForm({
                           : t}
                   </SelectItem>
                 ))}
-
-                {!!type && !isPrimaryType(type) && (
+                {appointmentTypesList
+                  .filter((item) => !(PRIMARY_TYPES as string[]).includes(item.name))
+                  .map((item) => (
+                    <SelectItem key={item.id} value={item.name}>
+                      {item.name}
+                    </SelectItem>
+                  ))}
+                {!!type && !isPrimaryType(type) && !appointmentTypesList.some((item) => item.name === type) && (
                   <SelectItem value={type}>{`${type} (legado)`}</SelectItem>
                 )}
               </SelectContent>
@@ -1277,8 +1350,70 @@ export default function AppointmentForm({
               maxLength={160}
             />
           </div>
+
+          <div className="flex items-center justify-between gap-4 md:col-span-2 pt-2 border-t border-border/60">
+            <div className="flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-primary" />
+              <Label htmlFor="useAssistantIA" className="cursor-pointer">
+                Usar assistente IA
+              </Label>
+            </div>
+            <Switch
+              id="useAssistantIA"
+              checked={useAssistantIA}
+              onCheckedChange={setUseAssistantIA}
+            />
+          </div>
         </CardContent>
       </Card>
+
+      {/* Assistente IA (visível quando ativado e há tipo de atendimento) */}
+      {type && useAssistantIA && (
+        <Card className="premium-card rounded-xl border-primary/20 bg-primary/5">
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-primary" />
+              Assistente IA
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Com base na queixa, anamnese e exame já preenchidos, o assistente pode sugerir perguntas ao tutor,
+              hipóteses diagnósticas, exames e condutas. Valide sempre as sugestões com seu julgamento clínico.
+            </p>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={handleGenerateAISuggestions}
+              disabled={assistantLoading}
+            >
+              {assistantLoading ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Gerando sugestões...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="h-4 w-4 mr-2" />
+                  Gerar sugestões
+                </>
+              )}
+            </Button>
+            {assistantError && (
+              <div className="rounded-lg border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                {assistantError}
+              </div>
+            )}
+            {assistantResponse && (
+              <div className="rounded-lg border border-border bg-muted/30 p-4">
+                <pre className="text-sm whitespace-pre-wrap font-sans text-foreground">
+                  {assistantResponse}
+                </pre>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Formulário dinâmico */}
       {type ? (

@@ -1,124 +1,150 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { FaArrowLeft, FaPlus, FaEdit, FaTrashAlt, FaPaw } from "react-icons/fa"; // Importar ícones de react-icons
-import { Link } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
+import { toast } from "sonner";
+import { PawPrint, Plus, Trash2, Bird, Fish, Rabbit, Cat, Dog, Turtle } from "lucide-react";
+import { useRegistryList } from "@/hooks/useRegistryList";
+import { addRegistryItem, removeRegistryItem } from "@/lib/registryApi";
+import { PageHeader } from "@/components/saas/PageHeader";
+import { PageShell } from "@/components/saas/PageShell";
+import { SectionCard } from "@/components/saas/SectionCard";
 
-interface Species {
-  id: string;
-  name: string;
-}
+const SpeciesPage: React.FC = () => {
+  const { list: species, loading, error, refetch } = useRegistryList("species");
+  const [newName, setNewName] = useState("");
 
-const mockSpecies: Species[] = [
-  { id: "1", name: "Cachorro" },
-  { id: "2", name: "Gato" },
-  { id: "3", name: "Pássaro" },
-  { id: "4", name: "Roedor" },
-];
+  const speciesVisuals = useMemo(
+    () => [
+      { chip: "bg-emerald-100 text-emerald-700", card: "border-emerald-200/70 bg-emerald-50/30" },
+      { chip: "bg-blue-100 text-blue-700", card: "border-blue-200/70 bg-blue-50/30" },
+      { chip: "bg-violet-100 text-violet-700", card: "border-violet-200/70 bg-violet-50/30" },
+      { chip: "bg-amber-100 text-amber-700", card: "border-amber-200/70 bg-amber-50/30" },
+      { chip: "bg-pink-100 text-pink-700", card: "border-pink-200/70 bg-pink-50/30" },
+    ],
+    []
+  );
 
-const SpeciesPage = () => {
-  const [speciesList, setSpeciesList] = useState<Species[]>(mockSpecies);
-  const [newSpeciesName, setNewSpeciesName] = useState("");
-
-  const handleAddSpecies = () => {
-    if (newSpeciesName.trim()) {
-      const newSpecies: Species = {
-        id: String(speciesList.length + 1),
-        name: newSpeciesName.trim(),
-      };
-      setSpeciesList([...speciesList, newSpecies]);
-      setNewSpeciesName("");
-    }
+  const resolveIcon = (name: string) => {
+    const n = name.toLowerCase();
+    if (n.includes("can")) return Dog;
+    if (n.includes("gat") || n.includes("fel")) return Cat;
+    if (n.includes("ave") || n.includes("páss") || n.includes("pass")) return Bird;
+    if (n.includes("roed") || n.includes("coelh")) return Rabbit;
+    if (n.includes("peix")) return Fish;
+    if (n.includes("répt") || n.includes("rept")) return Turtle;
+    return PawPrint;
   };
 
-  const handleDeleteSpecies = (id: string) => {
-    setSpeciesList(speciesList.filter(species => species.id !== id));
+  const handleAdd = async () => {
+    const name = newName.trim();
+    if (!name) return;
+    const created = await addRegistryItem("species", { name });
+    if (!created) {
+      toast.error("Falha ao adicionar espécie.");
+      return;
+    }
+    setNewName("");
+    toast.success("Espécie adicionada.");
+    await refetch();
+  };
+
+  const handleRemove = async (id: string) => {
+    const ok = await removeRegistryItem("species", id);
+    if (!ok) {
+      toast.error("Falha ao remover espécie.");
+      return;
+    }
+    toast.success("Espécie removida.");
+    await refetch();
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-background">
-      {/* Header da Página com Gradiente e Breadcrumb */}
-      <div className="bg-gradient-to-r from-background via-card to-background p-6 pb-4 border-b border-border">
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-4">
-            <div>
-              <h1 className="text-2xl font-semibold flex items-center gap-3 text-foreground group">
-                <FaPaw className="h-5 w-5 text-muted-foreground" /> Cadastro de Espécies
-              </h1>
-              <p className="text-sm text-muted-foreground mt-1 mb-4">
-                Gerencie as espécies de animais atendidos pela clínica.
-              </p>
-            </div>
-          </div>
-          <Link to="/">
-            <Button variant="outline" className="rounded-md border-border text-foreground hover:bg-muted hover:text-foreground transition-colors duration-200">
-              <FaArrowLeft className="mr-2 h-4 w-4" /> Voltar
-            </Button>
-          </Link>
-        </div>
-        <p className="text-sm text-muted-foreground">
-          Painel &gt; Cadastros &gt; Espécies
-        </p>
-      </div>
+    <PageShell>
+      <PageHeader
+        title="Cadastro de Espécies"
+        description="Estruture os grupos principais de animais atendidos."
+        icon={PawPrint}
+        module="registry"
+        breadcrumb={<>Painel &gt; Cadastros &gt; Espécies</>}
+        actions={<Badge variant="secondary">{species.length} espécie(s)</Badge>}
+      />
 
-      <div className="flex-1 p-6">
-        <Card className="shadow-sm hover:shadow-md transition-all duration-300 border-border rounded-md">
-          <CardHeader className="flex flex-row items-center justify-between pb-3">
-            <CardTitle className="flex items-center gap-2 text-lg font-semibold text-foreground">
-              <FaPaw className="h-5 w-5 text-primary" /> Lista de Espécies
-            </CardTitle>
-            <div className="flex gap-2">
-              <Input
-                placeholder="Nova espécie"
-                className="max-w-xs bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200"
-                value={newSpeciesName}
-                onChange={(e) => setNewSpeciesName(e.target.value)}
-              />
-              <Button onClick={handleAddSpecies} className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-md font-semibold transition-all duration-200 shadow-md hover:shadow-lg">
-                <FaPlus className="mr-2 h-4 w-4" /> Adicionar
-              </Button>
-            </div>
+      <SectionCard
+        title="Espécies"
+        description="Cadastro rápido e visualização compacta das espécies em um único painel."
+        icon={PawPrint}
+        tone="registry"
+      >
+        <Card className="vf-surface-card card-hover border-border/80">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base text-foreground">Cadastro rápido</CardTitle>
           </CardHeader>
-          <CardContent className="pt-0">
-            <div className="overflow-hidden">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Nome</TableHead>
-                    <TableHead className="text-right">Ações</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {speciesList.map((species, index) => (
-                    <TableRow key={species.id} className={cn(index % 2 === 1 && "bg-muted/50")}>
-                      <TableCell className="font-medium">{species.name}</TableCell>
-                      <TableCell className="text-right">
-                        <Button variant="ghost" size="sm" className="mr-2 rounded-md hover:bg-muted hover:text-foreground transition-colors duration-200">
-                          <FaEdit className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="sm" onClick={() => handleDeleteSpecies(species.id)} className="rounded-md hover:bg-muted hover:text-foreground transition-colors duration-200">
-                          <FaTrashAlt className="h-4 w-4" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                  {speciesList.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={2} className="text-center text-muted-foreground py-4">
-                        Nenhuma espécie cadastrada.
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
+          <CardContent className="space-y-4">
+            <div className="flex flex-wrap items-center gap-2">
+              <Input
+                placeholder="Ex.: Canino"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                className="max-w-md bg-input"
+              />
+              <Button onClick={handleAdd} className="bg-[hsl(var(--vf-registry))] text-white shadow-sm hover:bg-[hsl(var(--vf-registry)/0.9)]">
+                <Plus className="mr-2 h-4 w-4" />
+                Adicionar
+              </Button>
+              <Badge className="bg-[hsl(var(--vf-registry))]/15 text-vf-registry">{species.length} cadastrada(s)</Badge>
             </div>
+
+            {error && (
+              <div className="rounded-lg border border-destructive/25 bg-destructive/10 p-3">
+                <p className="text-sm font-medium text-destructive">Erro ao carregar espécies</p>
+                <p className="mt-1 text-xs text-muted-foreground">{error}</p>
+              </div>
+            )}
+
+            {loading ? (
+              <p className="py-2 text-sm text-muted-foreground">Carregando...</p>
+            ) : species.length === 0 && !error ? (
+              <p className="py-2 text-sm text-muted-foreground">Nenhuma espécie cadastrada.</p>
+            ) : (
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                {species.map((s, idx) => {
+                  const iconFromDb = (s as { icon?: string; iconUrl?: string }).icon;
+                  const iconUrlFromDb = (s as { icon?: string; iconUrl?: string }).iconUrl;
+                  const Icon = resolveIcon(s.name);
+                  const visual = speciesVisuals[idx % speciesVisuals.length];
+                  return (
+                    <div
+                      key={s.id}
+                      className={`flex items-center justify-between rounded-xl border px-3 py-2 ${visual.card}`}
+                    >
+                      <div className="flex min-w-0 items-center gap-2">
+                        <span className={`flex h-8 w-8 items-center justify-center rounded-lg ${visual.chip}`}>
+                          {iconUrlFromDb ? (
+                            <img src={iconUrlFromDb} alt={s.name} className="h-4 w-4 object-contain" />
+                          ) : iconFromDb && iconFromDb.length <= 2 ? (
+                            <span className="text-xs font-bold">{iconFromDb}</span>
+                          ) : Icon === PawPrint ? (
+                            <span className="text-xs font-bold">{s.name.charAt(0).toUpperCase()}</span>
+                          ) : (
+                            <Icon className="h-4 w-4" />
+                          )}
+                        </span>
+                        <span className="truncate text-sm font-medium">{s.name}</span>
+                      </div>
+                      <Button variant="ghost" size="sm" onClick={() => void handleRemove(s.id)} className="text-destructive hover:bg-destructive/10">
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </CardContent>
         </Card>
-      </div>
-    </div>
+      </SectionCard>
+    </PageShell>
   );
 };
 

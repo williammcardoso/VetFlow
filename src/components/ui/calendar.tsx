@@ -56,6 +56,10 @@ function Calendar({
         IconLeft: ({ ...props }) => <FaArrowLeft className="h-4 w-4" />,
         IconRight: ({ ...props }) => <FaArrowRight className="h-4 w-4" />,
       }}
+      labels={{
+        labelPrevious: () => "Mês anterior",
+        labelNext: () => "Próximo mês",
+      }}
       locale={ptBR} // Definir o locale para português do Brasil
       {...props}
     />

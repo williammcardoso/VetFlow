@@ -28,6 +28,7 @@ type DbClient = {
 
 type DbAnimal = {
   id: string;
+  patient_code?: number | null;
   client_id: string;
   name: string;
   species?: string | null;
@@ -48,6 +49,7 @@ type DbAnimal = {
 function mapDbAnimalToAnimal(a: DbAnimal): Animal {
   return {
     id: a.id,
+    patientCode: a.patient_code ?? undefined,
     name: a.name,
     species: a.species || "",
     breed: a.breed || "",
@@ -109,7 +111,7 @@ export async function readClients(): Promise<Client[]> {
 
   const { data: animalsData, error: animalsError } = await supabase
     .from("animals")
-    .select("id, client_id, name, species, breed, gender, birthday, coat_color, weight, microchip, notes, status, last_consultation_date, total_procedures, total_value, last_weight_source");
+    .select("id, patient_code, client_id, name, species, breed, gender, birthday, coat_color, weight, microchip, notes, status, last_consultation_date, total_procedures, total_value, last_weight_source");
   if (animalsError) {
     console.error("[readClients] animals fetch error", animalsError);
   }
@@ -143,7 +145,7 @@ export async function getClientById(clientId: string): Promise<Client | null> {
 
   const { data: animalsRows, error: animalsError } = await supabase
     .from("animals")
-    .select("id, client_id, name, species, breed, gender, birthday, coat_color, weight, microchip, notes, status, last_consultation_date, total_procedures, total_value, last_weight_source")
+    .select("id, patient_code, client_id, name, species, breed, gender, birthday, coat_color, weight, microchip, notes, status, last_consultation_date, total_procedures, total_value, last_weight_source")
     .eq("client_id", clientId);
   if (animalsError) {
     console.error("[getClientById] animals fetch error", animalsError);

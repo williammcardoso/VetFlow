@@ -194,7 +194,7 @@ const PrescriptionMedicationForm: React.FC<PrescriptionMedicationFormProps> = ({
               <span
                 className={cn(
                   "ml-2 px-2 py-0.5 text-xs font-medium rounded-full",
-                  medication.pharmacyType.includes("Veterin") ? "bg-emerald-100 text-emerald-800" : "bg-indigo-100 text-indigo-800"
+                  medication.pharmacyType.includes("Veterin") ? "bg-emerald-100 text-emerald-800" : "bg-[hsl(var(--vf-clinical))]/15 text-vf-clinical"
                 )}
               >
                 {medication.pharmacyType.includes("Veterin") ? "Veterinária" : "Humana"}

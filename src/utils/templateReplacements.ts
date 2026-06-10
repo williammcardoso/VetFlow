@@ -1,8 +1,15 @@
 import { Client, Animal } from "@/types/client";
-import { mockUserSettings, mockCompanySettings } from "@/mockData/settings";
+import { mockCompanySettings } from "@/mockData/settings";
+import { getCachedUserProfile, type UserProfile } from "@/lib/authApi";
 
-export function replaceTemplateVariables(content: string, pet?: Animal, client?: Client): string {
+export function replaceTemplateVariables(
+  content: string,
+  pet?: Animal,
+  client?: Client,
+  userProfile?: UserProfile | null
+): string {
   if (!content) return content;
+  const resolvedProfile = userProfile ?? getCachedUserProfile();
   const now = new Date();
   const today = now.toLocaleDateString("pt-BR");
   const dataAbrev = now.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit" });
@@ -10,7 +17,7 @@ export function replaceTemplateVariables(content: string, pet?: Animal, client?:
   const ano = String(now.getFullYear());
   const mes = String(now.getMonth() + 1);
   const dia = String(now.getDate());
-  const vetCrmv = mockUserSettings.userCrmv || "";
+  const vetCrmv = resolvedProfile?.crmv || "";
   const [vetState = "SP", vetNumber = ""] = vetCrmv.split("/").map((s) => s.trim());
   const address = client?.address;
   const tutorEndereco = address
@@ -89,7 +96,9 @@ export function replaceTemplateVariables(content: string, pet?: Animal, client?:
     "{{validade}}": "10",
     "{{vet_crmv}}": vetNumber || vetCrmv,
     "{{vet_estado}}": vetState,
-    "{{vet_nome}}": mockUserSettings.userName ?? "_________________________",
+    "{{vet_mapa}}": resolvedProfile?.mapa_registration || "",
+    "{{vet_assinatura}}": resolvedProfile?.signature_text || resolvedProfile?.full_name || "",
+    "{{vet_nome}}": resolvedProfile?.full_name || resolvedProfile?.signature_text || "_________________________",
   };
 
   let result = content;

@@ -1,10 +1,14 @@
 import React from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { Globe, Link2, Save } from "lucide-react";
+import { PageHeader } from "@/components/saas/PageHeader";
+import { PageShell } from "@/components/saas/PageShell";
+import { SectionCard } from "@/components/saas/SectionCard";
+import { ToolbarRow } from "@/components/saas/ToolbarRow";
 
 const ExternalAccessPage: React.FC = () => {
   const [enabled, setEnabled] = React.useState<boolean>(() => {
@@ -20,29 +24,46 @@ const ExternalAccessPage: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-background p-4 sm:p-6">
-      <div className="mb-3">
-        <h1 className="text-xl sm:text-2xl font-semibold">Acesso Externo</h1>
-        <p className="text-xs sm:text-sm text-muted-foreground">Habilite portal para tutores e compartilhamento de documentos.</p>
-      </div>
+    <PageShell>
+      <PageHeader
+        title="Acesso Externo"
+        description="Habilite portal para tutores e compartilhamento de documentos."
+        icon={Globe}
+        module="settings"
+        breadcrumb={<>Painel &gt; Configurações &gt; Acesso Externo</>}
+      />
 
-      <Card className="border border-border">
-        <CardHeader className="pb-2"><CardTitle className="text-base">Configuração</CardTitle></CardHeader>
-        <CardContent className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+      <SectionCard
+        title="Configuração do portal"
+        description="Ative acesso remoto e informe o endpoint oficial da clínica."
+        icon={Link2}
+        tone="settings"
+      >
+        <ToolbarRow className="grid grid-cols-1 gap-3 sm:grid-cols-4">
           <div className="flex items-center gap-2">
             <Switch checked={enabled} onCheckedChange={setEnabled} />
             <Label className="text-sm">Habilitar portal externo</Label>
           </div>
           <div className="sm:col-span-3">
             <Label className="text-xs">URL do portal</Label>
-            <Input value={portalUrl} onChange={(e) => setPortalUrl(e.target.value)} className="h-8 text-sm bg-input" placeholder="https://portal.sua-clinica.com" />
+            <Input value={portalUrl} onChange={(e) => setPortalUrl(e.target.value)} className="vf-toolbar-control bg-input" placeholder="https://portal.sua-clinica.com" />
           </div>
-          <div className="sm:col-span-4 flex justify-end">
-            <Button onClick={handleSave} className="h-9 px-4">Salvar</Button>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
+        </ToolbarRow>
+      </SectionCard>
+
+      <SectionCard
+        title="Persistência das preferências"
+        description="As alterações são gravadas localmente no navegador."
+        icon={Save}
+        tone="settings"
+      >
+        <div className="flex justify-end">
+          <Button onClick={handleSave} className="h-9 bg-[hsl(var(--vf-settings))] px-4 text-white hover:bg-[hsl(var(--vf-settings)/0.9)]">
+            Salvar
+          </Button>
+        </div>
+      </SectionCard>
+    </PageShell>
   );
 };
 

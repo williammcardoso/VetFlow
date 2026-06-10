@@ -17,4 +17,18 @@ export default defineConfig(() => ({
   optimizeDeps: {
     exclude: ["lucide-react", "react-icons"], // Excluir lucide-react e react-icons da otimização de dependências
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes("node_modules")) {
+            if (id.includes("@tiptap")) return "vendor-tiptap";
+            if (id.includes("@supabase")) return "vendor-supabase";
+            if (id.includes("react-pdf") || id.includes("@react-pdf")) return "vendor-pdf";
+            return "vendor";
+          }
+        },
+      },
+    },
+  },
 }));

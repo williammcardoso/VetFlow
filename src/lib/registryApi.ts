@@ -10,8 +10,7 @@ export async function getRegistryList(key: RegistryKeySimple): Promise<RegistryI
     .eq("key", key)
     .order("name", { ascending: true });
   if (error) {
-    console.error("[getRegistryList] error", error);
-    return [];
+    throw new Error(`Falha ao carregar cadastros (${key}): ${error.message}`);
   }
   return (data || []).map((row: { id: string; name: string; extra?: Record<string, unknown> }) => ({
     id: row.id,

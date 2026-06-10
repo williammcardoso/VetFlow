@@ -1,43 +1,50 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { FaArrowLeft, FaQuestionCircle, FaBook } from "react-icons/fa";
+import { BookOpen, HelpCircle, ArrowLeft, LifeBuoy } from "lucide-react";
+import { PageHeader } from "@/components/saas/PageHeader";
+import { PageShell } from "@/components/saas/PageShell";
+import { SectionCard } from "@/components/saas/SectionCard";
 
 const HelpPage = () => {
   return (
-    <div className="flex flex-col min-h-screen bg-background">
-      <div className="bg-gradient-to-r from-background via-card to-background p-6 pb-4 border-b border-border">
-        <div className="flex items-center justify-between mb-2">
-          <h1 className="text-2xl font-semibold flex items-center gap-3 text-foreground">
-            <FaQuestionCircle className="h-5 w-5 text-primary" /> Ajuda
-          </h1>
-          <Link to="/dashboard">
-            <Button variant="outline" className="rounded-md border-border text-foreground hover:bg-muted hover:text-foreground transition-colors duration-200">
-              <FaArrowLeft className="mr-2 h-4 w-4" /> Voltar
-            </Button>
-          </Link>
-        </div>
-        <p className="text-sm text-muted-foreground">Painel &gt; Ajuda</p>
-      </div>
+    <PageShell>
+      <PageHeader
+        title="Ajuda"
+        description="Documentação rápida do VetFlow e canais de suporte."
+        icon={HelpCircle}
+        module="settings"
+        breadcrumb={<>Painel &gt; Ajuda</>}
+        actions={
+          <Button asChild variant="outline" className="h-9">
+            <Link to="/dashboard">
+              <ArrowLeft className="mr-2 h-4 w-4" /> Voltar
+            </Link>
+          </Button>
+        }
+      />
 
-      <div className="flex-1 p-6 max-w-3xl mx-auto w-full">
-        <Card className="border border-border shadow-sm">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <FaBook className="h-5 w-5 text-primary" /> VetFlow – Gestão veterinária
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4 text-muted-foreground">
-            <p>
-              Use o menu lateral para acessar Clientes, Agenda, Vendas, Cadastros, Estoque, Financeiro e Configurações.
-            </p>
-            <p>
-              Para suporte ou documentação detalhada, entre em contato com o administrador do sistema.
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-    </div>
+      <SectionCard
+        title="Guia de navegação"
+        description="Resumo dos principais fluxos disponíveis no sistema."
+        icon={BookOpen}
+        tone="settings"
+      >
+        <p className="text-sm text-muted-foreground">
+          Use o menu lateral para acessar Clientes, Agenda, Vendas, Cadastros, Estoque, Financeiro e Configurações.
+        </p>
+      </SectionCard>
+
+      <SectionCard
+        title="Suporte"
+        description="Canais para dúvidas e assistência operacional."
+        icon={LifeBuoy}
+        tone="settings"
+      >
+        <p className="text-sm text-muted-foreground">
+          Para suporte ou documentação detalhada, entre em contato com o administrador do sistema.
+        </p>
+      </SectionCard>
+    </PageShell>
   );
 };
 

@@ -3,12 +3,18 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { FaArrowLeft, FaPlus, FaTimes, FaSave, FaPaw, FaEdit } from "react-icons/fa"; // Importar ícones de react-icons
-import React, { useState, useEffect } from "react";
+import { FaArrowLeft, FaPlus, FaTimes, FaSave } from "@/components/icons/fa";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom"; // Importar useParams e useSearchParams
 import { toast } from "sonner";
-import { mockClients, addMockAnimalToClient, updateMockClient } from "@/mockData/clients"; // Importar o mock de clientes centralizado e a função para adicionar animal
 import { Animal, Client } from "@/types/client"; // Importar as interfaces Animal e Client
+import { useClientWithAnimals, useClientsList } from "@/hooks/useSupabaseClients";
+import { useRegistryList } from "@/hooks/useRegistryList";
+import { addAnimalToClient, updateAnimalDetails } from "@/lib/clientsApi";
+import { useQueryClient } from "@tanstack/react-query";
+import { PageShell } from "@/components/saas/PageShell";
+import { PageHeader } from "@/components/saas/PageHeader";
+import { PawPrint } from "lucide-react";
 
 // Mock data for species
 const mockSpecies = [
@@ -84,28 +90,15 @@ const mockBreeds = [
   { id: "r5", name: "Rato Twister", speciesId: "4" },
 ];
 
-// Mock data for coat types (sorted alphabetically)
-const mockCoatTypesBase = [
-  { id: "ct5", name: "Amarelo" },
-  { id: "ct9", name: "Bicolor (Duas cores)" },
-  { id: "ct2", name: "Branco" },
-  { id: "ct4", name: "Caramelo (Dourado/Fulvo)" },
-  { id: "ct6", name: "Cinza (Azul/Prata)" },
-  { id: "ct7", name: "Creme (Bege)" },
-  { id: "ct8", name: "Laranja (Vermelho)" },
-  { id: "ct12", name: "Malhado (Com manchas)" },
-  { id: "ct3", name: "Marrom (Chocolate)" },
-  { id: "ct1", name: "Preto" },
-  { id: "ct11", name: "Tigrado (Listrado)" },
-  { id: "ct10", name: "Tricolor (Três cores)" },
-];
-
 const AddAnimalPage = () => {
   const navigate = useNavigate();
   const { clientId, animalId } = useParams<{ clientId?: string; animalId?: string }>(); // Obter clientId e animalId da URL
   const isEditing = !!animalId; // Determinar se está em modo de edição
   const [searchParams] = useSearchParams();
   const initialClientIdFromParams = searchParams.get('clientId');
+  const queryClient = useQueryClient();
+  const { data: clientsData, isLoading: isClientsLoading, isError: isClientsError, error: clientsError } = useClientsList();
+  const { list: coatTypesFromDb } = useRegistryList("coatTypes");
 
   const [selectedTutorId, setSelectedTutorId] = useState<string | undefined>(initialClientIdFromParams || clientId || undefined);
   const [animalName, setAnimalName] = useState("");
@@ -120,57 +113,73 @@ const AddAnimalPage = () => {
   const [weight, setWeight] = useState<number | ''>('');
   const [microchip, setMicrochip] = useState("");
   const [notes, setNotes] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+  const isFirstSpeciesSync = useRef(true);
+  const coatTypesBase = useMemo(
+    () => coatTypesFromDb.map((c) => ({ id: c.id, name: c.name })),
+    [coatTypesFromDb]
+  );
+
+  const { data: clientData, isLoading: isClientLoading, isError: isClientError, error: clientError } =
+    useClientWithAnimals(isEditing ? clientId : selectedTutorId);
 
   // Carregar dados do animal se estiver em modo de edição
   useEffect(() => {
-    if (isEditing && clientId && animalId) {
-      const clientToEdit = mockClients.find(c => c.id === clientId);
-      const animalToEdit = clientToEdit?.animals.find(a => a.id === animalId);
-
-      if (animalToEdit) {
-        setAnimalName(animalToEdit.name);
-        // Encontrar o ID da espécie correspondente ou definir como 'other'
-        const speciesFound = mockSpecies.find(s => s.name === animalToEdit.species);
-        if (speciesFound) {
-          setSelectedSpecies(speciesFound.id);
-          setCustomSpeciesName("");
-        } else {
-          setSelectedSpecies("other");
-          setCustomSpeciesName(animalToEdit.species);
-        }
-
-        // Encontrar o ID da raça correspondente ou definir como 'other'
-        const breedFound = mockBreeds.find(b => b.name === animalToEdit.breed && b.speciesId === speciesFound?.id);
-        if (breedFound) {
-          setSelectedBreed(breedFound.id);
-          setCustomBreedName("");
-        } else {
-          setSelectedBreed(`other-${speciesFound?.id || 'other'}`); // Usar um ID genérico para 'other'
-          setCustomBreedName(animalToEdit.breed);
-        }
-
-        setGender(animalToEdit.gender);
-        setBirthday(animalToEdit.birthday);
-
-        // Encontrar o ID da cor da pelagem correspondente ou definir como 'other-color'
-        const coatColorFound = mockCoatTypesBase.find(c => c.name === animalToEdit.coatColor);
-        if (coatColorFound) {
-          setSelectedCoatColor(coatColorFound.id);
-          setCustomCoatColorName("");
-        } else {
-          setSelectedCoatColor("other-color");
-          setCustomCoatColorName(animalToEdit.coatColor);
-        }
-
-        setWeight(animalToEdit.weight);
-        setMicrochip(animalToEdit.microchip);
-        setNotes(animalToEdit.notes);
-      } else {
-        toast.error("Animal não encontrado para edição.");
-        navigate(`/clients/${clientId}/animals/${animalId}/record`);
-      }
+    if (!isEditing || !clientId || !animalId) return;
+    if (isClientLoading) return;
+    if (isClientError) {
+      toast.error(
+        `Erro ao carregar animal do banco: ${clientError instanceof Error ? clientError.message : "erro desconhecido"}.`
+      );
+      navigate(`/clients/${clientId}`);
+      return;
     }
-  }, [isEditing, clientId, animalId, navigate]);
+
+    const animalToEdit = clientData?.animals.find((a) => a.id === animalId);
+    if (!animalToEdit) {
+      toast.error("Animal não encontrado para edição.");
+      navigate(`/clients/${clientId}`);
+      return;
+    }
+
+    setAnimalName(animalToEdit.name);
+    // Encontrar o ID da espécie correspondente ou definir como 'other'
+    const speciesFound = mockSpecies.find((s) => s.name === animalToEdit.species);
+    if (speciesFound) {
+      setSelectedSpecies(speciesFound.id);
+      setCustomSpeciesName("");
+    } else {
+      setSelectedSpecies("other");
+      setCustomSpeciesName(animalToEdit.species);
+    }
+
+    // Encontrar o ID da raça correspondente ou definir como 'other'
+    const breedFound = mockBreeds.find((b) => b.name === animalToEdit.breed && b.speciesId === speciesFound?.id);
+    if (breedFound) {
+      setSelectedBreed(breedFound.id);
+      setCustomBreedName("");
+    } else {
+      setSelectedBreed(`other-${speciesFound?.id || "other"}`);
+      setCustomBreedName(animalToEdit.breed);
+    }
+
+    setGender(animalToEdit.gender);
+    setBirthday(animalToEdit.birthday);
+
+    // Encontrar o ID da cor da pelagem correspondente ou definir como 'other-color'
+    const coatColorFound = coatTypesBase.find((c) => c.name === animalToEdit.coatColor);
+    if (coatColorFound) {
+      setSelectedCoatColor(coatColorFound.id);
+      setCustomCoatColorName("");
+    } else {
+      setSelectedCoatColor("other-color");
+      setCustomCoatColorName(animalToEdit.coatColor);
+    }
+
+    setWeight(animalToEdit.weight);
+    setMicrochip(animalToEdit.microchip);
+    setNotes(animalToEdit.notes);
+  }, [isEditing, clientId, animalId, isClientLoading, isClientError, clientError, clientData, navigate]);
 
 
   // Filter breeds based on selected species and sort them
@@ -200,18 +209,19 @@ const AddAnimalPage = () => {
 
   // Prepare coat color options with "Outra Cor" at the end
   const getCoatColorOptions = () => {
-    const sortedColors = [...mockCoatTypesBase].sort((a, b) => a.name.localeCompare(b.name));
+    const sortedColors = [...coatTypesBase].sort((a, b) => a.name.localeCompare(b.name));
     return [...sortedColors, { id: "other-color", name: "Outra Cor" }];
   };
 
   // Reset breed and custom breed when species changes
   useEffect(() => {
-    // Only reset if not in editing mode or if the species is actually changing
-    if (!isEditing || (isEditing && selectedSpecies !== (mockSpecies.find(s => s.name === (mockClients.find(c => c.id === clientId)?.animals.find(a => a.id === animalId)?.species))?.id || "other"))) {
-      setSelectedBreed(undefined);
-      setCustomBreedName("");
+    if (isFirstSpeciesSync.current) {
+      isFirstSpeciesSync.current = false;
+      return;
     }
-  }, [selectedSpecies, isEditing, clientId, animalId]);
+    setSelectedBreed(undefined);
+    setCustomBreedName("");
+  }, [selectedSpecies]);
 
   // Reset custom species name if "Outro" is deselected
   useEffect(() => {
@@ -235,7 +245,13 @@ const AddAnimalPage = () => {
   }, [selectedCoatColor]);
 
 
-  const handleSaveAnimal = () => {
+  const invalidateAnimalQueries = async (targetClientId: string) => {
+    await queryClient.invalidateQueries({ queryKey: ["clients-with-animals"] });
+    await queryClient.invalidateQueries({ queryKey: ["client-with-animals", targetClientId] });
+  };
+
+  const handleSaveAnimal = async () => {
+    if (isSaving) return;
     // Determine final species name
     const finalSpeciesName = selectedSpecies === "other"
       ? customSpeciesName.trim()
@@ -249,7 +265,7 @@ const AddAnimalPage = () => {
     // Determine final coat color name
     const finalCoatColorName = selectedCoatColor === "other-color"
       ? customCoatColorName.trim()
-      : mockCoatTypesBase.find(c => c.id === selectedCoatColor)?.name || '';
+      : coatTypesBase.find(c => c.id === selectedCoatColor)?.name || '';
 
     // Basic validation
     if (!selectedTutorId || !animalName.trim() || !finalSpeciesName || !gender || !birthday || weight === '') {
@@ -283,29 +299,35 @@ const AddAnimalPage = () => {
       status: 'Ativo', // Default status
     };
 
-    if (isEditing && clientId && animalId) {
-      const clientIndex = mockClients.findIndex(c => c.id === clientId);
-      if (clientIndex !== -1) {
-        const animalIndex = mockClients[clientIndex].animals.findIndex(a => a.id === animalId);
-        if (animalIndex !== -1) {
-          mockClients[clientIndex].animals[animalIndex] = { ...mockClients[clientIndex].animals[animalIndex], ...animalData };
-          toast.success(`Animal ${animalData.name} atualizado com sucesso!`);
-          navigate(`/clients/${clientId}/animals/${animalId}/record`);
-        } else {
-          toast.error("Erro ao atualizar animal. Animal não encontrado.");
+    setIsSaving(true);
+    try {
+      if (isEditing && clientId && animalId) {
+        const updated = await updateAnimalDetails(clientId, animalId, animalData);
+        if (!updated) {
+          toast.error("Erro ao atualizar animal no banco.");
+          return;
         }
-      } else {
-        toast.error("Erro ao atualizar animal. Cliente não encontrado.");
+        await invalidateAnimalQueries(clientId);
+        toast.success(`Animal ${animalData.name} atualizado com sucesso!`);
+        navigate(`/clients/${clientId}/animals/${animalId}/record`);
+        return;
       }
-    } else if (selectedTutorId) {
-      const addedAnimal = addMockAnimalToClient(selectedTutorId, animalData);
 
-      if (addedAnimal) {
-        toast.success(`Animal ${addedAnimal.name} adicionado com sucesso ao cliente!`);
-        navigate(`/clients/${selectedTutorId}`); // Navegar para a página de detalhes do cliente
-      } else {
-        toast.error("Erro ao adicionar animal. Cliente não encontrado.");
+      if (!selectedTutorId) {
+        toast.error("Selecione um tutor para salvar o animal.");
+        return;
       }
+
+      const addedAnimal = await addAnimalToClient(selectedTutorId, animalData);
+      if (!addedAnimal) {
+        toast.error("Erro ao adicionar animal no banco.");
+        return;
+      }
+      await invalidateAnimalQueries(selectedTutorId);
+      toast.success(`Animal ${addedAnimal.name} adicionado com sucesso ao cliente!`);
+      navigate(`/clients/${selectedTutorId}`);
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -313,36 +335,51 @@ const AddAnimalPage = () => {
   const breadcrumbText = isEditing ? "Editar Animal" : "Adicionar Animal";
   const backLink = isEditing ? `/clients/${clientId}/animals/${animalId}/record` : `/clients/${selectedTutorId || ''}`;
 
+  if ((isEditing && isClientLoading) || (!isEditing && isClientsLoading)) {
+    return (
+      <div className="p-6 text-center">
+        <h1 className="text-2xl font-semibold mb-2">Carregando...</h1>
+        <p className="text-muted-foreground">Buscando dados no banco.</p>
+      </div>
+    );
+  }
+
+  if (isClientError || isClientsError) {
+    return (
+      <div className="p-6 text-center">
+        <h1 className="text-2xl font-semibold mb-2 text-destructive">Erro ao carregar dados</h1>
+        <p className="text-muted-foreground">
+          {isClientError
+            ? `Falha ao carregar cliente: ${clientError instanceof Error ? clientError.message : "erro desconhecido"}`
+            : `Falha ao carregar lista de tutores: ${clientsError instanceof Error ? clientsError.message : "erro desconhecido"}`}
+        </p>
+      </div>
+    );
+  }
 
   return (
-    <div className="flex flex-col min-h-screen bg-background">
-      {/* Header da Página com Gradiente e Breadcrumb */}
-      <div className="bg-gradient-to-r from-background via-card to-background p-6 pb-4 border-b border-border">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-2 gap-4 sm:gap-2">
-          <div className="flex items-center gap-4">
-            <div>
-              <h1 className="text-2xl font-semibold flex items-center gap-3 text-foreground group">
-                {isEditing ? <FaEdit className="h-5 w-5 text-muted-foreground" /> : <FaPaw className="h-5 w-5 text-muted-foreground" />}
-                {pageTitle}
-              </h1>
-              <p className="text-sm text-muted-foreground mt-1 mb-4">
-                {isEditing ? "Edite as informações do animal." : "Cadastre um novo animal e suas informações."}
-              </p>
-            </div>
-          </div>
+    <PageShell>
+      <PageHeader
+        title={pageTitle}
+        description={isEditing ? "Edite as informações do animal." : "Cadastre um novo animal e suas informações."}
+        icon={PawPrint}
+        module="clinical"
+        breadcrumb={
+          <>
+            Painel &gt; <Link to="/clients" className="hover:text-primary">Clientes</Link> &gt; {breadcrumbText}
+          </>
+        }
+        actions={
           <Link to={backLink}>
             <Button variant="outline" className="rounded-md border-border text-foreground hover:bg-muted hover:text-foreground transition-colors duration-200">
               <FaArrowLeft className="mr-2 h-4 w-4" /> Voltar
             </Button>
           </Link>
-        </div>
-        <p className="text-sm text-muted-foreground">
-          Painel &gt; <Link to="/clients" className="hover:text-primary">Clientes</Link> &gt; {breadcrumbText}
-        </p>
-      </div>
+        }
+      />
 
-      <div className="flex-1 p-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-6 bg-card shadow-sm border border-border rounded-md">
+      <div className="flex-1">
+        <div className="grid grid-cols-1 gap-4 rounded-2xl border border-border/80 bg-card p-6 shadow-sm md:grid-cols-2 lg:grid-cols-3 vf-surface-card vf-tone-clinical card-hover">
           <div className="space-y-2">
             <Label htmlFor="tutor" className="text-muted-foreground font-medium">Tutor/Responsável*</Label>
             <Select onValueChange={setSelectedTutorId} value={selectedTutorId} disabled={isEditing || !!initialClientIdFromParams}>
@@ -350,7 +387,7 @@ const AddAnimalPage = () => {
                 <SelectValue placeholder="Selecione o tutor..." />
               </SelectTrigger>
               <SelectContent>
-                {mockClients.map((client) => (
+                {(clientsData || []).map((client) => (
                   <SelectItem key={client.id} value={client.id}>
                     {client.name}
                   </SelectItem>
@@ -461,7 +498,7 @@ const AddAnimalPage = () => {
           </div>
         </div>
 
-        <div className="mt-6 space-y-2 p-6 bg-card shadow-sm border border-border rounded-md">
+        <div className="vf-surface-card vf-tone-clinical card-hover mt-6 space-y-2 rounded-2xl border border-border/80 p-6">
           <Label htmlFor="animalNotes" className="text-muted-foreground font-medium">Observações</Label>
           <Textarea id="animalNotes" placeholder="Adicione observações sobre o animal..." rows={5} value={notes} onChange={(e) => setNotes(e.target.value)} className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200" />
         </div>
@@ -470,12 +507,12 @@ const AddAnimalPage = () => {
           <Button variant="outline" onClick={() => navigate(backLink)} className="bg-card border border-border text-foreground hover:bg-muted rounded-md transition-all duration-200 shadow-sm hover:shadow-md">
             <FaTimes className="mr-2 h-4 w-4" /> Cancelar
           </Button>
-          <Button onClick={handleSaveAnimal} className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-md font-semibold transition-all duration-200 shadow-md hover:shadow-lg">
+          <Button disabled={isSaving} onClick={handleSaveAnimal} className="rounded-md bg-[hsl(var(--vf-clinical))] font-semibold text-white transition-all duration-200 shadow-md hover:bg-[hsl(var(--vf-clinical)/0.9)] hover:shadow-lg">
             <FaSave className="mr-2 h-4 w-4" /> Salvar
           </Button>
         </div>
       </div>
-    </div>
+    </PageShell>
   );
 };
 

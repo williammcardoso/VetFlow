@@ -3,9 +3,9 @@
 import React from "react";
 import { Document, Page, Text, View, StyleSheet, Image, Font } from "@react-pdf/renderer";
 import { Budget } from "@/mockData/budgets";
-import { mockCompanySettings, mockUserSettings } from "@/mockData/settings";
-import { mockClients } from "@/mockData/clients";
+import { mockCompanySettings } from "@/mockData/settings";
 import { findCatalogItem } from "@/mockData/catalog";
+import type { UserProfile } from "@/lib/authApi";
 
 // ADDED: desativa hifenização global para evitar quebras como "pagamen-to"
 Font.registerHyphenationCallback((word) => [word]);
@@ -144,21 +144,20 @@ const styles = StyleSheet.create({
 
 interface BudgetReportPdfContentProps {
   budget: Budget;
+  userProfile?: UserProfile | null;
 }
 
 const formatBRL = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
 
-const BudgetReportPdfContent: React.FC<BudgetReportPdfContentProps> = ({ budget }) => {
+const BudgetReportPdfContent: React.FC<BudgetReportPdfContentProps> = ({ budget, userProfile }) => {
   const company = mockCompanySettings;
-  const user = mockUserSettings;
-  const client = budget.clientId ? mockClients.find(c => c.id === budget.clientId) : undefined;
-  const animal = budget.animalId ? client?.animals.find(a => a.id === budget.animalId) : undefined;
   const total = budget.items.reduce((sum, it) => sum + it.qty * it.price, 0);
+  const vetName = userProfile?.signature_text?.trim() || userProfile?.full_name?.trim() || "Não informado";
 
-  const displayCnpj = (company as any).cnpj || (company as any).taxId || "";
-  const validityDays = (budget as any).validityDays ?? 15;
-  const paymentTerms = (budget as any).paymentTerms ?? "Condições de pagamento: A combinar";
-  const phone = client?.mainPhoneContact || "-";
+  const displayCnpj = (company as { cnpj?: string; taxId?: string }).cnpj || (company as { cnpj?: string; taxId?: string }).taxId || "";
+  const validityDays = (budget as Budget & { validityDays?: number }).validityDays ?? 15;
+  const paymentTerms = (budget as Budget & { paymentTerms?: string }).paymentTerms ?? "Condições de pagamento: A combinar";
+  const phone = budget.clientPhone || "-";
 
   return (
     <Document>
@@ -185,22 +184,22 @@ const BudgetReportPdfContent: React.FC<BudgetReportPdfContentProps> = ({ budget 
         <View style={styles.dataGrid}>
           <View style={styles.dataCol}>
             <Text style={styles.metaLabel}>Tutor</Text>
-            <Text style={styles.metaValue}>{client?.name || "-"}</Text>
+            <Text style={styles.metaValue}>{budget.clientName || "-"}</Text>
             <Text style={styles.metaLabel}>Telefone</Text>
             <Text style={styles.metaValue}>{phone}</Text>
           </View>
           <View style={styles.dataCol}>
             <Text style={styles.metaLabel}>Nome do Pet</Text>
-            <Text style={styles.metaValue}>{animal?.name || "-"}</Text>
+            <Text style={styles.metaValue}>{budget.animalName || "-"}</Text>
             <Text style={styles.metaLabel}>Espécie/Raça</Text>
-            <Text style={styles.metaValue}>{animal ? `${animal.species} / ${animal.breed}` : "-"}</Text>
+            <Text style={styles.metaValue}>-</Text>
           </View>
         </View>
 
         {/* Veterinário Responsável */}
         <View style={styles.vetRow}>
           <Text style={styles.vetLabel}>Veterinário Responsável</Text>
-          <Text style={styles.vetValue}>{user.userName}</Text>
+          <Text style={styles.vetValue}>{vetName}</Text>
         </View>
 
         {/* Tabela de itens */}

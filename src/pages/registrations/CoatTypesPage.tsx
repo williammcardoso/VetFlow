@@ -1,124 +1,123 @@
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { FaArrowLeft, FaPlus, FaEdit, FaTrashAlt, FaPalette } from "react-icons/fa"; // Importar ícones de react-icons
-import { Link } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
+import { toast } from "sonner";
+import { Palette, Plus, Trash2, Sparkles } from "lucide-react";
+import { useRegistryList } from "@/hooks/useRegistryList";
+import { addRegistryItem, removeRegistryItem } from "@/lib/registryApi";
+import { PageHeader } from "@/components/saas/PageHeader";
+import { PageShell } from "@/components/saas/PageShell";
+import { SectionCard } from "@/components/saas/SectionCard";
 
-interface CoatType {
-  id: string;
-  name: string;
-}
+const CoatTypesPage: React.FC = () => {
+  const { list: coatTypes, loading, error, refetch } = useRegistryList("coatTypes");
+  const [newName, setNewName] = useState("");
 
-const mockCoatTypes: CoatType[] = [
-  { id: "1", name: "Curta" },
-  { id: "2", name: "Longa" },
-  { id: "3", name: "Lisa" },
-  { id: "4", name: "Ondulada" },
-];
-
-const CoatTypesPage = () => {
-  const [coatTypesList, setCoatTypesList] = useState<CoatType[]>(mockCoatTypes);
-  const [newCoatTypeName, setNewCoatTypeName] = useState("");
-
-  const handleAddCoatType = () => {
-    if (newCoatTypeName.trim()) {
-      const newCoatType: CoatType = {
-        id: String(coatTypesList.length + 1),
-        name: newCoatTypeName.trim(),
-      };
-      setCoatTypesList([...coatTypesList, newCoatType]);
-      setNewCoatTypeName("");
+  const handleAdd = async () => {
+    const name = newName.trim();
+    if (!name) return;
+    if (coatTypes.some((c) => c.name.toLowerCase() === name.toLowerCase())) {
+      toast.error("Essa pelagem já existe.");
+      return;
     }
+
+    const created = await addRegistryItem("coatTypes", { name });
+    if (!created) {
+      toast.error("Falha ao adicionar pelagem.");
+      return;
+    }
+    setNewName("");
+    toast.success("Pelagem adicionada.");
+    await refetch();
   };
 
-  const handleDeleteCoatType = (id: string) => {
-    setCoatTypesList(coatTypesList.filter(coatType => coatType.id !== id));
+  const handleRemove = async (id: string) => {
+    const ok = await removeRegistryItem("coatTypes", id);
+    if (!ok) {
+      toast.error("Falha ao remover pelagem.");
+      return;
+    }
+    toast.success("Pelagem removida.");
+    await refetch();
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-background">
-      {/* Header da Página com Gradiente e Breadcrumb */}
-      <div className="bg-gradient-to-r from-background via-card to-background p-6 pb-4 border-b border-border">
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-4">
-            <div>
-              <h1 className="text-2xl font-semibold flex items-center gap-3 text-foreground group">
-                <FaPalette className="h-5 w-5 text-muted-foreground" /> Cadastro de Pelagens
-              </h1>
-              <p className="text-sm text-muted-foreground mt-1 mb-4">
-                Gerencie os tipos de pelagens dos animais.
-              </p>
-            </div>
-          </div>
-          <Link to="/">
-            <Button variant="outline" className="rounded-md border-border text-foreground hover:bg-muted hover:text-foreground transition-colors duration-200">
-              <FaArrowLeft className="mr-2 h-4 w-4" /> Voltar
-            </Button>
-          </Link>
-        </div>
-        <p className="text-sm text-muted-foreground">
-          Painel &gt; Cadastros &gt; Pelagens
-        </p>
-      </div>
+    <PageShell>
+      <PageHeader
+        title="Cadastro de Pelagens"
+        description="Lista de pelagens usada no cadastro clínico dos animais."
+        icon={Palette}
+        module="registry"
+        breadcrumb={<>Painel &gt; Cadastros &gt; Pelagens</>}
+        actions={<Badge variant="secondary">{coatTypes.length} pelagem(ns)</Badge>}
+      />
 
-      <div className="flex-1 p-6">
-        <Card className="shadow-sm hover:shadow-md transition-all duration-300 border-border rounded-md">
-          <CardHeader className="flex flex-row items-center justify-between pb-3">
-            <CardTitle className="flex items-center gap-2 text-lg font-semibold text-foreground">
-              <FaPalette className="h-5 w-5 text-primary" /> Lista de Pelagens
-            </CardTitle>
-            <div className="flex gap-2">
-              <Input
-                placeholder="Nova pelagem"
-                className="max-w-xs bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200"
-                value={newCoatTypeName}
-                onChange={(e) => setNewCoatTypeName(e.target.value)}
-              />
-              <Button onClick={handleAddCoatType} className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-md font-semibold transition-all duration-200 shadow-md hover:shadow-lg">
-                <FaPlus className="mr-2 h-4 w-4" /> Adicionar
-              </Button>
-            </div>
+      <SectionCard
+        title="Pelagens"
+        description="Cadastro rápido e lista compacta das pelagens em um único painel."
+        icon={Palette}
+        tone="registry"
+      >
+        <Card className="vf-surface-card card-hover border-border/80">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base text-foreground">Cadastro rápido</CardTitle>
           </CardHeader>
-          <CardContent className="pt-0">
-            <div className="overflow-hidden">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Nome</TableHead>
-                    <TableHead className="text-right">Ações</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {coatTypesList.map((coatType, index) => (
-                    <TableRow key={coatType.id} className={cn(index % 2 === 1 && "bg-muted/50")}>
-                      <TableCell className="font-medium">{coatType.name}</TableCell>
-                      <TableCell className="text-right">
-                        <Button variant="ghost" size="sm" className="mr-2 rounded-md hover:bg-muted hover:text-foreground transition-colors duration-200">
-                          <FaEdit className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="sm" onClick={() => handleDeleteCoatType(coatType.id)} className="rounded-md hover:bg-muted hover:text-foreground transition-colors duration-200">
-                          <FaTrashAlt className="h-4 w-4" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                  {coatTypesList.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={2} className="text-center text-muted-foreground py-4">
-                        Nenhuma pelagem cadastrada.
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
+          <CardContent className="space-y-4">
+            <div className="flex flex-wrap items-center gap-2">
+              <Input
+                placeholder="Ex.: Semilonga"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                className="max-w-md bg-input"
+              />
+              <Button onClick={handleAdd} className="bg-[hsl(var(--vf-registry))] text-white shadow-sm hover:bg-[hsl(var(--vf-registry)/0.9)]">
+                <Plus className="mr-2 h-4 w-4" />
+                Adicionar
+              </Button>
+              <Badge className="bg-[hsl(var(--vf-registry))]/15 text-vf-registry">{coatTypes.length} pelagem(ns)</Badge>
             </div>
+
+            {error && (
+              <div className="rounded-lg border border-destructive/25 bg-destructive/10 p-3">
+                <p className="text-sm font-medium text-destructive">Erro ao carregar pelagens</p>
+                <p className="mt-1 text-xs text-muted-foreground">{error}</p>
+              </div>
+            )}
+            {loading ? (
+              <p className="py-2 text-sm text-muted-foreground">Carregando...</p>
+            ) : coatTypes.length === 0 && !error ? (
+              <p className="py-2 text-sm text-muted-foreground">Nenhuma pelagem cadastrada.</p>
+            ) : (
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                {coatTypes.map((c, idx) => (
+                  <div
+                    key={c.id}
+                    className={`flex items-center justify-between rounded-lg border px-3 py-2 ${
+                      idx % 2 === 0 ? "border-violet-200/60 bg-violet-50/30" : "border-slate-200 bg-slate-50/50"
+                    }`}
+                  >
+                    <span className="flex min-w-0 items-center gap-2">
+                      <Sparkles className="h-4 w-4 text-vf-registry" />
+                      <span className="truncate text-sm font-medium">{c.name}</span>
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => void handleRemove(c.id)}
+                      className="text-destructive hover:bg-destructive/10"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
-      </div>
-    </div>
+      </SectionCard>
+    </PageShell>
   );
 };
 

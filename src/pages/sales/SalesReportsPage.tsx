@@ -30,6 +30,8 @@ import {
   Legend,
 } from "recharts";
 import { BarChart3, Printer, ShoppingCart, Tag } from "lucide-react";
+import { PageShell } from "@/components/saas/PageShell";
+import { PageHeader } from "@/components/saas/PageHeader";
 
 const withinRange = (dateStr: string, from?: string, to?: string) => {
   const dt = new Date(`${dateStr}T00:00`);
@@ -94,7 +96,7 @@ const SalesReportsPage: React.FC = () => {
     }
   }, [periodPreset]);
 
-  const { totalVendas, totalRecebido, emAberto, chartByDay, porFormaPagamento, porCategoria } = useMemo(() => {
+  const { totalVendas, totalRecebido, emAberto, chartByDay, porFormaPagamento, porCategoria, salesInPeriod, receiptsInPeriod } = useMemo(() => {
     const salesInPeriod = mockFinancialTransactions.filter(
       (t) => t.type === "income" && t.category === "Venda de Produtos" && withinRange(t.date, dateFrom, dateTo)
     );
@@ -137,7 +139,7 @@ const SalesReportsPage: React.FC = () => {
     });
     const porCategoria = Object.entries(byCat).map(([name, value]) => ({ name, value: Math.round(value * 100) / 100 }));
 
-    return { totalVendas, totalRecebido, emAberto, chartByDay, porFormaPagamento, porCategoria };
+    return { totalVendas, totalRecebido, emAberto, chartByDay, porFormaPagamento, porCategoria, salesInPeriod, receiptsInPeriod };
   }, [mockFinancialTransactions, dateFrom, dateTo]);
 
   const periodLabel =
@@ -151,21 +153,49 @@ const SalesReportsPage: React.FC = () => {
 
   const barChartConfig = { vendas: { label: "Vendas", color: "#059669" } };
 
+  const handlePrintDetailedReport = () => {
+    const popup = window.open("", "_blank", "width=1024,height=768");
+    if (!popup) return;
+    const currency = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
+    const salesRows = salesInPeriod
+      .map((s) => `<tr><td>${formatDateTime(s.date, s.time)}</td><td>${s.description}</td><td>${s.paymentMethod || "-"}</td><td style="text-align:right">${currency(s.amount)}</td></tr>`)
+      .join("");
+    const receiptsRows = receiptsInPeriod
+      .map((r) => `<tr><td>${formatDateTime(r.date, r.time)}</td><td>${r.description}</td><td>${r.paymentMethod || "-"}</td><td style="text-align:right">${currency(r.amount)}</td></tr>`)
+      .join("");
+    popup.document.write(`
+      <html><head><title>Relatório de Vendas</title><style>
+      body{font-family:Arial,sans-serif;padding:24px;color:#0f172a} h1{margin:0 0 8px} h2{margin:22px 0 8px}
+      table{width:100%;border-collapse:collapse;margin-top:8px} th,td{border:1px solid #e2e8f0;padding:8px;font-size:12px} th{background:#f8fafc;text-align:left}
+      .kpi{display:inline-block;margin-right:16px;padding:10px 12px;border:1px solid #e2e8f0;border-radius:10px;background:#fff}
+      </style></head><body>
+      <h1>Relatório de Vendas</h1><p>Período: ${periodLabel}</p>
+      <div class="kpi"><strong>Faturado:</strong> ${currency(totalVendas)}</div>
+      <div class="kpi"><strong>Recebido:</strong> ${currency(totalRecebido)}</div>
+      <div class="kpi"><strong>A receber:</strong> ${currency(emAberto)}</div>
+      <h2>Vendas do período</h2>
+      <table><thead><tr><th>Data</th><th>Descrição</th><th>Pagamento</th><th style="text-align:right">Valor</th></tr></thead><tbody>${salesRows || "<tr><td colspan='4'>Sem dados</td></tr>"}</tbody></table>
+      <h2>Recebimentos do período</h2>
+      <table><thead><tr><th>Data</th><th>Descrição</th><th>Pagamento</th><th style="text-align:right">Valor</th></tr></thead><tbody>${receiptsRows || "<tr><td colspan='4'>Sem dados</td></tr>"}</tbody></table>
+      </body></html>
+    `);
+    popup.document.close();
+    popup.focus();
+    popup.print();
+  };
+
   return (
-    <div className="flex flex-col min-h-screen bg-[#F8F9FA] print:bg-white">
-      <div className="p-6 pb-4 border-b border-border bg-[#F8F9FA] print:border-0">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-              <BarChart3 className="h-6 w-6 text-primary" /> Relatório de vendas
-            </h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              Gráficos e totais por período. Use &quot;Imprimir&quot; para gerar o relatório.
-            </p>
-          </div>
+    <PageShell>
+      <PageHeader
+        title="Relatório de Vendas"
+        description={`Gráficos e totais por período. Período ativo: ${periodLabel}.`}
+        icon={BarChart3}
+        module="sales"
+        breadcrumb={<>Painel &gt; Comercial &gt; Relatórios</>}
+        actions={
           <div className="flex flex-wrap items-center gap-2 print:hidden">
             <Select value={periodPreset} onValueChange={setPeriodPreset}>
-              <SelectTrigger className="w-[180px] h-9 bg-white border border-border">
+              <SelectTrigger className="h-9 w-[180px] border border-border bg-card">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -178,26 +208,25 @@ const SalesReportsPage: React.FC = () => {
             </Select>
             {periodPreset === "custom" && (
               <>
-                <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="h-9 w-32 bg-white border border-border" />
-                <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="h-9 w-32 bg-white border border-border" />
+                <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="h-9 w-32 border border-border bg-card" />
+                <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="h-9 w-32 border border-border bg-card" />
               </>
             )}
-            <Button variant="outline" onClick={() => window.print()} className="gap-2">
-              <Printer className="h-4 w-4" /> Imprimir
+            <Button variant="outline" onClick={handlePrintDetailedReport} className="gap-2">
+              <Printer className="h-4 w-4" /> Imprimir PDF
             </Button>
             <Link to="/sales/my-sales">
-              <Button variant="ghost" className="text-muted-foreground gap-2">
+              <Button variant="ghost" className="gap-2 text-muted-foreground">
                 <ShoppingCart className="h-4 w-4" /> Vendas
               </Button>
             </Link>
           </div>
-        </div>
-        <p className="text-xs text-muted-foreground mt-2">Período: {periodLabel}</p>
-      </div>
+        }
+      />
 
-      <div className="p-6 space-y-6">
+      <div className="space-y-5">
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          <Card className="bg-white border border-border rounded-xl shadow-sm">
+          <Card className="vf-surface-card vf-tone-sales card-hover rounded-xl border-border/80">
             <CardContent className="p-4">
               <div className="text-xs text-emerald-700 font-medium">Faturado no período</div>
               <div className="text-xl font-bold text-emerald-800">
@@ -205,7 +234,7 @@ const SalesReportsPage: React.FC = () => {
               </div>
             </CardContent>
           </Card>
-          <Card className="bg-white border border-border rounded-xl shadow-sm">
+          <Card className="vf-surface-card vf-tone-sales card-hover rounded-xl border-border/80">
             <CardContent className="p-4">
               <div className="text-xs text-teal-700 font-medium">Recebido no período</div>
               <div className="text-xl font-bold text-teal-800">
@@ -213,7 +242,7 @@ const SalesReportsPage: React.FC = () => {
               </div>
             </CardContent>
           </Card>
-          <Card className="bg-white border border-border rounded-xl shadow-sm">
+          <Card className="vf-surface-card vf-tone-sales card-hover rounded-xl border-border/80">
             <CardContent className="p-4">
               <div className="text-xs text-amber-700 font-medium">A receber (geral)</div>
               <div className="text-xl font-bold text-amber-800">
@@ -221,7 +250,7 @@ const SalesReportsPage: React.FC = () => {
               </div>
             </CardContent>
           </Card>
-          <Card className="bg-white border border-border rounded-xl shadow-sm">
+          <Card className="vf-surface-card vf-tone-sales card-hover rounded-xl border-border/80">
             <CardContent className="p-4">
               <div className="text-xs text-slate-600 font-medium">Ticket médio</div>
               <div className="text-xl font-bold text-slate-800">
@@ -233,7 +262,7 @@ const SalesReportsPage: React.FC = () => {
           </Card>
         </div>
 
-        <Card className="bg-white border border-border rounded-xl shadow-sm print:break-inside-avoid">
+        <Card className="vf-surface-card vf-tone-sales card-hover rounded-xl border-border/80 print:break-inside-avoid">
           <CardHeader className="pb-2">
             <CardTitle className="text-base flex items-center gap-2">
               <BarChart3 className="h-4 w-4 text-primary" /> Vendas por dia
@@ -257,8 +286,8 @@ const SalesReportsPage: React.FC = () => {
           </CardContent>
         </Card>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <Card className="bg-white border border-border rounded-xl shadow-sm print:break-inside-avoid">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+          <Card className="vf-surface-card vf-tone-sales card-hover rounded-xl border-border/80 print:break-inside-avoid">
             <CardHeader className="pb-2">
               <CardTitle className="text-base flex items-center gap-2">
                 <Tag className="h-4 w-4 text-primary" /> Recebimentos por forma de pagamento
@@ -289,7 +318,7 @@ const SalesReportsPage: React.FC = () => {
               )}
             </CardContent>
           </Card>
-          <Card className="bg-white border border-border rounded-xl shadow-sm print:break-inside-avoid">
+          <Card className="vf-surface-card vf-tone-sales card-hover rounded-xl border-border/80 print:break-inside-avoid">
             <CardHeader className="pb-2">
               <CardTitle className="text-base flex items-center gap-2">
                 <Tag className="h-4 w-4 text-primary" /> Vendas por categoria
@@ -326,7 +355,7 @@ const SalesReportsPage: React.FC = () => {
           Relatório de vendas — {formatDateTime(new Date().toISOString().split("T")[0], new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }))} — Período: {periodLabel}
         </p>
       </div>
-    </div>
+    </PageShell>
   );
 };
 

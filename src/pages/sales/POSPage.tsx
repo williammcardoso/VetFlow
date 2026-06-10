@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { FaArrowLeft, FaShoppingCart, FaPlus, FaTrashAlt, FaDollarSign, FaCheckCircle, FaTimesCircle, FaUser, FaPaw } from "react-icons/fa";
+import { FaShoppingCart, FaPlus, FaTrashAlt, FaCheckCircle } from "@/components/icons/fa";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -9,10 +9,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
 import { addMockFinancialTransaction } from "@/mockData/financial";
-import { mockClients } from "@/mockData/clients"; // Importar o mock de clientes centralizado
-import { Client, Animal } from "@/types/client"; // Importar as interfaces Client e Animal
 import { getCatalog, findCatalogItem, adjustStock } from "@/mockData/catalog";
 import { getRegistryList } from "@/mockData/registry";
+import { useClientsList } from "@/hooks/useSupabaseClients";
+import { PageShell } from "@/components/saas/PageShell";
+import { PageHeader } from "@/components/saas/PageHeader";
+import { SectionCard } from "@/components/saas/SectionCard";
+import { ShoppingCart, WalletCards, ArrowLeft } from "lucide-react";
 
 // Mock data para produtos/serviços
 interface Product {
@@ -22,6 +25,8 @@ interface Product {
 }
 
 const POSPage = () => {
+  const { data: dbClients, isError: isClientsError } = useClientsList();
+  const clients = dbClients || [];
   const navigate = useNavigate();
   const [cart, setCart] = useState<CartItem[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<string | undefined>(undefined);
@@ -39,7 +44,7 @@ const POSPage = () => {
   const [responsible, setResponsible] = useState<string>(""); // NEW
 
   const filteredAnimals = selectedClientId
-    ? mockClients.find(c => c.id === selectedClientId)?.animals || []
+    ? clients.find(c => c.id === selectedClientId)?.animals || []
     : [];
 
   const paymentMethods = getRegistryList("paymentMethods"); // NEW
@@ -110,8 +115,8 @@ const POSPage = () => {
       return;
     }
 
-    const clientName = selectedClientId ? mockClients.find(c => c.id === selectedClientId)?.name : "Avulsa";
-    const animalName = selectedAnimalId ? mockClients.find(c => c.id === selectedClientId)?.animals.find(a => a.id === selectedAnimalId)?.name : undefined;
+    const clientName = selectedClientId ? clients.find(c => c.id === selectedClientId)?.name : "Avulsa";
+    const animalName = selectedAnimalId ? clients.find(c => c.id === selectedClientId)?.animals.find(a => a.id === selectedAnimalId)?.name : undefined;
     const pm = paymentMethods.find(pm => pm.id === selectedPaymentMethodId);
     const paymentMethodName = pm?.name || "Não informado";
 
@@ -165,37 +170,36 @@ const POSPage = () => {
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-background">
-      {/* Header da Página com Gradiente e Breadcrumb */}
-      <div className="bg-gradient-to-r from-background via-card to-background p-6 pb-4 border-b border-border">
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-4">
-            <div>
-              <h1 className="text-2xl font-semibold flex items-center gap-3 text-foreground group">
-                <FaShoppingCart className="h-5 w-5 text-muted-foreground" /> Ponto de Venda (PDV)
-              </h1>
-              <p className="text-sm text-muted-foreground mt-1 mb-4">
-                Registre vendas de produtos e serviços de forma rápida.
-              </p>
-            </div>
-          </div>
-          <Link to="/sales/my-sales">
-            <Button variant="outline" className="rounded-md border-border text-foreground hover:bg-muted hover:text-foreground transition-colors duration-200">
-              <FaArrowLeft className="mr-2 h-4 w-4" /> Voltar para Vendas
-            </Button>
-          </Link>
-        </div>
-        <p className="text-sm text-muted-foreground">
-          Painel &gt; Vendas &gt; Ponto de Venda
-        </p>
-      </div>
+    <PageShell>
+      <PageHeader
+        title="Ponto de Venda (PDV)"
+        description="Registre vendas de produtos e serviços de forma rápida."
+        icon={WalletCards}
+        module="sales"
+        breadcrumb={<>Painel &gt; Vendas &gt; Ponto de Venda</>}
+        actions={
+          <Button asChild variant="outline" className="rounded-xl border-border/70">
+            <Link to="/sales/my-sales">
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Voltar para vendas
+            </Link>
+          </Button>
+        }
+      />
 
-      <div className="flex-1 p-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid flex-1 grid-cols-1 gap-5 lg:grid-cols-3">
         {/* Coluna de Seleção de Produtos */}
-        <Card className="lg:col-span-2 shadow-sm border border-border rounded-md">
+        <SectionCard
+          title="Montagem da venda"
+          description="Selecione itens, quantidade e preço unitário."
+          icon={ShoppingCart}
+          tone="sales"
+          className="lg:col-span-2"
+        >
+        <Card className="vf-surface-card vf-tone-sales card-hover rounded-2xl border-border/80">
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-lg font-semibold text-foreground">
-              <FaPlus className="h-5 w-5 text-primary" /> Adicionar Item
+              <FaPlus className="h-5 w-5 text-vf-sales" /> Adicionar Item
             </CardTitle>
           </CardHeader>
           <CardContent className="grid gap-4">
@@ -237,17 +241,25 @@ const POSPage = () => {
                 className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200"
               />
             </div>
-            <Button onClick={handleAddProductToCart} className="bg-primary text-primary-foreground hover:bg-primary/90 font-semibold transition-all duration-200 shadow-md hover:shadow-lg">
+            <Button onClick={handleAddProductToCart} className="bg-[hsl(var(--vf-sales))] text-white hover:bg-[hsl(var(--vf-sales)/0.9)] font-semibold transition-all duration-200 shadow-md hover:shadow-lg">
               <FaPlus className="mr-2 h-4 w-4" /> Adicionar ao Carrinho
             </Button>
           </CardContent>
         </Card>
+        </SectionCard>
 
         {/* Coluna do Carrinho e Checkout */}
-        <Card className="lg:col-span-1 shadow-sm border border-border rounded-md">
+        <SectionCard
+          title="Carrinho e checkout"
+          description="Fechamento comercial com pagamento e observações."
+          icon={WalletCards}
+          tone="sales"
+          className="lg:col-span-1"
+        >
+        <Card className="vf-surface-card vf-tone-sales card-hover rounded-2xl border-border/80">
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-lg font-semibold text-foreground">
-              <FaShoppingCart className="h-5 w-5 text-primary" /> Carrinho
+              <FaShoppingCart className="h-5 w-5 text-vf-sales" /> Carrinho
             </CardTitle>
           </CardHeader>
           <CardContent className="grid gap-4">
@@ -379,7 +391,7 @@ const POSPage = () => {
                     <SelectValue placeholder="Selecione o cliente" />
                   </SelectTrigger>
                   <SelectContent>
-                    {mockClients.map((client) => (
+                    {clients.map((client) => (
                       <SelectItem key={client.id} value={client.id}>
                         {client.name}
                       </SelectItem>
@@ -410,7 +422,7 @@ const POSPage = () => {
             <div className="space-y-2 mt-2">
               <Label htmlFor="payment-method-select">Forma de Pagamento</Label>
               <Select onValueChange={setSelectedPaymentMethodId} value={selectedPaymentMethodId}>
-                <SelectTrigger id="payment-method-select" className="bg-white rounded-lg border-gray-200 dark:border-gray-600 focus:ring-2 focus:ring-blue-400 transition-all duration-200">
+                <SelectTrigger id="payment-method-select" className="bg-input rounded-lg border-border focus:ring-2 focus:ring-ring transition-all duration-200">
                   <SelectValue placeholder="Selecione a forma de pagamento" />
                 </SelectTrigger>
                 <SelectContent>
@@ -422,20 +434,25 @@ const POSPage = () => {
                     ))
                   ) : (
                     <SelectItem value="none" disabled>
-                      Cadastre formas em Vendas &gt; Formas de Recebimento
+                      Cadastre formas em Financeiro &gt; Formas de Pagamento
                     </SelectItem>
                   )}
                 </SelectContent>
               </Select>
             </div>
 
-            <Button onClick={handleProcessSale} disabled={cart.length === 0 || !selectedClientId} className="bg-accent text-accent-foreground hover:bg-accent/90 font-semibold transition-all duration-200 shadow-md hover:shadow-lg mt-4">
+            <Button
+              onClick={handleProcessSale}
+              disabled={cart.length === 0 || (!selectedClientId && !saleWithoutClient) || isClientsError}
+              className="mt-4 bg-[hsl(var(--vf-sales))] font-semibold text-white shadow-sm transition-all duration-200 hover:bg-[hsl(var(--vf-sales)/0.9)]"
+            >
               <FaCheckCircle className="mr-2 h-4 w-4" /> Processar Venda
             </Button>
           </CardContent>
         </Card>
+        </SectionCard>
       </div>
-    </div>
+    </PageShell>
   );
 };
 

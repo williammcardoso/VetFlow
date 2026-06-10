@@ -1,5 +1,4 @@
 import React, { useMemo, useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -8,6 +7,10 @@ import { toast } from "sonner";
 import { getCatalogByType, findCatalogItem, adjustStock } from "@/mockData/catalog";
 import { addMockFinancialTransaction } from "@/mockData/financial";
 import CurrencyInput from "@/components/CurrencyInput";
+import { ShoppingBag } from "lucide-react";
+import { PageShell } from "@/components/saas/PageShell";
+import { PageHeader } from "@/components/saas/PageHeader";
+import { SectionCard } from "@/components/saas/SectionCard";
 
 interface PurchaseItem {
   itemId: string;
@@ -72,17 +75,19 @@ const PurchasesPage: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-background p-4 sm:p-6">
-      <div className="mb-3">
-        <h1 className="text-xl sm:text-2xl font-semibold">Compras de Estoque</h1>
-        <p className="text-xs sm:text-sm text-muted-foreground">Registre a entrada de produtos, atualizando o estoque e lançando a despesa.</p>
-      </div>
+    <PageShell>
+      <PageHeader
+        title="Compras de Estoque"
+        description="Registre entradas de produtos e lance o impacto financeiro da operação."
+        icon={ShoppingBag}
+        module="stock"
+        breadcrumb={<>Painel &gt; Estoque &gt; Compras</>}
+      />
 
-      <Card className="border border-border">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base sm:text-lg">Adicionar Item</CardTitle>
-        </CardHeader>
-        <CardContent className="grid grid-cols-1 sm:grid-cols-5 gap-2 items-end">
+      <SectionCard title="Nova compra" description="Adicione produtos e custos unitários da compra." icon={ShoppingBag} tone="stock">
+        <div className="vf-surface-card vf-tone-stock card-hover rounded-2xl border-border/80 p-4">
+          <div className="mb-3 text-sm font-semibold text-foreground">Adicionar Item</div>
+          <div className="grid grid-cols-1 items-end gap-2 sm:grid-cols-5">
           <div className="sm:col-span-2">
             <Label className="text-xs">Produto</Label>
             <select value={selectedItemId} onChange={(e) => setSelectedItemId(e.target.value)} className="h-8 text-sm bg-input rounded-md border-border w-full">
@@ -99,16 +104,15 @@ const PurchasesPage: React.FC = () => {
             <CurrencyInput value={unitCost} onValueChange={setUnitCost} className="h-8 text-sm" />
           </div>
           <div className="sm:col-span-1">
-            <Button onClick={handleAddItem} className="h-8 px-3 text-sm w-full">Adicionar</Button>
+            <Button onClick={handleAddItem} className="h-8 w-full bg-[hsl(var(--vf-stock))] px-3 text-sm text-white hover:bg-[hsl(var(--vf-stock)/0.9)]">Adicionar</Button>
           </div>
-        </CardContent>
-      </Card>
+          </div>
+        </div>
+      </SectionCard>
 
-      <Card className="border border-border mt-4">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base sm:text-lg">Itens da Compra</CardTitle>
-        </CardHeader>
-        <CardContent>
+      <SectionCard title="Itens da compra" description="Revise subtotal e finalize o lançamento da compra." icon={ShoppingBag} tone="stock">
+        <div className="vf-surface-card vf-tone-stock card-hover mt-4 rounded-2xl border-border/80 p-4">
+          <div className="mb-3 text-sm font-semibold text-foreground">Itens da Compra</div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-3">
             <div className="sm:col-span-2">
               <Label className="text-xs">Fornecedor (opcional)</Label>
@@ -147,11 +151,17 @@ const PurchasesPage: React.FC = () => {
             </Table>
           )}
           <div className="flex justify-end mt-3">
-            <Button onClick={handleSavePurchase} disabled={items.length === 0} className="h-9 px-4">Salvar Compra</Button>
+            <Button
+              onClick={handleSavePurchase}
+              disabled={items.length === 0}
+              className="h-9 bg-[hsl(var(--vf-stock))] px-4 text-white hover:bg-[hsl(var(--vf-stock)/0.9)]"
+            >
+              Salvar Compra
+            </Button>
           </div>
-        </CardContent>
-      </Card>
-    </div>
+        </div>
+      </SectionCard>
+    </PageShell>
   );
 };
 

@@ -6,6 +6,10 @@ import { Label } from "@/components/ui/label";
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
 import { toast } from "sonner";
 import { hemogramReferences as defaultRefs } from "@/constants/examReferences";
+import { PageShell } from "@/components/saas/PageShell";
+import { PageHeader } from "@/components/saas/PageHeader";
+import { SectionCard } from "@/components/saas/SectionCard";
+import { FlaskConical } from "lucide-react";
 
 type Species = "dog" | "cat";
 
@@ -318,16 +322,6 @@ const ExamReferencesPage: React.FC = () => {
     toast.success("Referências de exame salvas com sucesso.");
   };
 
-  const handleReset = () => {
-    const initial: RefsState = {
-      hemogram: getInitialHemogramRefs(),
-      biochemical: getInitialBiochemicalRefs(),
-    };
-    setRefs(initial);
-    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(initial));
-    toast.success("Referências restauradas para os valores padrão.");
-  };
-
   const renderedNonLeukoRows = useMemo(() => {
     return NON_LEUKO_KEYS.map((key) => {
       const dog = refs.hemogram[key]?.dog || {};
@@ -348,19 +342,19 @@ const ExamReferencesPage: React.FC = () => {
             value={dog.min ?? ""}
             onChange={(e) => onChangeNonLeuko(key, "dog", "min", e.target.value)}
             placeholder="Cão mín."
-            className="bg-input h-8 text-sm"
+            className="bg-amber-50/40 h-8 text-sm"
           />
           <Input
             value={dog.max ?? ""}
             onChange={(e) => onChangeNonLeuko(key, "dog", "max", e.target.value)}
             placeholder="Cão máx."
-            className="bg-input h-8 text-sm"
+            className="bg-amber-50/40 h-8 text-sm"
           />
           <Input
             value={dogUnit}
             onChange={(e) => onChangeNonLeuko(key, "dog", "unit", e.target.value)}
             placeholder="Unid. cão"
-            className="bg-input h-8 text-sm"
+            className="bg-amber-50/40 h-8 text-sm"
           />
 
           {/* Gato */}
@@ -368,19 +362,19 @@ const ExamReferencesPage: React.FC = () => {
             value={cat.min ?? ""}
             onChange={(e) => onChangeNonLeuko(key, "cat", "min", e.target.value)}
             placeholder="Gato mín."
-            className="bg-input h-8 text-sm"
+            className="bg-sky-50/40 h-8 text-sm"
           />
           <Input
             value={cat.max ?? ""}
             onChange={(e) => onChangeNonLeuko(key, "cat", "max", e.target.value)}
             placeholder="Gato máx."
-            className="bg-input h-8 text-sm"
+            className="bg-sky-50/40 h-8 text-sm"
           />
           <Input
             value={catUnit}
             onChange={(e) => onChangeNonLeuko(key, "cat", "unit", e.target.value)}
             placeholder="Unid. gato"
-            className="bg-input h-8 text-sm"
+            className="bg-sky-50/40 h-8 text-sm"
           />
         </div>
       );
@@ -415,11 +409,11 @@ const ExamReferencesPage: React.FC = () => {
             <div className="sm:col-span-1">
               <Label className="text-xs font-medium capitalize">{label} (Rel.)</Label>
             </div>
-            <Input value={dogRel.min} onChange={(e) => onChangeLeuko(key, "dog", "relative", "min", e.target.value)} placeholder="Cão mín." className="bg-input h-8 text-sm" />
-            <Input value={dogRel.max} onChange={(e) => onChangeLeuko(key, "dog", "relative", "max", e.target.value)} placeholder="Cão máx." className="bg-input h-8 text-sm" />
+            <Input value={dogRel.min} onChange={(e) => onChangeLeuko(key, "dog", "relative", "min", e.target.value)} placeholder="Cão mín." className="bg-amber-50/40 h-8 text-sm" />
+            <Input value={dogRel.max} onChange={(e) => onChangeLeuko(key, "dog", "relative", "max", e.target.value)} placeholder="Cão máx." className="bg-amber-50/40 h-8 text-sm" />
             <Input value={dogRel.unit} onChange={(e) => onChangeLeuko(key, "dog", "relative", "unit", e.target.value)} placeholder="Unid. cão" className="bg-input h-8 text-sm" />
-            <Input value={catRel.min} onChange={(e) => onChangeLeuko(key, "cat", "relative", "min", e.target.value)} placeholder="Gato mín." className="bg-input h-8 text-sm" />
-            <Input value={catRel.max} onChange={(e) => onChangeLeuko(key, "cat", "relative", "max", e.target.value)} placeholder="Gato máx." className="bg-input h-8 text-sm" />
+            <Input value={catRel.min} onChange={(e) => onChangeLeuko(key, "cat", "relative", "min", e.target.value)} placeholder="Gato mín." className="bg-sky-50/40 h-8 text-sm" />
+            <Input value={catRel.max} onChange={(e) => onChangeLeuko(key, "cat", "relative", "max", e.target.value)} placeholder="Gato máx." className="bg-sky-50/40 h-8 text-sm" />
             <Input value={catRel.unit} onChange={(e) => onChangeLeuko(key, "cat", "relative", "unit", e.target.value)} placeholder="Unid. gato" className="bg-input h-8 text-sm" />
           </div>
 
@@ -428,11 +422,11 @@ const ExamReferencesPage: React.FC = () => {
             <div className="sm:col-span-1">
               <Label className="text-xs font-medium capitalize">{label} (Abs.)</Label>
             </div>
-            <Input value={dogAbs.min} onChange={(e) => onChangeLeuko(key, "dog", "absolute", "min", e.target.value)} placeholder="Cão mín." className="bg-input h-8 text-sm" />
-            <Input value={dogAbs.max} onChange={(e) => onChangeLeuko(key, "dog", "absolute", "max", e.target.value)} placeholder="Cão máx." className="bg-input h-8 text-sm" />
+            <Input value={dogAbs.min} onChange={(e) => onChangeLeuko(key, "dog", "absolute", "min", e.target.value)} placeholder="Cão mín." className="bg-amber-50/40 h-8 text-sm" />
+            <Input value={dogAbs.max} onChange={(e) => onChangeLeuko(key, "dog", "absolute", "max", e.target.value)} placeholder="Cão máx." className="bg-amber-50/40 h-8 text-sm" />
             <Input value={dogAbs.unit} onChange={(e) => onChangeLeuko(key, "dog", "absolute", "unit", e.target.value)} placeholder="Unid. cão" className="bg-input h-8 text-sm" />
-            <Input value={catAbs.min} onChange={(e) => onChangeLeuko(key, "cat", "absolute", "min", e.target.value)} placeholder="Gato mín." className="bg-input h-8 text-sm" />
-            <Input value={catAbs.max} onChange={(e) => onChangeLeuko(key, "cat", "absolute", "max", e.target.value)} placeholder="Gato máx." className="bg-input h-8 text-sm" />
+            <Input value={catAbs.min} onChange={(e) => onChangeLeuko(key, "cat", "absolute", "min", e.target.value)} placeholder="Gato mín." className="bg-sky-50/40 h-8 text-sm" />
+            <Input value={catAbs.max} onChange={(e) => onChangeLeuko(key, "cat", "absolute", "max", e.target.value)} placeholder="Gato máx." className="bg-sky-50/40 h-8 text-sm" />
             <Input value={catAbs.unit} onChange={(e) => onChangeLeuko(key, "cat", "absolute", "unit", e.target.value)} placeholder="Unid. gato" className="bg-input h-8 text-sm" />
           </div>
         </div>
@@ -443,65 +437,68 @@ const ExamReferencesPage: React.FC = () => {
   const biochemicalNames = useMemo(() => Object.keys(refs.biochemical).sort((a, b) => a.localeCompare(b)), [refs.biochemical]);
 
   return (
-    <div className="flex flex-col min-h-screen bg-background p-4 sm:p-6">
-      <div className="mb-3 sm:mb-4">
-        <h1 className="text-xl sm:text-2xl font-semibold">Referências de Exames</h1>
-        <p className="text-xs sm:text-sm text-muted-foreground">Valores mínimos, máximos e unidade por espécie. Leucócitos com referências relativas e absolutas. Bioquímicos com min/máx por Cão e Gato.</p>
-      </div>
+    <PageShell>
+      <PageHeader
+        title="Referências de Exames"
+        description="Defina valores mínimos, máximos e unidades por espécie para hemograma e bioquímicos."
+        icon={FlaskConical}
+        module="registry"
+        breadcrumb={<>Painel &gt; Cadastros &gt; Referências de Exames</>}
+      />
 
-      <Card className="border border-border">
+      <SectionCard title="Gerenciar referências" description="Ajuste faixas de hemograma e bioquímica por espécie." icon={FlaskConical} tone="registry">
+      <Card className="vf-surface-card vf-tone-registry card-hover rounded-2xl border border-border/80">
         <CardHeader className="py-3">
           <CardTitle className="flex items-center justify-between text-base sm:text-lg">
             <span>Gerenciar Referências</span>
             <div className="flex gap-2">
-              <Button variant="outline" onClick={handleReset} className="h-8 px-3 text-sm">Restaurar padrão</Button>
-              <Button onClick={handleSave} className="h-8 px-3 text-sm">Salvar</Button>
+              <Button onClick={handleSave} className="h-8 bg-[hsl(var(--vf-registry))] px-3 text-sm text-white hover:bg-[hsl(var(--vf-registry)/0.9)]">Salvar</Button>
             </div>
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3 sm:space-y-4">
-          <Accordion type="multiple" className="w-full">
-            <AccordionItem value="eritrograma">
-              <AccordionTrigger className="text-sm">Eritrograma e Plaquetas</AccordionTrigger>
-              <AccordionContent className="space-y-2">
+          <Accordion type="multiple" className="w-full space-y-2">
+            <AccordionItem value="eritrograma" className="overflow-hidden !border-b-0 rounded-xl border border-amber-300/55 bg-amber-50/35">
+              <AccordionTrigger className="px-3 text-sm font-semibold text-foreground hover:bg-amber-100/75 hover:no-underline data-[state=open]:bg-amber-100/85">Eritrograma e Plaquetas</AccordionTrigger>
+              <AccordionContent className="space-y-2 px-3">
                 <div className="grid gap-1">
                   {/* Cabeçalho compacto */}
                   <div className="grid grid-cols-1 sm:grid-cols-7 gap-2">
                     <div />
-                    <div className="text-[11px] text-muted-foreground">Cão mín.</div>
-                    <div className="text-[11px] text-muted-foreground">Cão máx.</div>
-                    <div className="text-[11px] text-muted-foreground">Unid. cão</div>
-                    <div className="text-[11px] text-muted-foreground">Gato mín.</div>
-                    <div className="text-[11px] text-muted-foreground">Gato máx.</div>
-                    <div className="text-[11px] text-muted-foreground">Unid. gato</div>
+                    <div className="rounded-md bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-800">Cão mín.</div>
+                    <div className="rounded-md bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-800">Cão máx.</div>
+                    <div className="rounded-md bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-800">Unid. cão</div>
+                    <div className="rounded-md bg-sky-50 px-2 py-1 text-xs font-semibold text-sky-800">Gato mín.</div>
+                    <div className="rounded-md bg-sky-50 px-2 py-1 text-xs font-semibold text-sky-800">Gato máx.</div>
+                    <div className="rounded-md bg-sky-50 px-2 py-1 text-xs font-semibold text-sky-800">Unid. gato</div>
                   </div>
                   {renderedNonLeukoRows}
                 </div>
               </AccordionContent>
             </AccordionItem>
 
-            <AccordionItem value="leucograma">
-              <AccordionTrigger className="text-sm">Leucograma (Relativo e Absoluto)</AccordionTrigger>
-              <AccordionContent className="space-y-2">
+            <AccordionItem value="leucograma" className="overflow-hidden !border-b-0 rounded-xl border border-sky-300/55 bg-sky-50/35">
+              <AccordionTrigger className="px-3 text-sm font-semibold text-foreground hover:bg-sky-100/75 hover:no-underline data-[state=open]:bg-sky-100/85">Leucograma (Relativo e Absoluto)</AccordionTrigger>
+              <AccordionContent className="space-y-2 px-3">
                 <div className="grid gap-1">
                   {/* Cabeçalho compacto */}
                   <div className="grid grid-cols-1 sm:grid-cols-7 gap-2">
                     <div />
-                    <div className="text-[11px] text-muted-foreground">Cão mín.</div>
-                    <div className="text-[11px] text-muted-foreground">Cão máx.</div>
-                    <div className="text-[11px] text-muted-foreground">Unid. cão</div>
-                    <div className="text-[11px] text-muted-foreground">Gato mín.</div>
-                    <div className="text-[11px] text-muted-foreground">Gato máx.</div>
-                    <div className="text-[11px] text-muted-foreground">Unid. gato</div>
+                    <div className="rounded-md bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-800">Cão mín.</div>
+                    <div className="rounded-md bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-800">Cão máx.</div>
+                    <div className="rounded-md bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-800">Unid. cão</div>
+                    <div className="rounded-md bg-sky-50 px-2 py-1 text-xs font-semibold text-sky-800">Gato mín.</div>
+                    <div className="rounded-md bg-sky-50 px-2 py-1 text-xs font-semibold text-sky-800">Gato máx.</div>
+                    <div className="rounded-md bg-sky-50 px-2 py-1 text-xs font-semibold text-sky-800">Unid. gato</div>
                   </div>
                   {renderedLeukoRows}
                 </div>
               </AccordionContent>
             </AccordionItem>
 
-            <AccordionItem value="bioquimico">
-              <AccordionTrigger className="text-sm">Bioquímico</AccordionTrigger>
-              <AccordionContent className="space-y-3">
+            <AccordionItem value="bioquimico" className="overflow-hidden !border-b-0 rounded-xl border border-violet-300/55 bg-violet-50/35">
+              <AccordionTrigger className="px-3 text-sm font-semibold text-foreground hover:bg-violet-100/75 hover:no-underline data-[state=open]:bg-violet-100/85">Bioquímico</AccordionTrigger>
+              <AccordionContent className="space-y-3 px-3">
                 {/* Adicionar novo analito */}
                 <div className="grid grid-cols-1 sm:grid-cols-5 gap-2 items-end">
                   <div className="sm:col-span-2">
@@ -523,20 +520,19 @@ const ExamReferencesPage: React.FC = () => {
                     />
                   </div>
                   <div className="sm:col-span-1 flex">
-                    <Button onClick={handleAddBiochemical} className="h-8 px-3 text-sm w-full">Adicionar</Button>
+                    <Button onClick={handleAddBiochemical} className="h-8 w-full bg-[hsl(var(--vf-registry))] px-3 text-sm text-white hover:bg-[hsl(var(--vf-registry)/0.9)]">Adicionar</Button>
                   </div>
                 </div>
 
                 {/* Cabeçalho da tabela */}
                 <div className="grid grid-cols-1 sm:grid-cols-8 gap-2 items-center">
-                  <div className="text-[11px] text-muted-foreground">Nome</div>
-                  <div className="text-[11px] text-muted-foreground">Unidade</div>
-                  <div className="text-[11px] text-muted-foreground">Cão mín.</div>
-                  <div className="text-[11px] text-muted-foreground">Cão máx.</div>
-                  <div className="text-[11px] text-muted-foreground">Gato mín.</div>
-                  <div className="text-[11px] text-muted-foreground">Gato máx.</div>
-                  <div className="text-[11px] text-muted-foreground">Ações</div>
-                  <div /> {/* Espaçador para manter grade */}
+                  <div className="sm:col-span-2 rounded-md bg-violet-100/70 px-2 py-1 text-xs font-semibold text-violet-800">Nome</div>
+                  <div className="rounded-md bg-violet-100/70 px-2 py-1 text-xs font-semibold text-violet-800">Unidade</div>
+                  <div className="rounded-md bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-800">Cão mín.</div>
+                  <div className="rounded-md bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-800">Cão máx.</div>
+                  <div className="rounded-md bg-sky-50 px-2 py-1 text-xs font-semibold text-sky-800">Gato mín.</div>
+                  <div className="rounded-md bg-sky-50 px-2 py-1 text-xs font-semibold text-sky-800">Gato máx.</div>
+                  <div className="rounded-md bg-violet-100/70 px-2 py-1 text-xs font-semibold text-violet-800">Ações</div>
                 </div>
 
                 {/* Linhas dos analitos */}
@@ -562,25 +558,25 @@ const ExamReferencesPage: React.FC = () => {
                           value={entry.dog.min ?? ""}
                           onChange={(e) => updateBiochemical(name, "dog", "min", e.target.value)}
                           placeholder="Cão mín."
-                          className="bg-input h-8 text-sm"
+                          className="bg-amber-50/40 h-8 text-sm"
                         />
                         <Input
                           value={entry.dog.max ?? ""}
                           onChange={(e) => updateBiochemical(name, "dog", "max", e.target.value)}
                           placeholder="Cão máx."
-                          className="bg-input h-8 text-sm"
+                          className="bg-amber-50/40 h-8 text-sm"
                         />
                         <Input
                           value={entry.cat.min ?? ""}
                           onChange={(e) => updateBiochemical(name, "cat", "min", e.target.value)}
                           placeholder="Gato mín."
-                          className="bg-input h-8 text-sm"
+                          className="bg-sky-50/40 h-8 text-sm"
                         />
                         <Input
                           value={entry.cat.max ?? ""}
                           onChange={(e) => updateBiochemical(name, "cat", "max", e.target.value)}
                           placeholder="Gato máx."
-                          className="bg-input h-8 text-sm"
+                          className="bg-sky-50/40 h-8 text-sm"
                         />
                         <div className="sm:col-span-1 flex gap-2">
                           <Button
@@ -600,7 +596,8 @@ const ExamReferencesPage: React.FC = () => {
           </Accordion>
         </CardContent>
       </Card>
-    </div>
+      </SectionCard>
+    </PageShell>
   );
 };
 

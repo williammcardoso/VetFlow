@@ -8,6 +8,7 @@ export interface WeightEntry {
 
 export interface Animal {
   id: string;
+  patientCode?: number;
   name: string;
   species: string;
   breed: string;

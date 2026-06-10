@@ -1,6 +1,6 @@
  "use client";
 
-import React, { useEffect, useCallback } from "react";
+import React, { useEffect, useCallback, useImperativeHandle } from "react";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Paragraph from "@tiptap/extension-paragraph";
@@ -36,7 +36,12 @@ export interface TiptapRichTextProps {
   autoApplySizeToken?: number;
 }
 
-const TiptapRichText: React.FC<TiptapRichTextProps> = ({
+export interface TiptapRichTextHandle {
+  insertVariableAtSelection: (variable: string) => boolean;
+  focusEditor: () => void;
+}
+
+const TiptapRichText = React.forwardRef<TiptapRichTextHandle, TiptapRichTextProps>(({
   value,
   onChange,
   placeholder = "Digite o conteúdo...",
@@ -44,7 +49,7 @@ const TiptapRichText: React.FC<TiptapRichTextProps> = ({
   minHeight = "200px",
   readOnly = false,
   autoApplySizeToken = 0,
-}) => {
+}, ref) => {
   // Visual mapping: "12" appears like common word-processor size onscreen.
   const SIZE_OPTIONS: Array<{ label: string; value: string }> = [
     { label: "9", value: "12px" },
@@ -187,6 +192,50 @@ const TiptapRichText: React.FC<TiptapRichTextProps> = ({
     }
     editor.chain().focus().extendMarkRange("link").setLink({ href: url.trim() }).run();
   }, [editor]);
+
+  const adaptVariableCase = useCallback((variable: string, selectedText: string) => {
+    const selected = selectedText.trim();
+    if (!selected) return variable;
+    const letters = selected.replace(/[^A-Za-zÀ-ÖØ-öø-ÿ]/g, "");
+    if (!letters) return variable;
+    if (letters === letters.toUpperCase()) return variable.toUpperCase();
+    if (letters === letters.toLowerCase()) return variable.toLowerCase();
+    const isCapitalized = letters[0] === letters[0].toUpperCase() && letters.slice(1) === letters.slice(1).toLowerCase();
+    if (!isCapitalized) return variable;
+    const hasBraces = variable.startsWith("{{") && variable.endsWith("}}");
+    const core = hasBraces ? variable.slice(2, -2) : variable;
+    const transformedCore = core
+      .split("_")
+      .map((part) => (part ? part[0].toUpperCase() + part.slice(1).toLowerCase() : part))
+      .join("_");
+    return hasBraces ? `{{${transformedCore}}}` : transformedCore;
+  }, []);
+
+  const insertVariableAtSelection = useCallback((variable: string) => {
+    if (!editor || readOnly) return false;
+    const { state, view } = editor;
+    const { selection, tr, schema } = state;
+    const { from, to, empty } = selection;
+    const selectedText = empty ? "" : state.doc.textBetween(from, to, " ", " ");
+    const normalizedVariable = adaptVariableCase(variable, selectedText);
+    const marks =
+      (!empty ? selection.$from.marksAcross(selection.$to) : null) ??
+      state.storedMarks ??
+      selection.$from.marks();
+    tr.replaceRangeWith(from, to, schema.text(normalizedVariable, marks || []));
+    const cursorPos = from + normalizedVariable.length;
+    view.dispatch(tr);
+    editor.commands.focus(cursorPos);
+    return true;
+  }, [adaptVariableCase, editor, readOnly]);
+
+  useImperativeHandle(ref, () => ({
+    insertVariableAtSelection,
+    focusEditor: () => {
+      if (!editor) return;
+      editor.commands.focus();
+    },
+  }), [editor, insertVariableAtSelection]);
 
   // Insert a paragraph-indent token (tab char) at the start of the current paragraph.
   // Using a single tab character '\t' so it's invisible and consistent across paragraphs.
@@ -537,7 +586,9 @@ const TiptapRichText: React.FC<TiptapRichTextProps> = ({
       </div>
     </div>
   );
-};
+});
+
+TiptapRichText.displayName = "TiptapRichText";
 
 export default TiptapRichText;
 

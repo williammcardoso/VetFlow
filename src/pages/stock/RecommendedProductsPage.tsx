@@ -4,6 +4,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button";
 import { getCatalogByType, updateCatalogItem, CatalogItem } from "@/mockData/catalog";
 import { toast } from "sonner";
+import { Star } from "lucide-react";
+import { PageShell } from "@/components/saas/PageShell";
+import { PageHeader } from "@/components/saas/PageHeader";
+import { SectionCard } from "@/components/saas/SectionCard";
 
 const RecommendedProductsPage: React.FC = () => {
   const [items, setItems] = React.useState<CatalogItem[]>([]);
@@ -24,13 +28,17 @@ const RecommendedProductsPage: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-background p-4 sm:p-6">
-      <div className="mb-3">
-        <h1 className="text-xl sm:text-2xl font-semibold">Produtos Recomendados</h1>
-        <p className="text-xs sm:text-sm text-muted-foreground">Marque itens para destacar em sugestões.</p>
-      </div>
+    <PageShell>
+      <PageHeader
+        title="Produtos Recomendados"
+        description="Marque itens estratégicos para destaque em recomendações e vendas."
+        icon={Star}
+        module="stock"
+        breadcrumb={<>Painel &gt; Estoque &gt; Produtos Recomendados</>}
+      />
 
-      <Card className="border border-border">
+      <SectionCard title="Recomendação de itens" description="Controle os produtos priorizados pela equipe." icon={Star} tone="stock">
+      <Card className="vf-surface-card vf-tone-stock card-hover rounded-2xl border border-border/80">
         <CardHeader className="pb-2"><CardTitle className="text-base">Produtos</CardTitle></CardHeader>
         <CardContent>
           <Table>
@@ -59,7 +67,8 @@ const RecommendedProductsPage: React.FC = () => {
           </Table>
         </CardContent>
       </Card>
-    </div>
+      </SectionCard>
+    </PageShell>
   );
 };
 

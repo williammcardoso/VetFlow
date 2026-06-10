@@ -96,17 +96,17 @@ export default function PatientVaccinesTab({
                     className={cn(
                       "rounded-xl border bg-white p-4 transition-all duration-200",
                       "hover:shadow-lg hover:-translate-y-0.5",
-                      "border-sky-300 hover:shadow-sky-200/60"
+                      "border-[hsl(var(--vf-clinical))]/35 hover:shadow-[hsl(var(--vf-clinical))]/20"
                     )}
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex items-start gap-3 min-w-0">
-                        <div className="h-12 w-12 shrink-0 rounded-2xl bg-sky-50/70 flex items-center justify-center">
-                          <Syringe className="h-6 w-6 text-sky-600" />
+                        <div className="h-12 w-12 shrink-0 rounded-2xl bg-[hsl(var(--vf-clinical))]/12 flex items-center justify-center">
+                          <Syringe className="h-6 w-6 text-vf-clinical" />
                         </div>
 
                         <div className="min-w-0">
-                          <div className="flex items-center gap-2 text-base font-bold text-sky-900">
+                          <div className="flex items-center gap-2 text-base font-bold text-vf-clinical">
                             <span>{titulo}</span>
                           </div>
 

@@ -11,6 +11,9 @@ export interface Budget {
   id: string;
   clientId?: string;
   animalId?: string;
+  clientName?: string;
+  animalName?: string;
+  clientPhone?: string;
   date: string;
   status: BudgetStatus;
   items: BudgetItem[];
@@ -46,6 +49,9 @@ export const addBudget = (data: Omit<Budget, "id" | "status" | "date"> & { statu
     id,
     clientId: data.clientId,
     animalId: data.animalId,
+    clientName: (data as Partial<Budget>).clientName,
+    animalName: (data as Partial<Budget>).animalName,
+    clientPhone: (data as Partial<Budget>).clientPhone,
     date: data.date || new Date().toISOString().split("T")[0],
     status: data.status || "draft",
     items: data.items || [],

@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import SaasButton from "@/components/saas/SaasButton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -26,8 +26,8 @@ import type {
   SurgeryDetails,
   VaccinationDetails,
 } from "@/types/appointment";
-import { mockClients } from "@/mockData/clients";
-import { mockAppointments } from "@/mockData/appointments";
+import { useClientWithAnimals } from "@/hooks/useSupabaseClients";
+import { getAppointmentById, getAppointmentsByAnimal } from "@/lib/appointmentsApi";
 
 const formatDateBR = (dateISO?: string) => {
   if (!dateISO) return "-";
@@ -74,9 +74,75 @@ export default function AppointmentViewPage() {
   }>();
   const navigate = useNavigate();
 
-  const client = mockClients.find((c) => c.id === clientId);
+  const { data: client, isLoading: isClientLoading } = useClientWithAnimals(clientId);
   const animal = client?.animals.find((a) => a.id === animalId);
-  const appointment = mockAppointments.find((app) => app.id === appointmentId);
+
+  const [appointment, setAppointment] = useState<AppointmentEntry | null>(null);
+  const [loadingAppointment, setLoadingAppointment] = useState(true);
+  const [originAppointment, setOriginAppointment] = useState<AppointmentEntry | null>(null);
+  const [originResolved, setOriginResolved] = useState(false);
+
+  useEffect(() => {
+    if (!appointmentId || !animalId) {
+      setAppointment(null);
+      setLoadingAppointment(false);
+      return;
+    }
+    let cancelled = false;
+    setLoadingAppointment(true);
+    (async () => {
+      let appt = await getAppointmentById(appointmentId);
+      if (!appt) {
+        const list = await getAppointmentsByAnimal(animalId);
+        appt = list.find((a) => a.id === appointmentId) ?? null;
+      }
+      if (cancelled) return;
+      if (appt && appt.animalId !== animalId) {
+        setAppointment(null);
+      } else {
+        setAppointment(appt);
+      }
+      setLoadingAppointment(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [appointmentId, animalId]);
+
+  useEffect(() => {
+    if (!appointment || appointment.type !== "Retorno" || !animalId) {
+      setOriginAppointment(null);
+      setOriginResolved(true);
+      return;
+    }
+    const d = appointment.details as ReturnDetails;
+    const oid = d?.atendimentoOrigemId;
+    if (!oid) {
+      setOriginAppointment(null);
+      setOriginResolved(true);
+      return;
+    }
+    let cancelled = false;
+    setOriginResolved(false);
+    (async () => {
+      let origin = await getAppointmentById(oid);
+      if (!origin) {
+        const list = await getAppointmentsByAnimal(animalId);
+        origin = list.find((a) => a.id === oid) ?? null;
+      }
+      if (!cancelled) {
+        setOriginAppointment(origin);
+        setOriginResolved(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [appointment, animalId]);
+
+  if (isClientLoading || loadingAppointment) {
+    return <div className="p-6 text-center">Carregando...</div>;
+  }
 
   if (!client || !animal || !appointment) {
     return (
@@ -114,10 +180,10 @@ export default function AppointmentViewPage() {
 
       return (
         <div className="space-y-4">
-          <Card className="premium-card rounded-xl">
+          <Card className="vf-surface-card vf-tone-clinical card-hover rounded-xl border-border/80">
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2">
-                <Stethoscope className="h-4 w-4 text-muted-foreground" /> Queixa e Anamnese
+                <Stethoscope className="h-4 w-4 text-vf-clinical" /> Queixa e Anamnese
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
@@ -132,7 +198,7 @@ export default function AppointmentViewPage() {
             </CardContent>
           </Card>
 
-          <Card className="premium-card rounded-xl">
+          <Card className="vf-surface-card vf-tone-clinical card-hover rounded-xl border-border/80">
             <CardHeader className="pb-3">
               <CardTitle className="text-base">Sinais vitais / Avaliação</CardTitle>
             </CardHeader>
@@ -153,7 +219,7 @@ export default function AppointmentViewPage() {
             </CardContent>
           </Card>
 
-          <Card className="premium-card rounded-xl">
+          <Card className="vf-surface-card vf-tone-clinical card-hover rounded-xl border-border/80">
             <CardHeader className="pb-3">
               <CardTitle className="text-base">Diagnóstico e Conduta</CardTitle>
             </CardHeader>
@@ -201,10 +267,10 @@ export default function AppointmentViewPage() {
       const d = appointment.details as SurgeryDetails;
       return (
         <div className="space-y-4">
-          <Card className="premium-card rounded-xl">
+          <Card className="vf-surface-card vf-tone-clinical card-hover rounded-xl border-border/80">
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2">
-                <Scissors className="h-4 w-4 text-muted-foreground" /> Dados básicos
+                <Scissors className="h-4 w-4 text-vf-clinical" /> Dados básicos
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
@@ -215,7 +281,7 @@ export default function AppointmentViewPage() {
             </CardContent>
           </Card>
 
-          <Card className="premium-card rounded-xl">
+          <Card className="vf-surface-card vf-tone-clinical card-hover rounded-xl border-border/80">
             <CardHeader className="pb-3">
               <CardTitle className="text-base">Avaliação pré-operatória</CardTitle>
             </CardHeader>
@@ -233,7 +299,7 @@ export default function AppointmentViewPage() {
             </CardContent>
           </Card>
 
-          <Card className="premium-card rounded-xl">
+          <Card className="vf-surface-card vf-tone-clinical card-hover rounded-xl border-border/80">
             <CardHeader className="pb-3">
               <CardTitle className="text-base">Procedimento</CardTitle>
             </CardHeader>
@@ -248,7 +314,7 @@ export default function AppointmentViewPage() {
           </Card>
 
           {d.suturas && d.suturas.length > 0 && (
-            <Card className="premium-card rounded-xl">
+            <Card className="vf-surface-card vf-tone-clinical card-hover rounded-xl border-border/80">
               <CardHeader className="pb-3">
                 <CardTitle className="text-base">Materiais & suturas</CardTitle>
               </CardHeader>
@@ -269,7 +335,7 @@ export default function AppointmentViewPage() {
             </Card>
           )}
 
-          <Card className="premium-card rounded-xl">
+          <Card className="vf-surface-card vf-tone-clinical card-hover rounded-xl border-border/80">
             <CardHeader className="pb-3">
               <CardTitle className="text-base">Pós-operatório e alta</CardTitle>
             </CardHeader>
@@ -288,7 +354,7 @@ export default function AppointmentViewPage() {
     if (appointment.type === "Vacina") {
       const d = appointment.details as VaccinationDetails;
       return (
-        <Card className="premium-card rounded-xl">
+        <Card className="vf-surface-card vf-tone-clinical card-hover rounded-xl border-border/80">
           <CardHeader className="pb-3">
             <CardTitle className="text-base">Vacinação</CardTitle>
           </CardHeader>
@@ -312,19 +378,22 @@ export default function AppointmentViewPage() {
 
     if (appointment.type === "Retorno") {
       const d = appointment.details as ReturnDetails;
-      const origin = d.atendimentoOrigemId
-        ? mockAppointments.find((a) => a.id === d.atendimentoOrigemId)
-        : undefined;
 
       return (
-        <Card className="premium-card rounded-xl">
+        <Card className="vf-surface-card vf-tone-clinical card-hover rounded-xl border-border/80">
           <CardHeader className="pb-3">
             <CardTitle className="text-base">Retorno</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
             {renderField(
               "Atendimento de origem",
-              origin ? `${formatDateTimeBR(origin.date, origin.time)} • ${origin.type}` : undefined
+              originAppointment
+                ? `${formatDateTimeBR(originAppointment.date, originAppointment.time)} • ${originAppointment.type}`
+                : d.atendimentoOrigemId
+                  ? !originResolved
+                    ? "Carregando origem…"
+                    : "Registro de origem não encontrado"
+                  : undefined
             )}
             {renderField("Motivo", d.motivoRetorno)}
             {renderField("Evolução", d.evolucaoObservada)}
@@ -343,7 +412,7 @@ export default function AppointmentViewPage() {
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <div>
             <h1 className="text-2xl font-semibold flex items-center gap-2">
-              <Clipboard className="h-5 w-5 text-muted-foreground" /> Detalhes do Atendimento
+              <Clipboard className="h-5 w-5 text-vf-clinical" /> Detalhes do Atendimento
             </h1>
             <p className="text-sm text-muted-foreground mt-1">
               {animal.name} • {typeLabel(appointment.type)}
@@ -388,7 +457,7 @@ export default function AppointmentViewPage() {
       </div>
 
       <div className="flex-1 p-6">
-        <Card className="premium-card rounded-xl">
+        <Card className="vf-surface-card vf-tone-clinical card-hover rounded-xl border-border/80">
           <CardHeader className="pb-3">
             <CardTitle className="text-base">Informações administrativas</CardTitle>
           </CardHeader>

@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Client, Animal } from "@/types/client";
-import { supabase } from "@/integrations/supabase/client";
+import { isSupabaseConfigured, supabase } from "@/integrations/supabase/client";
 
 type DbClient = {
   id: string;
@@ -29,6 +29,7 @@ type DbClient = {
 
 type DbAnimal = {
   id: string;
+  patient_code: number | null;
   client_id: string;
   name: string;
   species: string | null;
@@ -49,6 +50,7 @@ type DbAnimal = {
 function mapDbAnimalToAnimal(a: DbAnimal): Animal {
   return {
     id: a.id,
+    patientCode: a.patient_code ?? undefined,
     name: a.name,
     species: a.species || "",
     breed: a.breed || "",
@@ -99,10 +101,8 @@ function mapDbClientToClient(c: DbClient, animals: Animal[]): Client {
 }
 
 async function fetchClientsWithAnimals(): Promise<Client[]> {
-  // NEW: não chama Supabase sem sessão
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session) {
-    return [];
+  if (!isSupabaseConfigured) {
+    throw new Error("Supabase não está configurado. Defina VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY no .env.local");
   }
 
   const { data: clientsData, error: clientsError } = await supabase
@@ -110,13 +110,17 @@ async function fetchClientsWithAnimals(): Promise<Client[]> {
     .select("id, name, client_type, nationality, gender, identification_number, secondary_identification, birthday, profession, accept_email, accept_whatsapp, accept_sms, main_email_contact, main_phone_contact, notes, cep, street, number, complement, neighborhood, city, state")
     .order("name", { ascending: true });
 
-  if (clientsError) throw clientsError;
+  if (clientsError) {
+    throw new Error(`Falha ao carregar clientes: ${clientsError.message}`);
+  }
 
   const { data: animalsData, error: animalsError } = await supabase
     .from("animals")
-    .select("id, client_id, name, species, breed, gender, birthday, coat_color, weight, microchip, notes, status, last_consultation_date, total_procedures, total_value, last_weight_source");
+    .select("id, patient_code, client_id, name, species, breed, gender, birthday, coat_color, weight, microchip, notes, status, last_consultation_date, total_procedures, total_value, last_weight_source");
 
-  if (animalsError) throw animalsError;
+  if (animalsError) {
+    throw new Error(`Falha ao carregar animais: ${animalsError.message}`);
+  }
 
   const animalsByClient = new Map<string, Animal[]>();
   (animalsData as DbAnimal[]).forEach((row) => {
@@ -133,29 +137,33 @@ async function fetchClientsWithAnimals(): Promise<Client[]> {
 }
 
 async function fetchClientWithAnimals(clientId: string): Promise<Client | null> {
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session) {
-    return null;
+  if (!isSupabaseConfigured) {
+    throw new Error("Supabase não está configurado. Defina VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY no .env.local");
   }
 
-  const { data: clientRows, error: clientError } = await supabase
+  const { data: clientRow, error: clientError } = await supabase
     .from("clients")
     .select("id, name, client_type, nationality, gender, identification_number, secondary_identification, birthday, profession, accept_email, accept_whatsapp, accept_sms, main_email_contact, main_phone_contact, notes, cep, street, number, complement, neighborhood, city, state")
     .eq("id", clientId)
-    .limit(1);
+    .maybeSingle();
 
-  if (clientError) throw clientError;
-  const client = (clientRows as DbClient[])[0];
+  if (clientError) {
+    throw new Error(`Falha ao carregar cliente: ${clientError.message}`);
+  }
+
+  const client = clientRow as DbClient | null;
   if (!client) return null;
 
   const { data: animalsRows, error: animalsError } = await supabase
     .from("animals")
-    .select("id, client_id, name, species, breed, gender, birthday, coat_color, weight, microchip, notes, status, last_consultation_date, total_procedures, total_value, last_weight_source")
+    .select("id, patient_code, client_id, name, species, breed, gender, birthday, coat_color, weight, microchip, notes, status, last_consultation_date, total_procedures, total_value, last_weight_source")
     .eq("client_id", clientId);
 
-  if (animalsError) throw animalsError;
-  const animals = (animalsRows as DbAnimal[]).map(mapDbAnimalToAnimal);
+  if (animalsError) {
+    throw new Error(`Falha ao carregar animais do cliente: ${animalsError.message}`);
+  }
 
+  const animals = (animalsRows as DbAnimal[]).map(mapDbAnimalToAnimal);
   return mapDbClientToClient(client, animals);
 }
 
@@ -172,6 +180,7 @@ export function useClientWithAnimals(clientId: string | undefined) {
     queryKey: ["client-with-animals", clientId],
     queryFn: () => (clientId ? fetchClientWithAnimals(clientId) : Promise.resolve(null)),
     enabled: !!clientId,
+    retry: false,
     staleTime: 1000 * 60,
   });
 }

@@ -49,13 +49,12 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { pdf } from "@react-pdf/renderer";
 import { PrescriptionPdfContent } from "@/components/PrescriptionPdfContent";
 import { ExamReportPdfContent } from "@/components/ExamReportPdfContent";
 import ExamReportPdfContentHemogramaOnePage from "@/components/ExamReportPdfContent_Hemograma_OnePage";
 import type { FinancialTransaction } from "@/mockData/financial";
 import { AppointmentEntry, BaseAppointmentDetails } from "@/types/appointment";
-import { mockClients, updateAnimalDetails } from "@/mockData/clients";
+import { updateAnimalDetails } from "@/lib/clientsApi";
 import { Client, Animal, WeightEntry } from "@/types/client";
 import { ExamEntry } from "@/types/exam";
 import { useFinancialTransactions } from "@/hooks/useFinancialTransactions";
@@ -67,7 +66,7 @@ import { useRegistryList } from "@/hooks/useRegistryList";
 import * as financialApi from "@/lib/financialApi";
 import * as catalogApi from "@/lib/catalogApi";
 import { getHemogramReferences } from "@/constants/examReferences";
-import { mockUserSettings, mockCompanySettings } from "@/mockData/settings";
+import { mockCompanySettings } from "@/mockData/settings";
 import AutocompleteSelect from "@/components/AutocompleteSelect";
 import CurrencyInput from "@/components/CurrencyInput";
 import BudgetReportPdfContent from "@/components/BudgetReportPdfContent";
@@ -97,6 +96,10 @@ import {
   type PatientDocumentEntry,
 } from "@/lib/documentsApi";
 import { useClientWithAnimals } from "@/hooks/useSupabaseClients";
+import { useQueryClient } from "@tanstack/react-query";
+import { createPdfBlob, downloadPdf, openPdf } from "@/lib/pdfExport";
+import { useCurrentUserProfile } from "@/hooks/useCurrentUserProfile";
+import { useAuth } from "@/contexts/AuthContext";
 
 // Tipos locais para observações
 interface ObservationEntry {
@@ -213,8 +216,8 @@ const writePatientPayments = (aid: string | undefined, list: PatientPaymentMeta[
 
 // Helper para identidade visual por tipo de evento
 const EVENT_STYLES: Record<string, { dot: string; badge: string }> = {
-  'Atendimento': { dot: 'timeline-dot-blue', badge: 'badge-soft-blue' },        // Azul forte
-  'Exame': { dot: 'timeline-dot-purple', badge: 'badge-soft-purple' },          // Roxo
+  'Atendimento': { dot: 'timeline-dot-clinical', badge: 'badge-soft-clinical' },
+  'Exame': { dot: 'timeline-dot-clinical-strong', badge: 'badge-soft-clinical-strong' },
   'Receita': { dot: 'timeline-dot-green', badge: 'badge-soft-green' },          // Verde base
   'Peso': { dot: 'timeline-dot-amber', badge: 'badge-soft-amber' },             // Mantém como está
   'Vacina': { dot: 'timeline-dot-teal', badge: 'badge-soft-teal' },             // Azul/ciano (diferente de Atendimento)
@@ -228,8 +231,8 @@ const getEventStyle = (type: string) => EVENT_STYLES[type] || { dot: 'timeline-d
 // Classe do ícone por tipo
 const getEventIconClass = (type: string) => {
   switch (type) {
-    case 'Atendimento': return 'icon-soft-blue';
-    case 'Exame': return 'icon-soft-purple';
+    case 'Atendimento': return 'icon-soft-teal';
+    case 'Exame': return 'icon-soft-teal';
     case 'Receita': return 'icon-soft-green';
     case 'Peso': return 'icon-soft-amber';
     case 'Vacina': return 'icon-soft-teal';
@@ -255,6 +258,7 @@ const sumReceiptsForSaleLocal = (list: FinancialTransaction[], saleId: string) =
 const PatientRecordPage = () => {
   const { clientId, animalId } = useParams<{ clientId: string; animalId: string }>();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
 
   const { transactions: mockFinancialTransactions, refetch: refetchFinancial } = useFinancialTransactions();
@@ -264,14 +268,20 @@ const PatientRecordPage = () => {
   const { items: catalogItemsFromHook, refetch: refetchCatalog } = useCatalog();
   const { list: pmRegistry } = useRegistryList("paymentMethods");
 
-  const { data: clientData } = useClientWithAnimals(clientId);
-  const [currentClient, setCurrentClient] = useState<Client | undefined>(clientData ?? undefined);
-  const [currentAnimal, setCurrentAnimal] = useState<Animal | undefined>(clientData?.animals.find(a => a.id === animalId));
-
-  useEffect(() => {
-    setCurrentClient(clientData ?? undefined);
-    setCurrentAnimal(clientData?.animals.find(a => a.id === animalId));
-  }, [clientData, clientId, animalId]);
+  const { data: clientData, isLoading: isClientLoading, isError: isClientError, error: clientError } = useClientWithAnimals(clientId);
+  const { profile: currentUserProfile } = useCurrentUserProfile();
+  const { canAccessModule } = useAuth();
+  const currentClient: Client | undefined = clientData ?? undefined;
+  const currentAnimal: Animal | undefined = useMemo(
+    () => clientData?.animals.find((a) => a.id === animalId),
+    [clientData, animalId]
+  );
+  const currentVetName =
+    currentUserProfile?.signature_text?.trim() ||
+    currentUserProfile?.full_name?.trim() ||
+    currentUserProfile?.email?.trim() ||
+    "Profissional não informado";
+  const canEditPrescriptions = canAccessModule("prescriptions", "edit");
 
   const [activeTab, setActiveTab] = useState<string>(() => {
     if (typeof window !== 'undefined') {
@@ -678,7 +688,7 @@ const PatientRecordPage = () => {
       toast.error("Cliente/animal não encontrados para impressão.");
       return;
     }
-    const budgetForPdf: any = {
+    const budgetForPdf = {
       id: b.id,
       date: b.date,
       status: b.status,
@@ -694,14 +704,12 @@ const PatientRecordPage = () => {
       validityDays: b.validityDays,
     };
 
-    const newWin = window.open("", "_blank");
-    const blob = await pdf(<BudgetReportPdfContent budget={budgetForPdf} catalogItems={catalogItems} />).toBlob();
-    const url = URL.createObjectURL(blob);
-    if (newWin) {
-      newWin.location.href = url;
-    } else {
-      window.open(url, "_blank");
-    }
+    const blob = await createPdfBlob(<BudgetReportPdfContent budget={budgetForPdf} userProfile={currentUserProfile} />);
+    await openPdf({
+      blob,
+      fileName: `orcamento_${b.id}.pdf`,
+      persistOptions: { folder: "budgets" },
+    });
   };
 
   const [convertModalOpen, setConvertModalOpen] = useState(false);
@@ -809,10 +817,23 @@ const PatientRecordPage = () => {
     navigate(`/clients/${clientId}/animals/${animalId}/edit`);
   };
 
+  if (isClientLoading) {
+    return (
+      <div className="p-6 text-center">
+        <h1 className="text-2xl font-semibold mb-2">Carregando prontuário...</h1>
+        <p className="text-muted-foreground">Buscando cliente e animal no Supabase.</p>
+      </div>
+    );
+  }
+
   if (!currentClient || !currentAnimal) {
     return (
       <div className="p-6 text-center">
-        <h1 className="text-3xl font-bold mb-4">Animal ou Cliente não encontrado.</h1>
+        <h1 className="text-3xl font-bold mb-4">
+          {isClientError
+            ? `Erro ao carregar prontuário do Supabase: ${clientError instanceof Error ? clientError.message : "erro desconhecido"}.`
+            : "Animal ou Cliente não encontrado."}
+        </h1>
         <Link to="/clients">
           <Button variant="outline" className="bg-card border border-border text-foreground hover:bg-muted rounded-md transition-all duration-200 shadow-sm hover:shadow-md">
             <FaArrowLeft className="mr-2 h-4 w-4" /> Voltar para Clientes
@@ -836,8 +857,8 @@ const PatientRecordPage = () => {
       summary: app.observacoesGerais || description,
       icon: FaStethoscope,
       link: `/clients/${clientId}/animals/${animalId}/view-appointment/${app.id}`,
-      badgeColor: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
-      author: app.vet || mockUserSettings.userName,
+      badgeColor: "bg-[hsl(var(--vf-clinical))]/15 text-vf-clinical",
+      author: app.vet || currentVetName,
     });
   });
 
@@ -850,8 +871,8 @@ const PatientRecordPage = () => {
       description: `${exam.type}: ${exam.result || 'Ver detalhes'}`,
       summary: exam.nota || exam.result || undefined,
       icon: FaFlask,
-      badgeColor: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200",
-      author: exam.vet || mockUserSettings.userName,
+      badgeColor: "bg-[hsl(var(--vf-clinical))]/15 text-vf-clinical",
+      author: exam.vet || currentVetName,
     });
   });
 
@@ -873,7 +894,7 @@ const PatientRecordPage = () => {
       icon: rxIcon,
       link: `/clients/${clientId}/animals/${animalId}/edit-prescription/${rx.id}?type=${rx.type}`,
       badgeColor,
-      author: mockUserSettings.userName,
+      author: currentVetName,
     });
   });
 
@@ -887,7 +908,7 @@ const PatientRecordPage = () => {
       summary: `Origem: ${entry.source || "-"}`,
       icon: FaWeightHanging,
       badgeColor: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200",
-      author: mockUserSettings.userName,
+      author: currentVetName,
     });
   });
 
@@ -901,7 +922,7 @@ const PatientRecordPage = () => {
       summary: obs.observation,
       icon: FaCommentAlt,
       badgeColor: "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200",
-      author: mockUserSettings.userName,
+      author: currentVetName,
       isAlert: !!obs.displayAsAlert,
     });
   });
@@ -916,7 +937,7 @@ const PatientRecordPage = () => {
       summary: sale.description,
       icon: FaDollarSign,
       badgeColor: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
-      author: mockUserSettings.userName,
+      author: currentVetName,
     });
   });
 
@@ -931,7 +952,7 @@ const PatientRecordPage = () => {
       icon: FaFileAlt,
       link: doc.fileUrl,
       badgeColor: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200",
-      author: mockUserSettings.userName,
+      author: currentVetName,
     });
   });
 
@@ -980,8 +1001,8 @@ const PatientRecordPage = () => {
   };
 
   const getTimelineMarkerColor = (dotClass: string) => {
-    if (dotClass.includes("timeline-dot-blue")) return "#93c5fd";
-    if (dotClass.includes("timeline-dot-purple")) return "#c4b5fd";
+    if (dotClass.includes("timeline-dot-clinical")) return "#7fc8b5";
+    if (dotClass.includes("timeline-dot-clinical-strong")) return "#4fa38f";
     if (dotClass.includes("timeline-dot-green")) return "#86efac";
     if (dotClass.includes("timeline-dot-amber")) return "#fcd34d";
     if (dotClass.includes("timeline-dot-teal")) return "#99f6e4";
@@ -1113,7 +1134,7 @@ const PatientRecordPage = () => {
                   <span className="font-semibold text-foreground">{currentAnimal.species || "-"}</span>
                 </span>
                 <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-white px-3 py-1 text-[12px] leading-5">
-                  <FaTag className="h-3 w-3 text-violet-600" />
+                  <FaTag className="h-3 w-3 text-vf-clinical" />
                   <span className="text-muted-foreground">Raça:</span>
                   <span className="font-semibold text-foreground">{currentAnimal.breed || "-"}</span>
                 </span>
@@ -1152,7 +1173,7 @@ const PatientRecordPage = () => {
                   >
                     <div className="p-3 flex items-start justify-between gap-3">
                       <div className="flex items-start gap-3 min-w-0">
-                        <div className="h-9 w-9 rounded-xl bg-sky-50 text-sky-700 ring-1 ring-sky-200/60 flex items-center justify-center shrink-0">
+                        <div className="h-9 w-9 rounded-xl bg-[hsl(var(--vf-clinical))]/12 text-vf-clinical ring-1 ring-[hsl(var(--vf-clinical))]/25 flex items-center justify-center shrink-0">
                           <UserRound className="h-4 w-4" />
                         </div>
 
@@ -1164,14 +1185,14 @@ const PatientRecordPage = () => {
 
                           <div className="mt-2 space-y-1 text-sm text-muted-foreground">
                             <div className="flex items-center gap-1.5">
-                              <FaPhone className="h-3.5 w-3.5 text-sky-600" />
+                              <FaPhone className="h-3.5 w-3.5 text-vf-clinical" />
                               <span className="truncate">
                                 <span className="text-foreground/70 font-medium">Telefone:</span>{" "}
                                 <span className="text-foreground/90">{currentClient.mainPhoneContact || "-"}</span>
                               </span>
                             </div>
                             <div className="flex items-start gap-1.5">
-                              <FaMapMarkerAlt className="mt-0.5 h-3.5 w-3.5 text-sky-600" />
+                              <FaMapMarkerAlt className="mt-0.5 h-3.5 w-3.5 text-vf-clinical" />
                               <span className="line-clamp-1">
                                 <span className="text-foreground/70 font-medium">Endereço:</span>{" "}
                                 <span className="text-foreground/90">
@@ -1205,7 +1226,7 @@ const PatientRecordPage = () => {
                       <div className="px-3 pb-3 text-sm text-muted-foreground space-y-2">
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
                           <div className="flex items-center gap-1.5">
-                            <FaIdCard className="h-3.5 w-3.5 text-sky-600" />
+                            <FaIdCard className="h-3.5 w-3.5 text-vf-clinical" />
                             <span>
                               <span className="text-foreground/70 font-medium">
                                 {currentClient.clientType === "physical" ? "CPF" : "CNPJ"}:
@@ -1214,7 +1235,7 @@ const PatientRecordPage = () => {
                             </span>
                           </div>
                           <div className="flex items-center gap-1.5">
-                            <FaIdCard className="h-3.5 w-3.5 text-sky-600" />
+                            <FaIdCard className="h-3.5 w-3.5 text-vf-clinical" />
                             <span>
                               <span className="text-foreground/70 font-medium">
                                 {currentClient.clientType === "physical" ? "RG" : "IE"}:
@@ -1362,20 +1383,20 @@ const PatientRecordPage = () => {
               <TabsTrigger
                 value="exams"
                 title="Exames"
-                style={{ ["--tab-accent" as any]: "#7c3aed" }}
+                style={{ ["--tab-accent" as any]: "hsl(var(--vf-clinical))" }}
                 className="tab-prontuario-trigger tab-active-line relative -mb-px pb-1.5 px-2 md:px-2.5 shrink-0 text-xs md:text-sm text-slate-600 dark:text-slate-300 hover:text-foreground rounded-md transition-colors data-[state=active]:text-foreground data-[state=active]:font-semibold"
               >
-                <FaFlask className="h-3.5 w-3.5 mr-1 md:mr-1.5 text-violet-600" />
+                <FaFlask className="h-3.5 w-3.5 mr-1 md:mr-1.5 text-vf-clinical" />
                 <span className="max-w-[9.5rem] md:max-w-none truncate">Exames</span>
                 <span className="ml-1.5 inline-flex items-center justify-center h-4 min-w-4 px-1.5 rounded-full text-[9px] bg-muted text-foreground/70">{examsList.length}</span>
               </TabsTrigger>
               <TabsTrigger
                 value="vaccines"
                 title="Vacinas"
-                style={{ ["--tab-accent" as any]: "#0284c7" }}
+                style={{ ["--tab-accent" as any]: "hsl(var(--vf-clinical))" }}
                 className="tab-prontuario-trigger tab-active-line relative -mb-px pb-1.5 px-2 md:px-2.5 shrink-0 text-xs md:text-sm text-slate-600 dark:text-slate-300 hover:text-foreground rounded-md transition-colors data-[state=active]:text-foreground data-[state=active]:font-semibold"
               >
-                <FaSyringe className="h-3.5 w-3.5 mr-1 md:mr-1.5 text-sky-600" />
+                <FaSyringe className="h-3.5 w-3.5 mr-1 md:mr-1.5 text-vf-clinical" />
                 <span className="max-w-[9.5rem] md:max-w-none truncate">Vacinas</span>
                 <span className="ml-1.5 inline-flex items-center justify-center h-4 min-w-4 px-1.5 rounded-full text-[9px] bg-muted text-foreground/70">{vaccineAppointmentsCount}</span>
               </TabsTrigger>
@@ -1399,7 +1420,13 @@ const PatientRecordPage = () => {
                 <span className="max-w-[9.5rem] md:max-w-none truncate">Docs</span>
                 <span className="ml-1.5 inline-flex items-center justify-center h-4 min-w-4 px-1.5 rounded-full text-[9px] bg-muted text-foreground/70">{documents.length}</span>
               </TabsTrigger>
-              
+
+              {/* Separador visual: Clínico | Comercial */}
+              <div className="hidden md:flex items-center mx-1.5 self-stretch">
+                <div className="w-px h-5 bg-border/60" />
+              </div>
+              <span className="hidden md:inline-flex items-center text-[10px] uppercase tracking-wider text-muted-foreground/50 font-medium mr-1">Mais</span>
+
               <TabsTrigger
                 value="observations"
                 title="Observações"
@@ -1602,13 +1629,13 @@ const PatientRecordPage = () => {
           </TabsContent>
 
           <TabsContent value="exams" className="mt-4">
-            <Card className="bg-card shadow-sm border border-border rounded-md">
+            <Card className="vf-surface-card vf-tone-clinical card-hover rounded-md border border-border/80">
               <CardHeader className="flex flex-row items-center justify-between pb-3">
                 <CardTitle className="flex items-center gap-2 text-lg font-semibold text-foreground">
                   <FaFlask className="h-5 w-5 text-primary" /> Histórico de Exames
                 </CardTitle>
                 <Link to={`/clients/${clientId}/animals/${animalId}/add-exam`}>
-                  <Button size="sm" className="rounded-md bg-primary text-primary-foreground hover:bg-primary/90 font-semibold transition-all duration-200 shadow-md hover:shadow-lg">
+                  <Button size="sm" className="rounded-md bg-[hsl(var(--vf-clinical))] font-semibold text-white transition-all duration-200 shadow-md hover:bg-[hsl(var(--vf-clinical)/0.9)] hover:shadow-lg">
                     <FaPlus className="h-4 w-4 mr-2" /> Adicionar Exame
                   </Button>
                 </Link>
@@ -1628,17 +1655,17 @@ const PatientRecordPage = () => {
                           className={cn(
                             "rounded-xl border bg-white p-4 transition-all duration-200",
                             "hover:shadow-lg hover:-translate-y-0.5",
-                            "border-purple-300 hover:shadow-purple-200/60"
+                            "border-[hsl(var(--vf-clinical))]/35 hover:shadow-[hsl(var(--vf-clinical))]/20"
                           )}
                         >
                           <div className="flex items-start justify-between gap-3">
                             <div className="flex items-start gap-3 min-w-0">
-                              <div className="h-12 w-12 shrink-0 rounded-2xl bg-purple-50/70 flex items-center justify-center">
-                                <FaFlask className="h-6 w-6 text-purple-600" />
+                              <div className="h-12 w-12 shrink-0 rounded-2xl bg-[hsl(var(--vf-clinical))]/12 flex items-center justify-center">
+                                <FaFlask className="h-6 w-6 text-vf-clinical" />
                               </div>
 
                               <div className="min-w-0">
-                                <div className="text-base font-bold text-purple-900 truncate">{title}</div>
+                                <div className="text-base font-bold text-vf-clinical truncate">{title}</div>
                                 <div className="mt-1 text-sm text-muted-foreground leading-relaxed line-clamp-2">
                                   {subtitle}
                                 </div>
@@ -1663,9 +1690,7 @@ const PatientRecordPage = () => {
                                 size="icon"
                                 onClick={() => {
                                   const tutorAddress = `${currentClient.address.street}, ${currentClient.address.number} - ${currentClient.address.city} - ${currentClient.address.state}`;
-                                  // Abre janela em branco sincronamente para evitar bloqueio de pop-up
-                                  const newWindow = window.open("", "_blank");
-                                  pdf(
+                                  createPdfBlob(
                                     <ExamReportPdfContent
                                       animalName={currentAnimal.name}
                                       animalId={currentAnimal.id}
@@ -1676,16 +1701,11 @@ const PatientRecordPage = () => {
                                       exam={exam}
                                       hemogramReferences={getHemogramReferences()}
                                     />
-                                  ).toBlob().then((blob) => {
-                                    const url = URL.createObjectURL(blob);
-                                    if (newWindow) {
-                                      newWindow.location.href = url;
-                                    } else {
-                                      // Fallback caso a janela não tenha sido aberta
-                                      window.open(url, "_blank");
-                                    }
-                                    // Não revogar imediatamente para evitar carregar URL inválida em alguns navegadores
-                                    setTimeout(() => URL.revokeObjectURL(url), 30000);
+                                  ).then((blob) => openPdf({
+                                    blob,
+                                    fileName: `laudo_${exam.id || exam.date}.pdf`,
+                                    persistOptions: { folder: "exams" },
+                                  })).then(() => {
                                     toast.success("Laudo de exame enviado para impressão!");
                                   }).catch((err) => {
                                     console.error(err);
@@ -1705,8 +1725,7 @@ const PatientRecordPage = () => {
                                   size="icon"
                                   onClick={() => {
                                     const tutorAddress = `${currentClient.address.street}, ${currentClient.address.number} - ${currentClient.address.city} - ${currentClient.address.state}`;
-                                    const newWindow = window.open("", "_blank");
-                                    pdf(
+                                    createPdfBlob(
                                       <ExamReportPdfContentHemogramaOnePage
                                         animalName={currentAnimal.name}
                                         animalId={currentAnimal.id}
@@ -1718,14 +1737,11 @@ const PatientRecordPage = () => {
                                         exam={exam}
                                         hemogramReferences={getHemogramReferences()}
                                       />
-                                    ).toBlob().then((blob) => {
-                                      const url = URL.createObjectURL(blob);
-                                      if (newWindow) {
-                                        newWindow.location.href = url;
-                                      } else {
-                                        window.open(url, "_blank");
-                                      }
-                                      setTimeout(() => URL.revokeObjectURL(url), 30000);
+                                    ).then((blob) => openPdf({
+                                      blob,
+                                      fileName: `laudo_compacto_${exam.id || exam.date}.pdf`,
+                                      persistOptions: { folder: "exams" },
+                                    })).then(() => {
                                       toast.success("Laudo compacto (hemograma) gerado!");
                                     }).catch((err) => {
                                       console.error(err);
@@ -1771,7 +1787,7 @@ const PatientRecordPage = () => {
           </TabsContent>
 
           <TabsContent value="weight" className="mt-4">
-            <Card className="bg-card shadow-sm border border-border rounded-md">
+            <Card className="vf-surface-card vf-tone-clinical card-hover rounded-md border border-border/80">
               <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between pb-3 gap-2">
                 <CardTitle className="flex items-center gap-2 text-lg font-semibold text-foreground">
                   <FaWeightHanging className="h-5 w-5 text-primary" /> Histórico de Peso
@@ -1789,13 +1805,26 @@ const PatientRecordPage = () => {
                     onChange={(v) => setNewWeight(v)}
                     className="w-full sm:w-[120px] bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200"
                   />
-                  <Button size="sm" onClick={() => {
+                  <Button size="sm" onClick={async () => {
                     if (newWeight !== "" && newWeightDate) {
-                      const success = updateAnimalDetails(clientId!, animalId!, {
+                      const entryTime = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+                      const success = await updateAnimalDetails(clientId!, animalId!, {
                         weight: Number(newWeight),
                         lastWeightSource: "Manual",
-                      }, { date: newWeightDate, time: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) });
+                      }, { date: newWeightDate, time: entryTime });
                       if (success) {
+                        await queryClient.invalidateQueries({ queryKey: ["clients-with-animals"] });
+                        await queryClient.invalidateQueries({ queryKey: ["client-with-animals", clientId] });
+                        setWeightHistory((prev) => [
+                          {
+                            id: `manual-${Date.now()}`,
+                            date: newWeightDate,
+                            time: entryTime,
+                            weight: Number(newWeight),
+                            source: "Manual",
+                          },
+                          ...prev,
+                        ]);
                         setNewWeight("");
                         setNewWeightDate(new Date().toISOString().split('T')[0]);
                         toast.success("Peso adicionado ao histórico!");
@@ -1803,7 +1832,7 @@ const PatientRecordPage = () => {
                         toast.error("Erro ao adicionar peso.");
                       }
                     }
-                  }} disabled={newWeight === ""} className="w-full sm:w-auto rounded-md bg-primary text-primary-foreground hover:bg-primary/90 font-semibold transition-all duration-200 shadow-md hover:shadow-lg">
+                  }} disabled={newWeight === ""} className="w-full sm:w-auto rounded-md bg-[hsl(var(--vf-clinical))] font-semibold text-white transition-all duration-200 shadow-md hover:bg-[hsl(var(--vf-clinical)/0.9)] hover:shadow-lg">
                     <FaPlus className="h-4 w-4 mr-2" /> Adicionar Peso
                   </Button>
                 </div>
@@ -1885,16 +1914,18 @@ const PatientRecordPage = () => {
           </TabsContent>
 
           <TabsContent value="documents" className="mt-4">
-            <Card className="bg-card shadow-sm border border-border rounded-md">
+            <Card className="vf-surface-card vf-tone-clinical card-hover rounded-md border border-border/80">
               <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between pb-3 gap-2">
                 <CardTitle className="flex items-center gap-2 text-lg font-semibold text-foreground">
                   <FaFileAlt className="h-5 w-5 text-primary" /> Documentos
                 </CardTitle>
-                <Button size="sm" asChild className="w-full sm:w-auto rounded-md bg-primary text-primary-foreground hover:bg-primary/90 font-semibold transition-all duration-200 shadow-md hover:shadow-lg">
-                  <Link to={`/clients/${clientId}/animals/${animalId}/add-document`}>
-                    <FaPlus className="h-4 w-4 mr-2" /> Cadastrar novo documento
-                  </Link>
-                </Button>
+                {canEditPrescriptions ? (
+                  <Button size="sm" asChild className="w-full sm:w-auto rounded-md bg-[hsl(var(--vf-clinical))] font-semibold text-white transition-all duration-200 shadow-md hover:bg-[hsl(var(--vf-clinical)/0.9)] hover:shadow-lg">
+                    <Link to={`/clients/${clientId}/animals/${animalId}/add-document`}>
+                      <FaPlus className="h-4 w-4 mr-2" /> Cadastrar novo documento
+                    </Link>
+                  </Button>
+                ) : null}
               </CardHeader>
               <CardContent className="pt-0">
                 {documents.length > 0 ? (
@@ -1904,22 +1935,20 @@ const PatientRecordPage = () => {
                         if (doc.source === "editor" && doc.content) {
                           try {
                             // Apply template replacements in a case-insensitive way before generating PDF
-                            const contentWithVars = replaceTemplateVariables(doc.content || "", currentAnimal, currentClient);
-                            const blob = await pdf(<DocumentPdfContent documentName={doc.name} content={contentWithVars} />).toBlob();
-                            const url = URL.createObjectURL(blob);
-                            const w = window.open(url, "_blank");
-                            if (w) {
-                              setTimeout(() => w.print(), 500);
-                              setTimeout(() => URL.revokeObjectURL(url), 60000);
-                            } else {
-                              URL.revokeObjectURL(url);
-                            }
+                            const contentWithVars = replaceTemplateVariables(doc.content || "", currentAnimal, currentClient, currentUserProfile);
+                            const blob = await createPdfBlob(
+                              <DocumentPdfContent documentName={doc.name} content={contentWithVars} />
+                            );
+                            await openPdf({
+                              blob,
+                              fileName: `${doc.name}.pdf`,
+                              persistOptions: { folder: "documents/generated" },
+                            });
                           } catch (err) {
                             // eslint-disable-next-line no-console
                             console.error("[pdf-error] Erro ao gerar PDF para document", doc.name, err);
                             toast.error("Erro ao gerar PDF.");
                           }
-                        } else if (doc.fileUrl) {
                         } else if (doc.fileUrl) {
                           if (doc.fileUrl.startsWith("data:")) {
                             try {
@@ -1940,15 +1969,22 @@ const PatientRecordPage = () => {
                           }
                         }
                       };
-                      const onDownload = () => {
+                      const onDownload = async () => {
                         if (doc.source === "editor" && doc.content) {
-                          const blob = new Blob([doc.content], { type: "text/plain;charset=utf-8" });
-                          const url = URL.createObjectURL(blob);
-                          const a = document.createElement("a");
-                          a.href = url;
-                          a.download = `${doc.name.replace(/\s+/g, "_")}.txt`;
-                          a.click();
-                          URL.revokeObjectURL(url);
+                          try {
+                            const contentWithVars = replaceTemplateVariables(doc.content || "", currentAnimal, currentClient, currentUserProfile);
+                            const blob = await createPdfBlob(
+                              <DocumentPdfContent documentName={doc.name} content={contentWithVars} />
+                            );
+                            await downloadPdf({
+                              blob,
+                              fileName: `${doc.name}.pdf`,
+                              persistOptions: { folder: "documents/generated" },
+                            });
+                          } catch (err) {
+                            console.error("[pdf-error] Erro ao baixar PDF do documento", doc.name, err);
+                            toast.error("Erro ao baixar o PDF.");
+                          }
                         } else if (doc.fileUrl) {
                           const a = document.createElement("a");
                           a.href = doc.fileUrl;
@@ -1996,7 +2032,7 @@ const PatientRecordPage = () => {
                               >
                                 {doc.source === "editor" ? <FaPrint className="h-4 w-4" /> : <FaEye className="h-4 w-4" />}
                               </Button>
-                              {doc.source === "editor" && (
+                              {doc.source === "editor" && canEditPrescriptions && (
                                 <Button
                                   variant="ghost"
                                   size="icon"
@@ -2018,15 +2054,17 @@ const PatientRecordPage = () => {
                               >
                                 <FaDownload className="h-4 w-4" />
                               </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => setDocumentDeleteId(doc.id)}
-                                className="rounded-md hover:bg-muted hover:text-foreground transition-colors duration-200"
-                                title="Excluir"
-                              >
-                                <FaTrashAlt className="h-4 w-4 text-destructive" />
-                              </Button>
+                              {canEditPrescriptions ? (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => setDocumentDeleteId(doc.id)}
+                                  className="rounded-md hover:bg-muted hover:text-foreground transition-colors duration-200"
+                                  title="Excluir"
+                                >
+                                  <FaTrashAlt className="h-4 w-4 text-destructive" />
+                                </Button>
+                              ) : null}
                             </div>
                           </div>
                         </div>
@@ -2041,31 +2079,37 @@ const PatientRecordPage = () => {
           </TabsContent>
 
           <TabsContent value="prescriptions" className="mt-4">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-              <Link to={`/clients/${clientId}/animals/${animalId}/add-prescription?type=simple`}>
-                <Card className="flex flex-col items-center justify-center p-6 text-center bg-card shadow-sm border border-border rounded-md h-full">
-                  <FaFileMedical className="h-12 w-12 text-primary mb-3" />
-                  <CardTitle className="text-lg font-semibold text-foreground">Receita Simples</CardTitle>
-                  <p className="text-sm text-muted-foreground mt-1">Medicamentos de uso comum</p>
-                </Card>
-              </Link>
-              <Link to={`/clients/${clientId}/animals/${animalId}/add-prescription?type=controlled`}>
-                <Card className="flex flex-col items-center justify-center p-6 text-center bg-card shadow-sm border border-border rounded-md h-full">
-                  <FaExclamationTriangle className="h-12 w-12 text-destructive mb-3" />
-                  <CardTitle className="text-lg font-semibold text-foreground">Receita Controlada</CardTitle>
-                  <p className="text-sm text-muted-foreground mt-1">Medicamentos controlados</p>
-                </Card>
-              </Link>
-              <Link to={`/clients/${clientId}/animals/${animalId}/add-prescription?type=manipulated`}>
-                <Card className="flex flex-col items-center justify-center p-6 text-center bg-card shadow-sm border border-border rounded-md h-full">
-                  <FaFlask className="h-12 w-12 text-purple-600 mb-3" />
-                  <CardTitle className="text-lg font-semibold text-foreground">Receita Manipulada</CardTitle>
-                  <p className="text-sm text-muted-foreground mt-1">Medicamentos manipulados</p>
-                </Card>
-              </Link>
-            </div>
+            {canEditPrescriptions ? (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <Link to={`/clients/${clientId}/animals/${animalId}/add-prescription?type=simple`}>
+                  <Card className="vf-surface-card vf-tone-clinical card-hover flex h-full flex-col items-center justify-center rounded-md border border-border/80 p-6 text-center">
+                    <FaFileMedical className="h-12 w-12 text-primary mb-3" />
+                    <CardTitle className="text-lg font-semibold text-foreground">Receita Simples</CardTitle>
+                    <p className="text-sm text-muted-foreground mt-1">Medicamentos de uso comum</p>
+                  </Card>
+                </Link>
+                <Link to={`/clients/${clientId}/animals/${animalId}/add-prescription?type=controlled`}>
+                  <Card className="vf-surface-card vf-tone-clinical card-hover flex h-full flex-col items-center justify-center rounded-md border border-border/80 p-6 text-center">
+                    <FaExclamationTriangle className="h-12 w-12 text-destructive mb-3" />
+                    <CardTitle className="text-lg font-semibold text-foreground">Receita Controlada</CardTitle>
+                    <p className="text-sm text-muted-foreground mt-1">Medicamentos controlados</p>
+                  </Card>
+                </Link>
+                <Link to={`/clients/${clientId}/animals/${animalId}/add-prescription?type=manipulated`}>
+                  <Card className="vf-surface-card vf-tone-clinical card-hover flex h-full flex-col items-center justify-center rounded-md border border-border/80 p-6 text-center">
+                    <FaFlask className="h-12 w-12 text-vf-clinical mb-3" />
+                    <CardTitle className="text-lg font-semibold text-foreground">Receita Manipulada</CardTitle>
+                    <p className="text-sm text-muted-foreground mt-1">Medicamentos manipulados</p>
+                  </Card>
+                </Link>
+              </div>
+            ) : (
+              <p className="mb-6 text-sm text-muted-foreground">
+                Seu perfil possui acesso somente de visualização para receitas e documentos.
+              </p>
+            )}
 
-            <Card className="bg-card shadow-sm border border-border rounded-md">
+            <Card className="vf-surface-card vf-tone-clinical card-hover rounded-md border border-border/80">
               <CardHeader className="flex flex-row items-center justify-between pb-3">
                 <CardTitle className="flex items-center gap-2 text-lg font-semibold text-foreground">
                   <FaPrescriptionBottleAlt className="h-5 w-5 text-primary" /> Prescrições Recentes
@@ -2082,19 +2126,19 @@ const PatientRecordPage = () => {
                       const borderClass = isControlled
                         ? "border-rose-300 hover:shadow-rose-200/60"
                         : isManipulated
-                          ? "border-purple-300 hover:shadow-purple-200/60"
+                          ? "border-[hsl(var(--vf-clinical))]/35 hover:shadow-[hsl(var(--vf-clinical))]/20"
                           : "border-emerald-300 hover:shadow-emerald-200/60";
 
                       const iconWrapClass = isControlled
                         ? "bg-rose-50/70"
                         : isManipulated
-                          ? "bg-purple-50/70"
+                          ? "bg-[hsl(var(--vf-clinical))]/12"
                           : "bg-emerald-50/70";
 
                       const iconClass = isControlled
                         ? "text-rose-600"
                         : isManipulated
-                          ? "text-purple-600"
+                          ? "text-vf-clinical"
                           : "text-emerald-600";
 
                       const label = isControlled
@@ -2128,7 +2172,7 @@ const PatientRecordPage = () => {
                                     isControlled
                                       ? "bg-rose-100 text-rose-800"
                                       : isManipulated
-                                        ? "bg-purple-100 text-purple-800"
+                                        ? "bg-[hsl(var(--vf-clinical))]/15 text-vf-clinical"
                                         : "bg-emerald-100 text-emerald-800"
                                   )}>
                                     {label}
@@ -2156,7 +2200,7 @@ const PatientRecordPage = () => {
                                     toast.error("Erro: Dados do cliente ou animal não disponíveis para impressão.");
                                     return;
                                   }
-                                  pdf(
+                                  createPdfBlob(
                                     PrescriptionPdfContent({
                                       animalName: currentAnimal.name,
                                       animalId: currentAnimal.id,
@@ -2174,11 +2218,13 @@ const PatientRecordPage = () => {
                                       pharmacistAddress: "Endereço da Farmácia, 000 - Cidade - UF",
                                       pharmacistPhone: "Telefone: (00) 00000-0000",
                                       manipulatedPrescription: rx.manipulatedPrescription,
+                                      userProfile: currentUserProfile,
                                     })
-                                  ).toBlob().then((blob) => {
-                                    const url = URL.createObjectURL(blob);
-                                    window.open(url, "_blank");
-                                    URL.revokeObjectURL(url);
+                                  ).then((blob) => openPdf({
+                                    blob,
+                                    fileName: `receita_${currentAnimal.name}_${currentClient.name}_${rx.date || "sem-data"}.pdf`,
+                                    persistOptions: { folder: "prescriptions" },
+                                  })).then(() => {
                                     toast.success("Receita enviada para impressão!");
                                   });
                                 }}
@@ -2195,7 +2241,7 @@ const PatientRecordPage = () => {
                                     toast.error("Erro: Dados do cliente ou animal não disponíveis.");
                                     return;
                                   }
-                                  pdf(
+                                  createPdfBlob(
                                     PrescriptionPdfContent({
                                       animalName: currentAnimal.name,
                                       animalId: currentAnimal.id,
@@ -2213,16 +2259,13 @@ const PatientRecordPage = () => {
                                       pharmacistAddress: "Endereço da Farmácia, 000 - Cidade - UF",
                                       pharmacistPhone: "Telefone: (00) 00000-0000",
                                       manipulatedPrescription: rx.manipulatedPrescription,
+                                      userProfile: currentUserProfile,
                                     })
-                                  ).toBlob().then((blob) => {
-                                    const url = URL.createObjectURL(blob);
-                                    const link = document.createElement("a");
-                                    link.href = url;
-                                    link.download = `receita_${currentAnimal.name}_${currentClient.name}_${rx.date || "sem-data"}.pdf`;
-                                    document.body.appendChild(link);
-                                    link.click();
-                                    document.body.removeChild(link);
-                                    URL.revokeObjectURL(url);
+                                  ).then((blob) => downloadPdf({
+                                    blob,
+                                    fileName: `receita_${currentAnimal.name}_${currentClient.name}_${rx.date || "sem-data"}.pdf`,
+                                    persistOptions: { folder: "prescriptions" },
+                                  })).then(() => {
                                     toast.success("PDF baixado.");
                                   });
                                 }}
@@ -2242,7 +2285,7 @@ const PatientRecordPage = () => {
                                     toast.error("Erro: Dados do cliente ou animal não disponíveis.");
                                     return;
                                   }
-                                  pdf(
+                                  createPdfBlob(
                                     PrescriptionPdfContent({
                                       animalName: currentAnimal.name,
                                       animalId: currentAnimal.id,
@@ -2260,16 +2303,13 @@ const PatientRecordPage = () => {
                                       pharmacistAddress: "Endereço da Farmácia, 000 - Cidade - UF",
                                       pharmacistPhone: "Telefone: (00) 00000-0000",
                                       manipulatedPrescription: rx.manipulatedPrescription,
+                                      userProfile: currentUserProfile,
                                     })
-                                  ).toBlob().then((blob) => {
-                                    const url = URL.createObjectURL(blob);
-                                    const link = document.createElement("a");
-                                    link.href = url;
-                                    link.download = `receita_${currentAnimal.name}_${currentClient.name}_${rx.date || "sem-data"}.pdf`;
-                                    document.body.appendChild(link);
-                                    link.click();
-                                    document.body.removeChild(link);
-                                    URL.revokeObjectURL(url);
+                                  ).then((blob) => downloadPdf({
+                                    blob,
+                                    fileName: `receita_${currentAnimal.name}_${currentClient.name}_${rx.date || "sem-data"}.pdf`,
+                                    persistOptions: { folder: "prescriptions" },
+                                  })).then(() => {
                                     const raw = (currentClient.mainPhoneContact ?? "").replace(/\D/g, "");
                                     const withCountry = raw.length <= 10 ? "55" + raw : raw.startsWith("55") ? raw : "55" + raw;
                                     const num = withCountry || "5500000000000";
@@ -2281,11 +2321,13 @@ const PatientRecordPage = () => {
                               >
                                 <SiWhatsapp className="h-5 w-5 text-[#25D366]" />
                               </Button>
-                              <Link to={`/clients/${clientId}/animals/${animalId}/edit-prescription/${rx.id}?type=${rx.type}`}>
-                                <Button variant="ghost" size="icon" className="rounded-md hover:bg-muted hover:text-foreground transition-colors duration-200" title="Editar">
-                                  <FaEdit className="h-4 w-4 text-blue-600" />
-                                </Button>
-                              </Link>
+                              {canEditPrescriptions ? (
+                                <Link to={`/clients/${clientId}/animals/${animalId}/edit-prescription/${rx.id}?type=${rx.type}`}>
+                                  <Button variant="ghost" size="icon" className="rounded-md hover:bg-muted hover:text-foreground transition-colors duration-200" title="Editar">
+                                    <FaEdit className="h-4 w-4 text-vf-clinical" />
+                                  </Button>
+                                </Link>
+                              ) : null}
                             </div>
                           </div>
                         </div>
@@ -2300,7 +2342,7 @@ const PatientRecordPage = () => {
           </TabsContent>
 
           <TabsContent value="observations" className="mt-4">
-            <Card className="bg-card shadow-sm border border-border rounded-md">
+            <Card className="vf-surface-card vf-tone-clinical card-hover rounded-md border border-border/80">
               <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between pb-3 gap-2">
                 <CardTitle className="flex items-center gap-2 text-lg font-semibold text-foreground">
                   <FaCommentAlt className="h-5 w-5 text-primary" /> Observações Gerais
@@ -2319,7 +2361,7 @@ const PatientRecordPage = () => {
                     setNewObservation("");
                     setNewObservationAlert(false);
                   }
-                }} disabled={isObservationEmpty} className="rounded-md bg-primary text-primary-foreground hover:bg-primary/90 font-semibold transition-all duration-200 shadow-md hover:shadow-lg">
+                }} disabled={isObservationEmpty} className="rounded-md bg-[hsl(var(--vf-clinical))] font-semibold text-white transition-all duration-200 shadow-md hover:bg-[hsl(var(--vf-clinical)/0.9)] hover:shadow-lg">
                   <FaPlus className="h-4 w-4 mr-2" /> Adicionar Observação
                 </Button>
               </CardHeader>
@@ -2470,11 +2512,11 @@ const PatientRecordPage = () => {
                                 const statusDisplay = expired && b.status !== "convertido" && b.status !== "cancelado" ? "expirado" : b.status;
                                 const canConvert = !expired && b.status !== "cancelado" && b.status !== "convertido";
                                 const badgeClass =
-                                  statusDisplay === "convertido" ? "bg-indigo-600 text-white" :
+                                  statusDisplay === "convertido" ? "bg-[hsl(var(--vf-clinical))] text-white" :
                                   statusDisplay === "aprovado" ? "bg-emerald-600 text-white" :
                                   statusDisplay === "expirado" ? "bg-red-600 text-white" :
                                   statusDisplay === "cancelado" ? "bg-gray-300 text-gray-900" :
-                                  "bg-blue-600 text-white";
+                                  "bg-[hsl(var(--vf-clinical))] text-white";
                                 return (
                                   <Card key={b.id} className="p-4 bg-white rounded-[12px] shadow-sm border border-[#E2E8F0]">
                                     <div className="flex items-center justify-between">
@@ -2571,7 +2613,7 @@ const PatientRecordPage = () => {
                                 </div>
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-sm text-muted-foreground">
                                   <div className="flex items-center gap-1">
-                                    <FaCalendarAlt className="h-3 w-3 text-blue-500" /> {formatDateTime(sale.date)}
+                                    <FaCalendarAlt className="h-3 w-3 text-vf-clinical" /> {formatDateTime(sale.date)}
                                   </div>
                                   <div className="flex items-center gap-1">
                                     <FaTag className="h-3 w-3 text-amber-500" /> Status financeiro: {finStatus === "paid" ? "Pago" : finStatus === "partial" ? "Parcial" : "Pendente"}

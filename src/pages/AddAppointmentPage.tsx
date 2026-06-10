@@ -2,16 +2,18 @@
 
 import React from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { FaArrowLeft } from "react-icons/fa";
+import { FaArrowLeft } from "@/components/icons/fa";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import AppointmentForm from "@/components/AppointmentForm";
 
 import type { AppointmentEntry } from "@/types/appointment";
-import { mockClients } from "@/mockData/clients";
-import { mockAppointments } from "@/mockData/appointments";
 import { findAppointmentDraft, removeAppointmentDraft } from "@/lib/appointmentDrafts";
+import { useClientWithAnimals } from "@/hooks/useSupabaseClients";
+import { useAppointments } from "@/hooks/useAppointments";
+import * as appointmentsApi from "@/lib/appointmentsApi";
+import { PageShell } from "@/components/saas/PageShell";
 
 const AddAppointmentPage = () => {
   const { clientId, animalId, appointmentId } = useParams<{
@@ -20,24 +22,39 @@ const AddAppointmentPage = () => {
     appointmentId?: string;
   }>();
   const navigate = useNavigate();
+  const { data: clientData, isLoading: isClientLoading, isError: isClientError, error: clientError } = useClientWithAnimals(clientId);
+  const { appointments: dbAppointments, loading: isAppointmentsLoading } = useAppointments(animalId);
 
-  const client = mockClients.find((c) => c.id === clientId);
+  const client = clientData ?? undefined;
   const animal = client?.animals.find((a) => a.id === animalId);
 
   const isEditing = !!appointmentId;
 
-  const initialFromMock = isEditing ? mockAppointments.find((app) => app.id === appointmentId) : undefined;
+  const initialFromDb = isEditing ? dbAppointments.find((app) => app.id === appointmentId) : undefined;
   const initialFromDraft =
-    isEditing && !initialFromMock && appointmentId
+    isEditing && !initialFromDb && appointmentId
       ? findAppointmentDraft(clientId!, animalId!, appointmentId)?.appointment
       : undefined;
 
-  const initialData = initialFromMock || initialFromDraft;
+  const initialData = initialFromDb || initialFromDraft;
+
+  if (isClientLoading || isAppointmentsLoading) {
+    return (
+      <div className="p-6 text-center">
+        <h1 className="text-2xl font-semibold mb-2">Carregando atendimento...</h1>
+        <p className="text-muted-foreground">Buscando cliente, animal e histórico no Supabase.</p>
+      </div>
+    );
+  }
 
   if (!client || !animal) {
     return (
       <div className="p-6 text-center">
-        <h1 className="text-3xl font-bold mb-4">Animal ou Cliente não encontrado.</h1>
+        <h1 className="text-3xl font-bold mb-4">
+          {isClientError
+            ? `Erro ao carregar cliente/animal do Supabase: ${clientError instanceof Error ? clientError.message : "erro desconhecido"}.`
+            : "Animal ou Cliente não encontrado."}
+        </h1>
         <Link to="/clients">
           <Button variant="outline">
             <FaArrowLeft className="mr-2 h-4 w-4" /> Voltar para Clientes
@@ -47,46 +64,53 @@ const AddAppointmentPage = () => {
     );
   }
 
-  const handleSaveAppointment = (newAppointment: AppointmentEntry) => {
+  const handleSaveAppointment = async (newAppointment: AppointmentEntry) => {
+    if (!clientId || !animalId) {
+      toast.error("Parâmetros inválidos para salvar o atendimento.");
+      return;
+    }
+
     const isDraftId = (newAppointment.id || "").startsWith("draft-");
-    const baseIdCandidate = isDraftId ? newAppointment.id.replace(/^draft-/, "") : "";
-    const baseIdx = baseIdCandidate ? mockAppointments.findIndex((a) => a.id === baseIdCandidate) : -1;
+    const baseIdCandidate = isDraftId ? newAppointment.id.replace(/^draft-/, "") : newAppointment.id;
 
-    // Se estávamos editando um rascunho de um atendimento existente (draft-app1), salvar atualizando o atendimento real.
-    if (isDraftId && baseIdx >= 0) {
-      const updated: AppointmentEntry = { ...newAppointment, id: baseIdCandidate };
-      mockAppointments[baseIdx] = updated;
-      removeAppointmentDraft(clientId!, animalId!, newAppointment.id);
-      toast.success("Atendimento atualizado com sucesso!");
-      navigate(`/clients/${clientId}/animals/${animalId}/record`);
-      return;
-    }
-
-    // Se o formulário está salvando um rascunho de NOVO atendimento, transforma em definitivo.
-    if (isDraftId) {
-      const definitive: AppointmentEntry = { ...newAppointment, id: `app-${Date.now()}` };
-      mockAppointments.push(definitive);
-      removeAppointmentDraft(clientId!, animalId!, newAppointment.id);
-      toast.success("Atendimento salvo com sucesso!");
-      navigate(`/clients/${clientId}/animals/${animalId}/record`);
-      return;
-    }
-
-    // Fluxo normal (editar ou criar sem rascunho)
     if (isEditing) {
-      const index = mockAppointments.findIndex((app) => app.id === newAppointment.id);
-      if (index !== -1) {
-        mockAppointments[index] = newAppointment;
-        // se existia rascunho para este atendimento, limpa
-        removeAppointmentDraft(clientId!, animalId!, `draft-${newAppointment.id}`);
-        toast.success("Atendimento atualizado com sucesso!");
-      } else {
-        toast.error("Erro ao atualizar atendimento. Atendimento não encontrado.");
+      const targetId = appointmentId && !appointmentId.startsWith("draft-") ? appointmentId : baseIdCandidate;
+      if (!targetId) {
+        toast.error("Erro ao atualizar atendimento: ID inválido.");
         return;
       }
+
+      const ok = await appointmentsApi.updateAppointment({ ...newAppointment, id: targetId, animalId });
+      if (!ok) {
+        toast.error("Erro ao atualizar atendimento no Supabase.");
+        return;
+      }
+
+      if (isDraftId) removeAppointmentDraft(clientId, animalId, newAppointment.id);
+      removeAppointmentDraft(clientId, animalId, `draft-${targetId}`);
+      toast.success("Atendimento atualizado com sucesso!");
     } else {
-      mockAppointments.push(newAppointment);
-      // se a tela tinha um rascunho de criação, ele será removido no próprio formulário; aqui é fallback
+      const created = await appointmentsApi.addAppointment({
+        animalId,
+        date: newAppointment.date,
+        time: newAppointment.time,
+        type: newAppointment.type,
+        vet: newAppointment.vet,
+        pesoAtual: newAppointment.pesoAtual,
+        temperaturaCorporal: newAppointment.temperaturaCorporal,
+        frequenciaCardiaca: newAppointment.frequenciaCardiaca,
+        frequenciaRespiratoria: newAppointment.frequenciaRespiratoria,
+        observacoesGerais: newAppointment.observacoesGerais,
+        details: newAppointment.details,
+        attachments: newAppointment.attachments,
+      });
+
+      if (!created) {
+        toast.error("Erro ao salvar atendimento no Supabase.");
+        return;
+      }
+
+      if (isDraftId) removeAppointmentDraft(clientId, animalId, newAppointment.id);
       toast.success("Atendimento salvo com sucesso!");
     }
 
@@ -98,18 +122,20 @@ const AddAppointmentPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="p-6 max-w-6xl mx-auto">
+    <PageShell>
+      <div className="mx-auto max-w-6xl">
         <AppointmentForm
           animalId={animal.id}
           clientId={client.id}
+          clientName={client.name}
+          animal={animal}
           initialData={initialData}
           onSave={handleSaveAppointment}
           onCancel={handleCancel}
-          mockAppointments={mockAppointments}
+          mockAppointments={dbAppointments}
         />
       </div>
-    </div>
+    </PageShell>
   );
 };
 

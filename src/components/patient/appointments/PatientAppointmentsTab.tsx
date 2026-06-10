@@ -101,11 +101,11 @@ const typeMeta = (type: AppointmentEntry["type"]): TypeMeta => {
       label: "Vacinação",
       icon: Syringe,
       buttonClass:
-        "border border-sky-300 bg-sky-50/20 text-sky-900 hover:bg-sky-50/40 hover:shadow-md hover:shadow-sky-200/60 hover:-translate-y-0.5",
-      iconClass: "text-sky-600",
-      cardBorderClass: "border-sky-300",
-      cardHoverShadowClass: "hover:shadow-sky-200/60",
-      iconWrapBgClass: "bg-sky-50/70",
+        "border border-[hsl(var(--vf-clinical))]/35 bg-[hsl(var(--vf-clinical))]/10 text-[hsl(var(--vf-clinical))] hover:bg-[hsl(var(--vf-clinical))]/15 hover:shadow-md hover:shadow-[hsl(var(--vf-clinical))]/20 hover:-translate-y-0.5",
+      iconClass: "text-vf-clinical",
+      cardBorderClass: "border-[hsl(var(--vf-clinical))]/35",
+      cardHoverShadowClass: "hover:shadow-[hsl(var(--vf-clinical))]/20",
+      iconWrapBgClass: "bg-[hsl(var(--vf-clinical))]/12",
     };
   }
 
@@ -114,11 +114,11 @@ const typeMeta = (type: AppointmentEntry["type"]): TypeMeta => {
       label: "Retorno",
       icon: Repeat2,
       buttonClass:
-        "border border-violet-300 bg-violet-50/20 text-violet-900 hover:bg-violet-50/40 hover:shadow-md hover:shadow-violet-200/60 hover:-translate-y-0.5",
-      iconClass: "text-violet-600",
-      cardBorderClass: "border-violet-300",
-      cardHoverShadowClass: "hover:shadow-violet-200/60",
-      iconWrapBgClass: "bg-violet-50/70",
+        "border border-emerald-300 bg-emerald-50/25 text-emerald-900 hover:bg-emerald-50/45 hover:shadow-md hover:shadow-emerald-200/60 hover:-translate-y-0.5",
+      iconClass: "text-emerald-700",
+      cardBorderClass: "border-emerald-300",
+      cardHoverShadowClass: "hover:shadow-emerald-200/60",
+      iconWrapBgClass: "bg-emerald-50/70",
     };
   }
 

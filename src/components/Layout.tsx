@@ -1,8 +1,8 @@
 import React, { useState } from "react";
 import Sidebar from "./Sidebar";
 import Header from "./Header";
-import { MadeWithDyad } from "./made-with-dyad";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { applyLayoutTheme, loadLayoutTheme } from "@/lib/layoutTheme";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -33,6 +33,10 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
   const containerClassName = `mx-auto w-full ${contentMaxWidthClass} px-4 sm:px-6`;
 
+  React.useEffect(() => {
+    applyLayoutTheme(loadLayoutTheme());
+  }, []);
+
   return (
     <div className={`flex h-screen bg-background ${containerPaddingClass} overflow-hidden`}>
       <Sidebar
@@ -50,9 +54,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           containerClassName={containerClassName}
         />
 
-        <main className="flex-1 overflow-y-auto">
+        <main className="flex-1 overflow-y-auto layered-bg">
           <div className={`mx-auto w-full ${contentMaxWidthClass} px-4 sm:px-6 py-6`}>{children}</div>
-          <MadeWithDyad />
         </main>
       </div>
     </div>

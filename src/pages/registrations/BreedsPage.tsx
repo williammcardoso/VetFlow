@@ -1,159 +1,285 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { FaArrowLeft, FaPlus, FaEdit, FaTrashAlt, FaPaw } from "react-icons/fa"; // Importar ícones de react-icons
-import { Link } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { toast } from "sonner";
+import { PawPrint, Plus, Trash2, Filter, Pencil, Check, X } from "lucide-react";
+import { PageHeader } from "@/components/saas/PageHeader";
+import { VfCard } from "@/components/saas/VfCard";
+import { useRegistryList } from "@/hooks/useRegistryList";
+import { addRegistryItem, removeRegistryItem, updateRegistryItem } from "@/lib/registryApi";
 
-interface Breed {
+type BreedRow = {
   id: string;
   name: string;
-  speciesId: string;
-  speciesName: string;
-}
+  speciesLabel: string;
+};
 
-interface Species {
-  id: string;
-  name: string;
-}
+const BreedsPage: React.FC = () => {
+  const { list: speciesList } = useRegistryList("species");
+  const { list: breedList, loading, refetch } = useRegistryList("breeds");
+  const [newName, setNewName] = useState("");
+  const [species, setSpecies] = useState("");
+  const [filterSpecies, setFilterSpecies] = useState<string>("all");
+  const [search, setSearch] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState("");
 
-const mockSpecies: Species[] = [
-  { id: "1", name: "Cachorro" },
-  { id: "2", name: "Gato" },
-  { id: "3", name: "Pássaro" },
-  { id: "4", name: "Roedor" },
-];
+  const speciesById = useMemo(
+    () =>
+      new Map(
+        speciesList.map((s) => [s.id, s.name])
+      ),
+    [speciesList]
+  );
 
-const mockBreeds: Breed[] = [
-  { id: "1", name: "Labrador", speciesId: "1", speciesName: "Cachorro" },
-  { id: "2", name: "Poodle", speciesId: "1", speciesName: "Cachorro" },
-  { id: "3", name: "Siamês", speciesId: "2", speciesName: "Gato" },
-  { id: "4", name: "Persa", speciesId: "2", speciesName: "Gato" },
-];
-
-const BreedsPage = () => {
-  const [breedsList, setBreedsList] = useState<Breed[]>(mockBreeds);
-  const [newBreedName, setNewBreedName] = useState("");
-  const [selectedSpeciesId, setSelectedSpeciesId] = useState<string | undefined>(undefined);
-
-  const handleAddBreed = () => {
-    if (newBreedName.trim() && selectedSpeciesId) {
-      const species = mockSpecies.find(s => s.id === selectedSpeciesId);
-      if (species) {
-        const newBreed: Breed = {
-          id: String(breedsList.length + 1),
-          name: newBreedName.trim(),
-          speciesId: selectedSpeciesId,
-          speciesName: species.name,
+  const rows = useMemo<BreedRow[]>(
+    () =>
+      breedList.map((b) => {
+        const rawSpecies = String(
+          (b as any).species ||
+          (b as any).speciesName ||
+          (b as any).speciesLabel ||
+          ""
+        );
+        const speciesFromId = speciesById.get(String((b as any).speciesId || ""));
+        return {
+          id: b.id,
+          name: b.name,
+          speciesLabel: speciesFromId || rawSpecies || "Sem espécie",
         };
-        setBreedsList([...breedsList, newBreed]);
-        setNewBreedName("");
-        setSelectedSpeciesId(undefined);
-      }
+      }),
+    [breedList, speciesById]
+  );
+
+  const filteredRows = useMemo(() => {
+    const normalizedSearch = search.trim().toLowerCase();
+    return rows.filter((r) => {
+      const bySpecies = filterSpecies === "all" || r.speciesLabel === filterSpecies;
+      const byName = !normalizedSearch || r.name.toLowerCase().includes(normalizedSearch);
+      return bySpecies && byName;
+    });
+  }, [rows, filterSpecies, search]);
+
+  const grouped = useMemo(() => {
+    const map = new Map<string, BreedRow[]>();
+    for (const r of filteredRows) {
+      const key = r.speciesLabel;
+      const list = map.get(key) || [];
+      list.push(r);
+      map.set(key, list);
     }
+    return Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0], "pt-BR"));
+  }, [filteredRows]);
+
+  const speciesPalette = useMemo<Record<string, string>>(
+    () => ({
+      Canino:
+        "border-l-emerald-500 bg-card dark:border-l-emerald-400 vf-surface-card",
+      Felino:
+        "border-l-[hsl(var(--vf-registry))] bg-card dark:border-l-[hsl(var(--vf-registry))] vf-surface-card",
+      Pássaro: "border-l-teal-500 bg-card dark:border-l-teal-400 vf-surface-card",
+      Roedor:
+        "border-l-amber-500 bg-card dark:border-l-amber-400 vf-surface-card",
+      "Sem espécie":
+        "border-l-slate-400 bg-card dark:border-l-slate-500 vf-surface-card",
+    }),
+    []
+  );
+
+  const handleAdd = async () => {
+    const name = newName.trim();
+    if (!name) return;
+    const speciesLabel = speciesList.find((s) => s.id === species)?.name || species || "Sem espécie";
+
+    const created = await addRegistryItem("breeds", {
+      name,
+      species,
+      speciesId: species,
+      speciesName: speciesLabel,
+      speciesLabel,
+    });
+    if (!created) {
+      toast.error("Falha ao adicionar raça.");
+      return;
+    }
+    setNewName("");
+    setSpecies("");
+    toast.success("Raça adicionada.");
+    await refetch();
   };
 
-  const handleDeleteBreed = (id: string) => {
-    setBreedsList(breedsList.filter(breed => breed.id !== id));
+  const handleRemove = async (id: string) => {
+    const ok = await removeRegistryItem("breeds", id);
+    if (!ok) {
+      toast.error("Falha ao remover raça.");
+      return;
+    }
+    toast.success("Raça removida.");
+    await refetch();
+  };
+
+  const startEdit = (id: string, name: string) => {
+    setEditingId(id);
+    setEditingName(name);
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEditingName("");
+  };
+
+  const saveEdit = async () => {
+    if (!editingId) return;
+    const nextName = editingName.trim();
+    if (!nextName) return;
+    const ok = await updateRegistryItem("breeds", editingId, { name: nextName });
+    if (!ok) {
+      toast.error("Falha ao atualizar raça.");
+      return;
+    }
+    toast.success("Raça atualizada.");
+    cancelEdit();
+    await refetch();
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-background">
-      {/* Header da Página com Gradiente e Breadcrumb */}
-      <div className="bg-gradient-to-r from-background via-card to-background p-6 pb-4 border-b border-border">
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-4">
-            <div>
-              <h1 className="text-2xl font-semibold flex items-center gap-3 text-foreground group">
-                <FaPaw className="h-5 w-5 text-muted-foreground" /> Cadastro de Raças
-              </h1>
-              <p className="text-sm text-muted-foreground mt-1 mb-4">
-                Gerencie as raças de animais, associando-as às suas respectivas espécies.
-              </p>
-            </div>
-          </div>
-          <Link to="/">
-            <Button variant="outline" className="rounded-md border-border text-foreground hover:bg-muted hover:text-foreground transition-colors duration-200">
-              <FaArrowLeft className="mr-2 h-4 w-4" /> Voltar
-            </Button>
-          </Link>
-        </div>
-        <p className="text-sm text-muted-foreground">
-          Painel &gt; Cadastros &gt; Raças
-        </p>
-      </div>
+    <div className="space-y-6">
+      <PageHeader
+        title="Cadastro de Raças"
+        description="Raças organizadas por espécie, com leitura clínica rápida."
+        icon={PawPrint}
+        module="registry"
+        breadcrumb={<>Painel &gt; Cadastros &gt; Raças</>}
+        actions={<Badge variant="secondary">{rows.length} raça(s)</Badge>}
+      />
 
-      <div className="flex-1 p-6">
-        <Card className="shadow-sm hover:shadow-md transition-all duration-300 border-border rounded-md">
-          <CardHeader className="flex flex-row items-center justify-between pb-3">
-            <CardTitle className="flex items-center gap-2 text-lg font-semibold text-foreground">
-              <FaPaw className="h-5 w-5 text-primary" /> Lista de Raças
-            </CardTitle>
-            <div className="flex gap-2">
-              <Input
-                placeholder="Nova raça"
-                className="max-w-xs bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200"
-                value={newBreedName}
-                onChange={(e) => setNewBreedName(e.target.value)}
-              />
-              <Select onValueChange={setSelectedSpeciesId} value={selectedSpeciesId}>
-                <SelectTrigger className="w-[180px] bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200">
-                  <SelectValue placeholder="Selecione a Espécie" />
-                </SelectTrigger>
-                <SelectContent>
-                  {mockSpecies.map((species) => (
-                    <SelectItem key={species.id} value={species.id}>
-                      {species.name}
+      <VfCard className="border-primary/20">
+        <CardHeader>
+          <CardTitle className="flex items-center justify-between text-base text-foreground">
+            <span>Nova raça e filtros</span>
+            <Badge className="bg-[hsl(var(--vf-registry))]/15 text-vf-registry">{rows.length} raça(s)</Badge>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="grid grid-cols-1 gap-2 md:grid-cols-[1fr_260px_auto]">
+            <Input placeholder="Ex.: Labrador Retriever" value={newName} onChange={(e) => setNewName(e.target.value)} />
+            <Select value={species} onValueChange={setSpecies}>
+              <SelectTrigger>
+                <SelectValue placeholder="Espécie (opcional)" />
+              </SelectTrigger>
+              <SelectContent>
+                {speciesList.map((s) => (
+                  <SelectItem key={s.id} value={s.id}>
+                    {s.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button onClick={handleAdd} className="bg-[hsl(var(--vf-registry))] text-white shadow-sm hover:bg-[hsl(var(--vf-registry)/0.9)]">
+              <Plus className="mr-2 h-4 w-4" />
+              Adicionar
+            </Button>
+          </div>
+          <div className="grid grid-cols-1 gap-2 md:grid-cols-[280px_1fr_auto]">
+            <Select value={filterSpecies} onValueChange={setFilterSpecies}>
+              <SelectTrigger>
+                <SelectValue placeholder="Filtrar por espécie" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas as espécies</SelectItem>
+                {Array.from(new Set(rows.map((r) => r.speciesLabel)))
+                  .sort((a, b) => a.localeCompare(b, "pt-BR"))
+                  .map((sp) => (
+                    <SelectItem key={sp} value={sp}>
+                      {sp}
                     </SelectItem>
                   ))}
-                </SelectContent>
-              </Select>
-              <Button onClick={handleAddBreed} disabled={!newBreedName.trim() || !selectedSpeciesId} className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-md font-semibold transition-all duration-200 shadow-md hover:shadow-lg">
-                <FaPlus className="mr-2 h-4 w-4" /> Adicionar
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent className="pt-0">
-            <div className="overflow-hidden">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Nome</TableHead>
-                    <TableHead>Espécie</TableHead>
-                    <TableHead className="text-right">Ações</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {breedsList.map((breed, index) => (
-                    <TableRow key={breed.id} className={cn(index % 2 === 1 && "bg-muted/50")}>
-                      <TableCell className="font-medium">{breed.name}</TableCell>
-                      <TableCell>{breed.speciesName}</TableCell>
-                      <TableCell className="text-right">
-                        <Button variant="ghost" size="sm" className="mr-2 rounded-md hover:bg-muted hover:text-foreground transition-colors duration-200">
-                          <FaEdit className="h-4 w-4" />
+              </SelectContent>
+            </Select>
+            <Input
+              placeholder="Buscar raça..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+            <Button
+              variant="outline"
+              onClick={() => {
+                setFilterSpecies("all");
+                setSearch("");
+              }}
+            >
+              <Filter className="mr-2 h-4 w-4" />
+              Limpar
+            </Button>
+          </div>
+        </CardContent>
+      </VfCard>
+
+      {loading ? (
+        <VfCard>
+          <CardContent className="py-8 text-center text-muted-foreground">Carregando...</CardContent>
+        </VfCard>
+      ) : (
+        grouped.map(([speciesLabel, list]) => (
+          <Card
+            key={speciesLabel}
+            className={`rounded-xl border-l-4 shadow-sm transition-all hover:border-primary/30 hover:shadow-md ${speciesPalette[speciesLabel] || speciesPalette["Sem espécie"]}`}
+          >
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base flex items-center justify-between">
+                <span>{speciesLabel}</span>
+                <Badge variant="outline">{list.length}</Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 gap-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+                {list
+                  .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"))
+                  .map((r) => (
+                    <div key={r.id} className="flex items-center justify-between rounded-md border px-3 py-2">
+                      {editingId === r.id ? (
+                        <Input
+                          value={editingName}
+                          onChange={(e) => setEditingName(e.target.value)}
+                          className="mr-2 h-8 text-sm"
+                        />
+                      ) : (
+                        <span className="truncate text-sm font-medium">{r.name}</span>
+                      )}
+                      <div className="ml-2 flex items-center gap-1">
+                        {editingId === r.id ? (
+                          <>
+                            <Button variant="ghost" size="sm" onClick={() => void saveEdit()} className="text-emerald-700 hover:bg-emerald-50">
+                              <Check className="h-4 w-4" />
+                            </Button>
+                            <Button variant="ghost" size="sm" onClick={cancelEdit}>
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </>
+                        ) : (
+                          <Button variant="ghost" size="sm" onClick={() => startEdit(r.id, r.name)} className="text-vf-registry hover:bg-[hsl(var(--vf-registry))]/10">
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => void handleRemove(r.id)}
+                          className="text-destructive hover:bg-destructive/10"
+                        >
+                          <Trash2 className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="sm" onClick={() => handleDeleteBreed(breed.id)} className="rounded-md hover:bg-muted hover:text-foreground transition-colors duration-200">
-                          <FaTrashAlt className="h-4 w-4" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
+                      </div>
+                    </div>
                   ))}
-                  {breedsList.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={3} className="text-center text-muted-foreground py-4">
-                        Nenhuma raça cadastrada.
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))
+      )}
     </div>
   );
 };

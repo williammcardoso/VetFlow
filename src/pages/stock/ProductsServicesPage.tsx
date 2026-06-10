@@ -1,5 +1,4 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
@@ -8,6 +7,10 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { CatalogItem, CatalogItemType, getCatalog, addCatalogItem, updateCatalogItem, removeCatalogItem, adjustStock } from "@/mockData/catalog";
 import CurrencyInput from "@/components/CurrencyInput";
+import { PackageSearch } from "lucide-react";
+import { PageShell } from "@/components/saas/PageShell";
+import { PageHeader } from "@/components/saas/PageHeader";
+import { SectionCard } from "@/components/saas/SectionCard";
 
 const ProductsServicesPage: React.FC = () => {
   const [items, setItems] = useState<CatalogItem[]>([]);
@@ -93,17 +96,19 @@ const ProductsServicesPage: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-background p-4 sm:p-6">
-      <div className="mb-3">
-        <h1 className="text-xl sm:text-2xl font-semibold">Produtos e Serviços</h1>
-        <p className="text-xs sm:text-sm text-muted-foreground">Gerencie seu catálogo de forma rápida. Edite preços e estoque com praticidade.</p>
-      </div>
+    <PageShell>
+      <PageHeader
+        title="Produtos e Serviços"
+        description="Gerencie o catálogo de produtos e serviços com atualização rápida de preços e estoque."
+        icon={PackageSearch}
+        module="stock"
+        breadcrumb={<>Painel &gt; Estoque &gt; Produtos e Serviços</>}
+      />
 
-      <Card className="border border-border">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base sm:text-lg">Adicionar novo</CardTitle>
-        </CardHeader>
-        <CardContent className="grid grid-cols-1 sm:grid-cols-7 gap-2 items-end">
+      <SectionCard title="Cadastro rápido" description="Adicione novos itens ao catálogo." icon={PackageSearch} tone="stock">
+        <div className="vf-surface-card vf-tone-stock card-hover rounded-2xl border-border/80 p-4">
+          <div className="mb-3 text-sm font-semibold text-foreground">Adicionar novo</div>
+          <div className="grid grid-cols-1 items-end gap-2 sm:grid-cols-7">
           <div className="sm:col-span-2">
             <Label className="text-xs">Nome</Label>
             <Input value={newName} onChange={(e) => setNewName(e.target.value)} className="h-8 text-sm bg-input" placeholder="Ex.: Consulta de Rotina" />
@@ -132,18 +137,17 @@ const ProductsServicesPage: React.FC = () => {
             <Input value={newStockQty} onChange={(e) => setNewStockQty(e.target.value)} className="h-8 text-sm bg-input" placeholder="0" />
           </div>
           <div className="sm:col-span-1">
-            <Button onClick={handleAddItem} className="h-8 px-3 text-sm w-full">Adicionar</Button>
+            <Button onClick={handleAddItem} className="h-8 w-full bg-[hsl(var(--vf-stock))] px-3 text-sm text-white hover:bg-[hsl(var(--vf-stock)/0.9)]">Adicionar</Button>
           </div>
-        </CardContent>
-      </Card>
+          </div>
+        </div>
+      </SectionCard>
 
-      <Card className="border border-border mt-4">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base sm:text-lg">Catálogo</CardTitle>
-        </CardHeader>
-        <CardContent>
+      <SectionCard title="Catálogo" description="Edite preços, status e estoque dos itens existentes." icon={PackageSearch} tone="stock">
+        <div className="vf-surface-card vf-tone-stock card-hover mt-4 rounded-2xl border-border/80 p-4">
+          <div className="mb-3 text-sm font-semibold text-foreground">Catálogo</div>
           <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as CatalogItemType)}>
-            <TabsList className="grid grid-cols-2 w-full mb-3">
+            <TabsList className="mb-3 grid w-full grid-cols-2 rounded-xl bg-muted/50">
               <TabsTrigger value="product">Produtos</TabsTrigger>
               <TabsTrigger value="service">Serviços</TabsTrigger>
             </TabsList>
@@ -240,9 +244,9 @@ const ProductsServicesPage: React.FC = () => {
               </Table>
             </TabsContent>
           </Tabs>
-        </CardContent>
-      </Card>
-    </div>
+        </div>
+      </SectionCard>
+    </PageShell>
   );
 };
 

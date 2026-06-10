@@ -1,0 +1,57 @@
+[
+  {
+    "route": "/stock/inventory",
+    "file": "33-inventario.png",
+    "error": "page.goto: Timeout 45000ms exceeded.\nCall log:\n  - navigating to \"http://localhost:8082/stock/inventory\", waiting until \"domcontentloaded\"\n"
+  },
+  {
+    "route": "/stock/product-groups",
+    "file": "35-grupos-de-produtos.png",
+    "error": "page.goto: Timeout 45000ms exceeded.\nCall log:\n  - navigating to \"http://localhost:8082/stock/product-groups\", waiting until \"domcontentloaded\"\n"
+  },
+  {
+    "route": "/registrations/species",
+    "file": "38-cadastro-de-especies.png",
+    "error": "page.goto: Timeout 45000ms exceeded.\nCall log:\n  - navigating to \"http://localhost:8082/registrations/species\", waiting until \"domcontentloaded\"\n"
+  },
+  {
+    "route": "/registrations/exam-references",
+    "file": "41-referencias-de-exames.png",
+    "error": "page.goto: Timeout 45000ms exceeded.\nCall log:\n  - navigating to \"http://localhost:8082/registrations/exam-references\", waiting until \"domcontentloaded\"\n"
+  },
+  {
+    "route": "/registrations/exam-attributes",
+    "file": "43-atributos-de-exames.png",
+    "error": "page.goto: Timeout 45000ms exceeded.\nCall log:\n  - navigating to \"http://localhost:8082/registrations/exam-attributes\", waiting until \"domcontentloaded\"\n"
+  },
+  {
+    "route": "/registrations/recipe-model",
+    "file": "45-modelo-de-receita.png",
+    "error": "page.goto: Timeout 45000ms exceeded.\nCall log:\n  - navigating to \"http://localhost:8082/registrations/recipe-model\", waiting until \"domcontentloaded\"\n"
+  },
+  {
+    "route": "/registrations/vaccines",
+    "file": "47-vacinas.png",
+    "error": "page.goto: Timeout 45000ms exceeded.\nCall log:\n  - navigating to \"http://localhost:8082/registrations/vaccines\", waiting until \"domcontentloaded\"\n"
+  },
+  {
+    "route": "/registrations/exams",
+    "file": "48-exames.png",
+    "error": "page.goto: Timeout 45000ms exceeded.\nCall log:\n  - navigating to \"http://localhost:8082/registrations/exams\", waiting until \"domcontentloaded\"\n"
+  },
+  {
+    "route": "/settings/company",
+    "file": "50-configuracoes-da-empresa.png",
+    "error": "page.goto: Timeout 45000ms exceeded.\nCall log:\n  - navigating to \"http://localhost:8082/settings/company\", waiting until \"domcontentloaded\"\n"
+  },
+  {
+    "route": "/settings/external-access",
+    "file": "52-acesso-externo.png",
+    "error": "page.goto: Timeout 45000ms exceeded.\nCall log:\n  - navigating to \"http://localhost:8082/settings/external-access\", waiting until \"domcontentloaded\"\n"
+  },
+  {
+    "route": "/settings/access-profile",
+    "file": "53-perfis-de-acesso.png",
+    "error": "page.goto: Timeout 45000ms exceeded.\nCall log:\n  - navigating to \"http://localhost:8082/settings/access-profile\", waiting until \"domcontentloaded\"\n"
+  }
+]

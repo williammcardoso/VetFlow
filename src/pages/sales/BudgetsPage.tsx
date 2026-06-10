@@ -1,5 +1,4 @@
 import React from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -7,16 +6,26 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import CurrencyInput from "@/components/CurrencyInput";
 import { toast } from "sonner";
-import { getCatalog, findCatalogItem, adjustStock, CatalogItem } from "@/mockData/catalog";
-import { mockClients } from "@/mockData/clients";
+import { getCatalog, findCatalogItem, adjustStock } from "@/mockData/catalog";
 import { addMockFinancialTransaction } from "@/mockData/financial";
 import { getBudgets, addBudget, updateBudgetStatus, removeBudget, Budget } from "@/mockData/budgets";
 import { getRegistryList } from "@/mockData/registry";
 import AutocompleteSelect from "@/components/AutocompleteSelect";
 import BudgetReportPdfContent from "@/components/BudgetReportPdfContent";
-import { pdf } from "@react-pdf/renderer";
+import { useClientsList } from "@/hooks/useSupabaseClients";
+import { Link } from "react-router-dom";
+import { PageShell } from "@/components/saas/PageShell";
+import { PageHeader } from "@/components/saas/PageHeader";
+import { SectionCard } from "@/components/saas/SectionCard";
+import { ToolbarRow } from "@/components/saas/ToolbarRow";
+import { DataTableFrame } from "@/components/saas/DataTableFrame";
+import { ArrowLeft, FileText, Filter, Sparkles } from "lucide-react";
+import { createPdfBlob, openPdf } from "@/lib/pdfExport";
+import { useCurrentUserProfile } from "@/hooks/useCurrentUserProfile";
 
 const BudgetsPage: React.FC = () => {
+  const { data: dbClients, isError: isClientsError } = useClientsList();
+  const clients = dbClients || [];
   const [clientId, setClientId] = React.useState<string | undefined>(undefined);
   const [animalId, setAnimalId] = React.useState<string | undefined>(undefined);
   const [productId, setProductId] = React.useState<string>("");
@@ -28,6 +37,7 @@ const BudgetsPage: React.FC = () => {
   const [customItemPrice, setCustomItemPrice] = React.useState<number>(0);
 
   const [budgets, setBudgets] = React.useState<Budget[]>(getBudgets());
+  const { profile: currentUserProfile } = useCurrentUserProfile();
 
   const productsAndServices = React.useMemo(() => getCatalog(), []);
   const options = React.useMemo(
@@ -40,9 +50,9 @@ const BudgetsPage: React.FC = () => {
 
   const animals = React.useMemo(() => {
     if (!clientId) return [];
-    const client = mockClients.find(c => c.id === clientId);
+    const client = clients.find(c => c.id === clientId);
     return client?.animals || [];
-  }, [clientId]);
+  }, [clientId, clients]);
 
   React.useEffect(() => {
     if (!productId) {
@@ -88,7 +98,17 @@ const BudgetsPage: React.FC = () => {
       toast.error("Adicione itens ao orçamento.");
       return;
     }
-    const b = addBudget({ clientId, animalId, items, notes: undefined });
+    const selectedClient = clientId ? clients.find((c) => c.id === clientId) : undefined;
+    const selectedAnimal = animalId ? selectedClient?.animals.find((a) => a.id === animalId) : undefined;
+    const b = addBudget({
+      clientId,
+      animalId,
+      clientName: selectedClient?.name,
+      animalName: selectedAnimal?.name,
+      clientPhone: selectedClient?.mainPhoneContact,
+      items,
+      notes: undefined,
+    });
     toast.success("Orçamento salvo.");
     setItems([]);
     setClientId(undefined);
@@ -142,45 +162,54 @@ const BudgetsPage: React.FC = () => {
   };
 
   const handleOpenBudgetPdf = async (b: Budget) => {
-    const newWin = window.open("", "_blank");
-    const blob = await pdf(<BudgetReportPdfContent budget={b} />).toBlob();
-    const url = URL.createObjectURL(blob);
-    if (newWin) {
-      newWin.location.href = url;
-    } else {
-      window.open(url, "_blank");
-    }
-    // Opcional: revogar depois de um tempo
-    // setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    const blob = await createPdfBlob(<BudgetReportPdfContent budget={b} userProfile={currentUserProfile} />);
+    await openPdf({
+      blob,
+      fileName: `orcamento_${b.id}.pdf`,
+      persistOptions: { folder: "budgets" },
+    });
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-background p-4 sm:p-6">
-      <div className="mb-3">
-        <h1 className="text-xl sm:text-2xl font-semibold">Orçamentos</h1>
-        <p className="text-xs sm:text-sm text-muted-foreground">Monte orçamentos vinculados a clientes e animais, e converta em venda.</p>
-      </div>
+    <PageShell>
+      <PageHeader
+        title="Orçamentos"
+        description="Monte propostas comerciais com itens de catálogo e converta em venda com rastreio de pagamento."
+        icon={FileText}
+        module="sales"
+        breadcrumb={<>Painel &gt; Comercial &gt; Orçamentos</>}
+        actions={
+          <Button asChild variant="outline" className="rounded-xl border-border/70">
+            <Link to="/sales/my-sales">
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Voltar para vendas
+            </Link>
+          </Button>
+        }
+      />
 
-      <Card className="border border-border">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base sm:text-lg">Novo Orçamento</CardTitle>
-        </CardHeader>
-        <CardContent className="grid grid-cols-1 sm:grid-cols-6 gap-2 items-end">
+      <SectionCard
+        title="Composição do orçamento"
+        description="Selecione cliente, itens e quantidades para montar a proposta."
+        icon={Filter}
+        tone="sales"
+      >
+        <ToolbarRow className="grid grid-cols-1 gap-2 sm:grid-cols-6 sm:items-end">
           <div>
             <Label className="text-xs">Cliente</Label>
             <Select value={clientId} onValueChange={setClientId}>
-              <SelectTrigger className="h-8 text-sm bg-input"><SelectValue placeholder="Selecione" /></SelectTrigger>
+              <SelectTrigger className="vf-toolbar-control text-sm bg-input"><SelectValue placeholder="Selecione" /></SelectTrigger>
               <SelectContent>
-                {mockClients.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                {clients.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
           <div>
             <Label className="text-xs">Animal</Label>
             <Select value={animalId} onValueChange={setAnimalId}>
-              <SelectTrigger className="h-8 text-sm bg-input"><SelectValue placeholder="Opcional" /></SelectTrigger>
+              <SelectTrigger className="vf-toolbar-control text-sm bg-input"><SelectValue placeholder="Opcional" /></SelectTrigger>
               <SelectContent>
-                {(mockClients.find(c => c.id === clientId)?.animals || []).map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
+                {(clients.find(c => c.id === clientId)?.animals || []).map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
@@ -204,32 +233,38 @@ const BudgetsPage: React.FC = () => {
             <>
               <div className="sm:col-span-2">
                 <Label className="text-xs">Nome do item</Label>
-                <Input value={customItemName} onChange={(e) => setCustomItemName(e.target.value)} className="h-8 text-sm bg-input" placeholder="Ex.: Cirurgia ortopédica" />
+                <Input value={customItemName} onChange={(e) => setCustomItemName(e.target.value)} className="vf-toolbar-control text-sm bg-input" placeholder="Ex.: Cirurgia ortopédica" />
               </div>
               <div>
                 <Label className="text-xs">Preço Unitário</Label>
-                <CurrencyInput value={customItemPrice} onValueChange={setCustomItemPrice} className="h-8 text-sm w-full" />
+                <CurrencyInput value={customItemPrice} onValueChange={setCustomItemPrice} className="vf-toolbar-control text-sm w-full" />
               </div>
             </>
           )}
           <div>
             <Label className="text-xs">Qtd</Label>
-            <Input value={qty} onChange={(e) => setQty(Number(e.target.value) || 0)} className="h-8 text-sm bg-input w-full" />
+            <Input value={qty} onChange={(e) => setQty(Number(e.target.value) || 0)} className="vf-toolbar-control text-sm bg-input w-full" />
           </div>
           <div>
             <Label className="text-xs">Preço Unitário</Label>
-            <CurrencyInput value={unitPrice} onValueChange={setUnitPrice} className="h-8 text-sm w-full" />
+            <CurrencyInput value={unitPrice} onValueChange={setUnitPrice} className="vf-toolbar-control text-sm w-full" />
           </div>
           <div className="sm:col-span-6 flex justify-end">
-            <Button onClick={addItemToBudget} className="h-8 px-3 text-sm">Adicionar Item</Button>
+            <Button onClick={addItemToBudget} className="h-9 px-4 text-sm bg-[hsl(var(--vf-sales))] text-white hover:bg-[hsl(var(--vf-sales)/0.9)]">
+              Adicionar item
+            </Button>
           </div>
-        </CardContent>
-      </Card>
+        </ToolbarRow>
+      </SectionCard>
 
       {items.length > 0 && (
-        <Card className="border border-border mt-3">
-          <CardHeader className="pb-2"><CardTitle className="text-base">Itens do Orçamento</CardTitle></CardHeader>
-          <CardContent>
+        <SectionCard
+          title="Itens do orçamento"
+          description="Confira o subtotal por item e o total consolidado antes de salvar."
+          icon={Sparkles}
+          tone="sales"
+        >
+          <DataTableFrame>
             <Table>
               <TableHeader>
                 <TableRow>
@@ -250,19 +285,23 @@ const BudgetsPage: React.FC = () => {
                 ))}
               </TableBody>
             </Table>
-            <div className="flex items-center justify-end mt-3">
-              <div className="text-sm font-semibold">Total: {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(subtotal)}</div>
-            </div>
-            <div className="flex justify-end mt-3">
-              <Button onClick={saveBudget} className="h-9 px-4">Salvar Orçamento</Button>
-            </div>
-          </CardContent>
-        </Card>
+          </DataTableFrame>
+          <div className="mt-3 flex items-center justify-end">
+            <div className="text-sm font-semibold">Total: {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(subtotal)}</div>
+          </div>
+          <div className="mt-3 flex justify-end">
+            <Button onClick={saveBudget} className="h-9 px-4">Salvar orçamento</Button>
+          </div>
+        </SectionCard>
       )}
 
-      <Card className="border border-border mt-4">
-        <CardHeader className="pb-2"><CardTitle className="text-base">Orçamentos Salvos</CardTitle></CardHeader>
-        <CardContent>
+      <SectionCard
+        title="Orçamentos salvos"
+        description="Acompanhe status, selecione pagamento e converta propostas em venda."
+        icon={FileText}
+        tone="sales"
+      >
+        <DataTableFrame empty={budgets.length === 0}>
           <Table>
             <TableHeader>
               <TableRow>
@@ -278,13 +317,13 @@ const BudgetsPage: React.FC = () => {
             <TableBody>
               {budgets.map(b => {
                 const total = b.items.reduce((sum, it) => sum + it.qty * it.price, 0);
-                const client = b.clientId ? mockClients.find(c => c.id === b.clientId) : undefined;
+                const client = b.clientId ? clients.find(c => c.id === b.clientId) : undefined;
                 const animal = b.animalId ? client?.animals.find(a => a.id === b.animalId) : undefined;
                 return (
                   <TableRow key={b.id}>
                     <TableCell>{b.date}</TableCell>
-                    <TableCell>{client?.name || "-"}</TableCell>
-                    <TableCell>{animal?.name || "-"}</TableCell>
+                    <TableCell>{client?.name || b.clientName || "-"}</TableCell>
+                    <TableCell>{animal?.name || b.animalName || "-"}</TableCell>
                     <TableCell className="capitalize">{b.status}</TableCell>
                     <TableCell>{new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(total)}</TableCell>
                     <TableCell>
@@ -294,7 +333,7 @@ const BudgetsPage: React.FC = () => {
                           {paymentMethods.length > 0 ? paymentMethods.map(pm => (
                             <SelectItem key={pm.id} value={pm.name}>{pm.name}</SelectItem>
                           )) : (
-                            <SelectItem value="none" disabled>Cadastre formas em Vendas &gt; Formas de Recebimento</SelectItem>
+                            <SelectItem value="none" disabled>Cadastre formas em Financeiro &gt; Formas de Pagamento</SelectItem>
                           )}
                         </SelectContent>
                       </Select>
@@ -318,10 +357,12 @@ const BudgetsPage: React.FC = () => {
               })}
             </TableBody>
           </Table>
-          {budgets.length === 0 && <p className="text-muted-foreground mt-2">Nenhum orçamento cadastrado.</p>}
-        </CardContent>
-      </Card>
-    </div>
+        </DataTableFrame>
+        {budgets.length === 0 && isClientsError ? (
+          <p className="mt-2 text-muted-foreground">Falha ao carregar clientes do banco.</p>
+        ) : null}
+      </SectionCard>
+    </PageShell>
   );
 };
 

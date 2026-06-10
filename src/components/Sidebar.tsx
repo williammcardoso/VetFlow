@@ -6,8 +6,14 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import SystemVetLogo from "./SystemVetLogo";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   Calendar,
   CreditCard,
@@ -15,20 +21,17 @@ import {
   FileText,
   Folder,
   LayoutDashboard,
-  LogOut,
   Package,
   PawPrint,
   Receipt,
-  Search,
   Settings,
+  Shield,
   ShoppingCart,
   Stethoscope,
-  Tag,
-  Trophy,
   Users,
   Wallet,
-  Scale,
   ClipboardList,
+  ChevronRight,
 } from "lucide-react";
 
 interface NavItem {
@@ -36,30 +39,44 @@ interface NavItem {
   href?: string;
   icon: React.ElementType;
   subItems?: NavItem[];
+  section?: string;
+  requireRole?: "admin" | "user";
 }
 
-const navItems: NavItem[] = [
-  { title: "Painel de Controle", href: "/dashboard", icon: LayoutDashboard },
-  { title: "Clientes", href: "/clients", icon: Users },
+const navItemsBase: NavItem[] = [
+  { title: "Painel de Controle", href: "/dashboard", icon: LayoutDashboard, section: "Atendimento" },
   { title: "Agenda", href: "/agenda", icon: Calendar },
+  { title: "Clientes", href: "/clients", icon: Users },
   {
-    title: "Vendas",
+    title: "Comercial",
     icon: ShoppingCart,
+    section: "Comercial",
     subItems: [
-      { title: "Ponto de venda", href: "/sales/pos", icon: DollarSign },
-      { title: "Minhas vendas", href: "/sales/my-sales", icon: Receipt },
-      { title: "Movimentos de caixa", href: "/sales/cash-movements", icon: Wallet },
-      { title: "Consulta vendas", href: "/sales/consult-sales", icon: Search },
+      { title: "Vendas", href: "/sales/my-sales", icon: Receipt },
+      { title: "PDV", href: "/sales/pos", icon: DollarSign },
       { title: "Orçamentos", href: "/sales/budgets", icon: FileText },
-      { title: "Pacotes vendidos", href: "/sales/sold-packages", icon: Package },
       { title: "Recebimentos", href: "/sales/receipts", icon: Receipt },
-      { title: "Lista de preços", href: "/sales/price-list", icon: Tag },
-      { title: "Ranking de clientes", href: "/sales/client-ranking", icon: Trophy },
-      { title: "Saldo dos clientes", href: "/sales/client-balance", icon: Scale },
-      { title: "Formas de recebimento", href: "/sales/payment-methods", icon: CreditCard },
-      { title: "Modelo de orçamento", href: "/sales/budget-model", icon: FileText },
-      { title: "Modelo de demonstrativo", href: "/sales/statement-model", icon: FileText },
-      { title: "Configuração", href: "/sales/configuration", icon: Settings },
+    ],
+  },
+  {
+    title: "Financeiro",
+    icon: Wallet,
+    section: "Financeiro",
+    subItems: [
+      { title: "Visão geral", href: "/financial", icon: Wallet },
+      { title: "Relatórios", href: "/financial/reports", icon: FileText },
+      { title: "Clientes financeiros", href: "/sales/client-financial", icon: Users },
+    ],
+  },
+  {
+    title: "Estoque",
+    icon: Package,
+    section: "Estoque",
+    subItems: [
+      { title: "Catálogo", href: "/stock/products-services", icon: Package },
+      { title: "Compras", href: "/stock/purchases", icon: ShoppingCart },
+      { title: "Outras saídas", href: "/stock/other-exits", icon: Package },
+      { title: "Inventário", href: "/stock/inventory", icon: Package },
     ],
   },
   {
@@ -81,41 +98,30 @@ const navItems: NavItem[] = [
     ],
   },
   {
-    title: "Estoque e serviços",
-    icon: Package,
-    subItems: [
-      { title: "Produtos e Serviços", href: "/stock/products-services", icon: Package },
-      { title: "Compras", href: "/stock/purchases", icon: ShoppingCart },
-      { title: "Outras saídas de estoque", href: "/stock/other-exits", icon: Package },
-      { title: "Análise de estoque", href: "/stock/stock-analysis", icon: Search },
-      { title: "Inventário", href: "/stock/inventory", icon: Package },
-      { title: "Pedido de compra", href: "/stock/purchase-order", icon: FileText },
-      { title: "Grupos de Produtos", href: "/stock/product-groups", icon: Folder },
-      { title: "Marcas", href: "/stock/brands", icon: Tag },
-      { title: "Produtos recomendados", href: "/stock/recommended-products", icon: Package },
-    ],
-  },
-  {
-    title: "Financeiro",
-    icon: Wallet,
-    subItems: [
-      { title: "Visão geral", href: "/financial", icon: Wallet },
-      { title: "Contas a receber", href: "/financial/accounts-receivable", icon: DollarSign },
-      { title: "Recebimentos", href: "/financial/receipts", icon: Receipt },
-      { title: "Caixa / Movimentações", href: "/financial/cash-movements", icon: Wallet },
-    ],
-  },
-  {
     title: "Configuração",
     icon: Settings,
     subItems: [
       { title: "Empresa", href: "/settings/company", icon: Settings },
       { title: "Usuários", href: "/settings/user", icon: Users },
-      { title: "Acesso externo", href: "/settings/external-access", icon: Settings },
-      { title: "Perfil de Acesso", href: "/settings/access-profile", icon: Settings },
+      { title: "Usuarios do sistema", href: "/settings/users-management", icon: Shield, requireRole: "admin" },
+      { title: "Aparência", href: "/settings/appearance", icon: Settings },
+      { title: "Acesso externo", href: "/settings/external-access", icon: Settings, requireRole: "admin" },
+      { title: "Perfil de Acesso", href: "/settings/access-profile", icon: Settings, requireRole: "admin" },
     ],
   },
-  { title: "Sair", href: "/logout", icon: LogOut },
+  {
+    title: "Avançado",
+    icon: ChevronRight,
+    subItems: [
+      { title: "Relatório de vendas", href: "/sales/reports", icon: FileText },
+      { title: "Análise de estoque", href: "/stock/stock-analysis", icon: Package },
+      { title: "Pedido de compra", href: "/stock/purchase-order", icon: FileText },
+      { title: "Grupos de Produtos", href: "/stock/product-groups", icon: Folder },
+      { title: "Marcas", href: "/stock/brands", icon: Package },
+      { title: "Produtos recomendados", href: "/stock/recommended-products", icon: Package },
+      { title: "Formas de pagamento", href: "/financial/payment-methods", icon: CreditCard },
+    ],
+  },
 ];
 
 interface SidebarProps {
@@ -125,26 +131,47 @@ interface SidebarProps {
   onToggleDesktop: () => void;
 }
 
-// VetFlow active colors (exact)
-const ACTIVE_BG = "bg-[rgb(240,253,248)]";
-const ACTIVE_FG = "text-[rgb(5,150,105)]";
-
 function NavIcon({ icon: Icon, active }: { icon: React.ElementType; active?: boolean }) {
   return (
     <Icon
       className={cn(
-        "h-[18px] w-[18px] shrink-0",
-        "text-muted-foreground/90 transition-colors",
-        active && ACTIVE_FG,
-        "group-hover:text-[rgb(5,150,105)]"
+        "h-[18px] w-[18px] shrink-0 transition-colors vf-sidebar-text-soft",
+        active && "vf-sidebar-text"
       )}
-      strokeWidth={1.55}
+      strokeWidth={1.6}
     />
   );
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, onCloseMobile, isDesktopOpen }) => {
   const location = useLocation();
+  const { session, canAccessPath } = useAuth();
+  const [openCollapsedMenu, setOpenCollapsedMenu] = React.useState<string | null>(null);
+  const isAdmin = session?.role === "admin";
+
+  const navItems = React.useMemo(() => {
+    const canSee = (item: NavItem) => {
+      const roleAllowed = !item.requireRole || item.requireRole === "user" || isAdmin;
+      if (!roleAllowed) return false;
+      if (!item.href) return true;
+      return canAccessPath(item.href, "view");
+    };
+
+    return navItemsBase
+      .map((item) => {
+        if (item.subItems) {
+          const allowedSubItems = item.subItems.filter(canSee);
+          if (allowedSubItems.length === 0) return null;
+          return { ...item, subItems: allowedSubItems };
+        }
+        return canSee(item) ? item : null;
+      })
+      .filter((item): item is NavItem => Boolean(item));
+  }, [canAccessPath, isAdmin]);
+
+  React.useEffect(() => {
+    setOpenCollapsedMenu(null);
+  }, [location.pathname, isDesktopOpen]);
 
   return (
     <>
@@ -152,104 +179,80 @@ const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, onCloseMobile, isDeskto
 
       <aside
         className={cn(
-          "bg-sidebar text-sidebar-foreground h-screen fixed left-0 top-0 overflow-y-auto border-r border-sidebar-border",
+          "vf-sidebar-shell h-screen fixed left-0 top-0 overflow-y-auto border-r",
           "px-3 py-4 shadow-sm transition-all duration-300 ease-in-out z-50 hide-scrollbar",
           isMobileOpen ? "translate-x-0 w-64" : "-translate-x-full",
-          isDesktopOpen ? "lg:translate-x-0 lg:w-64" : "lg:translate-x-0 lg:w-16"
+          isDesktopOpen ? "lg:translate-x-0 lg:w-64" : "lg:translate-x-0 lg:w-[74px]"
         )}
       >
-        {/* Topo integrado (sem separador) */}
         <div className={cn("h-12 flex items-center", isDesktopOpen ? "px-2" : "px-0 justify-center")}>
           {isDesktopOpen ? (
             <SystemVetLogo />
           ) : (
-            <Stethoscope className="h-[18px] w-[18px] text-muted-foreground" strokeWidth={1.55} />
+            <Stethoscope className="h-[18px] w-[18px] vf-sidebar-text" strokeWidth={1.55} />
           )}
         </div>
 
         <nav className="mt-4 space-y-2">
-          <Accordion type="multiple" className="w-full">
-            {navItems.map((item, index) => {
-              const isActive = !!item.href && location.pathname === item.href;
-              const Icon = item.icon;
+          {isDesktopOpen ? (
+            <Accordion type="multiple" className="w-full">
+              {navItems.map((item, index) => {
+                const isActive = !!item.href && location.pathname === item.href;
 
-              return (
-                <React.Fragment key={item.title}>
-                  {item.href ? (
-                    <Link
-                      to={item.href}
-                      className={cn(
-                        "group flex items-center h-11 transition-all",
-                        "rounded-2xl",
-                        "hover:bg-primary/5",
-                        isDesktopOpen ? "px-3 gap-3 justify-start" : "px-0 gap-0 justify-center",
-                        isActive && cn(ACTIVE_BG, "ring-1 ring-black/0")
-                      )}
-                      onClick={onCloseMobile}
-                    >
-                      <NavIcon icon={Icon} active={isActive} />
-                      {isDesktopOpen && (
+                return (
+                  <React.Fragment key={item.title}>
+                    {item.href ? (
+                      <Link
+                        to={item.href}
+                        className={cn(
+                        "vf-nav-hover group flex min-h-11 items-center transition-all rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 px-3 gap-3 justify-start",
+                          isActive && "vf-nav-active ring-1 ring-primary/35"
+                        )}
+                        onClick={onCloseMobile}
+                      >
+                        <NavIcon icon={item.icon} active={isActive} />
                         <span
                           className={cn(
-                            "text-[13.5px] leading-none transition-colors",
-                            "relative top-[0.5px]",
-                            isActive ? cn("font-medium", ACTIVE_FG) : "font-normal text-foreground/60",
-                            "group-hover:text-foreground/80"
+                            "text-[13.5px] leading-none transition-colors relative top-[0.5px]",
+                            isActive ? "font-medium vf-sidebar-text" : "font-normal vf-sidebar-text-soft"
                           )}
                         >
                           {item.title}
                         </span>
-                      )}
-                    </Link>
-                  ) : (
-                    <AccordionItem value={`item-${index}`} className="border-b-0">
-                      <AccordionTrigger
-                        className={cn(
-                          "group flex items-center h-11 transition-all",
-                          "rounded-2xl",
-                          "hover:bg-primary/5",
-                          isDesktopOpen ? "px-3" : "px-0",
-                          isDesktopOpen
-                            ? "[&>svg]:block [&[data-state=open]>svg]:rotate-180"
-                            : "[&>svg]:hidden"
-                        )}
-                      >
-                        <div className={cn("flex items-center", isDesktopOpen ? "gap-3 w-full" : "gap-0 justify-center")}>
-                          <NavIcon icon={Icon} />
-                          {isDesktopOpen && (
-                            <span className="text-[13.5px] font-normal text-foreground/60 group-hover:text-foreground/80 relative top-[0.5px]">
+                      </Link>
+                    ) : (
+                      <AccordionItem value={`item-${index}`} className="border-b-0">
+                        <AccordionTrigger
+                          className={cn(
+                            "vf-nav-hover vf-sidebar-text-soft group flex min-h-11 items-center transition-all rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 px-3",
+                            "[&>svg]:block [&[data-state=open]>svg]:rotate-180"
+                          )}
+                        >
+                          <div className="flex w-full items-center gap-3">
+                            <NavIcon icon={item.icon} />
+                            <span className={cn("text-[13.5px] font-normal vf-sidebar-text-soft relative top-[0.5px]", item.title === "Avançado" && "italic opacity-80")}>
                               {item.title}
                             </span>
-                          )}
-                        </div>
-                      </AccordionTrigger>
+                          </div>
+                        </AccordionTrigger>
 
-                      {isDesktopOpen && (
                         <AccordionContent className="pb-0">
-                          <div className="ml-8 mt-1.5 space-y-1">
+                          <div className="ml-6 mt-1.5 space-y-1.5">
                             {item.subItems?.map((subItem) => {
                               const subActive = location.pathname === subItem.href;
-                              const SubIcon = subItem.icon;
 
                               return (
                                 <Link
                                   key={subItem.title}
                                   to={subItem.href || "#"}
                                   className={cn(
-                                    "group flex items-center gap-3 rounded-2xl px-3 py-2 transition-all",
-                                    "hover:bg-primary/5",
-                                    subActive && cn(ACTIVE_BG, "ring-1 ring-black/0")
+                                    "vf-nav-hover group flex min-h-10 items-center gap-3 rounded-xl px-3 py-2 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
+                                    subActive && "vf-nav-active ring-1 ring-primary/35"
                                   )}
                                   onClick={onCloseMobile}
                                 >
-                                  <NavIcon icon={SubIcon} active={subActive} />
-                                  <span
-                                    className={cn(
-                                      "text-[13px] transition-colors relative top-[0.5px]",
-                                      subActive ? cn("font-medium", ACTIVE_FG) : "font-normal text-foreground/60",
-                                      "group-hover:text-foreground/80"
-                                    )}
-                                  >
+                                  <NavIcon icon={subItem.icon} active={subActive} />
+                                  <span className={cn("text-[13px] transition-colors relative top-[0.5px]", subActive ? "font-medium vf-sidebar-text" : "font-normal vf-sidebar-text-soft")}>
                                     {subItem.title}
                                   </span>
                                 </Link>
@@ -257,13 +260,78 @@ const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, onCloseMobile, isDeskto
                             })}
                           </div>
                         </AccordionContent>
+                      </AccordionItem>
+                    )}
+                  </React.Fragment>
+                );
+              })}
+            </Accordion>
+          ) : (
+            <div className="space-y-2">
+              {navItems.map((item) => {
+                const isActive = !!item.href && location.pathname === item.href;
+                if (item.href) {
+                  return (
+                    <Link
+                      key={item.title}
+                      to={item.href}
+                      className={cn(
+                        "vf-nav-hover group flex min-h-11 items-center justify-center rounded-xl transition-all",
+                        isActive && "vf-nav-active ring-1 ring-primary/35"
                       )}
-                    </AccordionItem>
-                  )}
-                </React.Fragment>
-              );
-            })}
-          </Accordion>
+                    >
+                      <NavIcon icon={item.icon} active={isActive} />
+                    </Link>
+                  );
+                }
+                return (
+                  <Popover
+                    key={item.title}
+                    open={openCollapsedMenu === item.title}
+                    onOpenChange={(open) => setOpenCollapsedMenu(open ? item.title : null)}
+                  >
+                    <PopoverTrigger asChild>
+                      <button
+                        type="button"
+                        className="vf-nav-hover group flex min-h-11 w-full items-center justify-center rounded-xl transition-all"
+                        aria-label={`Abrir submenu ${item.title}`}
+                        title={item.title}
+                      >
+                        <NavIcon icon={item.icon} />
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent side="right" align="start" sideOffset={10} className="z-[90] w-64 p-2">
+                      <div className="px-2 py-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        {item.title}
+                      </div>
+                      {item.subItems?.map((subItem) => {
+                        const subActive = location.pathname === subItem.href;
+                        return (
+                          <Link
+                            key={subItem.title}
+                            to={subItem.href || "#"}
+                            className={cn(
+                              "vf-nav-hover flex min-h-9 items-center gap-2.5 rounded-md px-2",
+                              subActive && "vf-nav-active"
+                            )}
+                            onClick={() => {
+                              setOpenCollapsedMenu(null);
+                              onCloseMobile();
+                            }}
+                          >
+                            <NavIcon icon={subItem.icon} active={subActive} />
+                            <span className={cn("text-[13px]", subActive ? "font-medium vf-sidebar-text" : "vf-sidebar-text-soft")}>
+                              {subItem.title}
+                            </span>
+                          </Link>
+                        );
+                      })}
+                    </PopoverContent>
+                  </Popover>
+                );
+              })}
+            </div>
+          )}
         </nav>
       </aside>
     </>

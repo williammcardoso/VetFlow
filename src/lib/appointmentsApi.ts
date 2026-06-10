@@ -2,6 +2,28 @@ import { supabase } from "@/integrations/supabase/client";
 import type { AppointmentEntry } from "@/types/appointment";
 
 const TABLE = "appointments";
+const LOCAL_KEY_PREFIX = "local:appointments:";
+
+function isLikelyUuid(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
+function localKey(animalId: string): string {
+  return `${LOCAL_KEY_PREFIX}${animalId}`;
+}
+
+function readLocalAppointments(animalId: string): AppointmentEntry[] {
+  try {
+    const raw = localStorage.getItem(localKey(animalId));
+    return raw ? (JSON.parse(raw) as AppointmentEntry[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeLocalAppointments(animalId: string, list: AppointmentEntry[]) {
+  localStorage.setItem(localKey(animalId), JSON.stringify(list));
+}
 
 function rowToAppointment(r: Record<string, unknown>): AppointmentEntry {
   return {
@@ -31,6 +53,10 @@ export async function getAppointments(): Promise<AppointmentEntry[]> {
 }
 
 export async function getAppointmentsByAnimal(animalId: string): Promise<AppointmentEntry[]> {
+  if (!isLikelyUuid(animalId)) {
+    return readLocalAppointments(animalId);
+  }
+
   const { data, error } = await supabase
     .from(TABLE)
     .select("*")
@@ -39,7 +65,7 @@ export async function getAppointmentsByAnimal(animalId: string): Promise<Appoint
     .order("time", { ascending: false });
   if (error) {
     console.error("[getAppointmentsByAnimal] error", error);
-    return [];
+    return readLocalAppointments(animalId);
   }
   return (data || []).map((r: Record<string, unknown>) => rowToAppointment(r));
 }
@@ -51,6 +77,16 @@ export async function getAppointmentById(id: string): Promise<AppointmentEntry |
 }
 
 export async function addAppointment(entry: Omit<AppointmentEntry, "id">): Promise<AppointmentEntry | null> {
+  if (!isLikelyUuid(entry.animalId)) {
+    const localEntry: AppointmentEntry = {
+      ...entry,
+      id: `local-app-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    };
+    const current = readLocalAppointments(entry.animalId);
+    writeLocalAppointments(entry.animalId, [localEntry, ...current]);
+    return localEntry;
+  }
+
   const id = `app-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
   const insertObj = {
     id,
@@ -76,6 +112,13 @@ export async function addAppointment(entry: Omit<AppointmentEntry, "id">): Promi
 }
 
 export async function updateAppointment(updated: AppointmentEntry): Promise<boolean> {
+  if (!isLikelyUuid(updated.animalId) || updated.id.startsWith("local-app-")) {
+    const current = readLocalAppointments(updated.animalId);
+    const next = current.map((item) => (item.id === updated.id ? updated : item));
+    writeLocalAppointments(updated.animalId, next);
+    return true;
+  }
+
   const { error } = await supabase
     .from(TABLE)
     .update({
@@ -101,6 +144,23 @@ export async function updateAppointment(updated: AppointmentEntry): Promise<bool
 }
 
 export async function removeAppointment(id: string): Promise<boolean> {
+  if (id.startsWith("local-app-")) {
+    // Percorre chaves locais para remover o item sem depender do animal_id externo.
+    try {
+      Object.keys(localStorage)
+        .filter((k) => k.startsWith(LOCAL_KEY_PREFIX))
+        .forEach((k) => {
+          const raw = localStorage.getItem(k);
+          const list = raw ? (JSON.parse(raw) as AppointmentEntry[]) : [];
+          const next = list.filter((item) => item.id !== id);
+          localStorage.setItem(k, JSON.stringify(next));
+        });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   const { error } = await supabase.from(TABLE).delete().eq("id", id);
   if (error) {
     console.error("[removeAppointment] error", error);

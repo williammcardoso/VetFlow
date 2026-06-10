@@ -7,17 +7,21 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { PawPrint } from "lucide-react";
 import { formatDateTime } from "@/lib/utils";
 import { AppointmentEntry } from "@/types/appointment";
-import { mockClients } from "@/mockData/clients";
 import { cn } from "@/lib/utils";
+import { useClientsList } from "@/hooks/useSupabaseClients";
 
 type AppointmentListProps = {
   title?: string;
   items: AppointmentEntry[];
+  tone?: "clinical" | "finance" | "sales" | "stock" | "registry" | "settings" | "neutral";
   className?: string;
 };
 
-function getClientAndAnimal(animalId: string): { clientName?: string; animalName?: string } {
-  for (const client of mockClients) {
+function getClientAndAnimal(
+  animalId: string,
+  clients: { name: string; animals: { id: string; name: string }[] }[]
+): { clientName?: string; animalName?: string } {
+  for (const client of clients) {
     const animal = client.animals.find((a) => a.id === animalId);
     if (animal) {
       return { clientName: client.name, animalName: animal.name };
@@ -32,13 +36,31 @@ function deriveStatus(date: string, time?: string): "Agendado" | "Concluído" {
   return d.getTime() >= now.getTime() ? "Agendado" : "Concluído";
 }
 
-const AppointmentList: React.FC<AppointmentListProps> = ({ title = "Próximos Atendimentos", items, className }) => {
+const toneMap: Record<NonNullable<AppointmentListProps["tone"]>, { chip: string; icon: string }> = {
+  clinical: { chip: "bg-[hsl(var(--vf-clinical)/0.14)]", icon: "text-vf-clinical" },
+  sales: { chip: "bg-[hsl(var(--vf-sales)/0.14)]", icon: "text-vf-sales" },
+  finance: { chip: "bg-[hsl(var(--vf-finance)/0.14)]", icon: "text-vf-finance" },
+  stock: { chip: "bg-[hsl(var(--vf-stock)/0.14)]", icon: "text-vf-stock" },
+  registry: { chip: "bg-[hsl(var(--vf-registry)/0.14)]", icon: "text-vf-registry" },
+  settings: { chip: "bg-[hsl(var(--vf-settings)/0.14)]", icon: "text-vf-settings" },
+  neutral: { chip: "bg-primary/10", icon: "text-primary" },
+};
+
+const AppointmentList: React.FC<AppointmentListProps> = ({
+  title = "Próximos Atendimentos",
+  items,
+  tone = "clinical",
+  className,
+}) => {
+  const { data: dbClients } = useClientsList();
+  const clients = dbClients || [];
+  const colors = toneMap[tone];
   return (
     <Card className={cn("premium-card rounded-xl", className)}>
       <div className="p-6">
         <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-2xl bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100 flex items-center justify-center">
-            <PawPrint className="h-5 w-5" />
+          <div className={cn("flex h-10 w-10 items-center justify-center rounded-2xl ring-1 ring-border/60", colors.chip)}>
+            <PawPrint className={cn("h-5 w-5", colors.icon)} />
           </div>
           <h3 className="text-lg font-semibold leading-tight">{title}</h3>
         </div>
@@ -47,7 +69,7 @@ const AppointmentList: React.FC<AppointmentListProps> = ({ title = "Próximos At
           {items.length === 0 && <div className="text-sm text-muted-foreground">Nenhum atendimento encontrado.</div>}
 
           {items.map((app) => {
-            const { clientName, animalName } = getClientAndAnimal(app.animalId);
+            const { clientName, animalName } = getClientAndAnimal(app.animalId, clients);
             const status = deriveStatus(app.date, app.time);
 
             return (

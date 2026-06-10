@@ -1,23 +1,47 @@
-import { MadeWithDyad } from "@/components/made-with-dyad";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
+import { Sparkles, ArrowRight, LayoutDashboard } from "lucide-react";
+import { PageShell } from "@/components/saas/PageShell";
+import { PageHeader } from "@/components/saas/PageHeader";
+import { SectionCard } from "@/components/saas/SectionCard";
 
 const Index = () => {
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-background">
-      <div className="text-center p-8 bg-card rounded-xl shadow-md max-w-2xl mx-auto border border-border">
-        <h1 className="text-5xl font-extrabold mb-6 text-foreground">Bem-vindo ao SystemVet</h1>
-        <p className="text-xl text-muted-foreground mb-8">
-          Sua solução completa para gerenciamento veterinário.
-        </p>
-        <Link to="/dashboard">
-          <Button size="lg" className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-md transition-all duration-300 ease-in-out transform hover:scale-105 rounded-lg">
-            Ir para o Painel de Controle
+    <PageShell>
+      <PageHeader
+        title="Boas-vindas"
+        description="Sua solução completa para gestão veterinária com fluxo clínico, financeiro e operacional em um único lugar."
+        icon={Sparkles}
+        module="clinical"
+        breadcrumb={<>Painel &gt; Início</>}
+      />
+
+      <SectionCard
+        title="Começar agora"
+        description="Acesse o dashboard para acompanhar a operação da clínica."
+        icon={LayoutDashboard}
+        tone="clinical"
+      >
+        <div className="flex flex-wrap items-center gap-3">
+          <Button asChild className="h-10">
+            <Link to="/dashboard">
+              Ir para o Painel de Controle <ArrowRight className="ml-2 h-4 w-4" />
+            </Link>
           </Button>
-        </Link>
-      </div>
-      <MadeWithDyad />
-    </div>
+        </div>
+      </SectionCard>
+
+      <SectionCard
+        title="Navegação principal"
+        description="Use o menu lateral para acessar clientes, agenda, vendas, estoque, financeiro e configurações."
+        icon={Sparkles}
+        tone="neutral"
+      >
+        <p className="text-sm text-muted-foreground">
+          Todo o sistema segue o mesmo padrão de layout para leitura rápida, ações previsíveis e melhor experiência em dark mode.
+        </p>
+      </SectionCard>
+    </PageShell>
   );
 };
 

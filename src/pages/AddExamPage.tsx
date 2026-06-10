@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Link, useParams, useNavigate } from "react-router-dom";
-import { FaArrowLeft, FaTimes, FaSave, FaFlask, FaMicroscope, FaFileMedicalAlt, FaNotesMedical, FaUserMd, FaPlus, FaTrash } from "react-icons/fa";
+import { FaArrowLeft, FaTimes, FaSave, FaFlask, FaMicroscope, FaFileMedicalAlt, FaNotesMedical, FaUserMd, FaPlus, FaTrash } from "@/components/icons/fa";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -8,10 +8,10 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { mockClients } from "@/mockData/clients";
 import { ExamEntry, BiochemicalEntry } from "@/types/exam";
 import { addMockExam, updateMockExam, mockExams } from "@/mockData/exams";
 import { hemogramReferences } from "@/constants/examReferences";
+import { useClientWithAnimals } from "@/hooks/useSupabaseClients";
 
 // Tipos de exame
 const mockExamTypes = [
@@ -146,7 +146,7 @@ const AddExamPage = () => {
 
   const isEditing = !!examId;
 
-  const currentClient = mockClients.find(c => c.id === clientId);
+  const { data: currentClient } = useClientWithAnimals(clientId);
   const currentAnimal = currentClient?.animals.find(a => a.id === animalId); // Corrigido para encontrar o animal corretamente
   const animalSpecies = currentAnimal?.species === "Canino" ? "dog" : currentAnimal?.species === "Felino" ? "cat" : undefined;
 
@@ -476,12 +476,12 @@ const AddExamPage = () => {
   return (
     <div className="flex flex-col min-h-screen bg-background">
       {/* Header */}
-      <div className="bg-gradient-to-r from-background via-card to-background p-6 pb-4 border-b border-border">
+      <div className="border-b border-border bg-card p-6 pb-4">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-2 gap-4 sm:gap-2">
           <div className="flex items-center gap-4">
             <div>
               <h1 className="text-2xl font-semibold flex items-center gap-3 text-foreground group">
-                <FaFlask className="h-5 w-5 text-muted-foreground" /> {pageTitle}
+                <FaFlask className="h-5 w-5 text-vf-clinical" /> {pageTitle}
               </h1>
               <p className="text-sm text-muted-foreground mt-1 mb-4">
                 {isEditing ? "Edite os detalhes do exame para o animal." : "Registre um novo exame para o animal."}
@@ -501,7 +501,7 @@ const AddExamPage = () => {
 
       {/* Conteúdo */}
       <div className="flex-1 p-6">
-        <Card className="shadow-sm border border-border rounded-md">
+        <Card className="vf-surface-card vf-tone-clinical card-hover rounded-2xl border border-border/80">
           <CardContent className="grid gap-4 py-4">
             {/* Passo 1: Data, Hora, Tipo, Veterinário - na mesma linha */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -560,10 +560,10 @@ const AddExamPage = () => {
             {/* Hemograma */}
             {examType === "Hemograma Completo" && (
               <>
-                <Card className="bg-muted/50 shadow-sm border border-border rounded-md p-4 mt-6">
+                <Card className="vf-surface-card vf-tone-clinical card-hover mt-6 rounded-xl border border-border/80 p-4">
                   <CardHeader className="pb-3">
                     <CardTitle className="flex items-center gap-2 text-lg font-semibold text-foreground">
-                      <FaMicroscope className="h-5 w-5 text-primary" /> Informações do Laboratório
+                      <FaMicroscope className="h-5 w-5 text-vf-clinical" /> Informações do Laboratório
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-0 px-2">
@@ -609,10 +609,10 @@ const AddExamPage = () => {
 
                 <div className="flex flex-col lg:flex-row gap-6 mt-6">
                   {/* Eritrograma */}
-                  <Card className="bg-muted/50 shadow-sm border border-border rounded-md p-4 w-full lg:w-[45%]">
+                  <Card className="vf-surface-card vf-tone-clinical card-hover w-full rounded-xl border border-border/80 p-4 lg:w-[45%]">
                     <CardHeader className="pb-3">
                       <CardTitle className="flex items-center gap-2 text-lg font-semibold text-foreground">
-                        <FaFileMedicalAlt className="h-5 w-5 text-primary" /> Eritrograma
+                        <FaFileMedicalAlt className="h-5 w-5 text-vf-clinical" /> Eritrograma
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="grid gap-4 pt-0 px-2">
@@ -633,10 +633,10 @@ const AddExamPage = () => {
                   </Card>
 
                   {/* Leucograma */}
-                  <Card className="bg-muted/50 shadow-sm border border-border rounded-md p-4 w-full lg:w-[55%]">
+                  <Card className="vf-surface-card vf-tone-clinical card-hover w-full rounded-xl border border-border/80 p-4 lg:w-[55%]">
                     <CardHeader className="pb-3">
                       <CardTitle className="flex items-center gap-2 text-lg font-semibold text-foreground">
-                        <FaUserMd className="h-5 w-5 text-primary" /> Leucograma
+                        <FaUserMd className="h-5 w-5 text-vf-clinical" /> Leucograma
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="grid gap-4 pt-0 px-2">
@@ -659,10 +659,10 @@ const AddExamPage = () => {
                 </div>
 
                 {/* Plaquetas */}
-                <Card className="bg-muted/50 shadow-sm border border-border rounded-md p-4 mt-6">
+                <Card className="vf-surface-card vf-tone-clinical card-hover mt-6 rounded-xl border border-border/80 p-4">
                   <CardHeader className="pb-3">
                     <CardTitle className="flex items-center gap-2 text-lg font-semibold text-foreground">
-                      <FaFileMedicalAlt className="h-5 w-5 text-primary" /> Plaquetas
+                      <FaFileMedicalAlt className="h-5 w-5 text-vf-clinical" /> Plaquetas
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-0 px-2">
@@ -675,10 +675,10 @@ const AddExamPage = () => {
                 </Card>
 
                 {/* Nota */}
-                <Card className="bg-muted/50 shadow-sm border border-border rounded-md p-4 mt-6">
+                <Card className="vf-surface-card vf-tone-clinical card-hover mt-6 rounded-xl border border-border/80 p-4">
                   <CardHeader className="pb-3">
                     <CardTitle className="flex items-center gap-2 text-lg font-semibold text-foreground">
-                      <FaNotesMedical className="h-5 w-5 text-primary" /> Nota
+                      <FaNotesMedical className="h-5 w-5 text-vf-clinical" /> Nota
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="pt-0 px-2">
@@ -702,10 +702,10 @@ const AddExamPage = () => {
             {examType === "Bioquímico" && (
               <>
                 {/* Passo 2: adicionar analito */}
-                <Card className="bg-muted/50 shadow-sm border border-border rounded-md p-4 mt-6">
+                <Card className="vf-surface-card vf-tone-clinical card-hover mt-6 rounded-xl border border-border/80 p-4">
                   <CardHeader className="pb-3">
                     <CardTitle className="flex items-center gap-2 text-lg font-semibold text-foreground">
-                      <FaMicroscope className="h-5 w-5 text-primary" /> Adicionar analito bioquímico
+                      <FaMicroscope className="h-5 w-5 text-vf-clinical" /> Adicionar analito bioquímico
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="grid gap-4 pt-0 px-2">
@@ -785,7 +785,7 @@ const AddExamPage = () => {
                       </div>
                     </div>
                     <div className="flex items-end col-span-full">
-                      <Button type="button" onClick={handleAddBiochemical} className="flex items-center gap-2">
+                      <Button type="button" onClick={handleAddBiochemical} className="flex items-center gap-2 bg-[hsl(var(--vf-clinical))] text-white hover:bg-[hsl(var(--vf-clinical)/0.9)]">
                         <FaPlus className="h-4 w-4" /> Adicionar
                       </Button>
                     </div>
@@ -796,7 +796,7 @@ const AddExamPage = () => {
                 {biochemicalEntries.length > 0 && (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
                     {biochemicalEntries.map((entry) => (
-                      <Card key={entry.id} className="border border-border rounded-md">
+                      <Card key={entry.id} className="vf-surface-card vf-tone-clinical card-hover rounded-xl border border-border/80">
                         <CardHeader className="pb-2">
                           <CardTitle className="text-base">{entry.enzyme}</CardTitle>
                         </CardHeader>
@@ -871,10 +871,10 @@ const AddExamPage = () => {
                 )}
 
                 {/* Informações do laboratório para Bioquímico */}
-                <Card className="bg-muted/50 shadow-sm border border-border rounded-md p-4 mt-6">
+                <Card className="vf-surface-card vf-tone-clinical card-hover mt-6 rounded-xl border border-border/80 p-4">
                   <CardHeader className="pb-3">
                     <CardTitle className="flex items-center gap-2 text-lg font-semibold text-foreground">
-                      <FaMicroscope className="h-5 w-5 text-primary" /> Informações do Laboratório
+                      <FaMicroscope className="h-5 w-5 text-vf-clinical" /> Informações do Laboratório
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-0 px-2">
@@ -911,10 +911,10 @@ const AddExamPage = () => {
                 </Card>
 
                 {/* Observações gerais (opcional) */}
-                <Card className="bg-muted/50 shadow-sm border border-border rounded-md p-4 mt-6">
+                <Card className="vf-surface-card vf-tone-clinical card-hover mt-6 rounded-xl border border-border/80 p-4">
                   <CardHeader className="pb-3">
                     <CardTitle className="flex items-center gap-2 text-lg font-semibold text-foreground">
-                      <FaNotesMedical className="h-5 w-5 text-primary" /> Observações Gerais do Exame
+                      <FaNotesMedical className="h-5 w-5 text-vf-clinical" /> Observações Gerais do Exame
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="pt-0 px-2">
@@ -937,10 +937,10 @@ const AddExamPage = () => {
             {/* Outros tipos (genérico) */}
             {examType && examType !== "Hemograma Completo" && examType !== "Bioquímico" && (
               <>
-                <Card className="bg-muted/50 shadow-sm border border-border rounded-md p-4 mt-6">
+                <Card className="vf-surface-card vf-tone-clinical card-hover mt-6 rounded-xl border border-border/80 p-4">
                   <CardHeader className="pb-3">
                     <CardTitle className="flex items-center gap-2 text-lg font-semibold text-foreground">
-                      <FaFileMedicalAlt className="h-5 w-5 text-primary" /> Resultado do Exame
+                      <FaFileMedicalAlt className="h-5 w-5 text-vf-clinical" /> Resultado do Exame
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="pt-0 px-2">
@@ -957,10 +957,10 @@ const AddExamPage = () => {
                   </CardContent>
                 </Card>
 
-                <Card className="bg-muted/50 shadow-sm border border-border rounded-md p-4 mt-6">
+                <Card className="vf-surface-card vf-tone-clinical card-hover mt-6 rounded-xl border border-border/80 p-4">
                   <CardHeader className="pb-3">
                     <CardTitle className="flex items-center gap-2 text-lg font-semibold text-foreground">
-                      <FaMicroscope className="h-5 w-5 text-primary" /> Informações do Laboratório
+                      <FaMicroscope className="h-5 w-5 text-vf-clinical" /> Informações do Laboratório
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-0 px-2">
@@ -996,10 +996,10 @@ const AddExamPage = () => {
                   </CardContent>
                 </Card>
 
-                <Card className="bg-muted/50 shadow-sm border border-border rounded-md p-4 mt-6">
+                <Card className="vf-surface-card vf-tone-clinical card-hover mt-6 rounded-xl border border-border/80 p-4">
                   <CardHeader className="pb-3">
                     <CardTitle className="flex items-center gap-2 text-lg font-semibold text-foreground">
-                      <FaNotesMedical className="h-5 w-5 text-primary" /> Observações Gerais do Exame
+                      <FaNotesMedical className="h-5 w-5 text-vf-clinical" /> Observações Gerais do Exame
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="pt-0 px-2">
@@ -1028,7 +1028,7 @@ const AddExamPage = () => {
               <FaTimes className="mr-2 h-4 w-4" /> Cancelar
             </Button>
           </Link>
-          <Button onClick={handleSaveExam} disabled={!examType} className="w-full sm:w-auto bg-primary text-primary-foreground hover:bg-primary/90 rounded-md font-semibold transition-all duration-200 shadow-md hover:shadow-lg">
+          <Button onClick={handleSaveExam} disabled={!examType} className="w-full sm:w-auto rounded-md bg-[hsl(var(--vf-clinical))] font-semibold text-white transition-all duration-200 shadow-md hover:bg-[hsl(var(--vf-clinical)/0.9)] hover:shadow-lg">
             <FaSave className="mr-2 h-4 w-4" /> Salvar Exame
           </Button>
         </div>

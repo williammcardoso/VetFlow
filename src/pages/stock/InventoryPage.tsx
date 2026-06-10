@@ -5,6 +5,10 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { getCatalogByType, adjustStock } from "@/mockData/catalog";
 import { toast } from "sonner";
+import { ClipboardCheck } from "lucide-react";
+import { PageShell } from "@/components/saas/PageShell";
+import { PageHeader } from "@/components/saas/PageHeader";
+import { SectionCard } from "@/components/saas/SectionCard";
 
 const InventoryPage: React.FC = () => {
   const products = React.useMemo(() => getCatalogByType("product"), []);
@@ -31,13 +35,17 @@ const InventoryPage: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-background p-4 sm:p-6">
-      <div className="mb-3">
-        <h1 className="text-xl sm:text-2xl font-semibold">Inventário</h1>
-        <p className="text-xs sm:text-sm text-muted-foreground">Conte e ajuste os produtos de forma rápida.</p>
-      </div>
+    <PageShell>
+      <PageHeader
+        title="Inventário"
+        description="Execute contagens e aplique correções de estoque com rastreabilidade."
+        icon={ClipboardCheck}
+        module="stock"
+        breadcrumb={<>Painel &gt; Estoque &gt; Inventário</>}
+      />
 
-      <Card className="border border-border">
+      <SectionCard title="Contagem" description="Atualize o estoque contado e aplique os ajustes necessários." icon={ClipboardCheck} tone="stock">
+      <Card className="vf-surface-card vf-tone-stock card-hover rounded-2xl border border-border/80">
         <CardHeader className="pb-2"><CardTitle className="text-base">Contagem</CardTitle></CardHeader>
         <CardContent>
           <Table>
@@ -65,11 +73,12 @@ const InventoryPage: React.FC = () => {
             </TableBody>
           </Table>
           <div className="flex justify-end mt-3">
-            <Button onClick={handleApply} className="h-9 px-4">Aplicar</Button>
+            <Button onClick={handleApply} className="h-9 bg-[hsl(var(--vf-stock))] px-4 text-white hover:bg-[hsl(var(--vf-stock)/0.9)]">Aplicar</Button>
           </div>
         </CardContent>
       </Card>
-    </div>
+      </SectionCard>
+    </PageShell>
   );
 };
 

@@ -52,6 +52,14 @@ export default {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        vf: {
+          clinical: "hsl(var(--vf-clinical) / <alpha-value>)",
+          sales: "hsl(var(--vf-sales) / <alpha-value>)",
+          finance: "hsl(var(--vf-finance) / <alpha-value>)",
+          stock: "hsl(var(--vf-stock) / <alpha-value>)",
+          registry: "hsl(var(--vf-registry) / <alpha-value>)",
+          settings: "hsl(var(--vf-settings) / <alpha-value>)",
+        },
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",
           foreground: "hsl(var(--sidebar-foreground))",

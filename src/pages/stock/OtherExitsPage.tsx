@@ -6,6 +6,10 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { getCatalogByType, findCatalogItem, adjustStock } from "@/mockData/catalog";
 import { addMockFinancialTransaction } from "@/mockData/financial";
+import { PackageMinus } from "lucide-react";
+import { PageShell } from "@/components/saas/PageShell";
+import { PageHeader } from "@/components/saas/PageHeader";
+import { SectionCard } from "@/components/saas/SectionCard";
 
 const OtherExitsPage: React.FC = () => {
   const products = useMemo(() => getCatalogByType('product'), []);
@@ -50,13 +54,17 @@ const OtherExitsPage: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-background p-4 sm:p-6">
-      <div className="mb-3">
-        <h1 className="text-xl sm:text-2xl font-semibold">Outras Saídas de Estoque</h1>
-        <p className="text-xs sm:text-sm text-muted-foreground">Registre perdas, vencimentos ou ajustes manuais de estoque.</p>
-      </div>
+    <PageShell>
+      <PageHeader
+        title="Outras Saídas de Estoque"
+        description="Registre perdas, vencimentos e ajustes manuais de estoque."
+        icon={PackageMinus}
+        module="stock"
+        breadcrumb={<>Painel &gt; Estoque &gt; Outras Saídas</>}
+      />
 
-      <Card className="border border-border">
+      <SectionCard title="Registrar saída" description="Defina item, quantidade e motivo da baixa." icon={PackageMinus} tone="stock">
+      <Card className="vf-surface-card vf-tone-stock card-hover rounded-2xl border border-border/80">
         <CardHeader className="pb-3">
           <CardTitle className="text-base sm:text-lg">Nova Saída</CardTitle>
         </CardHeader>
@@ -81,11 +89,12 @@ const OtherExitsPage: React.FC = () => {
             <Input value={reason} onChange={(e) => setReason(e.target.value)} className="h-8 text-sm bg-input" placeholder="Ex.: Vencimento, avaria..." />
           </div>
           <div className="sm:col-span-4 flex justify-end">
-            <Button onClick={handleSaveExit} className="h-9 px-4">Salvar Saída</Button>
+            <Button onClick={handleSaveExit} className="h-9 bg-[hsl(var(--vf-stock))] px-4 text-white hover:bg-[hsl(var(--vf-stock)/0.9)]">Salvar Saída</Button>
           </div>
         </CardContent>
       </Card>
-    </div>
+      </SectionCard>
+    </PageShell>
   );
 };
 

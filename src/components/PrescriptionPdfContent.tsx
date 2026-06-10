@@ -1,7 +1,8 @@
 import React from "react";
 import { Document, Page, View, Text, StyleSheet, Font } from "@react-pdf/renderer";
 import { MedicationData, ManipulatedPrescriptionData } from "@/types/medication";
-import { mockCompanySettings, mockUserSettings } from "@/mockData/settings";
+import { mockCompanySettings } from "@/mockData/settings";
+import type { UserProfile } from "@/lib/authApi";
 
 // Registrando a fonte Exo com pesos regular, bold, italic e bold-italic
 // Usando os arquivos .ttf disponíveis na pasta public/fonts
@@ -56,6 +57,7 @@ interface PrescriptionPdfContentProps {
   pharmacistAddress?: string;
   pharmacistPhone?: string;
   manipulatedPrescription?: ManipulatedPrescriptionData; // Novo campo para dados da receita manipulada
+  userProfile?: UserProfile | null;
 }
 
 // Define a threshold for when to apply compact styles for simple prescriptions
@@ -512,6 +514,7 @@ export const PrescriptionPdfContent = ({
   medications, generalObservations, showElectronicSignatureText,
   prescriptionType, pharmacistName, pharmacistCpf, pharmacistCfr,
   pharmacistAddress, pharmacistPhone, manipulatedPrescription,
+  userProfile,
 }: PrescriptionPdfContentProps) => {
   const patientId = displayId ?? animalId;
   const groupedMedications = medications.reduce((acc: Record<string, MedicationData[]>, med) => {
@@ -522,6 +525,9 @@ export const PrescriptionPdfContent = ({
   }, {});
 
   const currentDate = new Date();
+  const vetName = userProfile?.signature_text?.trim() || userProfile?.full_name?.trim() || "________________________________";
+  const vetCrmv = userProfile?.crmv?.trim() || "Não informado";
+  const vetMapa = userProfile?.mapa_registration?.trim() || "Não informado";
 
   // Determine if compact styles should be applied for simple prescriptions
   const isCompactSimplePrescription = prescriptionType === 'simple' && medications.length >= MEDICATION_COUNT_THRESHOLD;
@@ -559,9 +565,9 @@ export const PrescriptionPdfContent = ({
             <View style={styles.controlledHeaderDetails}>
               <View style={styles.issuerVetCard}>
                 <Text style={styles.issuerVetTitle}>Emitente (Veterinário)</Text>
-                <Text style={styles.issuerVetText}>Nome: {mockUserSettings.signatureText}</Text>
-                <Text style={styles.issuerVetText}>CRMV: {mockUserSettings.userCrmv}</Text>
-                <Text style={styles.issuerVetText}>Registro MAPA: {mockUserSettings.userMapaRegistration}</Text>
+                <Text style={styles.issuerVetText}>Nome: {vetName}</Text>
+                <Text style={styles.issuerVetText}>CRMV: {vetCrmv}</Text>
+                <Text style={styles.issuerVetText}>Registro MAPA: {vetMapa}</Text>
               </View>
               <View style={styles.viaTextContainer}>
                 <Text>1.ª VIA - FARMÁCIA</Text>
@@ -717,9 +723,9 @@ export const PrescriptionPdfContent = ({
                 <Text style={styles.vetSignatureLabel}>Assinado eletronicamente por</Text>
               ) : null}
               <View style={styles.vetSignatureLine}/>
-              <Text style={styles.vetSignatureLabel}>{mockUserSettings.signatureText}</Text>
-              <Text style={styles.vetSignatureDetails}>CRMV {mockUserSettings.userCrmv}</Text>
-              <Text style={styles.vetSignatureDetails}>Registro no MAPA {mockUserSettings.userMapaRegistration}</Text>
+              <Text style={styles.vetSignatureLabel}>{vetName}</Text>
+              <Text style={styles.vetSignatureDetails}>CRMV {vetCrmv}</Text>
+              <Text style={styles.vetSignatureDetails}>Registro no MAPA {vetMapa}</Text>
             </View>
           </View>
         )}

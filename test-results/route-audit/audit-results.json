@@ -1,0 +1,373 @@
+[
+  {
+    "route": "/",
+    "screenshot_light_path": "C:\\Users\\willi\\dyad-apps\\VetFlow\\test-results\\route-audit\\route-01-home-light.png",
+    "screenshot_dark_path": "C:\\Users\\willi\\dyad-apps\\VetFlow\\test-results\\route-audit\\route-01-home-dark.png",
+    "runtime_error": "nao",
+    "dark_mode": "ok"
+  },
+  {
+    "route": "/dashboard",
+    "screenshot_light_path": "C:\\Users\\willi\\dyad-apps\\VetFlow\\test-results\\route-audit\\route-02-dashboard-light.png",
+    "screenshot_dark_path": "C:\\Users\\willi\\dyad-apps\\VetFlow\\test-results\\route-audit\\route-02-dashboard-dark.png",
+    "runtime_error": "nao",
+    "dark_mode": "ok"
+  },
+  {
+    "route": "/clients",
+    "screenshot_light_path": "C:\\Users\\willi\\dyad-apps\\VetFlow\\test-results\\route-audit\\route-03-clients-light.png",
+    "screenshot_dark_path": "C:\\Users\\willi\\dyad-apps\\VetFlow\\test-results\\route-audit\\route-03-clients-dark.png",
+    "runtime_error": "nao",
+    "dark_mode": "ok"
+  },
+  {
+    "route": "/clients/add",
+    "screenshot_light_path": "C:\\Users\\willi\\dyad-apps\\VetFlow\\test-results\\route-audit\\route-04-clients-add-light.png",
+    "screenshot_dark_path": "C:\\Users\\willi\\dyad-apps\\VetFlow\\test-results\\route-audit\\route-04-clients-add-dark.png",
+    "runtime_error": "nao",
+    "dark_mode": "ok"
+  },
+  {
+    "route": "/clients/1/edit",
+    "screenshot_light_path": "C:\\Users\\willi\\dyad-apps\\VetFlow\\test-results\\route-audit\\route-05-clients-1-edit-light.png",
+    "screenshot_dark_path": "C:\\Users\\willi\\dyad-apps\\VetFlow\\test-results\\route-audit\\route-05-clients-1-edit-dark.png",
+    "runtime_error": "nao",
+    "dark_mode": "ok"
+  },
+  {
+    "route": "/animals/add",
+    "screenshot_light_path": "C:\\Users\\willi\\dyad-apps\\VetFlow\\test-results\\route-audit\\route-06-animals-add-light.png",
+    "screenshot_dark_path": "C:\\Users\\willi\\dyad-apps\\VetFlow\\test-results\\route-audit\\route-06-animals-add-dark.png",
+    "runtime_error": "nao",
+    "dark_mode": "ok"
+  },
+  {
+    "route": "/clients/1",
+    "screenshot_light_path": "C:\\Users\\willi\\dyad-apps\\VetFlow\\test-results\\route-audit\\route-07-clients-1-light.png",
+    "screenshot_dark_path": "C:\\Users\\willi\\dyad-apps\\VetFlow\\test-results\\route-audit\\route-07-clients-1-dark.png",
+    "runtime_error": "nao",
+    "dark_mode": "ok"
+  },
+  {
+    "route": "/agenda",
+    "screenshot_light_path": "C:\\Users\\willi\\dyad-apps\\VetFlow\\test-results\\route-audit\\route-08-agenda-light.png",
+    "screenshot_dark_path": "C:\\Users\\willi\\dyad-apps\\VetFlow\\test-results\\route-audit\\route-08-agenda-dark.png",
+    "runtime_error": "nao",
+    "dark_mode": "ok"
+  },
+  {
+    "route": "/help",
+    "screenshot_light_path": "C:\\Users\\willi\\dyad-apps\\VetFlow\\test-results\\route-audit\\route-09-help-light.png",
+    "screenshot_dark_path": "C:\\Users\\willi\\dyad-apps\\VetFlow\\test-results\\route-audit\\route-09-help-dark.png",
+    "runtime_error": "nao",
+    "dark_mode": "ok"
+  },
+  {
+    "route": "/sales/pos",
+    "screenshot_light_path": "C:\\Users\\willi\\dyad-apps\\VetFlow\\test-results\\route-audit\\route-10-sales-pos-light.png",
+    "screenshot_dark_path": "C:\\Users\\willi\\dyad-apps\\VetFlow\\test-results\\route-audit\\route-10-sales-pos-dark.png",
+    "runtime_error": "nao",
+    "dark_mode": "ok"
+  },
+  {
+    "route": "/sales/my-sales",
+    "screenshot_light_path": "C:\\Users\\willi\\dyad-apps\\VetFlow\\test-results\\route-audit\\route-11-sales-my-sales-light.png",
+    "screenshot_dark_path": "C:\\Users\\willi\\dyad-apps\\VetFlow\\test-results\\route-audit\\route-11-sales-my-sales-dark.png",
+    "runtime_error": "nao",
+    "dark_mode": "ok"
+  },
+  {
+    "route": "/sales/reports",
+    "screenshot_light_path": "C:\\Users\\willi\\dyad-apps\\VetFlow\\test-results\\route-audit\\route-12-sales-reports-light.png",
+    "screenshot_dark_path": "C:\\Users\\willi\\dyad-apps\\VetFlow\\test-results\\route-audit\\route-12-sales-reports-dark.png",
+    "runtime_error": "nao",
+    "dark_mode": "ok"
+  },
+  {
+    "route": "/sales/budgets",
+    "screenshot_light_path": "C:\\Users\\willi\\dyad-apps\\VetFlow\\test-results\\route-audit\\route-13-sales-budgets-light.png",
+    "screenshot_dark_path": "C:\\Users\\willi\\dyad-apps\\VetFlow\\test-results\\route-audit\\route-13-sales-budgets-dark.png",
+    "runtime_error": "nao",
+    "dark_mode": "ok"
+  },
+  {
+    "route": "/sales/receipts",
+    "screenshot_light_path": "C:\\Users\\willi\\dyad-apps\\VetFlow\\test-results\\route-audit\\route-14-sales-receipts-light.png",
+    "screenshot_dark_path": "C:\\Users\\willi\\dyad-apps\\VetFlow\\test-results\\route-audit\\route-14-sales-receipts-dark.png",
+    "runtime_error": "nao",
+    "dark_mode": "ok"
+  },
+  {
+    "route": "/sales/sold-packages",
+    "screenshot_light_path": "C:\\Users\\willi\\dyad-apps\\VetFlow\\test-results\\route-audit\\route-15-sales-sold-packages-light.png",
+    "screenshot_dark_path": "C:\\Users\\willi\\dyad-apps\\VetFlow\\test-results\\route-audit\\route-15-sales-sold-packages-dark.png",
+    "runtime_error": "nao",
+    "dark_mode": "ok"
+  },
+  {
+    "route": "/sales/statement-model",
+    "screenshot_light_path": "C:\\Users\\willi\\dyad-apps\\VetFlow\\test-results\\route-audit\\route-16-sales-statement-model-light.png",
+    "screenshot_dark_path": "C:\\Users\\willi\\dyad-apps\\VetFlow\\test-results\\route-audit\\route-16-sales-statement-model-dark.png",
+    "runtime_error": "nao",
+    "dark_mode": "ok"
+  },
+  {
+    "route": "/sales/client-financial",
+    "screenshot_light_path": "C:\\Users\\willi\\dyad-apps\\VetFlow\\test-results\\route-audit\\route-17-sales-client-financial-light.png",
+    "screenshot_dark_path": "C:\\Users\\willi\\dyad-apps\\VetFlow\\test-results\\route-audit\\route-17-sales-client-financial-dark.png",
+    "runtime_error": "nao",
+    "dark_mode": "ok"
+  },
+  {
+    "route": "/financial",
+    "screenshot_light_path": "C:\\Users\\willi\\dyad-apps\\VetFlow\\test-results\\route-audit\\route-18-financial-light.png",
+    "screenshot_dark_path": "-",
+    "runtime_error": "nao",
+    "dark_mode": "falha"
+  },
+  {
+    "route": "/financial/reports",
+    "screenshot_light_path": "C:\\Users\\willi\\dyad-apps\\VetFlow\\test-results\\route-audit\\route-19-financial-reports-light.png",
+    "screenshot_dark_path": "C:\\Users\\willi\\dyad-apps\\VetFlow\\test-results\\route-audit\\route-19-financial-reports-dark.png",
+    "runtime_error": "nao",
+    "dark_mode": "ok"
+  },
+  {
+    "route": "/financial/transactions",
+    "screenshot_light_path": "C:\\Users\\willi\\dyad-apps\\VetFlow\\test-results\\route-audit\\route-20-financial-transactions-light.png",
+    "screenshot_dark_path": "C:\\Users\\willi\\dyad-apps\\VetFlow\\test-results\\route-audit\\route-20-financial-transactions-dark.png",
+    "runtime_error": "nao",
+    "dark_mode": "ok"
+  },
+  {
+    "route": "/financial/card-reconciliation",
+    "screenshot_light_path": "C:\\Users\\willi\\dyad-apps\\VetFlow\\test-results\\route-audit\\route-21-financial-card-reconciliation-light.png",
+    "screenshot_dark_path": "C:\\Users\\willi\\dyad-apps\\VetFlow\\test-results\\route-audit\\route-21-financial-card-reconciliation-dark.png",
+    "runtime_error": "nao",
+    "dark_mode": "ok"
+  },
+  {
+    "route": "/financial/accounts-payable",
+    "screenshot_light_path": "C:\\Users\\willi\\dyad-apps\\VetFlow\\test-results\\route-audit\\route-22-financial-accounts-payable-light.png",
+    "screenshot_dark_path": "-",
+    "runtime_error": "nao",
+    "dark_mode": "falha"
+  },
+  {
+    "route": "/financial/statement",
+    "screenshot_light_path": "C:\\Users\\willi\\dyad-apps\\VetFlow\\test-results\\route-audit\\route-23-financial-statement-light.png",
+    "screenshot_dark_path": "C:\\Users\\willi\\dyad-apps\\VetFlow\\test-results\\route-audit\\route-23-financial-statement-dark.png",
+    "runtime_error": "nao",
+    "dark_mode": "ok"
+  },
+  {
+    "route": "/financial/cash-flow",
+    "screenshot_light_path": "C:\\Users\\willi\\dyad-apps\\VetFlow\\test-results\\route-audit\\route-24-financial-cash-flow-light.png",
+    "screenshot_dark_path": "C:\\Users\\willi\\dyad-apps\\VetFlow\\test-results\\route-audit\\route-24-financial-cash-flow-dark.png",
+    "runtime_error": "nao",
+    "dark_mode": "ok"
+  },
+  {
+    "route": "/financial/accounts-cards",
+    "screenshot_light_path": "C:\\Users\\willi\\dyad-apps\\VetFlow\\test-results\\route-audit\\route-25-financial-accounts-cards-light.png",
+    "screenshot_dark_path": "C:\\Users\\willi\\dyad-apps\\VetFlow\\test-results\\route-audit\\route-25-financial-accounts-cards-dark.png",
+    "runtime_error": "nao",
+    "dark_mode": "ok"
+  },
+  {
+    "route": "/financial/categories",
+    "screenshot_light_path": "C:\\Users\\willi\\dyad-apps\\VetFlow\\test-results\\route-audit\\route-26-financial-categories-light.png",
+    "screenshot_dark_path": "C:\\Users\\willi\\dyad-apps\\VetFlow\\test-results\\route-audit\\route-26-financial-categories-dark.png",
+    "runtime_error": "nao",
+    "dark_mode": "ok"
+  },
+  {
+    "route": "/financial/suppliers",
+    "screenshot_light_path": "C:\\Users\\willi\\dyad-apps\\VetFlow\\test-results\\route-audit\\route-27-financial-suppliers-light.png",
+    "screenshot_dark_path": "C:\\Users\\willi\\dyad-apps\\VetFlow\\test-results\\route-audit\\route-27-financial-suppliers-dark.png",
+    "runtime_error": "nao",
+    "dark_mode": "ok"
+  },
+  {
+    "route": "/financial/payment-methods",
+    "screenshot_light_path": "C:\\Users\\willi\\dyad-apps\\VetFlow\\test-results\\route-audit\\route-28-financial-payment-methods-light.png",
+    "screenshot_dark_path": "C:\\Users\\willi\\dyad-apps\\VetFlow\\test-results\\route-audit\\route-28-financial-payment-methods-dark.png",
+    "runtime_error": "nao",
+    "dark_mode": "ok"
+  },
+  {
+    "route": "/stock/products-services",
+    "screenshot_light_path": "C:\\Users\\willi\\dyad-apps\\VetFlow\\test-results\\route-audit\\route-29-stock-products-services-light.png",
+    "screenshot_dark_path": "C:\\Users\\willi\\dyad-apps\\VetFlow\\test-results\\route-audit\\route-29-stock-products-services-dark.png",
+    "runtime_error": "nao",
+    "dark_mode": "ok"
+  },
+  {
+    "route": "/stock/purchases",
+    "screenshot_light_path": "C:\\Users\\willi\\dyad-apps\\VetFlow\\test-results\\route-audit\\route-30-stock-purchases-light.png",
+    "screenshot_dark_path": "C:\\Users\\willi\\dyad-apps\\VetFlow\\test-results\\route-audit\\route-30-stock-purchases-dark.png",
+    "runtime_error": "nao",
+    "dark_mode": "ok"
+  },
+  {
+    "route": "/stock/other-exits",
+    "screenshot_light_path": "C:\\Users\\willi\\dyad-apps\\VetFlow\\test-results\\route-audit\\route-31-stock-other-exits-light.png",
+    "screenshot_dark_path": "C:\\Users\\willi\\dyad-apps\\VetFlow\\test-results\\route-audit\\route-31-stock-other-exits-dark.png",
+    "runtime_error": "nao",
+    "dark_mode": "ok"
+  },
+  {
+    "route": "/stock/stock-analysis",
+    "screenshot_light_path": "C:\\Users\\willi\\dyad-apps\\VetFlow\\test-results\\route-audit\\route-32-stock-stock-analysis-light.png",
+    "screenshot_dark_path": "C:\\Users\\willi\\dyad-apps\\VetFlow\\test-results\\route-audit\\route-32-stock-stock-analysis-dark.png",
+    "runtime_error": "nao",
+    "dark_mode": "ok"
+  },
+  {
+    "route": "/stock/inventory",
+    "screenshot_light_path": "C:\\Users\\willi\\dyad-apps\\VetFlow\\test-results\\route-audit\\route-33-stock-inventory-light.png",
+    "screenshot_dark_path": "-",
+    "runtime_error": "nao",
+    "dark_mode": "falha"
+  },
+  {
+    "route": "/stock/purchase-order",
+    "screenshot_light_path": "C:\\Users\\willi\\dyad-apps\\VetFlow\\test-results\\route-audit\\route-34-stock-purchase-order-light.png",
+    "screenshot_dark_path": "C:\\Users\\willi\\dyad-apps\\VetFlow\\test-results\\route-audit\\route-34-stock-purchase-order-dark.png",
+    "runtime_error": "nao",
+    "dark_mode": "ok"
+  },
+  {
+    "route": "/stock/product-groups",
+    "screenshot_light_path": "C:\\Users\\willi\\dyad-apps\\VetFlow\\test-results\\route-audit\\route-35-stock-product-groups-light.png",
+    "screenshot_dark_path": "C:\\Users\\willi\\dyad-apps\\VetFlow\\test-results\\route-audit\\route-35-stock-product-groups-dark.png",
+    "runtime_error": "nao",
+    "dark_mode": "ok"
+  },
+  {
+    "route": "/stock/brands",
+    "screenshot_light_path": "C:\\Users\\willi\\dyad-apps\\VetFlow\\test-results\\route-audit\\route-36-stock-brands-light.png",
+    "screenshot_dark_path": "C:\\Users\\willi\\dyad-apps\\VetFlow\\test-results\\route-audit\\route-36-stock-brands-dark.png",
+    "runtime_error": "nao",
+    "dark_mode": "ok"
+  },
+  {
+    "route": "/stock/recommended-products",
+    "screenshot_light_path": "C:\\Users\\willi\\dyad-apps\\VetFlow\\test-results\\route-audit\\route-37-stock-recommended-products-light.png",
+    "screenshot_dark_path": "C:\\Users\\willi\\dyad-apps\\VetFlow\\test-results\\route-audit\\route-37-stock-recommended-products-dark.png",
+    "runtime_error": "nao",
+    "dark_mode": "ok"
+  },
+  {
+    "route": "/registrations/species",
+    "screenshot_light_path": "C:\\Users\\willi\\dyad-apps\\VetFlow\\test-results\\route-audit\\route-38-registrations-species-light.png",
+    "screenshot_dark_path": "C:\\Users\\willi\\dyad-apps\\VetFlow\\test-results\\route-audit\\route-38-registrations-species-dark.png",
+    "runtime_error": "nao",
+    "dark_mode": "ok"
+  },
+  {
+    "route": "/registrations/breeds",
+    "screenshot_light_path": "C:\\Users\\willi\\dyad-apps\\VetFlow\\test-results\\route-audit\\route-39-registrations-breeds-light.png",
+    "screenshot_dark_path": "C:\\Users\\willi\\dyad-apps\\VetFlow\\test-results\\route-audit\\route-39-registrations-breeds-dark.png",
+    "runtime_error": "nao",
+    "dark_mode": "ok"
+  },
+  {
+    "route": "/registrations/coat-types",
+    "screenshot_light_path": "C:\\Users\\willi\\dyad-apps\\VetFlow\\test-results\\route-audit\\route-40-registrations-coat-types-light.png",
+    "screenshot_dark_path": "C:\\Users\\willi\\dyad-apps\\VetFlow\\test-results\\route-audit\\route-40-registrations-coat-types-dark.png",
+    "runtime_error": "nao",
+    "dark_mode": "ok"
+  },
+  {
+    "route": "/registrations/exam-references",
+    "screenshot_light_path": "C:\\Users\\willi\\dyad-apps\\VetFlow\\test-results\\route-audit\\route-41-registrations-exam-references-light.png",
+    "screenshot_dark_path": "C:\\Users\\willi\\dyad-apps\\VetFlow\\test-results\\route-audit\\route-41-registrations-exam-references-dark.png",
+    "runtime_error": "nao",
+    "dark_mode": "ok"
+  },
+  {
+    "route": "/registrations/pathologies",
+    "screenshot_light_path": "C:\\Users\\willi\\dyad-apps\\VetFlow\\test-results\\route-audit\\route-42-registrations-pathologies-light.png",
+    "screenshot_dark_path": "C:\\Users\\willi\\dyad-apps\\VetFlow\\test-results\\route-audit\\route-42-registrations-pathologies-dark.png",
+    "runtime_error": "nao",
+    "dark_mode": "ok"
+  },
+  {
+    "route": "/registrations/exam-attributes",
+    "screenshot_light_path": "C:\\Users\\willi\\dyad-apps\\VetFlow\\test-results\\route-audit\\route-43-registrations-exam-attributes-light.png",
+    "screenshot_dark_path": "C:\\Users\\willi\\dyad-apps\\VetFlow\\test-results\\route-audit\\route-43-registrations-exam-attributes-dark.png",
+    "runtime_error": "nao",
+    "dark_mode": "ok"
+  },
+  {
+    "route": "/registrations/client-origins",
+    "screenshot_light_path": "C:\\Users\\willi\\dyad-apps\\VetFlow\\test-results\\route-audit\\route-44-registrations-client-origins-light.png",
+    "screenshot_dark_path": "C:\\Users\\willi\\dyad-apps\\VetFlow\\test-results\\route-audit\\route-44-registrations-client-origins-dark.png",
+    "runtime_error": "nao",
+    "dark_mode": "ok"
+  },
+  {
+    "route": "/registrations/recipe-model",
+    "screenshot_light_path": "C:\\Users\\willi\\dyad-apps\\VetFlow\\test-results\\route-audit\\route-45-registrations-recipe-model-light.png",
+    "screenshot_dark_path": "C:\\Users\\willi\\dyad-apps\\VetFlow\\test-results\\route-audit\\route-45-registrations-recipe-model-dark.png",
+    "runtime_error": "nao",
+    "dark_mode": "ok"
+  },
+  {
+    "route": "/registrations/appointment-types",
+    "screenshot_light_path": "C:\\Users\\willi\\dyad-apps\\VetFlow\\test-results\\route-audit\\route-46-registrations-appointment-types-light.png",
+    "screenshot_dark_path": "C:\\Users\\willi\\dyad-apps\\VetFlow\\test-results\\route-audit\\route-46-registrations-appointment-types-dark.png",
+    "runtime_error": "nao",
+    "dark_mode": "ok"
+  },
+  {
+    "route": "/registrations/vaccines",
+    "screenshot_light_path": "C:\\Users\\willi\\dyad-apps\\VetFlow\\test-results\\route-audit\\route-47-registrations-vaccines-light.png",
+    "screenshot_dark_path": "C:\\Users\\willi\\dyad-apps\\VetFlow\\test-results\\route-audit\\route-47-registrations-vaccines-dark.png",
+    "runtime_error": "nao",
+    "dark_mode": "ok"
+  },
+  {
+    "route": "/registrations/exams",
+    "screenshot_light_path": "C:\\Users\\willi\\dyad-apps\\VetFlow\\test-results\\route-audit\\route-48-registrations-exams-light.png",
+    "screenshot_dark_path": "C:\\Users\\willi\\dyad-apps\\VetFlow\\test-results\\route-audit\\route-48-registrations-exams-dark.png",
+    "runtime_error": "nao",
+    "dark_mode": "ok"
+  },
+  {
+    "route": "/registrations/document-model",
+    "screenshot_light_path": "C:\\Users\\willi\\dyad-apps\\VetFlow\\test-results\\route-audit\\route-49-registrations-document-model-light.png",
+    "screenshot_dark_path": "C:\\Users\\willi\\dyad-apps\\VetFlow\\test-results\\route-audit\\route-49-registrations-document-model-dark.png",
+    "runtime_error": "nao",
+    "dark_mode": "ok"
+  },
+  {
+    "route": "/settings/company",
+    "screenshot_light_path": "C:\\Users\\willi\\dyad-apps\\VetFlow\\test-results\\route-audit\\route-50-settings-company-light.png",
+    "screenshot_dark_path": "C:\\Users\\willi\\dyad-apps\\VetFlow\\test-results\\route-audit\\route-50-settings-company-dark.png",
+    "runtime_error": "nao",
+    "dark_mode": "ok"
+  },
+  {
+    "route": "/settings/user",
+    "screenshot_light_path": "C:\\Users\\willi\\dyad-apps\\VetFlow\\test-results\\route-audit\\route-51-settings-user-light.png",
+    "screenshot_dark_path": "C:\\Users\\willi\\dyad-apps\\VetFlow\\test-results\\route-audit\\route-51-settings-user-dark.png",
+    "runtime_error": "nao",
+    "dark_mode": "ok"
+  },
+  {
+    "route": "/settings/external-access",
+    "screenshot_light_path": "C:\\Users\\willi\\dyad-apps\\VetFlow\\test-results\\route-audit\\route-52-settings-external-access-light.png",
+    "screenshot_dark_path": "C:\\Users\\willi\\dyad-apps\\VetFlow\\test-results\\route-audit\\route-52-settings-external-access-dark.png",
+    "runtime_error": "nao",
+    "dark_mode": "ok"
+  },
+  {
+    "route": "/settings/access-profile",
+    "screenshot_light_path": "C:\\Users\\willi\\dyad-apps\\VetFlow\\test-results\\route-audit\\route-53-settings-access-profile-light.png",
+    "screenshot_dark_path": "C:\\Users\\willi\\dyad-apps\\VetFlow\\test-results\\route-audit\\route-53-settings-access-profile-dark.png",
+    "runtime_error": "nao",
+    "dark_mode": "ok"
+  }
+]

@@ -1,17 +1,23 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React from "react";
 import { Link } from "react-router-dom";
-import { FaArrowLeft, FaShoppingCart, FaPlus, FaDollarSign, FaCalendarAlt, FaTag, FaPaw, FaEye } from "react-icons/fa";
+import { FaPlus, FaDollarSign, FaCalendarAlt, FaTag, FaPaw, FaEye } from "@/components/icons/fa";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { mockFinancialTransactions, updateMockFinancialTransaction } from "@/mockData/financial";
-import { mockClients } from "@/mockData/clients"; // Importar o mock de clientes centralizado
-import { Client, Animal } from "@/types/client"; // Importar as interfaces Client e Animal
 import { toast } from "sonner";
+import { useClientsList } from "@/hooks/useSupabaseClients";
+import { PageShell } from "@/components/saas/PageShell";
+import { PageHeader } from "@/components/saas/PageHeader";
+import { SectionCard } from "@/components/saas/SectionCard";
+import { ToolbarRow } from "@/components/saas/ToolbarRow";
+import { ShoppingCart, Sparkles, Filter, ArrowLeft } from "lucide-react";
 
 const SalesPage = () => {
+  const { data: dbClients, isError: isClientsError } = useClientsList();
+  const clients = dbClients || [];
   // Filtros
   const [clientId, setClientId] = React.useState<string | undefined>(undefined);
   const [animalId, setAnimalId] = React.useState<string | undefined>(undefined);
@@ -29,9 +35,9 @@ const SalesPage = () => {
 
   const animals = React.useMemo(() => {
     if (!clientId) return [];
-    const client = mockClients.find(c => c.id === clientId);
+    const client = clients.find(c => c.id === clientId);
     return client?.animals || [];
-  }, [clientId]);
+  }, [clientId, clients]);
 
   // Filtrar transações de venda
   const salesTransactions = React.useMemo(() => {
@@ -63,7 +69,7 @@ const SalesPage = () => {
 
   const getAnimalName = (clientId?: string, animalId?: string) => {
     if (!clientId || !animalId) return 'N/A';
-    const client = mockClients.find(c => c.id === clientId);
+    const client = clients.find(c => c.id === clientId);
     const animal = client?.animals.find(a => a.id === animalId);
     return animal?.name || 'N/A';
   };
@@ -78,61 +84,57 @@ const SalesPage = () => {
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-background">
-      {/* Header da Página com Gradiente e Breadcrumb */}
-      <div className="bg-gradient-to-r from-background via-card to-background p-6 pb-4 border-b border-border">
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-4">
-            <div>
-              <h1 className="text-2xl font-semibold flex items-center gap-3 text-foreground group">
-                <FaShoppingCart className="h-5 w-5 text-muted-foreground" /> Minhas Vendas
-              </h1>
-              <p className="text-sm text-muted-foreground mt-1 mb-4">
-                Visualize e gerencie todas as transações de vendas.
-              </p>
-            </div>
-          </div>
-          <Link to="/">
-            <Button variant="outline" className="rounded-md border-border text-foreground hover:bg-muted hover:text-foreground transition-colors duration-200">
-              <FaArrowLeft className="mr-2 h-4 w-4" /> Voltar para Painel
-            </Button>
-          </Link>
-        </div>
-        <p className="text-sm text-muted-foreground">
-          Painel &gt; Vendas &gt; Minhas Vendas
-        </p>
-      </div>
+    <PageShell>
+      <PageHeader
+        title="Minhas Vendas"
+        description="Visualize e gerencie todas as transações de vendas."
+        icon={ShoppingCart}
+        module="sales"
+        breadcrumb={<>Painel &gt; Vendas &gt; Minhas Vendas</>}
+        actions={
+          <Button asChild variant="outline" className="rounded-xl border-border/70">
+            <Link to="/">
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Voltar ao painel
+            </Link>
+          </Button>
+        }
+      />
 
-      <div className="flex-1 p-6">
-        {/* Filtros */}
-        <Card className="shadow-sm border border-border rounded-md mb-4">
-          <CardContent className="grid grid-cols-1 md:grid-cols-6 gap-2 pt-4">
+      <SectionCard
+        title="Filtros de vendas"
+        description="Filtre por cliente, pagamento, status e período."
+        icon={Filter}
+        tone="sales"
+      >
+        <ToolbarRow>
+          <div className="grid w-full grid-cols-1 gap-2 md:grid-cols-6">
             <div>
               <label className="text-xs text-muted-foreground">Cliente</label>
-              <Select onValueChange={setClientId} value={clientId}>
+              <Select onValueChange={(v) => setClientId(v === "all" ? undefined : v)} value={clientId ?? "all"}>
                 <SelectTrigger className="h-8 bg-input"><SelectValue placeholder="Todos" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={undefined as any}>Todos</SelectItem>
-                  {mockClients.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                  <SelectItem value="all">Todos</SelectItem>
+                  {clients.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
             <div>
               <label className="text-xs text-muted-foreground">Animal</label>
-              <Select onValueChange={setAnimalId} value={animalId}>
+              <Select onValueChange={(v) => setAnimalId(v === "all" ? undefined : v)} value={animalId ?? "all"}>
                 <SelectTrigger className="h-8 bg-input"><SelectValue placeholder="Todos" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={undefined as any}>Todos</SelectItem>
+                  <SelectItem value="all">Todos</SelectItem>
                   {animals.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
             <div>
               <label className="text-xs text-muted-foreground">Pagamento</label>
-              <Select onValueChange={setPaymentMethod} value={paymentMethod}>
+              <Select onValueChange={(v) => setPaymentMethod(v === "all" ? undefined : v)} value={paymentMethod ?? "all"}>
                 <SelectTrigger className="h-8 bg-input"><SelectValue placeholder="Todos" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={undefined as any}>Todos</SelectItem>
+                  <SelectItem value="all">Todos</SelectItem>
                   {paymentMethods.map(pm => <SelectItem key={pm} value={pm}>{pm}</SelectItem>)}
                 </SelectContent>
               </Select>
@@ -158,16 +160,23 @@ const SalesPage = () => {
               <label className="text-xs text-muted-foreground">Até</label>
               <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="h-8 bg-input" />
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </ToolbarRow>
+      </SectionCard>
 
-        <Card className="shadow-sm hover:shadow-md transition-all duration-300 border-border rounded-md">
+      <SectionCard
+        title="Transações de venda"
+        description="Recebimentos, saldo e status comercial por lançamento."
+        icon={Sparkles}
+        tone="sales"
+      >
+        <Card className="vf-surface-card vf-tone-sales rounded-2xl border-border/80">
           <CardHeader className="flex flex-row items-center justify-between pb-3">
             <CardTitle className="flex items-center gap-2 text-lg font-semibold text-foreground">
-              <FaDollarSign className="h-5 w-5 text-primary" /> Transações de Venda
+              <FaDollarSign className="h-5 w-5 text-vf-sales" /> Transações de Venda
             </CardTitle>
             <Link to="/sales/pos">
-              <Button size="sm" className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-md font-semibold transition-all duration-200 shadow-md hover:shadow-lg">
+              <Button size="sm" className="rounded-xl bg-[hsl(var(--vf-sales))] text-white hover:bg-[hsl(var(--vf-sales)/0.9)]">
                 <FaPlus className="h-4 w-4 mr-2" /> Nova Venda
               </Button>
             </Link>
@@ -179,10 +188,10 @@ const SalesPage = () => {
                   const valorPago = transaction.paidAmount || 0;
                   const saldo = Math.max(0, transaction.amount - valorPago);
                   return (
-                    <Card key={transaction.id} className="p-4 bg-card shadow-sm border border-border">
+                    <Card key={transaction.id} className="vf-surface-card vf-tone-sales card-hover rounded-xl border border-border/80 bg-card p-4 shadow-sm">
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-2">
-                          <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                          <span className="rounded-full bg-[hsl(var(--vf-sales)/0.14)] px-2 py-0.5 text-xs font-medium text-vf-sales">
                             Venda
                           </span>
                           <p className="text-lg font-semibold text-foreground">
@@ -192,7 +201,7 @@ const SalesPage = () => {
                         <div className="flex items-center gap-3">
                           <div className="text-right">
                             <div className="text-xs text-muted-foreground">Total</div>
-                            <div className="text-lg font-bold text-green-600 dark:text-green-400">
+                            <div className="text-lg font-bold text-vf-sales">
                               R$ {transaction.amount.toFixed(2).replace('.', ',')}
                             </div>
                           </div>
@@ -239,12 +248,14 @@ const SalesPage = () => {
                 })}
               </div>
             ) : (
-              <p className="text-muted-foreground py-4">Nenhuma venda registrada.</p>
+              <p className="text-muted-foreground py-4">
+                {isClientsError ? "Falha ao carregar clientes do banco." : "Nenhuma venda registrada."}
+              </p>
             )}
           </CardContent>
         </Card>
-      </div>
-    </div>
+      </SectionCard>
+    </PageShell>
   );
 };
 

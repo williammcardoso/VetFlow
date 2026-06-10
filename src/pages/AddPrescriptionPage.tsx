@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { Link, useParams, useNavigate, useSearchParams } from "react-router-dom";
-import { FaArrowLeft, FaPlus, FaTimes, FaEye, FaSave, FaPrint, FaDownload, FaClipboardList } from "react-icons/fa";
+import { FaArrowLeft, FaPlus, FaTimes, FaEye, FaSave, FaPrint, FaDownload, FaClipboardList } from "@/components/icons/fa";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
@@ -11,7 +11,6 @@ import { Input } from "@/components/ui/input";
 import PrescriptionMedicationForm, { MedicationData } from "@/components/PrescriptionMedicationForm";
 import PrescriptionManipulatedForm from "@/components/PrescriptionManipulatedForm";
 import { toast } from "sonner";
-import { pdf } from "@react-pdf/renderer";
 import { PrescriptionPdfContent } from "@/components/PrescriptionPdfContent";
 import { PrescriptionEntry, ManipulatedPrescriptionData } from "@/types/medication";
 import { usePrescriptions } from "@/hooks/usePrescriptions";
@@ -27,6 +26,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { createPdfBlob, downloadPdf, openPdf } from "@/lib/pdfExport";
+import { useCurrentUserProfile } from "@/hooks/useCurrentUserProfile";
 
 function formatAddress(client: { address: { street?: string; number?: string; complement?: string; neighborhood?: string; city?: string; state?: string } }): string {
   const a = client.address;
@@ -40,6 +41,7 @@ const AddPrescriptionPage = () => {
   const prescriptionType = (searchParams.get('type') as 'simple' | 'controlled' | 'manipulated') || 'simple';
 
   const { data: client, isLoading: clientLoading, isError: clientError } = useClientWithAnimals(clientId);
+  const { profile: currentUserProfile } = useCurrentUserProfile();
   const animal = client?.animals.find(a => a.id === animalId);
   const { prescriptions, refetch: refetchPrescriptions } = usePrescriptions(animalId ?? undefined);
 
@@ -257,7 +259,7 @@ const AddPrescriptionPage = () => {
     }
 
     try {
-      const blob = await pdf(
+      const blob = await createPdfBlob(
         PrescriptionPdfContent({
           animalName: animal.name,
           animalId: animal.id,
@@ -274,12 +276,14 @@ const AddPrescriptionPage = () => {
           pharmacistAddress: pharmacistAddress,
           pharmacistPhone: pharmacistPhone,
           manipulatedPrescription: manipulatedPrescriptionData, // Passar dados da manipulada
+          userProfile: currentUserProfile,
         })
-      ).toBlob();
-
-      const url = URL.createObjectURL(blob);
-      window.open(url, '_blank');
-      URL.revokeObjectURL(url);
+      );
+      await openPdf({
+        blob,
+        fileName: `receita_${animal.name}_${client.name}_${new Date().toISOString().split("T")[0]}.pdf`,
+        persistOptions: { folder: "prescriptions" },
+      });
     } catch (error) {
       console.error("Erro ao imprimir a receita:", error);
       toast.error("Erro ao gerar PDF para impressão. Verifique o console para detalhes.");
@@ -297,7 +301,7 @@ const AddPrescriptionPage = () => {
     }
 
     try {
-      const blob = await pdf(
+      const blob = await createPdfBlob(
         PrescriptionPdfContent({
           animalName: animal.name,
           animalId: animal.id,
@@ -314,17 +318,14 @@ const AddPrescriptionPage = () => {
           pharmacistAddress: pharmacistAddress,
           pharmacistPhone: pharmacistPhone,
           manipulatedPrescription: manipulatedPrescriptionData, // Passar dados da manipulada
+          userProfile: currentUserProfile,
         })
-      ).toBlob();
-
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `receita_${animal.name}_${client.name}_${new Date().toISOString().split('T')[0]}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
+      );
+      await downloadPdf({
+        blob,
+        fileName: `receita_${animal.name}_${client.name}_${new Date().toISOString().split("T")[0]}.pdf`,
+        persistOptions: { folder: "prescriptions" },
+      });
 
       toast.success("Receita salva em PDF com sucesso!");
     } catch (error) {
@@ -334,7 +335,7 @@ const AddPrescriptionPage = () => {
   };
 
   const getPrescriptionTitle = () => {
-    let baseTitle = prescriptionId ? "Editar Receita" : "Adicionar Nova Receita";
+    const baseTitle = prescriptionId ? "Editar Receita" : "Adicionar Nova Receita";
     let typeText = '';
     if (prescriptionType === 'simple') typeText = 'Simples';
     else if (prescriptionType === 'controlled') typeText = 'Controlada';
@@ -368,12 +369,12 @@ const AddPrescriptionPage = () => {
   return (
     <div className="flex flex-col min-h-screen bg-background">
       {/* Header da Página com Gradiente e Breadcrumb */}
-      <div className="bg-gradient-to-r from-background via-card to-background p-6 pb-4 border-b border-border">
+      <div className="bg-card p-6 pb-4 border-b border-border">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-2 gap-4 sm:gap-2">
           <div className="flex items-center gap-4">
             <div>
               <h1 className="text-2xl font-semibold flex items-center gap-3 text-foreground group">
-                <FaClipboardList className="h-5 w-5 text-muted-foreground" /> {getPrescriptionTitle()}
+                <FaClipboardList className="h-5 w-5 text-vf-clinical" /> {getPrescriptionTitle()}
               </h1>
               <p className="text-sm text-muted-foreground mt-1 mb-4">
                 Gerencie os detalhes da receita para {animal.name}.
@@ -395,7 +396,7 @@ const AddPrescriptionPage = () => {
         <div className="flex flex-col lg:flex-row gap-1">
           <div className="flex-1 lg:pr-2">
             <div className="grid gap-1 py-1">
-              <Card className="mb-1 shadow-sm border border-border rounded-md">
+              <Card className="vf-surface-card vf-tone-clinical card-hover mb-1 rounded-xl border border-border/80">
             <CardHeader>
               <CardTitle>Descrição do Tratamento</CardTitle>
             </CardHeader>
@@ -419,7 +420,7 @@ const AddPrescriptionPage = () => {
               onSave={handleSaveManipulatedPrescription}
             />
           ) : (
-            <Card className="mb-1 shadow-sm border border-border rounded-md">
+            <Card className="vf-surface-card vf-tone-clinical card-hover mb-1 rounded-xl border border-border/80">
               <CardHeader>
                 <CardTitle>Medicamentos</CardTitle>
               </CardHeader>
@@ -437,7 +438,7 @@ const AddPrescriptionPage = () => {
                     onToggleCollapse={handleToggleMedicationCollapse}
                   />
                 ))}
-                <Button onClick={handleAddMedication} className="w-full bg-primary text-primary-foreground hover:bg-primary/90 font-semibold transition-all duration-200 shadow-md hover:shadow-lg">
+                <Button onClick={handleAddMedication} className="w-full bg-[hsl(var(--vf-clinical))] font-semibold text-white transition-all duration-200 shadow-md hover:bg-[hsl(var(--vf-clinical)/0.9)] hover:shadow-lg">
                   <FaPlus className="mr-2 h-4 w-4" /> Adicionar Medicamento
                 </Button>
               </CardContent>
@@ -446,7 +447,7 @@ const AddPrescriptionPage = () => {
 
           {/* Observações Gerais da Receita (este campo será preenchido pelo estado de manipulatedPrescriptionData.generalObservations se for manipulada) */}
           {prescriptionType !== 'manipulated' && (
-            <Card className="shadow-sm border border-border rounded-md">
+            <Card className="vf-surface-card vf-tone-clinical card-hover rounded-xl border border-border/80">
               <CardHeader>
                 <CardTitle>Observações Gerais da Receita</CardTitle>
               </CardHeader>
@@ -468,7 +469,7 @@ const AddPrescriptionPage = () => {
 
           {prescriptionType !== 'manipulated' && (
             <aside className="hidden lg:block lg:w-[35%] lg:pl-2 lg:ml-2">
-              <Card className="sticky top-2 shadow-sm border border-border rounded-md">
+              <Card className="vf-surface-card vf-tone-clinical card-hover sticky top-2 rounded-xl border border-border/80">
             <CardHeader>
               <CardTitle className="text-sm">Prévia da Receita</CardTitle>
             </CardHeader>
@@ -513,7 +514,7 @@ const AddPrescriptionPage = () => {
         <Button variant="outline" onClick={() => navigate(`/clients/${clientId}/animals/${animalId}/record`)} className="bg-card border border-border text-foreground hover:bg-muted rounded-md transition-all duration-200 shadow-sm hover:shadow-md">
           <FaTimes className="mr-2 h-4 w-4" /> Cancelar
         </Button>
-        <Button onClick={handleSavePrescription} disabled={isPrintSaveDisabled} className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-md font-semibold transition-all duration-200 shadow-md hover:shadow-lg">
+        <Button onClick={handleSavePrescription} disabled={isPrintSaveDisabled} className="rounded-md bg-[hsl(var(--vf-clinical))] font-semibold text-white transition-all duration-200 shadow-md hover:bg-[hsl(var(--vf-clinical)/0.9)] hover:shadow-lg">
           <FaSave className="mr-2 h-4 w-4" /> Salvar Receita
         </Button>
       </div>
@@ -529,7 +530,7 @@ const AddPrescriptionPage = () => {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel className="bg-card border border-border text-foreground hover:bg-muted rounded-md transition-all duration-200 shadow-sm hover:shadow-md">Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmAddMultipleMedications} className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-md font-semibold transition-all duration-200 shadow-md hover:shadow-lg">Continuar</AlertDialogAction>
+            <AlertDialogAction onClick={handleConfirmAddMultipleMedications} className="rounded-md bg-[hsl(var(--vf-clinical))] font-semibold text-white transition-all duration-200 shadow-md hover:bg-[hsl(var(--vf-clinical)/0.9)] hover:shadow-lg">Continuar</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

@@ -32,6 +32,8 @@ import {
   Legend,
 } from "recharts";
 import { FileText, Printer, Wallet, TrendingUp, PieChart as PieChartIcon } from "lucide-react";
+import { PageShell } from "@/components/saas/PageShell";
+import { PageHeader } from "@/components/saas/PageHeader";
 
 const withinRange = (dateStr: string, from?: string, to?: string) => {
   const dt = new Date(`${dateStr}T00:00`);
@@ -180,7 +182,32 @@ const FinancialReportsPage: React.FC = () => {
           ? "Últimos 3 meses"
           : `${formatDateTime(dateFrom)} a ${formatDateTime(dateTo)}`;
 
-  const handlePrint = () => window.print();
+  const handlePrintDetailedReport = () => {
+    const popup = window.open("", "_blank", "width=1024,height=768");
+    if (!popup) return;
+    const currency = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
+    const movementsRows = movimentos
+      .map((m) => `<tr><td>${formatDateTime(m.date, m.time)}</td><td>${m.description}</td><td>${m.category}</td><td>${m.paymentMethod || "-"}</td><td style="text-align:right">${m.type === "income" ? "+" : "-"}${currency(m.amount)}</td></tr>`)
+      .join("");
+    popup.document.write(`
+      <html><head><title>Relatório Financeiro</title><style>
+      body{font-family:Arial,sans-serif;padding:24px;color:#0f172a} h1{margin:0 0 8px} h2{margin:22px 0 8px}
+      table{width:100%;border-collapse:collapse;margin-top:8px} th,td{border:1px solid #e2e8f0;padding:8px;font-size:12px} th{background:#f8fafc;text-align:left}
+      .kpi{display:inline-block;margin-right:16px;padding:10px 12px;border:1px solid #e2e8f0;border-radius:10px;background:#fff}
+      </style></head><body>
+      <h1>Relatório Financeiro</h1><p>Período: ${periodLabel}</p>
+      <div class="kpi"><strong>Entradas:</strong> ${currency(entradas)}</div>
+      <div class="kpi"><strong>Saídas:</strong> ${currency(saidas)}</div>
+      <div class="kpi"><strong>Saldo:</strong> ${currency(saldo)}</div>
+      <div class="kpi"><strong>A receber:</strong> ${currency(totalEmAberto)}</div>
+      <h2>Movimentos do período</h2>
+      <table><thead><tr><th>Data</th><th>Descrição</th><th>Categoria</th><th>Pagamento</th><th style="text-align:right">Valor</th></tr></thead><tbody>${movementsRows || "<tr><td colspan='5'>Sem dados</td></tr>"}</tbody></table>
+      </body></html>
+    `);
+    popup.document.close();
+    popup.focus();
+    popup.print();
+  };
 
   const barChartConfig = {
     entradas: { label: "Entradas", color: CHART_COLORS.entradas },
@@ -194,20 +221,17 @@ const FinancialReportsPage: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-[#F8F9FA] print:bg-white">
-      <div className="p-6 pb-4 border-b border-border bg-[#F8F9FA] print:border-0">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-              <FileText className="h-6 w-6 text-primary" /> Relatório financeiro
-            </h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              Gráficos e indicadores por período. Use &quot;Imprimir&quot; para gerar o relatório.
-            </p>
-          </div>
+    <PageShell>
+      <PageHeader
+        title="Relatório Financeiro"
+        description={`Indicadores e gráficos de entradas/saídas. Período ativo: ${periodLabel}.`}
+        icon={FileText}
+        module="finance"
+        breadcrumb={<>Painel &gt; Financeiro &gt; Relatórios</>}
+        actions={
           <div className="flex flex-wrap items-center gap-2 print:hidden">
             <Select value={periodPreset} onValueChange={setPeriodPreset}>
-              <SelectTrigger className="w-[180px] h-9 bg-white border border-border">
+              <SelectTrigger className="h-9 w-[180px] border border-border bg-card">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -224,33 +248,32 @@ const FinancialReportsPage: React.FC = () => {
                   type="date"
                   value={dateFrom}
                   onChange={(e) => setDateFrom(e.target.value)}
-                  className="h-9 w-32 bg-white border border-border"
+                  className="h-9 w-32 border border-border bg-card"
                 />
                 <Input
                   type="date"
                   value={dateTo}
                   onChange={(e) => setDateTo(e.target.value)}
-                  className="h-9 w-32 bg-white border border-border"
+                  className="h-9 w-32 border border-border bg-card"
                 />
               </>
             )}
-            <Button variant="outline" onClick={handlePrint} className="gap-2">
-              <Printer className="h-4 w-4" /> Imprimir relatório
+            <Button variant="outline" onClick={handlePrintDetailedReport} className="gap-2">
+              <Printer className="h-4 w-4" /> Imprimir PDF
             </Button>
             <Link to="/financial">
-              <Button variant="ghost" className="text-muted-foreground gap-2">
+              <Button variant="ghost" className="gap-2 text-muted-foreground">
                 <Wallet className="h-4 w-4" /> Ir para Financeiro
               </Button>
             </Link>
           </div>
-        </div>
-        <p className="text-xs text-muted-foreground mt-2">Período: {periodLabel}</p>
-      </div>
+        }
+      />
 
-      <div className="p-6 space-y-6">
+      <div className="space-y-5">
         {/* KPIs */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          <Card className="bg-white border border-border rounded-xl shadow-sm">
+          <Card className="vf-surface-card vf-tone-finance card-hover rounded-xl border-border/80">
             <CardContent className="p-4">
               <div className="text-xs text-emerald-700 font-medium">Entradas</div>
               <div className="text-xl font-bold text-emerald-800">
@@ -258,7 +281,7 @@ const FinancialReportsPage: React.FC = () => {
               </div>
             </CardContent>
           </Card>
-          <Card className="bg-white border border-border rounded-xl shadow-sm">
+          <Card className="vf-surface-card vf-tone-finance card-hover rounded-xl border-border/80">
             <CardContent className="p-4">
               <div className="text-xs text-red-700 font-medium">Saídas</div>
               <div className="text-xl font-bold text-red-800">
@@ -266,7 +289,7 @@ const FinancialReportsPage: React.FC = () => {
               </div>
             </CardContent>
           </Card>
-          <Card className="bg-white border border-border rounded-xl shadow-sm">
+          <Card className="vf-surface-card vf-tone-finance card-hover rounded-xl border-border/80">
             <CardContent className="p-4">
               <div className="text-xs text-slate-600 font-medium">Saldo do período</div>
               <div className={cn("text-xl font-bold", saldo >= 0 ? "text-slate-800" : "text-red-700")}>
@@ -274,7 +297,7 @@ const FinancialReportsPage: React.FC = () => {
               </div>
             </CardContent>
           </Card>
-          <Card className="bg-white border border-border rounded-xl shadow-sm">
+          <Card className="vf-surface-card vf-tone-finance card-hover rounded-xl border-border/80">
             <CardContent className="p-4">
               <div className="text-xs text-amber-700 font-medium">A receber (geral)</div>
               <div className="text-xl font-bold text-amber-800">
@@ -285,7 +308,7 @@ const FinancialReportsPage: React.FC = () => {
         </div>
 
         {/* Gráfico de barras: Entradas x Saídas por dia */}
-        <Card className="bg-white border border-border rounded-xl shadow-sm print:break-inside-avoid">
+        <Card className="vf-surface-card vf-tone-finance card-hover rounded-xl border-border/80 print:break-inside-avoid">
           <CardHeader className="pb-2">
             <CardTitle className="text-base flex items-center gap-2">
               <TrendingUp className="h-4 w-4 text-primary" /> Entradas e saídas por dia
@@ -316,9 +339,9 @@ const FinancialReportsPage: React.FC = () => {
         </Card>
 
         {/* Linha: evolução do saldo dia a dia (opcional) + Pizzas lado a lado */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
           {/* Gráfico de linha: evolução diária */}
-          <Card className="bg-white border border-border rounded-xl shadow-sm print:break-inside-avoid">
+          <Card className="vf-surface-card vf-tone-finance card-hover rounded-xl border-border/80 print:break-inside-avoid">
             <CardHeader className="pb-2">
               <CardTitle className="text-base flex items-center gap-2">
                 <TrendingUp className="h-4 w-4 text-primary" /> Evolução diária
@@ -350,7 +373,7 @@ const FinancialReportsPage: React.FC = () => {
           </Card>
 
           {/* Gráfico de pizza: Receitas por categoria */}
-          <Card className="bg-white border border-border rounded-xl shadow-sm print:break-inside-avoid">
+          <Card className="vf-surface-card vf-tone-finance card-hover rounded-xl border-border/80 print:break-inside-avoid">
             <CardHeader className="pb-2">
               <CardTitle className="text-base flex items-center gap-2">
                 <PieChartIcon className="h-4 w-4 text-primary" /> Receitas por categoria
@@ -392,7 +415,7 @@ const FinancialReportsPage: React.FC = () => {
         </div>
 
         {/* Gráfico de pizza: Despesas por categoria */}
-        <Card className="bg-white border border-border rounded-xl shadow-sm print:break-inside-avoid">
+        <Card className="vf-surface-card vf-tone-finance card-hover rounded-xl border-border/80 print:break-inside-avoid">
           <CardHeader className="pb-2">
             <CardTitle className="text-base flex items-center gap-2">
               <PieChartIcon className="h-4 w-4 text-primary" /> Despesas por categoria
@@ -433,7 +456,7 @@ const FinancialReportsPage: React.FC = () => {
         </Card>
 
         {/* Detalhamento: tabela de movimentos */}
-        <Card className="bg-white border border-border rounded-xl shadow-sm print:break-before-auto">
+        <Card className="vf-surface-card vf-tone-finance card-hover rounded-xl border-border/80 print:break-before-auto">
           <CardHeader className="pb-2">
             <CardTitle className="text-base font-semibold">Detalhamento dos movimentos</CardTitle>
             <p className="text-sm text-muted-foreground font-normal">
@@ -446,7 +469,7 @@ const FinancialReportsPage: React.FC = () => {
             ) : (
               <div className="overflow-x-auto max-h-[400px] overflow-y-auto">
                 <table className="w-full text-sm">
-                  <thead className="sticky top-0 bg-white">
+                  <thead className="sticky top-0 bg-card">
                     <tr className="border-b border-border">
                       <th className="text-left py-2 font-medium text-muted-foreground">Data</th>
                       <th className="text-left py-2 font-medium text-muted-foreground">Descrição</th>
@@ -486,7 +509,7 @@ const FinancialReportsPage: React.FC = () => {
           — Período: {periodLabel}
         </p>
       </div>
-    </div>
+    </PageShell>
   );
 };
 

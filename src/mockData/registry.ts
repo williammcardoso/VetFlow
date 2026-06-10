@@ -6,13 +6,18 @@ export type RegistryKeySimple =
   | "species"
   | "breeds"
   | "coatTypes"
+  | "pathologies"
+  | "examAttributes"
+  | "clientOrigins"
+  | "recipeModels"
   | "appointmentTypes"
   | "vaccines"
   | "exams"
   | "documentModels"
   | "productGroups"
   | "brands"
-  | "paymentMethods";
+  | "paymentMethods"
+  | "accessProfiles";
 
 export interface RegistryItem {
   id: string;

@@ -4,12 +4,17 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { FaArrowLeft, FaPlus, FaTimes, FaSave, FaUsers, FaTrashAlt, FaEdit } from "react-icons/fa";
+import { FaArrowLeft, FaPlus, FaTimes, FaSave, FaTrashAlt } from "@/components/icons/fa";
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom"; // Importar useParams
 import { toast } from "sonner"; // Importar toast para mensagens
-import { addMockClient, updateMockClient, mockClients } from "@/mockData/clients"; // Importar as funções para adicionar/atualizar cliente
 import { Client, DynamicContact } from "@/types/client"; // Importar a interface Client
+import { useClientWithAnimals } from "@/hooks/useSupabaseClients";
+import { addClient, updateClient } from "@/lib/clientsApi";
+import { useQueryClient } from "@tanstack/react-query";
+import { PageShell } from "@/components/saas/PageShell";
+import { PageHeader } from "@/components/saas/PageHeader";
+import { Users } from "lucide-react";
 
 // Helper functions for masks
 const applyCpfMask = (value: string) => {
@@ -56,6 +61,9 @@ const ClientFormPage = () => {
   const navigate = useNavigate();
   const { clientId } = useParams<{ clientId?: string }>(); // Obter clientId da URL
   const isEditing = !!clientId;
+  const queryClient = useQueryClient();
+  const { data: clientToEdit, isLoading: isClientLoading, isError: isClientError, error: clientError } =
+    useClientWithAnimals(isEditing ? clientId : undefined);
 
   // Estados para os campos do formulário
   const [clientType, setClientType] = useState<Client['clientType']>("physical");
@@ -88,40 +96,58 @@ const ClientFormPage = () => {
 
   // Extras
   const [notes, setNotes] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+  const [loadedClientId, setLoadedClientId] = useState<string | null>(null);
 
   // Carregar dados do cliente se estiver em modo de edição
   useEffect(() => {
-    if (isEditing && clientId) {
-      const clientToEdit = mockClients.find(c => c.id === clientId);
-      if (clientToEdit) {
-        setClientType(clientToEdit.clientType);
-        setFullName(clientToEdit.name);
-        setNationality(clientToEdit.nationality);
-        setGender(clientToEdit.gender);
-        setIdentificationNumber(clientToEdit.identificationNumber);
-        setSecondaryIdentification(clientToEdit.secondaryIdentification);
-        setBirthday(clientToEdit.birthday);
-        setProfession(clientToEdit.profession);
-        setAcceptEmail(clientToEdit.acceptEmail);
-        setAcceptWhatsapp(clientToEdit.acceptWhatsapp);
-        setAcceptSMS(clientToEdit.acceptSMS);
-        setMainEmailContact(clientToEdit.mainEmailContact);
-        setMainPhoneContact(clientToEdit.mainPhoneContact);
-        setDynamicContacts(clientToEdit.dynamicContacts || []);
-        setCep(clientToEdit.address.cep);
-        setStreet(clientToEdit.address.street);
-        setNumber(clientToEdit.address.number);
-        setComplement(clientToEdit.address.complement);
-        setNeighborhood(clientToEdit.address.neighborhood);
-        setCity(clientToEdit.address.city);
-        setState(clientToEdit.address.state);
-        setNotes(clientToEdit.notes);
-      } else {
-        toast.error("Cliente não encontrado para edição.");
-        navigate("/clients");
-      }
+    if (!isEditing) return;
+    if (isClientLoading) return;
+    if (isClientError) {
+      toast.error(
+        `Erro ao carregar cliente do banco: ${clientError instanceof Error ? clientError.message : "erro desconhecido"}.`
+      );
+      navigate("/clients");
+      return;
     }
-  }, [isEditing, clientId, navigate]);
+    if (!clientToEdit) {
+      toast.error("Cliente não encontrado para edição.");
+      navigate("/clients");
+      return;
+    }
+    if (loadedClientId === clientToEdit.id) return;
+
+    setClientType(clientToEdit.clientType);
+    setFullName(clientToEdit.name);
+    setNationality(clientToEdit.nationality);
+    setGender(clientToEdit.gender);
+    setIdentificationNumber(clientToEdit.identificationNumber);
+    setSecondaryIdentification(clientToEdit.secondaryIdentification);
+    setBirthday(clientToEdit.birthday);
+    setProfession(clientToEdit.profession);
+    setAcceptEmail(clientToEdit.acceptEmail);
+    setAcceptWhatsapp(clientToEdit.acceptWhatsapp);
+    setAcceptSMS(clientToEdit.acceptSMS);
+    setMainEmailContact(clientToEdit.mainEmailContact);
+    setMainPhoneContact(clientToEdit.mainPhoneContact);
+    setDynamicContacts(clientToEdit.dynamicContacts || []);
+    setCep(clientToEdit.address.cep);
+    setStreet(clientToEdit.address.street);
+    setNumber(clientToEdit.address.number);
+    setComplement(clientToEdit.address.complement);
+    setNeighborhood(clientToEdit.address.neighborhood);
+    setCity(clientToEdit.address.city);
+    setState(clientToEdit.address.state);
+    setNotes(clientToEdit.notes);
+    setLoadedClientId(clientToEdit.id);
+  }, [isEditing, isClientLoading, isClientError, clientError, clientToEdit, loadedClientId, navigate]);
+
+  const invalidateClientQueries = async (targetClientId?: string) => {
+    await queryClient.invalidateQueries({ queryKey: ["clients-with-animals"] });
+    if (targetClientId) {
+      await queryClient.invalidateQueries({ queryKey: ["client-with-animals", targetClientId] });
+    }
+  };
 
   // Resetar campos de identificação ao mudar o tipo de cliente
   useEffect(() => {
@@ -221,7 +247,8 @@ const ClientFormPage = () => {
     }
   };
 
-  const handleSaveClient = () => {
+  const handleSaveClient = async () => {
+    if (isSaving) return;
     // Validação de campos obrigatórios
     if (!fullName.trim()) {
       toast.error("O campo 'Nome completo' é obrigatório.");
@@ -272,56 +299,79 @@ const ClientFormPage = () => {
       notes,
     };
 
-    if (isEditing && clientId) {
-      const updated = updateMockClient({ ...clientData, id: clientId, animals: [] }); // Animals will be preserved by updateMockClient
-      if (updated) {
-        toast.success("Cliente atualizado com sucesso!");
-        navigate(`/clients/${clientId}`);
+    setIsSaving(true);
+    try {
+      if (isEditing && clientId) {
+        if (!clientToEdit) {
+          toast.error("Cliente não encontrado para edição.");
+          return;
+        }
+
+        const updated = await updateClient({
+          ...clientData,
+          id: clientId,
+          animals: clientToEdit.animals || [],
+        });
+        if (updated) {
+          await invalidateClientQueries(clientId);
+          toast.success("Cliente atualizado com sucesso!");
+          navigate(`/clients/${clientId}`);
+        } else {
+          toast.error("Erro ao atualizar cliente no banco.");
+        }
       } else {
-        toast.error("Erro ao atualizar cliente.");
+        const result = await addClient(clientData);
+        if (!result.success) {
+          toast.error(result.message);
+          return;
+        }
+        await invalidateClientQueries(result.client.id);
+        toast.success("Cliente salvo com sucesso!");
+        navigate(`/clients/${result.client.id}`);
       }
-    } else {
-      const newClient = addMockClient(clientData);
-      toast.success("Cliente salvo com sucesso!");
-      navigate(`/clients/${newClient.id}`); // Navegar para a página de detalhes do novo cliente
+    } finally {
+      setIsSaving(false);
     }
   };
 
+  if (isEditing && isClientLoading && !clientToEdit) {
+    return (
+      <div className="p-6 text-center">
+        <h1 className="text-2xl font-semibold mb-2">Carregando...</h1>
+        <p className="text-muted-foreground">Buscando dados do cliente no banco.</p>
+      </div>
+    );
+  }
+
   return (
-    <div className="flex flex-col min-h-screen bg-background">
-      {/* Header da Página com Gradiente e Breadcrumb */}
-      <div className="bg-gradient-to-r from-background via-card to-background p-6 pb-4 border-b border-border">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-2 gap-4 sm:gap-2">
-          <div className="flex items-center gap-4">
-            <div>
-              <h1 className="text-2xl font-semibold flex items-center gap-3 text-foreground group">
-                {isEditing ? <FaEdit className="h-5 w-5 text-muted-foreground" /> : <FaUsers className="h-5 w-5 text-muted-foreground" />}
-                {isEditing ? `Editar Responsável: ${fullName}` : "Adicionar Responsável"}
-              </h1>
-              <p className="text-sm text-muted-foreground mt-1 mb-4">
-                {isEditing ? "Edite as informações do responsável." : "Cadastre um novo responsável e suas informações."}
-              </p>
-            </div>
-          </div>
+    <PageShell>
+      <PageHeader
+        title={isEditing ? `Editar responsável: ${fullName}` : "Adicionar responsável"}
+        description={isEditing ? "Edite as informações do responsável." : "Cadastre um novo responsável e suas informações."}
+        icon={Users}
+        module="clinical"
+        breadcrumb={
+          <>
+            Painel &gt; <Link to="/clients" className="hover:text-primary">Clientes</Link> &gt; {isEditing ? "Editar" : "Adicionar"}
+          </>
+        }
+        actions={
           <Link to={isEditing ? `/clients/${clientId}` : "/clients"}>
             <Button variant="outline" className="rounded-md border-border text-foreground hover:bg-muted hover:text-foreground transition-colors duration-200">
               <FaArrowLeft className="mr-2 h-4 w-4" /> Voltar
             </Button>
           </Link>
-        </div>
-        <p className="text-sm text-muted-foreground">
-          Painel &gt; <Link to="/clients" className="hover:text-primary">Clientes</Link> &gt; {isEditing ? "Editar" : "Adicionar"}
-        </p>
-      </div>
+        }
+      />
 
-      <div className="flex-1 p-6">
+      <div className="flex-1">
         <Tabs defaultValue="general" className="w-full">
-          <TabsList className="grid w-full grid-cols-3 bg-card shadow-sm border border-border rounded-md p-2">
-            <TabsTrigger value="general" className="rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-colors duration-200 text-muted-foreground data-[state=active]:dark:bg-primary">Geral</TabsTrigger>
-            <TabsTrigger value="address" className="rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-colors duration-200 text-muted-foreground data-[state=active]:dark:bg-primary">Endereço</TabsTrigger>
-            <TabsTrigger value="extras" className="rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-colors duration-200 text-muted-foreground data-[state=active]:dark:bg-primary">Extras</TabsTrigger>
+          <TabsList className="vf-surface-card vf-tone-clinical grid w-full grid-cols-3 rounded-md border border-border/80 p-2 shadow-sm">
+            <TabsTrigger value="general" className="rounded-md text-muted-foreground transition-colors duration-200 data-[state=active]:bg-[hsl(var(--vf-clinical))] data-[state=active]:text-white">Geral</TabsTrigger>
+            <TabsTrigger value="address" className="rounded-md text-muted-foreground transition-colors duration-200 data-[state=active]:bg-[hsl(var(--vf-clinical))] data-[state=active]:text-white">Endereço</TabsTrigger>
+            <TabsTrigger value="extras" className="rounded-md text-muted-foreground transition-colors duration-200 data-[state=active]:bg-[hsl(var(--vf-clinical))] data-[state=active]:text-white">Extras</TabsTrigger>
           </TabsList>
-          <TabsContent value="general" className="mt-4 p-6 bg-card shadow-sm border border-border rounded-md">
+          <TabsContent value="general" className="vf-surface-card vf-tone-clinical card-hover mt-4 rounded-md border border-border/80 bg-card p-6 shadow-sm">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="type" className="text-muted-foreground font-medium">Tipo (Pessoa física/jurídica)*</Label>
@@ -485,12 +535,12 @@ const ClientFormPage = () => {
               <Button variant="outline" onClick={() => navigate(isEditing ? `/clients/${clientId}` : "/clients")} className="bg-card border border-border text-foreground hover:bg-muted rounded-md transition-all duration-200 shadow-sm hover:shadow-md">
                 <FaTimes className="mr-2 h-4 w-4" /> Cancelar
               </Button>
-              <Button onClick={handleSaveClient} className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-md font-semibold transition-all duration-200 shadow-md hover:shadow-lg">
+              <Button disabled={isSaving} onClick={handleSaveClient} className="rounded-md bg-[hsl(var(--vf-clinical))] font-semibold text-white transition-all duration-200 shadow-md hover:bg-[hsl(var(--vf-clinical)/0.9)] hover:shadow-lg">
                 <FaSave className="mr-2 h-4 w-4" /> Salvar
               </Button>
             </div>
           </TabsContent>
-          <TabsContent value="address" className="mt-4 p-6 bg-card shadow-sm border border-border rounded-md">
+          <TabsContent value="address" className="vf-surface-card vf-tone-clinical card-hover mt-4 rounded-md border border-border/80 bg-card p-6 shadow-sm">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="zipCode" className="text-muted-foreground font-medium">CEP</Label>
@@ -558,12 +608,12 @@ const ClientFormPage = () => {
               <Button variant="outline" onClick={() => navigate(isEditing ? `/clients/${clientId}` : "/clients")} className="bg-card border border-border text-foreground hover:bg-muted rounded-md transition-all duration-200 shadow-sm hover:shadow-md">
                 <FaTimes className="mr-2 h-4 w-4" /> Cancelar
               </Button>
-              <Button onClick={handleSaveClient} className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-md font-semibold transition-all duration-200 shadow-md hover:shadow-lg">
+              <Button disabled={isSaving} onClick={handleSaveClient} className="rounded-md bg-[hsl(var(--vf-clinical))] font-semibold text-white transition-all duration-200 shadow-md hover:bg-[hsl(var(--vf-clinical)/0.9)] hover:shadow-lg">
                 <FaSave className="mr-2 h-4 w-4" /> Salvar
               </Button>
             </div>
           </TabsContent>
-          <TabsContent value="extras" className="mt-4 p-6 bg-card shadow-sm border border-border rounded-md">
+          <TabsContent value="extras" className="vf-surface-card vf-tone-clinical card-hover mt-4 rounded-md border border-border/80 bg-card p-6 shadow-sm">
             <div className="space-y-2">
               <Label htmlFor="notes" className="text-muted-foreground font-medium">Observações</Label>
               <Textarea id="notes" placeholder="Adicione observações adicionais sobre o responsável..." rows={5} value={notes} onChange={(e) => setNotes(e.target.value)} className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200" />
@@ -572,14 +622,14 @@ const ClientFormPage = () => {
               <Button variant="outline" onClick={() => navigate(isEditing ? `/clients/${clientId}` : "/clients")} className="bg-card border border-border text-foreground hover:bg-muted rounded-md transition-all duration-200 shadow-sm hover:shadow-md">
                 <FaTimes className="mr-2 h-4 w-4" /> Cancelar
               </Button>
-              <Button onClick={handleSaveClient} className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-md font-semibold transition-all duration-200 shadow-md hover:shadow-lg">
+              <Button disabled={isSaving} onClick={handleSaveClient} className="rounded-md bg-[hsl(var(--vf-clinical))] font-semibold text-white transition-all duration-200 shadow-md hover:bg-[hsl(var(--vf-clinical)/0.9)] hover:shadow-lg">
                 <FaSave className="mr-2 h-4 w-4" /> Salvar
               </Button>
             </div>
           </TabsContent>
         </Tabs>
       </div>
-    </div>
+    </PageShell>
   );
 };
 
