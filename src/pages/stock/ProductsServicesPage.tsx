@@ -1,5 +1,4 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,10 +7,13 @@ import { toast } from "sonner";
 import { getCatalog, addCatalogItem, updateCatalogItem, removeCatalogItem, adjustStock } from "@/lib/catalogApi";
 import type { CatalogItem, CatalogItemType } from "@/mockData/catalog";
 import CurrencyInput from "@/components/CurrencyInput";
-import { PackageSearch } from "lucide-react";
+import { PackageSearch, FileText, Pencil } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { PageShell } from "@/components/saas/PageShell";
 import { PageHeader } from "@/components/saas/PageHeader";
 import { SectionCard } from "@/components/saas/SectionCard";
+import PriceListPdfContent from "@/components/PriceListPdfContent";
+import { createPdfBlob, openPdf } from "@/lib/pdfExport";
 
 const ProductsServicesPage: React.FC = () => {
   const [items, setItems] = useState<CatalogItem[]>([]);
@@ -25,9 +27,25 @@ const ProductsServicesPage: React.FC = () => {
   const [newUnit, setNewUnit] = useState("");
   const [newStockQty, setNewStockQty] = useState<string>("0");
   const [newCategory, setNewCategory] = useState<string>("");
+  const [newCategoryCustom, setNewCategoryCustom] = useState<string>("");
   const [newCost, setNewCost] = useState<number>(0);
 
   const [loading, setLoading] = useState(false);
+  const [exportCategory, setExportCategory] = useState<string>("all");
+
+  const [editingItem, setEditingItem] = useState<CatalogItem | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editPrice, setEditPrice] = useState<number>(0);
+  const [editCategory, setEditCategory] = useState("");
+  const [editCost, setEditCost] = useState<number>(0);
+  const [editStockQty, setEditStockQty] = useState<string>("0");
+  const [editUnit, setEditUnit] = useState("");
+  const [editActive, setEditActive] = useState(true);
+
+  const availableCategories = React.useMemo(() => {
+    const cats = new Set(items.map(i => i.category).filter(Boolean));
+    return Array.from(cats) as string[];
+  }, [items]);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -60,7 +78,9 @@ const ProductsServicesPage: React.FC = () => {
       brand: undefined,
       group: undefined,
       active: true,
-      category: newCategory || undefined,
+      category: newCategory === 'outro'
+        ? (newCategoryCustom.trim() || undefined)
+        : (newCategory || undefined),
       cost: newCost > 0 ? newCost : undefined,
     });
     toast.success(`${created.type === 'product' ? 'Produto' : 'Serviço'} adicionado.`);
@@ -71,6 +91,7 @@ const ProductsServicesPage: React.FC = () => {
     setNewStockQty("0");
     setNewType("product");
     setNewCategory("");
+    setNewCategoryCustom("");
     setNewCost(0);
     await refresh();
   };
@@ -109,6 +130,57 @@ const ProductsServicesPage: React.FC = () => {
     }
   };
 
+  const openEditModal = (item: CatalogItem) => {
+    setEditingItem(item);
+    setEditName(item.name);
+    setEditPrice(item.price);
+    setEditCategory(item.category || "");
+    setEditCost(item.cost ?? 0);
+    setEditStockQty(String(item.stockQty ?? 0));
+    setEditUnit(item.unit || "");
+    setEditActive(item.active);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingItem) return;
+    if (!editName.trim()) { toast.error("Informe o nome."); return; }
+    const updated: CatalogItem = {
+      ...editingItem,
+      name: editName.trim(),
+      price: editPrice,
+      category: editCategory || undefined,
+      cost: editCost > 0 ? editCost : undefined,
+      stockQty: editingItem.type === 'product' ? Number(editStockQty) || 0 : undefined,
+      unit: editUnit.trim() || undefined,
+      active: editActive,
+    };
+    const ok = await updateCatalogItem(updated);
+    if (ok) {
+      toast.success("Item atualizado.");
+      setEditingItem(null);
+      await refresh();
+    } else {
+      toast.error("Falha ao atualizar.");
+    }
+  };
+
+  const handlePrintPriceList = async (showCosts: boolean) => {
+    try {
+      const filtered = exportCategory === "all"
+        ? items
+        : items.filter(i => i.category === exportCategory);
+      const blob = await createPdfBlob(
+        <PriceListPdfContent items={filtered} showCosts={showCosts} />
+      );
+      await openPdf({
+        blob,
+        fileName: showCosts ? "tabela-precos-interno.pdf" : "tabela-precos.pdf",
+      });
+    } catch {
+      toast.error("Erro ao gerar PDF.");
+    }
+  };
+
   return (
     <PageShell>
       <PageHeader
@@ -117,70 +189,191 @@ const ProductsServicesPage: React.FC = () => {
         icon={PackageSearch}
         module="stock"
         breadcrumb={<>Painel &gt; Estoque &gt; Produtos e Serviços</>}
+        actions={
+          <div className="flex items-center gap-2">
+            <select
+              value={exportCategory}
+              onChange={(e) => setExportCategory(e.target.value)}
+              className="h-9 rounded-lg border border-border bg-card px-3 text-sm focus:outline-none"
+            >
+              <option value="all">Todos os itens</option>
+              <option value="cirurgia">Cirurgias</option>
+              <option value="exame_externo">Exames Externos</option>
+              <option value="exame_interno">Exames Internos</option>
+              <option value="vacina">Vacinas</option>
+              <option value="servico">Serviços Gerais</option>
+              <option value="produto">Produtos</option>
+              {availableCategories
+                .filter(c => !['cirurgia','exame_externo','exame_interno','vacina','servico','produto'].includes(c))
+                .map(c => (
+                  <option key={c} value={c}>{c}</option>
+                ))
+              }
+            </select>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-9 gap-2"
+              onClick={() => handlePrintPriceList(false)}
+            >
+              <FileText className="h-4 w-4" /> Tabela Pública
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-9 gap-2 border-amber-300 text-amber-700 hover:bg-amber-50"
+              onClick={() => handlePrintPriceList(true)}
+            >
+              <FileText className="h-4 w-4" /> Tabela Interna
+            </Button>
+          </div>
+        }
       />
 
       <SectionCard title="Cadastro rápido" description="Adicione novos itens ao catálogo." icon={PackageSearch} tone="stock">
-        <div className="vf-surface-card vf-tone-stock card-hover rounded-2xl border-border/80 p-4">
-          <div className="mb-3 text-sm font-semibold text-foreground">Adicionar novo</div>
-          <div className="grid grid-cols-1 items-end gap-2 sm:grid-cols-7">
-          <div className="sm:col-span-2">
-            <Label className="text-xs">Nome</Label>
-            <Input value={newName} onChange={(e) => setNewName(e.target.value)} className="h-8 text-sm bg-input" placeholder="Ex.: Consulta de Rotina" />
-          </div>
-          <div>
-            <Label className="text-xs">Tipo</Label>
-            <select value={newType} onChange={(e) => setNewType(e.target.value as CatalogItemType)} className="h-8 text-sm bg-input rounded-md border-border w-full">
-              <option value="product">Produto</option>
-              <option value="service">Serviço</option>
-            </select>
-          </div>
-          <div>
-            <Label className="text-xs">Preço</Label>
-            <CurrencyInput value={newPrice} onValueChange={setNewPrice} className="h-8 text-sm w-full" />
-          </div>
-          {newType === 'product' && (
-            <div>
-              <Label className="text-xs">SKU</Label>
-              <Input value={newSKU} onChange={(e) => setNewSKU(e.target.value)} className="h-8 text-sm bg-input" placeholder="Opcional" />
+        <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
+          {/* Seletor compacto de tipo */}
+          <div className="mb-5 flex items-center gap-2">
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+              Tipo:
+            </span>
+            <div className="flex rounded-lg border border-border bg-muted/40 p-0.5 gap-0.5">
+              <button
+                type="button"
+                onClick={() => { setNewType('product'); setNewCategory(''); }}
+                className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-all ${
+                  newType === 'product'
+                    ? 'bg-white shadow-sm text-[hsl(var(--vf-stock))] border border-[hsl(var(--vf-stock)/0.3)]'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                📦 Produto
+              </button>
+              <button
+                type="button"
+                onClick={() => { setNewType('service'); setNewCategory(''); }}
+                className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-all ${
+                  newType === 'service'
+                    ? 'bg-white shadow-sm text-[hsl(var(--vf-stock))] border border-[hsl(var(--vf-stock)/0.3)]'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                🩺 Serviço
+              </button>
             </div>
-          )}
-          <div>
-            <Label className="text-xs">Unidade</Label>
-            <Input value={newUnit} onChange={(e) => setNewUnit(e.target.value)} className="h-8 text-sm bg-input" placeholder="Ex.: un, dose" />
           </div>
-          <div>
-            <Label className="text-xs">Categoria</Label>
-            <select
-              value={newCategory}
-              onChange={(e) => setNewCategory(e.target.value)}
-              className="h-8 text-sm bg-input rounded-md border-border w-full"
-            >
-              <option value="">Selecione...</option>
-              <option value="servico">Serviço</option>
-              <option value="cirurgia">Cirurgia</option>
-              <option value="exame_interno">Exame Interno</option>
-              <option value="exame_externo">Exame Externo (Lab)</option>
-              <option value="vacina">Vacina</option>
-              <option value="produto">Produto</option>
-            </select>
-          </div>
-          <div>
-            <Label className="text-xs">Custo Fornecedor (R$)</Label>
-            <CurrencyInput
-              value={newCost}
-              onValueChange={setNewCost}
-              className="h-8 text-sm w-full"
-            />
-          </div>
-          {newType === 'product' && (
-            <div>
-              <Label className="text-xs">Estoque (produto)</Label>
-              <Input value={newStockQty} onChange={(e) => setNewStockQty(e.target.value)} className="h-8 text-sm bg-input" placeholder="0" />
+
+          {/* Campos dinâmicos — linha única com flex wrap */}
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="min-w-[180px] flex-1">
+              <Label className="text-xs font-medium text-muted-foreground">Nome *</Label>
+              <Input
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                className="mt-1 h-10 border border-border bg-card text-sm"
+                placeholder={newType === 'product' ? 'Ex.: Ração Premium 1kg' : 'Ex.: Consulta de Rotina'}
+              />
             </div>
-          )}
-          <div className="sm:col-span-1">
-            <Button onClick={handleAddItem} className="h-8 w-full bg-[hsl(var(--vf-stock))] px-3 text-sm text-white hover:bg-[hsl(var(--vf-stock)/0.9)]">Adicionar</Button>
-          </div>
+
+            <div className="w-36 shrink-0">
+              <Label className="text-xs font-medium text-muted-foreground">Preço (R$) *</Label>
+              <CurrencyInput
+                value={newPrice}
+                onValueChange={setNewPrice}
+                className="mt-1 h-10 border border-border bg-card text-sm w-full"
+              />
+            </div>
+
+            <div className="w-44 shrink-0">
+              <Label className="text-xs font-medium text-muted-foreground">Categoria</Label>
+              <select
+                value={newCategory}
+                onChange={(e) => setNewCategory(e.target.value)}
+                className="mt-1 h-10 w-full rounded-md border border-border bg-card px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--vf-stock)/0.3)]"
+              >
+                <option value="">Categoria...</option>
+                {newType === 'service' ? (
+                  <>
+                    <option value="servico">Serviço geral</option>
+                    <option value="cirurgia">Cirurgia</option>
+                    <option value="exame_interno">Exame Interno</option>
+                    <option value="exame_externo">Exame Externo (Lab)</option>
+                    <option value="vacina">Vacina</option>
+                    <option value="outro">Outro...</option>
+                  </>
+                ) : (
+                  <>
+                    <option value="produto">Produto geral</option>
+                    <option value="medicamento">Medicamento</option>
+                    <option value="racao">Ração</option>
+                    <option value="acessorio">Acessório</option>
+                    <option value="outro">Outro...</option>
+                  </>
+                )}
+              </select>
+              {newCategory === 'outro' && (
+                <Input
+                  value={newCategoryCustom}
+                  onChange={(e) => setNewCategoryCustom(e.target.value)}
+                  className="mt-1 h-9 border border-border bg-card text-sm"
+                  placeholder="Digite a categoria..."
+                  autoFocus
+                />
+              )}
+            </div>
+
+            {(newCategory === 'exame_externo' || newCategory === 'medicamento' || newCost > 0) && (
+              <div className="w-36 shrink-0">
+                <Label className="text-xs font-medium text-muted-foreground">
+                  Custo forn. (R$)
+                </Label>
+                <CurrencyInput
+                  value={newCost}
+                  onValueChange={setNewCost}
+                  className="mt-1 h-10 border border-border bg-card text-sm w-full"
+                />
+                {newCost > 0 && newPrice > 0 && (
+                  <p className="mt-0.5 text-xs text-emerald-600 font-medium">
+                    {Math.round(((newPrice - newCost) / newPrice) * 100)}% margem
+                  </p>
+                )}
+              </div>
+            )}
+
+            {newType === 'product' && (
+              <>
+                <div className="w-24 shrink-0">
+                  <Label className="text-xs font-medium text-muted-foreground">Estoque</Label>
+                  <Input
+                    value={newStockQty}
+                    onChange={(e) => setNewStockQty(e.target.value)}
+                    className="mt-1 h-10 border border-border bg-card text-sm"
+                    placeholder="0"
+                    type="number"
+                    min="0"
+                  />
+                </div>
+                <div className="w-28 shrink-0">
+                  <Label className="text-xs font-medium text-muted-foreground">Unidade</Label>
+                  <Input
+                    value={newUnit}
+                    onChange={(e) => setNewUnit(e.target.value)}
+                    className="mt-1 h-10 border border-border bg-card text-sm"
+                    placeholder="un, cx..."
+                  />
+                </div>
+              </>
+            )}
+
+            <div className="shrink-0 self-end">
+              <Button
+                onClick={handleAddItem}
+                className="h-10 px-5 bg-[hsl(var(--vf-stock))] text-white font-semibold rounded-xl shadow-md hover:bg-[hsl(var(--vf-stock)/0.9)] transition-all whitespace-nowrap"
+              >
+                <PackageSearch className="h-4 w-4 mr-1.5" />
+                Adicionar
+              </Button>
+            </div>
           </div>
         </div>
       </SectionCard>
@@ -188,131 +381,381 @@ const ProductsServicesPage: React.FC = () => {
       <SectionCard title="Catálogo" description="Edite preços, status e estoque dos itens existentes." icon={PackageSearch} tone="stock">
         <div className="vf-surface-card vf-tone-stock card-hover mt-4 rounded-2xl border-border/80 p-4">
           <div className="mb-3 text-sm font-semibold text-foreground">Catálogo</div>
-          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as CatalogItemType)}>
-            <TabsList className="mb-3 grid w-full grid-cols-2 rounded-xl bg-muted/50">
-              <TabsTrigger value="product">Produtos</TabsTrigger>
-              <TabsTrigger value="service">Serviços</TabsTrigger>
-            </TabsList>
-            <TabsContent value="product">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Nome</TableHead>
-                    <TableHead>SKU</TableHead>
-                    <TableHead>Preço</TableHead>
-                    <TableHead>Estoque</TableHead>
-                    <TableHead>Ativo</TableHead>
-                    <TableHead className="text-right">Ações</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredItems.map(item => (
-                    <TableRow key={item.id}>
-                      <TableCell className="font-medium">{item.name}</TableCell>
-                      <TableCell>{item.sku || "-"}</TableCell>
-                      <TableCell>
-                        <CurrencyInput
-                          value={item.price}
-                          onValueChange={(val) => handleUpdateItem(item, 'price', val)}
-                          className="h-8 text-sm w-24"
-                        />
-                      </TableCell>
-                      <TableCell className="flex items-center gap-2">
-                        <span>{item.stockQty ?? 0}</span>
-                        <Button variant="outline" size="sm" className="h-7" onClick={() => handleAdjustStock(item, 1)}>+1</Button>
-                        <Button variant="outline" size="sm" className="h-7" onClick={() => handleAdjustStock(item, -1)}>-1</Button>
-                      </TableCell>
-                      <TableCell>
-                        <select
-                          value={item.active ? 'true' : 'false'}
-                          onChange={(e) => handleUpdateItem(item, 'active', e.target.value === 'true')}
-                          className="h-8 text-sm bg-input rounded-md border-border"
+          <div className="mb-5 flex items-center gap-2">
+            <div className="flex rounded-lg border border-border bg-muted/40 p-0.5 gap-0.5">
+              <button
+                type="button"
+                onClick={() => setActiveTab('product')}
+                className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-all ${
+                  activeTab === 'product'
+                    ? 'bg-white shadow-sm text-[hsl(var(--vf-stock))] border border-[hsl(var(--vf-stock)/0.3)]'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                📦 Produtos
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('service')}
+                className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-all ${
+                  activeTab === 'service'
+                    ? 'bg-white shadow-sm text-[hsl(var(--vf-stock))] border border-[hsl(var(--vf-stock)/0.3)]'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                🩺 Serviços
+              </button>
+            </div>
+          </div>
+
+          {activeTab === 'product' && (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Nome</TableHead>
+                  <TableHead>Preço</TableHead>
+                  <TableHead>Custo</TableHead>
+                  <TableHead>Lucro</TableHead>
+                  <TableHead>Categoria</TableHead>
+                  <TableHead>Estoque</TableHead>
+                  <TableHead>Ativo</TableHead>
+                  <TableHead className="text-right">Ações</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredItems.map(item => (
+                  <TableRow key={item.id}>
+                    <TableCell className="font-medium">{item.name}</TableCell>
+                    <TableCell className="font-semibold text-sm">
+                      {new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(item.price)}
+                    </TableCell>
+                    <TableCell>
+                      {item.cost != null
+                        ? new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(item.cost)
+                        : '-'}
+                    </TableCell>
+                    <TableCell>
+                      {(() => {
+                        const lucro = item.price - (item.cost ?? 0);
+                        const pct = item.price > 0 ? Math.round((lucro / item.price) * 100) : 100;
+                        const isHigh = pct >= 70;
+                        return (
+                          <div className="flex flex-col">
+                            <span className={`font-bold text-sm ${isHigh ? 'text-emerald-600' : 'text-amber-600'}`}>
+                              {new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(lucro)}
+                            </span>
+                            <span className={`text-xs ${isHigh ? 'text-emerald-400' : 'text-amber-400'}`}>
+                              {pct}% margem
+                            </span>
+                          </div>
+                        );
+                      })()}
+                    </TableCell>
+                    <TableCell>
+                      {item.category ? (
+                        <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold bg-orange-100 text-orange-700">
+                          {item.category.charAt(0).toUpperCase() + item.category.slice(1)}
+                        </span>
+                      ) : <span className="text-muted-foreground text-xs">-</span>}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={() => handleAdjustStock(item, -1)}
+                          className="h-6 w-6 rounded-md border border-border bg-muted/60 text-sm font-bold text-muted-foreground hover:border-red-300 hover:bg-red-50 hover:text-red-500 transition-colors flex items-center justify-center"
+                        >−</button>
+                        <span className="w-8 text-center text-sm font-semibold tabular-nums">
+                          {item.stockQty ?? 0}
+                        </span>
+                        <button
+                          onClick={() => handleAdjustStock(item, 1)}
+                          className="h-6 w-6 rounded-md border border-border bg-muted/60 text-sm font-bold text-muted-foreground hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-600 transition-colors flex items-center justify-center"
+                        >+</button>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <select
+                        value={item.active ? 'true' : 'false'}
+                        onChange={(e) => handleUpdateItem(item, 'active', e.target.value === 'true')}
+                        className={`h-7 rounded-full border px-2.5 text-xs font-semibold transition-colors ${
+                          item.active
+                            ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                            : 'border-gray-200 bg-gray-50 text-gray-500'
+                        }`}
+                      >
+                        <option value="true">Ativo</option>
+                        <option value="false">Inativo</option>
+                      </select>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0 text-muted-foreground hover:text-blue-500 hover:bg-blue-50"
+                          onClick={() => openEditModal(item)}
+                          title="Editar"
                         >
-                          <option value="true">Ativo</option>
-                          <option value="false">Inativo</option>
-                        </select>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button variant="outline" size="sm" className="h-8" onClick={() => handleRemoveItem(item.id)}>
-                          Remover
+                          <Pencil className="h-3.5 w-3.5" />
                         </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TabsContent>
-            <TabsContent value="service">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Nome</TableHead>
-                    <TableHead>Unidade</TableHead>
-                    <TableHead>Preço</TableHead>
-                    <TableHead>Categoria</TableHead>
-                    <TableHead>Custo Lab.</TableHead>
-                    <TableHead>Lucro</TableHead>
-                    <TableHead>Ativo</TableHead>
-                    <TableHead className="text-right">Ações</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredItems.map(item => (
-                    <TableRow key={item.id}>
-                      <TableCell className="font-medium">{item.name}</TableCell>
-                      <TableCell>{item.unit || "-"}</TableCell>
-                      <TableCell>
-                        <CurrencyInput
-                          value={item.price}
-                          onValueChange={(val) => handleUpdateItem(item, 'price', val)}
-                          className="h-8 text-sm w-24"
-                        />
-                      </TableCell>
-                      <TableCell>
-                        {item.category === 'exame_externo' ? 'Exame Externo' :
-                         item.category === 'exame_interno' ? 'Exame Interno' :
-                         item.category === 'vacina' ? 'Vacina' :
-                         item.category === 'cirurgia' ? 'Cirurgia' :
-                         item.category === 'servico' ? 'Serviço' :
-                         item.category === 'produto' ? 'Produto' : '-'}
-                      </TableCell>
-                      <TableCell>
-                        {item.cost != null
-                          ? new Intl.NumberFormat('pt-BR', {style:'currency',currency:'BRL'}).format(item.cost)
-                          : '-'}
-                      </TableCell>
-                      <TableCell className={
-                        (item.price - (item.cost ?? 0)) >= item.price
-                          ? 'text-green-600 font-semibold'
-                          : 'text-amber-600 font-semibold'
-                      }>
-                        {new Intl.NumberFormat('pt-BR', {style:'currency',currency:'BRL'}).format(
-                          item.price - (item.cost ?? 0)
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <select
-                          value={item.active ? 'true' : 'false'}
-                          onChange={(e) => handleUpdateItem(item, 'active', e.target.value === 'true')}
-                          className="h-8 text-sm bg-input rounded-md border-border"
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0 text-muted-foreground hover:text-red-500 hover:bg-red-50"
+                          onClick={() => handleRemoveItem(item.id)}
+                          title="Remover"
                         >
-                          <option value="true">Ativo</option>
-                          <option value="false">Inativo</option>
-                        </select>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button variant="outline" size="sm" className="h-8" onClick={() => handleRemoveItem(item.id)}>
-                          Remover
+                          ✕
                         </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TabsContent>
-          </Tabs>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+
+          {activeTab === 'service' && (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Nome</TableHead>
+                  <TableHead>Preço</TableHead>
+                  <TableHead>Categoria</TableHead>
+                  <TableHead>Custo Lab.</TableHead>
+                  <TableHead>Lucro</TableHead>
+                  <TableHead>Ativo</TableHead>
+                  <TableHead className="text-right">Ações</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredItems.map(item => (
+                  <TableRow key={item.id}>
+                    <TableCell className="font-medium">{item.name}</TableCell>
+                    <TableCell className="font-semibold text-sm">
+                      {new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(item.price)}
+                    </TableCell>
+                    <TableCell>
+                      {(() => {
+                        const map: Record<string, { label: string; color: string }> = {
+                          exame_externo: { label: 'Exame Externo', color: 'bg-blue-100 text-blue-700' },
+                          exame_interno: { label: 'Exame Interno', color: 'bg-cyan-100 text-cyan-700' },
+                          vacina:        { label: 'Vacina',         color: 'bg-green-100 text-green-700' },
+                          cirurgia:      { label: 'Cirurgia',       color: 'bg-red-100 text-red-700' },
+                          servico:       { label: 'Serviço',        color: 'bg-purple-100 text-purple-700' },
+                          produto:       { label: 'Produto',        color: 'bg-orange-100 text-orange-700' },
+                        };
+                        const cat = item.category ? map[item.category] : null;
+                        if (cat) return (
+                          <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${cat.color}`}>
+                            {cat.label}
+                          </span>
+                        );
+                        if (item.category) return (
+                          <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold bg-gray-100 text-gray-600">
+                            {item.category}
+                          </span>
+                        );
+                        return <span className="text-muted-foreground text-xs">-</span>;
+                      })()}
+                    </TableCell>
+                    <TableCell>
+                      {item.cost != null
+                        ? new Intl.NumberFormat('pt-BR', {style:'currency',currency:'BRL'}).format(item.cost)
+                        : '-'}
+                    </TableCell>
+                    <TableCell>
+                      {(() => {
+                        const lucro = item.price - (item.cost ?? 0);
+                        const pct = item.price > 0 ? Math.round((lucro / item.price) * 100) : 100;
+                        const isHigh = pct >= 70;
+                        return (
+                          <div className="flex flex-col">
+                            <span className={`font-bold text-sm ${isHigh ? 'text-emerald-600' : 'text-amber-600'}`}>
+                              {new Intl.NumberFormat('pt-BR', {style:'currency',currency:'BRL'}).format(lucro)}
+                            </span>
+                            <span className={`text-xs ${isHigh ? 'text-emerald-400' : 'text-amber-400'}`}>
+                              {pct}% margem
+                            </span>
+                          </div>
+                        );
+                      })()}
+                    </TableCell>
+                    <TableCell>
+                      <select
+                        value={item.active ? 'true' : 'false'}
+                        onChange={(e) => handleUpdateItem(item, 'active', e.target.value === 'true')}
+                        className={`h-7 rounded-full border px-2.5 text-xs font-semibold transition-colors ${
+                          item.active
+                            ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                            : 'border-gray-200 bg-gray-50 text-gray-500'
+                        }`}
+                      >
+                        <option value="true">Ativo</option>
+                        <option value="false">Inativo</option>
+                      </select>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0 text-muted-foreground hover:text-blue-500 hover:bg-blue-50"
+                          onClick={() => openEditModal(item)}
+                          title="Editar"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0 text-muted-foreground hover:text-red-500 hover:bg-red-50"
+                          onClick={() => handleRemoveItem(item.id)}
+                          title="Remover"
+                        >
+                          ✕
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </div>
       </SectionCard>
+
+      {/* Modal de edição */}
+      <Dialog open={!!editingItem} onOpenChange={(open) => { if (!open) setEditingItem(null); }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Pencil className="h-4 w-4" />
+              Editar {editingItem?.type === 'product' ? 'Produto' : 'Serviço'}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            <div>
+              <Label className="text-xs font-medium text-muted-foreground">Nome *</Label>
+              <Input
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                className="mt-1 h-10 border border-border"
+                placeholder="Nome do item"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs font-medium text-muted-foreground">Preço (R$) *</Label>
+                <CurrencyInput
+                  value={editPrice}
+                  onValueChange={setEditPrice}
+                  className="mt-1 h-10 border border-border w-full"
+                />
+              </div>
+              <div>
+                <Label className="text-xs font-medium text-muted-foreground">Categoria</Label>
+                <select
+                  value={editCategory}
+                  onChange={(e) => setEditCategory(e.target.value)}
+                  className="mt-1 h-10 w-full rounded-md border border-border bg-card px-3 text-sm focus:outline-none"
+                >
+                  <option value="">Sem categoria</option>
+                  {editingItem?.type === 'service' ? (
+                    <>
+                      <option value="servico">Serviço geral</option>
+                      <option value="cirurgia">Cirurgia</option>
+                      <option value="exame_interno">Exame Interno</option>
+                      <option value="exame_externo">Exame Externo (Lab)</option>
+                      <option value="vacina">Vacina</option>
+                    </>
+                  ) : (
+                    <>
+                      <option value="produto">Produto geral</option>
+                      <option value="medicamento">Medicamento</option>
+                      <option value="racao">Ração</option>
+                      <option value="acessorio">Acessório</option>
+                    </>
+                  )}
+                </select>
+              </div>
+            </div>
+
+            {(editCategory === 'exame_externo' || editCategory === 'medicamento' || editCost > 0) && (
+              <div>
+                <Label className="text-xs font-medium text-muted-foreground">
+                  Custo fornecedor (R$)
+                  <span className="ml-1 text-[10px] text-muted-foreground/60">repasse ao lab/fornecedor</span>
+                </Label>
+                <CurrencyInput
+                  value={editCost}
+                  onValueChange={setEditCost}
+                  className="mt-1 h-10 border border-border w-full"
+                />
+                {editCost > 0 && editPrice > 0 && (
+                  <p className="mt-1 text-xs text-emerald-600 font-medium">
+                    Margem: {Math.round(((editPrice - editCost) / editPrice) * 100)}%
+                    · Lucro: {new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(editPrice - editCost)}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {editingItem?.type === 'product' && (
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs font-medium text-muted-foreground">Estoque</Label>
+                  <Input
+                    value={editStockQty}
+                    onChange={(e) => setEditStockQty(e.target.value)}
+                    className="mt-1 h-10 border border-border"
+                    type="number"
+                    min="0"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs font-medium text-muted-foreground">Unidade</Label>
+                  <Input
+                    value={editUnit}
+                    onChange={(e) => setEditUnit(e.target.value)}
+                    className="mt-1 h-10 border border-border"
+                    placeholder="un, cx, frasco..."
+                  />
+                </div>
+              </div>
+            )}
+
+            <div className="flex items-center gap-3 pt-1">
+              <Label className="text-xs font-medium text-muted-foreground">Status</Label>
+              <button
+                type="button"
+                onClick={() => setEditActive(!editActive)}
+                className={`h-7 rounded-full border px-3 text-xs font-semibold transition-colors ${
+                  editActive
+                    ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                    : 'border-gray-200 bg-gray-50 text-gray-500'
+                }`}
+              >
+                {editActive ? 'Ativo' : 'Inativo'}
+              </button>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditingItem(null)}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleSaveEdit}
+              className="bg-[hsl(var(--vf-stock))] text-white hover:bg-[hsl(var(--vf-stock)/0.9)]"
+            >
+              Salvar alterações
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </PageShell>
   );
 };

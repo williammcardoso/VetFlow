@@ -17,6 +17,7 @@ export interface FinancialTransaction {
   observations?: string;
   paymentInstallments?: number; // número de parcelas, quando aplicável
   saleId?: string; // para recebimentos vinculados a uma venda específica
+  supplierCost?: number; // custo do fornecedor/laboratório
 }
 
 export interface OverallFinancialSummary {

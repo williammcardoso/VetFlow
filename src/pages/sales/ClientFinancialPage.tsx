@@ -4,8 +4,8 @@ import { FaArrowLeft, FaTrophy, FaBalanceScale } from "@/components/icons/fa";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { mockFinancialTransactions } from "@/mockData/financial";
 import { useClientsList } from "@/hooks/useSupabaseClients";
+import { useFinancialTransactions } from "@/hooks/useFinancialTransactions";
 import { PageShell } from "@/components/saas/PageShell";
 import { PageHeader } from "@/components/saas/PageHeader";
 import { SectionCard } from "@/components/saas/SectionCard";
@@ -13,6 +13,7 @@ import { Wallet } from "lucide-react";
 
 const ClientFinancialPage = () => {
   const { data: dbClients } = useClientsList();
+  const { transactions: mockFinancialTransactions } = useFinancialTransactions();
   const clients = dbClients || [];
   const [tab, setTab] = useState<"ranking" | "balance">("ranking");
 

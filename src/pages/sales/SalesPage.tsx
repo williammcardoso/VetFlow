@@ -1,12 +1,13 @@
 import React from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { FaPlus, FaDollarSign, FaCalendarAlt, FaTag, FaPaw, FaEye } from "@/components/icons/fa";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { mockFinancialTransactions, updateMockFinancialTransaction } from "@/mockData/financial";
+import { useFinancialTransactions } from "@/hooks/useFinancialTransactions";
+import { updateFinancialTransaction } from "@/lib/financialApi";
 import { toast } from "sonner";
 import { useClientsList } from "@/hooks/useSupabaseClients";
 import { PageShell } from "@/components/saas/PageShell";
@@ -17,6 +18,7 @@ import { ShoppingCart, Sparkles, Filter, ArrowLeft } from "lucide-react";
 
 const SalesPage = () => {
   const { data: dbClients, isError: isClientsError } = useClientsList();
+  const { transactions: mockFinancialTransactions, loading, refetch } = useFinancialTransactions();
   const clients = dbClients || [];
   // Filtros
   const [clientId, setClientId] = React.useState<string | undefined>(undefined);
@@ -31,7 +33,7 @@ const SalesPage = () => {
       .filter(t => t.type === 'income' && t.category === 'Venda de Produtos' && t.paymentMethod)
       .map(t => t.paymentMethod as string)));
     return pmList;
-  }, []);
+  }, [mockFinancialTransactions]);
 
   const animals = React.useMemo(() => {
     if (!clientId) return [];
@@ -59,7 +61,7 @@ const SalesPage = () => {
         const dateTimeB = new Date(`${b.date}T${b.time}`);
         return dateTimeB.getTime() - dateTimeA.getTime();
       });
-  }, [clientId, animalId, paymentMethod, status, dateFrom, dateTo]);
+  }, [mockFinancialTransactions, clientId, animalId, paymentMethod, status, dateFrom, dateTo]);
 
   const formatDateTime = (dateString: string, timeString: string) => {
     if (!dateString) return "N/A";
@@ -74,10 +76,23 @@ const SalesPage = () => {
     return animal?.name || 'N/A';
   };
 
-  const cancelSale = (id: string) => {
-    const ok = updateMockFinancialTransaction(id, { status: 'cancelled' });
+  const statusConfig: Record<string, { label: string; className: string }> = {
+    paid:      { label: 'Pago',      className: 'bg-emerald-100 text-emerald-700 border border-emerald-200' },
+    partial:   { label: 'Parcial',   className: 'bg-blue-100 text-blue-700 border border-blue-200' },
+    pending:   { label: 'Pendente',  className: 'bg-amber-100 text-amber-700 border border-amber-200' },
+    cancelled: { label: 'Cancelado', className: 'bg-gray-100 text-gray-500 border border-gray-200' },
+  };
+
+  const getClientName = (clientId?: string) => {
+    if (!clientId) return null;
+    return clients.find(c => c.id === clientId)?.name || null;
+  };
+
+  const cancelSale = async (id: string) => {
+    const ok = await updateFinancialTransaction(id, { status: 'cancelled' });
     if (ok) {
       toast.success("Venda cancelada.");
+      await refetch();
     } else {
       toast.error("Falha ao cancelar venda.");
     }
@@ -182,65 +197,86 @@ const SalesPage = () => {
             </Link>
           </CardHeader>
           <CardContent className="pt-0">
-            {salesTransactions.length > 0 ? (
+            {loading ? (
+              <p className="text-muted-foreground py-4">Carregando vendas...</p>
+            ) : salesTransactions.length > 0 ? (
               <div className="space-y-4">
                 {salesTransactions.map((transaction) => {
-                  const valorPago = transaction.paidAmount || 0;
-                  const saldo = Math.max(0, transaction.amount - valorPago);
+                  const saldo = Math.max(0, transaction.amount - (transaction.paidAmount || 0));
                   return (
                     <Card key={transaction.id} className="vf-surface-card vf-tone-sales card-hover rounded-xl border border-border/80 bg-card p-4 shadow-sm">
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                          <span className="rounded-full bg-[hsl(var(--vf-sales)/0.14)] px-2 py-0.5 text-xs font-medium text-vf-sales">
-                            Venda
-                          </span>
-                          <p className="text-lg font-semibold text-foreground">
+                      {/* Linha 1: badge status + descrição resumida + valores */}
+                      <div className="flex items-start justify-between gap-3 mb-3">
+                        <div className="flex flex-col gap-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                              statusConfig[transaction.status || 'pending']?.className || statusConfig.pending.className
+                            }`}>
+                              {statusConfig[transaction.status || 'pending']?.label || 'Pendente'}
+                            </span>
+                            {getClientName(transaction.relatedClientId) && (
+                              <span className="text-xs font-medium text-muted-foreground">
+                                👤 {getClientName(transaction.relatedClientId)}
+                              </span>
+                            )}
+                            {transaction.relatedAnimalId && getAnimalName(transaction.relatedClientId, transaction.relatedAnimalId) !== 'N/A' && (
+                              <span className="text-xs text-muted-foreground">
+                                🐾 {getAnimalName(transaction.relatedClientId, transaction.relatedAnimalId)}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-sm font-semibold text-foreground truncate max-w-[420px]">
                             {transaction.description}
                           </p>
+                          <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
+                            <span>📅 {formatDateTime(transaction.date, transaction.time)}</span>
+                            {transaction.paymentMethod && (
+                              <span>💳 {transaction.paymentMethod}</span>
+                            )}
+                          </div>
                         </div>
-                        <div className="flex items-center gap-3">
+
+                        {/* Valores */}
+                        <div className="flex items-center gap-4 shrink-0">
                           <div className="text-right">
                             <div className="text-xs text-muted-foreground">Total</div>
-                            <div className="text-lg font-bold text-vf-sales">
-                              R$ {transaction.amount.toFixed(2).replace('.', ',')}
+                            <div className="text-base font-bold text-[hsl(var(--vf-sales))]">
+                              {new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(transaction.amount)}
                             </div>
                           </div>
                           <div className="text-right">
                             <div className="text-xs text-muted-foreground">Pago</div>
-                            <div className="text-lg font-bold">
-                              R$ {valorPago.toFixed(2).replace('.', ',')}
+                            <div className="text-base font-bold text-emerald-600">
+                              {new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(transaction.paidAmount || 0)}
                             </div>
                           </div>
                           <div className="text-right">
                             <div className="text-xs text-muted-foreground">Saldo</div>
-                            <div className="text-lg font-bold">
-                              R$ {saldo.toFixed(2).replace('.', ',')}
+                            <div className={`text-base font-bold ${saldo > 0 ? 'text-amber-600' : 'text-gray-400'}`}>
+                              {new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(saldo)}
                             </div>
                           </div>
                         </div>
                       </div>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-sm text-muted-foreground">
-                        <div className="flex items-center gap-1">
-                          <FaCalendarAlt className="h-3 w-3" /> {formatDateTime(transaction.date, transaction.time)}
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <FaTag className="h-3 w-3" /> Status: {(transaction.status || 'pending')}
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <FaTag className="h-3 w-3" /> Pagamento: {transaction.paymentMethod || "N/A"}
-                        </div>
-                      </div>
-                      {transaction.relatedAnimalId && (
-                        <div className="flex items-center gap-1 mt-1 text-sm text-muted-foreground">
-                          <FaPaw className="h-3 w-3" /> Animal: {getAnimalName(transaction.relatedClientId, transaction.relatedAnimalId)}
-                        </div>
-                      )}
-                      <div className="flex justify-end mt-2 gap-2">
-                        <Button variant="ghost" size="sm" className="rounded-md hover:bg-muted hover:text-foreground transition-colors duration-200" onClick={() => window.print()}>
-                          <FaEye className="h-4 w-4 mr-2" /> Imprimir
-                        </Button>
-                        <Button variant="outline" size="sm" disabled={(transaction.status || 'pending') === 'cancelled'} onClick={() => cancelSale(transaction.id)}>
-                          Cancelar venda
+
+                      {/* Linha 2: ações */}
+                      <div className="flex justify-end gap-2 pt-2 border-t border-border/50">
+                        {(transaction.status || 'pending') !== 'cancelled' &&
+                         (transaction.status || 'pending') !== 'paid' && (
+                          <Link to={`/sales/receipts?saleId=${transaction.id}&amount=${Math.max(0, transaction.amount - (transaction.paidAmount || 0))}`}>
+                            <Button size="sm" className="h-8 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 font-semibold">
+                              💰 Dar baixa
+                            </Button>
+                          </Link>
+                        )}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8 rounded-lg"
+                          disabled={(transaction.status || 'pending') === 'cancelled'}
+                          onClick={() => cancelSale(transaction.id)}
+                        >
+                          Cancelar
                         </Button>
                       </div>
                     </Card>
@@ -249,7 +285,7 @@ const SalesPage = () => {
               </div>
             ) : (
               <p className="text-muted-foreground py-4">
-                {isClientsError ? "Falha ao carregar clientes do banco." : "Nenhuma venda registrada."}
+                {isClientsError ? "Falha ao carregar clientes." : "Nenhuma venda registrada."}
               </p>
             )}
           </CardContent>

@@ -24,99 +24,83 @@ body,
 
 @layer base {
   :root {
-    /* Fundo geral bem claro (cinza frio) */
-    --background: 220 20% 98%;
-    --foreground: 222 20% 12%;
+    --background: 200 20% 98%;
+    --foreground: 200 25% 10%;
 
     --card: 0 0% 100%;
-    --card-foreground: 222 20% 12%;
+    --card-foreground: 200 25% 10%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222 20% 12%;
+    --popover-foreground: 200 25% 10%;
 
-    /* Primário base neutro (evita viés cromático global) */
-    --primary: 222 16% 34%;
+    --primary: 197 71% 35%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 220 20% 96%;
-    --secondary-foreground: 222 12% 28%;
+    --secondary: 197 30% 94%;
+    --secondary-foreground: 197 40% 20%;
 
-    --muted: 220 20% 96%;
-    --muted-foreground: 220 8% 46%;
+    --muted: 197 20% 95%;
+    --muted-foreground: 197 15% 45%;
 
-    /* ------------------------------------------------------------
-       SystemVet — HOVER GLOBAL VERDE (tokens)
-       ------------------------------------------------------------ */
-    --sv-accent: 222 16% 34%;
-    --sv-accent-hover: 222 16% 30%;
-    --sv-accent-active: 222 16% 26%;
-    --sv-accent-soft: 220 18% 94%;
-    --sv-accent-ring: 222 18% 40%;
+    --sv-accent: 197 71% 35%;
+    --sv-accent-hover: 197 71% 30%;
+    --sv-accent-active: 197 71% 25%;
+    --sv-accent-soft: 197 50% 93%;
+    --sv-accent-ring: 197 60% 45%;
 
-    /* shadcn/ui usa accent principalmente para hover/focus.
-       Aqui, accent vira o fundo suave e accent-foreground vira o tom principal (ícones/textos). */
     --accent: var(--sv-accent-soft);
     --accent-foreground: var(--sv-accent);
 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
 
-    /* Bordas bem claras, sólidas */
-    --border: 220 14% 86%;
-    /* Input/background de componentes (bg-input) deve ser branco no light */
+    --border: 197 20% 86%;
     --input: 0 0% 100%;
-
-    /* Focus ring global (acessibilidade) */
     --ring: var(--sv-accent-ring);
 
-    /* Radius premium */
     --radius: 0.9rem;
 
-    /* Sidebar clara */
-    --sidebar-background: 0 0% 100%;
-    --sidebar-foreground: 222 12% 22%;
-    --sidebar-primary: 220 55% 95%;
-    --sidebar-primary-foreground: 220 42% 28%;
+    --sidebar-background: 197 30% 97%;
+    --sidebar-foreground: 197 30% 15%;
+    --sidebar-primary: 197 50% 90%;
+    --sidebar-primary-foreground: 197 71% 25%;
     --sidebar-accent: var(--sv-accent-soft);
     --sidebar-accent-foreground: var(--sv-accent);
-    --sidebar-border: 220 16% 90%;
+    --sidebar-border: 197 25% 88%;
     --sidebar-ring: var(--sv-accent-ring);
 
-    /* VetFlow — acentos por módulo (HSL sem "hsl()"; vivazes + uso disciplinado) */
     --vf-clinical: 156 55% 36%;
     --vf-sales: 262 52% 48%;
-    --vf-finance: 201 78% 42%;
-    --vf-stock: 32 92% 46%;
+    --vf-finance: 197 71% 35%;
+    --vf-stock: 32 85% 48%;
     --vf-registry: 277 48% 46%;
     --vf-settings: 215 70% 44%;
   }
 
   .dark {
-    --background: 222 16% 12%;
-    --foreground: 220 20% 92%;
+    --background: 197 25% 10%;
+    --foreground: 197 20% 92%;
 
-    --card: 222 16% 15%;
-    --card-foreground: 220 20% 92%;
+    --card: 197 25% 13%;
+    --card-foreground: 197 20% 92%;
 
-    --popover: 222 16% 15%;
-    --popover-foreground: 220 20% 92%;
+    --popover: 197 25% 13%;
+    --popover-foreground: 197 20% 92%;
 
-    /* Primário em dark neutro para não dominar com cor */
-    --primary: 220 14% 72%;
-    --primary-foreground: 222 16% 10%;
+    --primary: 197 60% 55%;
+    --primary-foreground: 197 25% 8%;
 
-    --secondary: 222 16% 18%;
-    --secondary-foreground: 220 20% 92%;
+    --secondary: 197 25% 17%;
+    --secondary-foreground: 197 20% 92%;
 
-    --muted: 222 16% 18%;
-    --muted-foreground: 220 8% 64%;
+    --muted: 197 25% 17%;
+    --muted-foreground: 197 15% 62%;
 
-    /* Accent no dark sem viés verde dominante */
-    --sv-accent: 220 14% 72%;
-    --sv-accent-hover: 220 14% 66%;
-    --sv-accent-active: 220 14% 58%;
-    --sv-accent-soft: 220 16% 22%;
-    --sv-accent-ring: 220 16% 62%;
+    --sv-accent: 197 60% 55%;
+    --sv-accent-hover: 197 60% 50%;
+    --sv-accent-active: 197 60% 44%;
+    --sv-accent-soft: 197 30% 20%;
+    --sv-accent-ring: 197 50% 55%;
 
     --accent: var(--sv-accent-soft);
     --accent-foreground: var(--sv-accent);
@@ -124,23 +108,22 @@ body,
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 210 40% 98%;
 
-    --border: 222 14% 30%;
-    /* Mantém bg-input utilizável no dark */
-    --input: 222 16% 18%;
+    --border: 197 20% 25%;
+    --input: 197 25% 17%;
     --ring: var(--sv-accent-ring);
 
-    --sidebar-background: 222 16% 14%;
-    --sidebar-foreground: 220 20% 92%;
-    --sidebar-primary: 220 24% 22%;
-    --sidebar-primary-foreground: 220 20% 92%;
+    --sidebar-background: 197 25% 11%;
+    --sidebar-foreground: 197 20% 92%;
+    --sidebar-primary: 197 30% 20%;
+    --sidebar-primary-foreground: 197 20% 92%;
     --sidebar-accent: var(--sv-accent-soft);
     --sidebar-accent-foreground: var(--sv-accent);
-    --sidebar-border: 222 14% 24%;
+    --sidebar-border: 197 20% 22%;
     --sidebar-ring: var(--sv-accent-ring);
 
     --vf-clinical: 156 50% 58%;
     --vf-sales: 262 55% 68%;
-    --vf-finance: 201 70% 58%;
+    --vf-finance: 197 65% 60%;
     --vf-stock: 32 85% 58%;
     --vf-registry: 277 45% 62%;
     --vf-settings: 215 65% 62%;

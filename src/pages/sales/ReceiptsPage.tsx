@@ -1,33 +1,42 @@
 import React, { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
+import { useClientsList } from "@/hooks/useSupabaseClients";
 import { ArrowLeft, Banknote, Calendar, Tag } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/saas/PageHeader";
-import { VfCard } from "@/components/saas/VfCard";
 import { addReceipt } from "@/lib/financialApi";
 import { formatDateTime } from "@/lib/utils";
 import { useRegistryList } from "@/hooks/useRegistryList";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { PageShell } from "@/components/saas/PageShell";
 import { SectionCard } from "@/components/saas/SectionCard";
-import { ToolbarRow } from "@/components/saas/ToolbarRow";
 import { useFinancialTransactions } from "@/hooks/useFinancialTransactions";
+import CurrencyInput from "@/components/CurrencyInput";
 
 const ReceiptsPage = () => {
   const { list: pmRegistry } = useRegistryList("paymentMethods");
   const { transactions, refetch } = useFinancialTransactions();
+  const [searchParams] = useSearchParams();
+  const { data: dbClients } = useClientsList();
+  const clients = dbClients || [];
   const [paymentMethod, setPaymentMethod] = useState<string>("all");
 
   const salesList = useMemo(() => {
     return transactions
-      .filter(t => t.type === 'income' && t.category === 'Venda de Produtos');
+      .filter(t =>
+        t.type === 'income' &&
+        t.category === 'Venda de Produtos' &&
+        (t.status || 'pending') !== 'cancelled'
+      );
   }, [transactions]);
 
-  const [selectedSaleId, setSelectedSaleId] = useState<string>("none");
-  const [receiptAmount, setReceiptAmount] = useState<number>(0);
+  const [selectedSaleId, setSelectedSaleId] = useState<string>(
+    searchParams.get("saleId") || "none"
+  );
+  const [receiptAmount, setReceiptAmount] = useState<number>(
+    parseFloat(searchParams.get("amount") || "0") || 0
+  );
   const [receiptMethodId, setReceiptMethodId] = useState<string | undefined>(undefined);
 
   const paymentMethodOptions = useMemo(
@@ -45,12 +54,12 @@ const ReceiptsPage = () => {
 
   const receipts = useMemo(() => {
     return transactions
-      .filter(t => t.type === 'income')
+      .filter(t => t.type === 'income' && t.category === 'Recebimento')
       .filter(t => paymentMethod === "all" || t.paymentMethod === paymentMethod)
       .sort((a, b) => new Date(`${b.date}T${b.time}`).getTime() - new Date(`${a.date}T${a.time}`).getTime());
   }, [paymentMethod, transactions]);
 
-  const totals = receipts.reduce((sum, r) => sum + (typeof r.paidAmount === 'number' && r.category === 'Venda de Produtos' ? r.paidAmount : r.amount), 0);
+  const totals = receipts.reduce((sum, r) => sum + r.amount, 0);
 
   const handleAddReceipt = async () => {
     if (!receiptAmount || receiptAmount <= 0) {
@@ -74,6 +83,14 @@ const ReceiptsPage = () => {
     setReceiptMethodId(undefined);
   };
 
+  const getClientName = (clientId?: string) =>
+    clientId ? (clients.find(c => c.id === clientId)?.name || null) : null;
+
+  const getAnimalName = (clientId?: string, animalId?: string) => {
+    if (!clientId || !animalId) return null;
+    return clients.find(c => c.id === clientId)?.animals.find(a => a.id === animalId)?.name || null;
+  };
+
   return (
     <PageShell>
       <PageHeader
@@ -91,126 +108,236 @@ const ReceiptsPage = () => {
         }
       />
 
+      {(() => {
+        const pendingSales = transactions.filter(
+          t => t.type === 'income' &&
+               t.category === 'Venda de Produtos' &&
+               (t.status || 'pending') !== 'paid' &&
+               (t.status || 'pending') !== 'cancelled' &&
+               t.amount > (t.paidAmount || 0)
+        );
+        if (pendingSales.length === 0) return null;
+        return (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 mb-2">
+            <div className="text-sm font-semibold text-amber-800 mb-3 flex items-center gap-2">
+              ⚠️ Vendas aguardando pagamento ({pendingSales.length})
+            </div>
+            <div className="space-y-2">
+              {pendingSales.map(sale => {
+                const saldo = sale.amount - (sale.paidAmount || 0);
+                const clientName = clients.find(c => c.id === sale.relatedClientId)?.name;
+                return (
+                  <div key={sale.id} className="flex items-center justify-between rounded-lg bg-white border border-amber-100 px-3 py-2">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-foreground truncate max-w-[300px]">
+                        {clientName ? `${clientName} — ` : ""}{sale.description}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Total: {new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(sale.amount)}
+                        {" · "}Pago: {new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(sale.paidAmount || 0)}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-3 shrink-0">
+                      <span className="text-sm font-bold text-amber-700">
+                        {new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(saldo)} a receber
+                      </span>
+                      <Button
+                        size="sm"
+                        className="h-7 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 text-xs"
+                        onClick={() => {
+                          setSelectedSaleId(sale.id);
+                          setReceiptAmount(saldo);
+                        }}
+                      >
+                        Selecionar
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Formulário de novo recebimento */}
       <SectionCard
-        title="Filtro e novo recebimento"
-        description="Selecione forma de pagamento e registre entradas com vínculo opcional à venda."
+        title="Registrar recebimento"
+        description="Vincule o pagamento a uma venda ou registre uma entrada avulsa."
         icon={Banknote}
         tone="sales"
       >
-        <ToolbarRow className="grid grid-cols-1 gap-2 lg:grid-cols-4">
-          <div>
-            <label className="text-xs text-muted-foreground">Forma de Pagamento</label>
-            <Select onValueChange={setPaymentMethod} value={paymentMethod}>
-              <SelectTrigger className="vf-toolbar-control bg-input">
-                <SelectValue placeholder="Todas" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todas</SelectItem>
-                {paymentMethodOptions.map(pm => <SelectItem key={pm} value={pm}>{pm}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="lg:col-span-3">
-            <VfCard tone="sales" className="card-hover">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base font-semibold">Novo Recebimento</CardTitle>
-              </CardHeader>
-              <CardContent className="grid grid-cols-1 md:grid-cols-5 gap-2 items-end">
-              <div className="md:col-span-2">
-                <label className="text-xs text-muted-foreground">Venda relacionada (opcional)</label>
-                <Select onValueChange={setSelectedSaleId} value={selectedSaleId}>
-                  <SelectTrigger className="vf-toolbar-control bg-input">
-                    <SelectValue placeholder="Selecione" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Nenhuma</SelectItem>
-                    {salesList.map(s => (
+        <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
+          <div className="flex flex-wrap items-end gap-3">
+
+            {/* Venda relacionada */}
+            <div className="min-w-[220px] flex-1">
+              <label className="text-xs font-medium text-muted-foreground">
+                Venda relacionada (opcional)
+              </label>
+              <Select onValueChange={setSelectedSaleId} value={selectedSaleId}>
+                <SelectTrigger className="mt-1 h-10 border border-border bg-card">
+                  <SelectValue placeholder="Selecione..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Nenhuma — entrada avulsa</SelectItem>
+                  {salesList.map(s => {
+                    const saldo = s.amount - (s.paidAmount || 0);
+                    return (
                       <SelectItem key={s.id} value={s.id}>
-                        {s.description} • R$ {s.amount.toFixed(2).replace('.', ',')}
+                        {new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(s.amount)}
+                        {saldo > 0
+                          ? ` — saldo ${new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(saldo)}`
+                          : ' ✓'}
+                        {" · "}{s.description.slice(0, 40)}
                       </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground">Valor</label>
-                <Input type="number" min="0" step="0.01" value={receiptAmount} onChange={(e) => setReceiptAmount(parseFloat(e.target.value) || 0)} className="vf-toolbar-control bg-input" />
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground">Forma de Pagamento</label>
-                <Select onValueChange={setReceiptMethodId} value={receiptMethodId}>
-                  <SelectTrigger className="vf-toolbar-control bg-input">
-                    <SelectValue placeholder="Selecione" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {pmRegistry.length > 0 ? pmRegistry.map(pm => (
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Valor */}
+            <div className="w-40 shrink-0">
+              <label className="text-xs font-medium text-muted-foreground">
+                Valor recebido (R$)
+              </label>
+              <CurrencyInput
+                value={receiptAmount}
+                onValueChange={setReceiptAmount}
+                className="mt-1 h-10 border border-border bg-card text-sm w-full"
+              />
+            </div>
+
+            {/* Forma de pagamento */}
+            <div className="w-48 shrink-0">
+              <label className="text-xs font-medium text-muted-foreground">
+                Forma de pagamento
+              </label>
+              <Select onValueChange={setReceiptMethodId} value={receiptMethodId}>
+                <SelectTrigger className="mt-1 h-10 border border-border bg-card">
+                  <SelectValue placeholder="Selecione..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {pmRegistry.length > 0 ? (
+                    pmRegistry.map(pm => (
                       <SelectItem key={pm.id} value={pm.id}>{pm.name}</SelectItem>
-                    )) : (
-                      <SelectItem value="none" disabled>Cadastre formas em Financeiro &gt; Formas de Pagamento</SelectItem>
-                    )}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Button onClick={() => void handleAddReceipt()} className="h-9 px-4 bg-[hsl(var(--vf-sales))] text-white hover:bg-[hsl(var(--vf-sales)/0.9)]">Registrar</Button>
-              </div>
-              <div className="md:col-span-5 text-sm bg-muted px-3 py-2 rounded-md">
-                Total Recebido (lista): {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(totals)}
-              </div>
-              </CardContent>
-            </VfCard>
+                    ))
+                  ) : (
+                    <SelectItem value="none" disabled>
+                      Cadastre em Financeiro › Formas de Pagamento
+                    </SelectItem>
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Botão */}
+            <div className="shrink-0 self-end">
+              <Button
+                onClick={() => void handleAddReceipt()}
+                className="h-10 px-6 bg-emerald-600 text-white font-semibold rounded-xl shadow-md hover:bg-emerald-700 transition-all"
+              >
+                <Banknote className="h-4 w-4 mr-2" /> Registrar
+              </Button>
+            </div>
           </div>
-        </ToolbarRow>
+        </div>
       </SectionCard>
 
+      {/* Filtro + lista */}
       <SectionCard
-        title="Lista de recebimentos"
-        description="Acompanhe data, forma de pagamento e categoria de cada entrada."
+        title="Histórico de recebimentos"
+        description="Entradas registradas no sistema vinculadas a vendas."
         icon={Tag}
         tone="sales"
       >
-      <VfCard tone="sales" className="card-hover">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-lg font-semibold text-foreground">Lista de Recebimentos</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
+        {/* Filtro e total */}
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+          <div className="flex items-center gap-2">
+            <label className="text-xs text-muted-foreground whitespace-nowrap">
+              Filtrar por pagamento:
+            </label>
+            <Select onValueChange={setPaymentMethod} value={paymentMethod}>
+              <SelectTrigger className="h-8 w-44 border border-border bg-card text-sm">
+                <SelectValue placeholder="Todas" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas as formas</SelectItem>
+                {paymentMethodOptions.map(pm => (
+                  <SelectItem key={pm} value={pm}>{pm}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex items-center gap-2 rounded-lg bg-emerald-50 border border-emerald-200 px-3 py-1.5">
+            <span className="text-xs text-emerald-700 font-medium">Total recebido:</span>
+            <span className="text-sm font-bold text-emerald-700">
+              {new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(totals)}
+            </span>
+          </div>
+        </div>
+
+        {/* Lista */}
+        {receipts.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-border py-12 text-center text-muted-foreground text-sm">
+            Nenhum recebimento registrado ainda.
+          </div>
+        ) : (
+          <div className="space-y-2">
             {receipts.map(rec => (
-              <Card key={rec.id} className="vf-surface-card vf-tone-sales card-hover border-border/80 p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-xs font-medium text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-300">
-                      Receita
-                    </span>
-                    <span className="text-sm">{rec.description}</span>
+              <div key={rec.id} className="flex items-center justify-between rounded-xl border border-border bg-card px-4 py-3 shadow-sm hover:shadow-md transition-shadow">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="h-9 w-9 shrink-0 rounded-xl bg-emerald-50 flex items-center justify-center">
+                    <Banknote className="h-4 w-4 text-emerald-600" />
                   </div>
-                  <div className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">
-                    {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(
-                      rec.category === 'Venda de Produtos' && typeof rec.paidAmount === 'number' ? rec.paidAmount : rec.amount
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-foreground truncate max-w-[320px]">
+                      {rec.description}
+                    </p>
+                    {(getClientName(rec.relatedClientId) || getAnimalName(rec.relatedClientId, rec.relatedAnimalId)) && (
+                      <div className="flex items-center gap-2 mt-0.5 text-xs text-muted-foreground">
+                        {getClientName(rec.relatedClientId) && (
+                          <span>👤 {getClientName(rec.relatedClientId)}</span>
+                        )}
+                        {getAnimalName(rec.relatedClientId, rec.relatedAnimalId) && (
+                          <span>🐾 {getAnimalName(rec.relatedClientId, rec.relatedAnimalId)}</span>
+                        )}
+                      </div>
                     )}
+                    <div className="flex items-center gap-3 mt-0.5 text-xs text-muted-foreground">
+                      <span className="flex items-center gap-1">
+                        <Calendar className="h-3 w-3" />
+                        {formatDateTime(rec.date, rec.time)}
+                      </span>
+                      {rec.paymentMethod && (
+                        <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 font-medium">
+                          {rec.paymentMethod}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
-                <div className="mt-2 grid grid-cols-1 gap-2 text-sm text-muted-foreground md:grid-cols-3">
-                  <div className="flex items-center gap-1">
-                    <Calendar className="h-3.5 w-3.5 text-vf-sales" /> {formatDateTime(rec.date, rec.time)}
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <Tag className="h-3.5 w-3.5 text-vf-finance" /> Pagamento: {rec.paymentMethod || "N/A"}
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <Tag className="h-3.5 w-3.5 text-primary" /> Categoria: {rec.category}
-                  </div>
-                </div>
-                {rec.relatedClientId && rec.relatedAnimalId && (
-                  <div className="mt-2">
+                <div className="flex items-center gap-3 shrink-0">
+                  <span className="text-base font-bold text-emerald-600">
+                    {new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(rec.amount)}
+                  </span>
+                  {rec.relatedClientId && rec.relatedAnimalId && (
                     <Link to={`/clients/${rec.relatedClientId}/animals/${rec.relatedAnimalId}/record`}>
-                      <Button variant="outline" size="sm">Abrir Prontuário</Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 rounded-lg border-border text-xs font-medium hover:bg-muted"
+                      >
+                        📋 Prontuário
+                      </Button>
                     </Link>
-                  </div>
-                )}
-              </Card>
+                  )}
+                </div>
+              </div>
             ))}
-          </CardContent>
-        </VfCard>
+          </div>
+        )}
       </SectionCard>
     </PageShell>
   );

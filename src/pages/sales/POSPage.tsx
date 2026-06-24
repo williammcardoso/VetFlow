@@ -1,6 +1,5 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { FaShoppingCart, FaPlus, FaTrashAlt, FaCheckCircle } from "@/components/icons/fa";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -8,449 +7,367 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-import { addMockFinancialTransaction } from "@/mockData/financial";
-import { getCatalog, findCatalogItem, adjustStock } from "@/mockData/catalog";
-import { getRegistryList } from "@/mockData/registry";
+import { addFinancialTransaction } from "@/lib/financialApi";
+import { getCatalog } from "@/lib/catalogApi";
+import type { CatalogItem } from "@/mockData/catalog";
 import { useClientsList } from "@/hooks/useSupabaseClients";
+import { ShoppingCart, Plus, Trash2, CheckCircle, ArrowLeft, Package, Check, ChevronsUpDown } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { PageShell } from "@/components/saas/PageShell";
 import { PageHeader } from "@/components/saas/PageHeader";
-import { SectionCard } from "@/components/saas/SectionCard";
-import { ShoppingCart, WalletCards, ArrowLeft } from "lucide-react";
 
-// Mock data para produtos/serviços
-interface Product {
-  id: string;
+interface CartItem {
+  catalogItemId: string;
   name: string;
   price: number;
+  cost: number; // custo do fornecedor
+  quantity: number;
 }
 
 const POSPage = () => {
   const { data: dbClients, isError: isClientsError } = useClientsList();
   const clients = dbClients || [];
   const navigate = useNavigate();
+
+  const [catalog, setCatalog] = useState<CatalogItem[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
-  const [selectedProduct, setSelectedProduct] = useState<string | undefined>(undefined);
+  const [selectedItemId, setSelectedItemId] = useState<string>("");
   const [quantity, setQuantity] = useState<number>(1);
-  const [unitPriceOverride, setUnitPriceOverride] = useState<number | undefined>(undefined);
-  const [selectedClientId, setSelectedClientId] = useState<string | undefined>(undefined);
-  const [selectedAnimalId, setSelectedAnimalId] = useState<string | undefined>(undefined);
-  const [selectedPaymentMethodId, setSelectedPaymentMethodId] = useState<string | undefined>(undefined); // NEW
-  const [saleWithoutClient, setSaleWithoutClient] = useState<boolean>(false); // NEW: venda avulsa
-  const [discount, setDiscount] = useState<number>(0); // NEW: desconto global
-  const [surcharge, setSurcharge] = useState<number>(0); // NEW: acréscimos
-  const [receivedNow, setReceivedNow] = useState<number>(0); // NEW: recebimento imediato/parcial
-  const [installments, setInstallments] = useState<number>(1); // NEW: parcelado
-  const [observations, setObservations] = useState<string>(""); // NEW
-  const [responsible, setResponsible] = useState<string>(""); // NEW
+  const [selectedClientId, setSelectedClientId] = useState<string>("");
+  const [selectedAnimalId, setSelectedAnimalId] = useState<string>("");
+  const [paymentMethod, setPaymentMethod] = useState<string>("");
+  const [processing, setProcessing] = useState(false);
+  const [clientOpen, setClientOpen] = useState(false);
+
+  useEffect(() => {
+    getCatalog().then(items => setCatalog(items.filter(i => i.active)));
+  }, []);
 
   const filteredAnimals = selectedClientId
     ? clients.find(c => c.id === selectedClientId)?.animals || []
     : [];
 
-  const paymentMethods = getRegistryList("paymentMethods"); // NEW
+  const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const totalCost = cart.reduce((sum, item) => sum + item.cost * item.quantity, 0);
+  const lucroEstimado = subtotal - totalCost;
 
-  const subtotal = cart.reduce((sum, item) => sum + item.total, 0);
-  const finalTotal = Math.max(0, subtotal - (discount || 0) + (surcharge || 0)); // total final
-
-  const handleAddProductToCart = () => {
-    if (!selectedProduct) {
-      toast.error("Por favor, selecione um item.");
-      return;
-    }
-    if (quantity <= 0) {
-      toast.error("A quantidade deve ser maior que zero.");
-      return;
-    }
-
-    const item = findCatalogItem(selectedProduct);
-    if (item) {
-      const existingItemIndex = cart.findIndex(ci => ci.productId === item.id);
-      const price = typeof unitPriceOverride === 'number' && unitPriceOverride >= 0 ? unitPriceOverride : item.price;
-      if (existingItemIndex > -1) {
-        const updatedCart = [...cart];
-        updatedCart[existingItemIndex].quantity += quantity;
-        updatedCart[existingItemIndex].price = price;
-        updatedCart[existingItemIndex].total = updatedCart[existingItemIndex].quantity * price;
-        setCart(updatedCart);
-      } else {
-        setCart([...cart, {
-          productId: item.id,
-          name: item.name,
-          price: price,
-          quantity: quantity,
-          total: quantity * price,
-        }]);
+  const handleAddToCart = () => {
+    if (!selectedItemId) { toast.error("Selecione um item."); return; }
+    if (quantity <= 0) { toast.error("Quantidade inválida."); return; }
+    const catalogItem = catalog.find(i => i.id === selectedItemId);
+    if (!catalogItem) return;
+    setCart(prev => {
+      const existing = prev.findIndex(i => i.catalogItemId === selectedItemId);
+      if (existing > -1) {
+        const updated = [...prev];
+        updated[existing] = { ...updated[existing], quantity: updated[existing].quantity + quantity };
+        return updated;
       }
-      setSelectedProduct(undefined);
-      setQuantity(1);
-      setUnitPriceOverride(undefined);
-      toast.success(`${item.name} adicionado ao carrinho!`);
-    }
+      return [...prev, {
+        catalogItemId: catalogItem.id,
+        name: catalogItem.name,
+        price: catalogItem.price,
+        cost: catalogItem.cost ?? 0,
+        quantity,
+      }];
+    });
+    setSelectedItemId("");
+    setQuantity(1);
+    toast.success(`${catalogItem.name} adicionado.`);
   };
 
-  const handleRemoveItemFromCart = (productId: string) => {
-    setCart(cart.filter(item => item.productId !== productId));
-    toast.info("Item removido do carrinho.");
-  };
+  const handleRemove = (id: string) => setCart(prev => prev.filter(i => i.catalogItemId !== id));
 
-  const handleProcessSale = () => {
-    if (cart.length === 0) {
-      toast.error("O carrinho está vazio. Adicione produtos para processar a venda.");
-      return;
+  const handleProcessSale = async () => {
+    if (cart.length === 0) { toast.error("Carrinho vazio."); return; }
+    if (!selectedClientId) { toast.error("Selecione o cliente."); return; }
+    if (!paymentMethod) { toast.error("Selecione a forma de pagamento."); return; }
+    setProcessing(true);
+    try {
+      const clientName = clients.find(c => c.id === selectedClientId)?.name || "";
+      const animalName = selectedAnimalId
+        ? clients.find(c => c.id === selectedClientId)?.animals.find(a => a.id === selectedAnimalId)?.name
+        : undefined;
+      const now = new Date();
+      const description = `Venda para ${clientName}${animalName ? ` (${animalName})` : ""}: ${cart.map(i => `${i.name} x${i.quantity}`).join(", ")}`;
+      await addFinancialTransaction({
+        date: now.toISOString().split("T")[0],
+        time: now.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
+        description,
+        type: "income",
+        amount: subtotal,
+        category: "Venda de Produtos",
+        relatedClientId: selectedClientId,
+        relatedAnimalId: selectedAnimalId || undefined,
+        paymentMethod,
+        status: "pending",
+        supplierCost: totalCost,
+      });
+      toast.success("Venda registrada com sucesso!");
+      setCart([]);
+      setSelectedClientId("");
+      setSelectedAnimalId("");
+      setPaymentMethod("");
+      navigate("/sales/my-sales");
+    } catch {
+      toast.error("Erro ao registrar venda.");
+    } finally {
+      setProcessing(false);
     }
-    if (!selectedClientId && !saleWithoutClient) {
-      toast.error("Selecione o cliente ou marque venda avulsa.");
-      return;
-    }
-    if (!selectedPaymentMethodId) {
-      toast.error("Selecione a forma de pagamento.");
-      return;
-    }
-    if (receivedNow < 0) {
-      toast.error("Valor recebido não pode ser negativo.");
-      return;
-    }
-    if (installments <= 0) {
-      toast.error("Número de parcelas deve ser maior que zero.");
-      return;
-    }
-
-    const clientName = selectedClientId ? clients.find(c => c.id === selectedClientId)?.name : "Avulsa";
-    const animalName = selectedAnimalId ? clients.find(c => c.id === selectedClientId)?.animals.find(a => a.id === selectedAnimalId)?.name : undefined;
-    const pm = paymentMethods.find(pm => pm.id === selectedPaymentMethodId);
-    const paymentMethodName = pm?.name || "Não informado";
-
-    const description = `Venda para ${clientName}${animalName ? ` (Animal: ${animalName})` : ''}: ${cart.map(item => `${item.name} x${item.quantity}`).join(', ')}`;
-    const now = new Date();
-    const currentDate = now.toISOString().split('T')[0];
-    const currentTime = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-
-    const status = receivedNow >= finalTotal ? 'paid' : (receivedNow > 0 ? 'partial' : 'pending');
-
-    // Registrar a venda
-    addMockFinancialTransaction({
-      date: currentDate,
-      time: currentTime,
-      description: description,
-      type: 'income',
-      amount: finalTotal,
-      category: 'Venda de Produtos',
-      relatedClientId: saleWithoutClient ? undefined : selectedClientId,
-      relatedAnimalId: selectedAnimalId,
-      paymentMethod: paymentMethodName, // NEW
-      paidAmount: receivedNow || 0,
-      status,
-      responsible: responsible || undefined,
-      observations: observations || undefined,
-      paymentInstallments: installments,
-    });
-
-    // Ajustar estoque para produtos
-    cart.forEach(ci => {
-      const item = findCatalogItem(ci.productId);
-      if (item && item.type === 'product') {
-        adjustStock(item.id, -ci.quantity);
-      }
-    });
-
-    toast.success("Venda processada com sucesso!");
-    // Reset
-    setCart([]);
-    setSelectedClientId(undefined);
-    setSelectedAnimalId(undefined);
-    setSelectedPaymentMethodId(undefined);
-    setSaleWithoutClient(false);
-    setDiscount(0);
-    setSurcharge(0);
-    setReceivedNow(0);
-    setInstallments(1);
-    setObservations("");
-    setResponsible("");
-    navigate('/sales/my-sales'); // Redirecionar para a página de vendas
   };
 
   return (
     <PageShell>
       <PageHeader
-        title="Ponto de Venda (PDV)"
-        description="Registre vendas de produtos e serviços de forma rápida."
-        icon={WalletCards}
+        title="Ponto de Venda"
+        description="Registre vendas de produtos e serviços."
+        icon={ShoppingCart}
         module="sales"
-        breadcrumb={<>Painel &gt; Vendas &gt; Ponto de Venda</>}
+        breadcrumb={<>Painel &gt; Vendas &gt; PDV</>}
         actions={
-          <Button asChild variant="outline" className="rounded-xl border-border/70">
+          <Button asChild variant="outline">
             <Link to="/sales/my-sales">
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Voltar para vendas
+              <ArrowLeft className="mr-2 h-4 w-4" /> Voltar
             </Link>
           </Button>
         }
       />
 
-      <div className="grid flex-1 grid-cols-1 gap-5 lg:grid-cols-3">
-        {/* Coluna de Seleção de Produtos */}
-        <SectionCard
-          title="Montagem da venda"
-          description="Selecione itens, quantidade e preço unitário."
-          icon={ShoppingCart}
-          tone="sales"
-          className="lg:col-span-2"
-        >
-        <Card className="vf-surface-card vf-tone-sales card-hover rounded-2xl border-border/80">
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-lg font-semibold text-foreground">
-              <FaPlus className="h-5 w-5 text-vf-sales" /> Adicionar Item
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="product-select">Produto/Serviço</Label>
-              <Select onValueChange={setSelectedProduct} value={selectedProduct}>
-                <SelectTrigger id="product-select" className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200">
-                  <SelectValue placeholder="Selecione um produto ou serviço" />
-                </SelectTrigger>
-                <SelectContent>
-                  {getCatalog().map((item) => (
-                    <SelectItem key={item.id} value={item.id}>
-                      {item.name} (R$ {item.price.toFixed(2).replace('.', ',')}) {item.type === 'product' ? '• Produto' : '• Serviço'}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="quantity-input">Quantidade</Label>
-              <Input
-                id="quantity-input"
-                type="number"
-                min="1"
-                value={quantity}
-                onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
-                className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="unit-price-input">Preço unitário</Label>
-              <Input
-                id="unit-price-input"
-                type="number"
-                min="0"
-                step="0.01"
-                value={typeof unitPriceOverride === 'number' ? unitPriceOverride : (selectedProduct ? (findCatalogItem(selectedProduct)?.price ?? 0) : 0)}
-                onChange={(e) => setUnitPriceOverride(parseFloat(e.target.value) || 0)}
-                className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200"
-              />
-            </div>
-            <Button onClick={handleAddProductToCart} className="bg-[hsl(var(--vf-sales))] text-white hover:bg-[hsl(var(--vf-sales)/0.9)] font-semibold transition-all duration-200 shadow-md hover:shadow-lg">
-              <FaPlus className="mr-2 h-4 w-4" /> Adicionar ao Carrinho
-            </Button>
-          </CardContent>
-        </Card>
-        </SectionCard>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        {/* Coluna esquerda — seleção de itens */}
+        <div className="lg:col-span-2 space-y-4">
+          <Card className="rounded-xl border border-border shadow-sm">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-base font-semibold">
+                <Package className="h-4 w-4 text-[hsl(var(--vf-sales))]" /> Adicionar item
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-wrap items-end gap-3">
+                <div className="flex-1 min-w-[200px]">
+                  <Label className="text-xs text-muted-foreground">Produto / Serviço</Label>
+                  <select
+                    value={selectedItemId}
+                    onChange={(e) => setSelectedItemId(e.target.value)}
+                    className="mt-1 h-10 w-full rounded-md border border-border bg-card px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--vf-sales)/0.3)]"
+                  >
+                    <option value="">Selecione...</option>
+                    {catalog.map(item => (
+                      <option key={item.id} value={item.id}>
+                        {item.name} — {new Intl.NumberFormat("pt-BR", {style:"currency",currency:"BRL"}).format(item.price)}
+                        {item.cost ? ` (custo: ${new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(item.cost)})` : ""}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="w-24 shrink-0">
+                  <Label className="text-xs text-muted-foreground">Quantidade</Label>
+                  <Input
+                    type="number"
+                    min="1"
+                    value={quantity}
+                    onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
+                    className="mt-1 h-10 border border-border bg-card text-sm"
+                  />
+                </div>
+                <Button
+                  onClick={handleAddToCart}
+                  className="h-10 px-5 bg-[hsl(var(--vf-sales))] text-white font-semibold rounded-xl hover:bg-[hsl(var(--vf-sales)/0.9)] transition-all shrink-0"
+                >
+                  <Plus className="h-4 w-4 mr-1" /> Adicionar
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
 
-        {/* Coluna do Carrinho e Checkout */}
-        <SectionCard
-          title="Carrinho e checkout"
-          description="Fechamento comercial com pagamento e observações."
-          icon={WalletCards}
-          tone="sales"
-          className="lg:col-span-1"
-        >
-        <Card className="vf-surface-card vf-tone-sales card-hover rounded-2xl border-border/80">
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-lg font-semibold text-foreground">
-              <FaShoppingCart className="h-5 w-5 text-vf-sales" /> Carrinho
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-4">
-            {cart.length === 0 ? (
-              <p className="text-muted-foreground text-center py-4">Carrinho vazio.</p>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Item</TableHead>
-                    <TableHead>Qtd</TableHead>
-                    <TableHead className="text-right">Total</TableHead>
-                    <TableHead className="text-right">Ações</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {cart.map((item) => (
-                    <TableRow key={item.productId}>
-                      <TableCell>{item.name}</TableCell>
-                      <TableCell>{item.quantity}</TableCell>
-                      <TableCell className="text-right">R$ {item.total.toFixed(2).replace('.', ',')}</TableCell>
-                      <TableCell className="text-right">
-                        <Button variant="ghost" size="icon" onClick={() => handleRemoveItemFromCart(item.productId)}>
-                          <FaTrashAlt className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </TableCell>
+          {/* Tabela do carrinho */}
+          {cart.length > 0 && (
+            <Card className="rounded-xl border border-border shadow-sm">
+              <CardContent className="pt-4">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Item</TableHead>
+                      <TableHead className="text-center w-16">Qtd</TableHead>
+                      <TableHead className="text-right w-28">Preço</TableHead>
+                      <TableHead className="text-right w-28">Custo</TableHead>
+                      <TableHead className="text-right w-28">Subtotal</TableHead>
+                      <TableHead className="w-10" />
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-
-            <div className="flex justify-between items-center font-bold text-lg border-t border-border pt-4 mt-4">
-              <span>Subtotal:</span>
-              <span>R$ {subtotal.toFixed(2).replace('.', ',')}</span>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2">
-                <Label htmlFor="discount-input">Desconto</Label>
-                <Input
-                  id="discount-input"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={discount}
-                  onChange={(e) => setDiscount(parseFloat(e.target.value) || 0)}
-                  className="bg-input rounded-md border-border"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="surcharge-input">Acréscimos</Label>
-                <Input
-                  id="surcharge-input"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={surcharge}
-                  onChange={(e) => setSurcharge(parseFloat(e.target.value) || 0)}
-                  className="bg-input rounded-md border-border"
-                />
-              </div>
-            </div>
-
-            <div className="flex justify-between items-center font-bold text-lg border-t border-border pt-4 mt-2">
-              <span>Total Final:</span>
-              <span>R$ {finalTotal.toFixed(2).replace('.', ',')}</span>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2">
-                <Label htmlFor="received-now-input">Valor recebido agora</Label>
-                <Input
-                  id="received-now-input"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={receivedNow}
-                  onChange={(e) => setReceivedNow(parseFloat(e.target.value) || 0)}
-                  className="bg-input rounded-md border-border"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="installments-input">Parcelas</Label>
-                <Input
-                  id="installments-input"
-                  type="number"
-                  min="1"
-                  value={installments}
-                  onChange={(e) => setInstallments(parseInt(e.target.value) || 1)}
-                  className="bg-input rounded-md border-border"
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="observations-textarea">Observações</Label>
-              <Input
-                id="responsible-input"
-                placeholder="Responsável"
-                value={responsible}
-                onChange={(e) => setResponsible(e.target.value)}
-                className="bg-input rounded-md border-border"
-              />
-              <Input
-                id="observations-textarea"
-                placeholder="Observações da venda"
-                value={observations}
-                onChange={(e) => setObservations(e.target.value)}
-                className="bg-input rounded-md border-border"
-              />
-            </div>
-
-            <div className="flex items-center gap-2 mt-2">
-              <input
-                id="sale-without-client"
-                type="checkbox"
-                checked={saleWithoutClient}
-                onChange={(e) => setSaleWithoutClient(e.target.checked)}
-              />
-              <Label htmlFor="sale-without-client">Venda Avulsa</Label>
-            </div>
-
-            {!saleWithoutClient && (
-              <div className="space-y-2 mt-2">
-                <Label htmlFor="client-select">Cliente Responsável</Label>
-                <Select onValueChange={setSelectedClientId} value={selectedClientId}>
-                  <SelectTrigger id="client-select" className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200">
-                    <SelectValue placeholder="Selecione o cliente" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {clients.map((client) => (
-                      <SelectItem key={client.id} value={client.id}>
-                        {client.name}
-                      </SelectItem>
+                  </TableHeader>
+                  <TableBody>
+                    {cart.map(item => (
+                      <TableRow key={item.catalogItemId}>
+                        <TableCell className="font-medium">{item.name}</TableCell>
+                        <TableCell className="text-center">{item.quantity}</TableCell>
+                        <TableCell className="text-right text-sm">
+                          {new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(item.price)}
+                        </TableCell>
+                        <TableCell className="text-right text-sm text-muted-foreground">
+                          {item.cost > 0
+                            ? new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(item.cost)
+                            : "-"}
+                        </TableCell>
+                        <TableCell className="text-right font-semibold">
+                          {new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(item.price * item.quantity)}
+                        </TableCell>
+                        <TableCell>
+                          <button
+                            onClick={() => handleRemove(item.catalogItemId)}
+                            className="h-7 w-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-red-500 hover:bg-red-50 transition-colors"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </TableCell>
+                      </TableRow>
                     ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
+                  </TableBody>
+                </Table>
 
-            {selectedClientId && filteredAnimals.length > 0 && (
-              <div className="space-y-2">
-                <Label htmlFor="animal-select">Animal (Opcional)</Label>
-                <Select onValueChange={setSelectedAnimalId} value={selectedAnimalId}>
-                  <SelectTrigger id="animal-select" className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200">
-                    <SelectValue placeholder="Selecione o animal (opcional)" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {filteredAnimals.map((animal) => (
-                      <SelectItem key={animal.id} value={animal.id}>
-                        {animal.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-
-            <div className="space-y-2 mt-2">
-              <Label htmlFor="payment-method-select">Forma de Pagamento</Label>
-              <Select onValueChange={setSelectedPaymentMethodId} value={selectedPaymentMethodId}>
-                <SelectTrigger id="payment-method-select" className="bg-input rounded-lg border-border focus:ring-2 focus:ring-ring transition-all duration-200">
-                  <SelectValue placeholder="Selecione a forma de pagamento" />
-                </SelectTrigger>
-                <SelectContent>
-                  {paymentMethods.length > 0 ? (
-                    paymentMethods.map((pm) => (
-                      <SelectItem key={pm.id} value={pm.id}>
-                        {pm.name}
-                      </SelectItem>
-                    ))
-                  ) : (
-                    <SelectItem value="none" disabled>
-                      Cadastre formas em Financeiro &gt; Formas de Pagamento
-                    </SelectItem>
+                {/* Resumo de lucro */}
+                <div className="mt-4 rounded-lg bg-muted/40 p-3 flex flex-wrap gap-4 text-sm">
+                  <div>
+                    <span className="text-muted-foreground">Faturamento bruto</span>
+                    <div className="font-bold text-base">
+                      {new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(subtotal)}
+                    </div>
+                  </div>
+                  {totalCost > 0 && (
+                    <>
+                      <div>
+                        <span className="text-muted-foreground">Repasses (fornecedores)</span>
+                        <div className="font-bold text-base text-amber-600">
+                          − {new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(totalCost)}
+                        </div>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Lucro estimado</span>
+                        <div className={`font-bold text-base ${lucroEstimado >= 0 ? "text-emerald-600" : "text-red-600"}`}>
+                          {new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(lucroEstimado)}
+                          <span className="text-xs ml-1">
+                            ({subtotal > 0 ? Math.round((lucroEstimado/subtotal)*100) : 0}% margem)
+                          </span>
+                        </div>
+                      </div>
+                    </>
                   )}
-                </SelectContent>
-              </Select>
-            </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
 
-            <Button
-              onClick={handleProcessSale}
-              disabled={cart.length === 0 || (!selectedClientId && !saleWithoutClient) || isClientsError}
-              className="mt-4 bg-[hsl(var(--vf-sales))] font-semibold text-white shadow-sm transition-all duration-200 hover:bg-[hsl(var(--vf-sales)/0.9)]"
-            >
-              <FaCheckCircle className="mr-2 h-4 w-4" /> Processar Venda
-            </Button>
-          </CardContent>
-        </Card>
-        </SectionCard>
+        {/* Coluna direita — checkout */}
+        <div>
+          <Card className="rounded-xl border border-border shadow-sm sticky top-4">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-base font-semibold">
+                <CheckCircle className="h-4 w-4 text-emerald-600" /> Finalizar venda
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <Label className="text-xs text-muted-foreground">Cliente *</Label>
+                <Popover open={clientOpen} onOpenChange={setClientOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={clientOpen}
+                      className="mt-1 w-full h-10 justify-between border border-border bg-card font-normal text-sm"
+                    >
+                      {selectedClientId
+                        ? clients.find(c => c.id === selectedClientId)?.name
+                        : "Selecione o cliente..."}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[280px] p-0" align="start">
+                    <Command>
+                      <CommandInput placeholder="Buscar cliente..." className="h-9" />
+                      <CommandList>
+                        <CommandEmpty>Nenhum cliente encontrado.</CommandEmpty>
+                        <CommandGroup>
+                          {clients.map(c => (
+                            <CommandItem
+                              key={c.id}
+                              value={c.name}
+                              onSelect={() => {
+                                setSelectedClientId(c.id);
+                                setSelectedAnimalId("");
+                                setClientOpen(false);
+                              }}
+                            >
+                              <Check
+                                className={`mr-2 h-4 w-4 ${
+                                  selectedClientId === c.id ? "opacity-100" : "opacity-0"
+                                }`}
+                              />
+                              {c.name}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+              </div>
+
+              {selectedClientId && filteredAnimals.length > 0 && (
+                <div>
+                  <Label className="text-xs text-muted-foreground">Animal (opcional)</Label>
+                  <select
+                    value={selectedAnimalId}
+                    onChange={(e) => setSelectedAnimalId(e.target.value)}
+                    className="mt-1 h-10 w-full rounded-md border border-border bg-card px-3 text-sm focus:outline-none"
+                  >
+                    <option value="">Nenhum</option>
+                    {filteredAnimals.map(a => (
+                      <option key={a.id} value={a.id}>{a.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              <div>
+                <Label className="text-xs text-muted-foreground">Forma de pagamento *</Label>
+                <select
+                  value={paymentMethod}
+                  onChange={(e) => setPaymentMethod(e.target.value)}
+                  className="mt-1 h-10 w-full rounded-md border border-border bg-card px-3 text-sm focus:outline-none"
+                >
+                  <option value="">Selecione...</option>
+                  <option value="Dinheiro">Dinheiro</option>
+                  <option value="Cartão de Débito">Cartão de Débito</option>
+                  <option value="Cartão de Crédito">Cartão de Crédito</option>
+                  <option value="Pix">Pix</option>
+                  <option value="Transferência">Transferência</option>
+                  <option value="A prazo">A prazo</option>
+                </select>
+              </div>
+
+              <div className="rounded-lg border border-border bg-muted/30 p-3 text-center">
+                <div className="text-xs text-muted-foreground">Total da venda</div>
+                <div className="text-2xl font-bold text-[hsl(var(--vf-sales))]">
+                  {new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(subtotal)}
+                </div>
+                <div className="text-xs text-muted-foreground mt-1">
+                  {cart.length} {cart.length === 1 ? "item" : "itens"}
+                </div>
+              </div>
+
+              <Button
+                onClick={handleProcessSale}
+                disabled={cart.length === 0 || !selectedClientId || !paymentMethod || processing}
+                className="w-full h-11 bg-[hsl(var(--vf-sales))] text-white font-bold rounded-xl shadow-md hover:bg-[hsl(var(--vf-sales)/0.9)] transition-all"
+              >
+                <CheckCircle className="mr-2 h-4 w-4" />
+                {processing ? "Processando..." : "Confirmar Venda"}
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </PageShell>
   );

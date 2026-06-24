@@ -103,18 +103,35 @@ const FinancialReportsPage: React.FC = () => {
     }
   }, [periodPreset]);
 
-  const { entradas, saidas, saldo, movimentos, totalEmAberto, chartByDay, receitasPorCategoria, despesasPorCategoria } =
+  const { entradas, faturamento, recebido, saidas, saldo, movimentos, totalEmAberto, chartByDay, receitasPorCategoria, despesasPorCategoria, totalRepasses, lucroReal, margemReal } =
     useMemo(() => {
       const allInPeriod = mockFinancialTransactions.filter((t) =>
         withinRange(t.date, dateFrom, dateTo)
       );
-      const entradas = allInPeriod
-        .filter((t) => t.type === "income")
+
+      // Vendas emitidas no período (faturamento)
+      const faturamento = allInPeriod
+        .filter(t => t.type === 'income' &&
+                     t.category === 'Venda de Produtos' &&
+                     (t.status || 'pending') !== 'cancelled')
         .reduce((s, t) => s + t.amount, 0);
+
+      // Pagamentos recebidos no período (caixa)
+      const recebido = allInPeriod
+        .filter(t => t.type === 'income' && t.category === 'Recebimento')
+        .reduce((s, t) => s + t.amount, 0);
+
+      // Saídas operacionais
       const saidas = allInPeriod
         .filter((t) => t.type === "expense")
         .reduce((s, t) => s + t.amount, 0);
-      const saldo = entradas - saidas;
+
+      // Saldo = recebido - saídas (base caixa)
+      const saldo = recebido - saidas;
+
+      // Entradas para gráficos = recebido (não duplicar)
+      const entradas = recebido;
+
       const movimentos = [...allInPeriod].sort((a, b) => {
         const A = new Date(`${a.date}T${a.time || "00:00"}`).getTime();
         const B = new Date(`${b.date}T${b.time || "00:00"}`).getTime();
@@ -150,19 +167,31 @@ const FinancialReportsPage: React.FC = () => {
       const receitasPorCategoria = Object.entries(recCat).map(([name, value]) => ({ name, value: Math.round(value * 100) / 100 }));
       const despesasPorCategoria = Object.entries(desCat).map(([name, value]) => ({ name, value: Math.round(value * 100) / 100 }));
 
-      const sales = mockFinancialTransactions.filter(
-        (t) =>
-          t.type === "income" &&
-          t.category === "Venda de Produtos" &&
-          (t.status || "pending") !== "cancelled"
+      // A receber geral (todas as vendas não quitadas, todos os períodos)
+      const salesAll = mockFinancialTransactions.filter(
+        t => t.type === 'income' &&
+             t.category === 'Venda de Produtos' &&
+             (t.status || 'pending') !== 'cancelled'
       );
-      const totalEmAberto = sales.reduce((s, sale) => {
+      const totalEmAberto = salesAll.reduce((s, sale) => {
         const paid = sumReceiptsForSaleLocal(mockFinancialTransactions, sale.id);
         return s + Math.max(0, sale.amount - paid);
       }, 0);
 
+      const totalRepasses = allInPeriod
+        .filter(t => t.type === 'income' && t.category === 'Venda de Produtos')
+        .reduce((s, t) => s + (t.supplierCost ?? 0), 0);
+
+      const lucroReal = faturamento - totalRepasses;
+
+      const margemReal = faturamento > 0
+        ? Math.round((lucroReal / faturamento) * 100)
+        : 0;
+
       return {
         entradas,
+        faturamento,
+        recebido,
         saidas,
         saldo,
         movimentos,
@@ -170,6 +199,9 @@ const FinancialReportsPage: React.FC = () => {
         chartByDay,
         receitasPorCategoria,
         despesasPorCategoria,
+        totalRepasses,
+        lucroReal,
+        margemReal,
       };
     }, [mockFinancialTransactions, dateFrom, dateTo]);
 
@@ -196,9 +228,11 @@ const FinancialReportsPage: React.FC = () => {
       .kpi{display:inline-block;margin-right:16px;padding:10px 12px;border:1px solid #e2e8f0;border-radius:10px;background:#fff}
       </style></head><body>
       <h1>Relatório Financeiro</h1><p>Período: ${periodLabel}</p>
-      <div class="kpi"><strong>Entradas:</strong> ${currency(entradas)}</div>
+      <div class="kpi"><strong>Faturamento:</strong> ${currency(faturamento)}</div>
+      <div class="kpi"><strong>Recebido:</strong> ${currency(recebido)}</div>
+      <div class="kpi"><strong>Repasses:</strong> ${currency(totalRepasses)}</div>
+      <div class="kpi" style="background:#f0fdf4"><strong>Lucro Real:</strong> ${currency(lucroReal)} (${margemReal}%)</div>
       <div class="kpi"><strong>Saídas:</strong> ${currency(saidas)}</div>
-      <div class="kpi"><strong>Saldo:</strong> ${currency(saldo)}</div>
       <div class="kpi"><strong>A receber:</strong> ${currency(totalEmAberto)}</div>
       <h2>Movimentos do período</h2>
       <table><thead><tr><th>Data</th><th>Descrição</th><th>Categoria</th><th>Pagamento</th><th style="text-align:right">Valor</th></tr></thead><tbody>${movementsRows || "<tr><td colspan='5'>Sem dados</td></tr>"}</tbody></table>
@@ -272,37 +306,82 @@ const FinancialReportsPage: React.FC = () => {
 
       <div className="space-y-5">
         {/* KPIs */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+          {/* Faturamento bruto */}
           <Card className="vf-surface-card vf-tone-finance card-hover rounded-xl border-border/80">
             <CardContent className="p-4">
-              <div className="text-xs text-emerald-700 font-medium">Entradas</div>
-              <div className="text-xl font-bold text-emerald-800">
-                {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(entradas)}
+              <div className="text-xs text-emerald-700 font-medium uppercase tracking-wide">
+                Faturamento Bruto
+              </div>
+              <div className="text-2xl font-bold text-emerald-800 mt-1">
+                {new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(faturamento)}
+              </div>
+              <div className="text-xs text-muted-foreground mt-1">Total vendido no período</div>
+            </CardContent>
+          </Card>
+
+          {/* Recebido no caixa */}
+          <Card className="vf-surface-card vf-tone-finance card-hover rounded-xl border-border/80">
+            <CardContent className="p-4">
+              <div className="text-xs text-teal-700 font-medium uppercase tracking-wide">
+                Recebido no Caixa
+              </div>
+              <div className="text-2xl font-bold text-teal-700 mt-1">
+                {new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(recebido)}
+              </div>
+              <div className="text-xs text-muted-foreground mt-1">
+                Pagamentos confirmados
               </div>
             </CardContent>
           </Card>
+
+          {/* Repasses */}
           <Card className="vf-surface-card vf-tone-finance card-hover rounded-xl border-border/80">
             <CardContent className="p-4">
-              <div className="text-xs text-red-700 font-medium">Saídas</div>
-              <div className="text-xl font-bold text-red-800">
-                {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(saidas)}
+              <div className="text-xs text-amber-700 font-medium uppercase tracking-wide">
+                Repasses a Fornecedores
+              </div>
+              <div className="text-2xl font-bold text-amber-700 mt-1">
+                − {new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(totalRepasses)}
+              </div>
+              <div className="text-xs text-muted-foreground mt-1">Laboratórios e fornecedores</div>
+            </CardContent>
+          </Card>
+
+          {/* Lucro real */}
+          <Card className="vf-surface-card vf-tone-finance card-hover rounded-xl border-border/80">
+            <CardContent className="p-4">
+              <div className={`text-xs font-medium uppercase tracking-wide ${lucroReal >= 0 ? "text-teal-700" : "text-red-700"}`}>
+                Lucro Real Estimado
+              </div>
+              <div className={`text-2xl font-bold mt-1 ${lucroReal >= 0 ? "text-teal-700" : "text-red-700"}`}>
+                {new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(lucroReal)}
+              </div>
+              <div className="text-xs text-muted-foreground mt-1">
+                Margem: {margemReal}% sobre faturamento
               </div>
             </CardContent>
           </Card>
+
+          {/* Saídas */}
           <Card className="vf-surface-card vf-tone-finance card-hover rounded-xl border-border/80">
             <CardContent className="p-4">
-              <div className="text-xs text-slate-600 font-medium">Saldo do período</div>
-              <div className={cn("text-xl font-bold", saldo >= 0 ? "text-slate-800" : "text-red-700")}>
-                {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(saldo)}
+              <div className="text-xs text-red-700 font-medium uppercase tracking-wide">Saídas Operacionais</div>
+              <div className="text-2xl font-bold text-red-800 mt-1">
+                {new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(saidas)}
               </div>
+              <div className="text-xs text-muted-foreground mt-1">Despesas do período</div>
             </CardContent>
           </Card>
+
+          {/* A receber */}
           <Card className="vf-surface-card vf-tone-finance card-hover rounded-xl border-border/80">
             <CardContent className="p-4">
-              <div className="text-xs text-amber-700 font-medium">A receber (geral)</div>
-              <div className="text-xl font-bold text-amber-800">
-                {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(totalEmAberto)}
+              <div className="text-xs text-amber-700 font-medium uppercase tracking-wide">A Receber</div>
+              <div className="text-2xl font-bold text-amber-800 mt-1">
+                {new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(totalEmAberto)}
               </div>
+              <div className="text-xs text-muted-foreground mt-1">Vendas em aberto</div>
             </CardContent>
           </Card>
         </div>

@@ -21,6 +21,7 @@ function rowToTransaction(r: Record<string, unknown>): FinancialTransaction {
     observations: r.observations as string | undefined,
     paymentInstallments: r.payment_installments != null ? Number(r.payment_installments) : undefined,
     saleId: r.sale_id as string | undefined,
+    supplierCost: r.supplier_cost != null ? Number(r.supplier_cost) : undefined,
   };
 }
 
@@ -65,6 +66,7 @@ export async function addFinancialTransaction(
     observations: newTransaction.observations ?? null,
     payment_installments: newTransaction.paymentInstallments ?? null,
     sale_id: newTransaction.saleId ?? null,
+    supplier_cost: newTransaction.supplierCost ?? 0,
   };
   const { data, error } = await supabase.from(TABLE).insert(insertObj).select().single();
   if (error) {
@@ -91,6 +93,7 @@ export async function updateFinancialTransaction(id: string, changes: Partial<Fi
   if (changes.observations != null) updates.observations = changes.observations;
   if (changes.paymentInstallments != null) updates.payment_installments = changes.paymentInstallments;
   if (changes.saleId != null) updates.sale_id = changes.saleId;
+  if (changes.supplierCost != null) updates.supplier_cost = changes.supplierCost;
   if (Object.keys(updates).length === 0) return true;
   const { error } = await supabase.from(TABLE).update(updates).eq("id", id);
   if (error) {

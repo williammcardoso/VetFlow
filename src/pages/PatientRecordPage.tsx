@@ -402,6 +402,13 @@ const PatientRecordPage = () => {
   const [patientSales, setPatientSales] = useState<PatientSaleMeta[]>(readPatientSales(animalId));
   useEffect(() => { setPatientSales(readPatientSales(animalId)); }, [animalId]);
 
+  // Vendas do PDV vinculadas a este animal que não estão no
+  // localStorage do prontuário (evita duplicatas)
+  const pdvSalesForAnimal = useMemo(() => {
+    const localIds = new Set(patientSales.map(s => s.id));
+    return animalSalesTransactions.filter(t => !localIds.has(t.id));
+  }, [animalSalesTransactions, patientSales]);
+
   const [patientPayments, setPatientPayments] = useState<PatientPaymentMeta[]>(readPatientPayments(animalId));
   useEffect(() => { setPatientPayments(readPatientPayments(animalId)); }, [animalId]);
 
@@ -1445,7 +1452,7 @@ const PatientRecordPage = () => {
               >
                 <FaMoneyBillWave className="h-3.5 w-3.5 mr-1 md:mr-1.5 text-[#F79009]" />
                 <span className="max-w-[9.5rem] md:max-w-none truncate">Financeiro</span>
-                <span className="ml-1.5 inline-flex items-center justify-center h-4 min-w-4 px-1.5 rounded-full text-[9px] bg-muted text-foreground/70">{patientSales.length}</span>
+                <span className="ml-1.5 inline-flex items-center justify-center h-4 min-w-4 px-1.5 rounded-full text-[9px] bg-muted text-foreground/70">{patientSales.length + pdvSalesForAnimal.length}</span>
               </TabsTrigger>
           </TabsList>
 
@@ -2563,6 +2570,73 @@ const PatientRecordPage = () => {
                           <FaPlus className="h-4 w-4 mr-2" /> Adicionar Venda
                         </Button>
                       </div>
+                      {pdvSalesForAnimal.length > 0 && (
+                        <div className="mb-4 space-y-2">
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                              Vendas via PDV
+                            </span>
+                            <span className="rounded-full bg-[hsl(var(--vf-sales)/0.12)] px-2 py-0.5 text-xs font-semibold text-[hsl(var(--vf-sales))]">
+                              {pdvSalesForAnimal.length}
+                            </span>
+                          </div>
+                          {pdvSalesForAnimal.map(t => {
+                            const statusConfig: Record<string, { label: string; className: string }> = {
+                              paid:      { label: 'Pago',      className: 'bg-emerald-100 text-emerald-700' },
+                              partial:   { label: 'Parcial',   className: 'bg-blue-100 text-blue-700' },
+                              pending:   { label: 'Pendente',  className: 'bg-amber-100 text-amber-700' },
+                              cancelled: { label: 'Cancelado', className: 'bg-gray-100 text-gray-500' },
+                            };
+                            const st = statusConfig[t.status || 'pending'] || statusConfig.pending;
+                            const saldo = Math.max(0, t.amount - (t.paidAmount || 0));
+                            return (
+                              <Card key={t.id} className="p-4 bg-white rounded-xl shadow-sm border border-[#E2E8F0]">
+                                <div className="flex items-start justify-between gap-3">
+                                  <div className="flex flex-col gap-1 min-w-0">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${st.className}`}>
+                                        {st.label}
+                                      </span>
+                                      <span className="text-xs text-muted-foreground">
+                                        PDV · {formatDateTime(t.date, t.time)}
+                                      </span>
+                                      {t.paymentMethod && (
+                                        <span className="text-xs text-muted-foreground">
+                                          💳 {t.paymentMethod}
+                                        </span>
+                                      )}
+                                    </div>
+                                    <p className="text-sm font-semibold text-foreground truncate max-w-[380px]">
+                                      {t.description}
+                                    </p>
+                                  </div>
+                                  <div className="flex items-center gap-4 shrink-0 text-right">
+                                    <div>
+                                      <div className="text-xs text-muted-foreground">Total</div>
+                                      <div className="text-base font-bold text-green-600">
+                                        {new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(t.amount)}
+                                      </div>
+                                    </div>
+                                    <div>
+                                      <div className="text-xs text-muted-foreground">Pago</div>
+                                      <div className="text-base font-bold">
+                                        {new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(t.paidAmount || 0)}
+                                      </div>
+                                    </div>
+                                    <div>
+                                      <div className="text-xs text-muted-foreground">Saldo</div>
+                                      <div className={`text-base font-bold ${saldo > 0 ? 'text-amber-600' : 'text-gray-400'}`}>
+                                        {new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(saldo)}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              </Card>
+                            );
+                          })}
+                        </div>
+                      )}
+
                       {patientSales.length > 0 ? (
                         <div className="space-y-4">
                           {patientSales.map((sale) => {
