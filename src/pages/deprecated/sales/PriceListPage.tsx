@@ -6,20 +6,30 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { getCatalog, updateCatalogItem, CatalogItem } from "@/mockData/catalog";
+import { getCatalog, updateCatalogItem } from "@/lib/catalogApi";
+import type { CatalogItem } from "@/mockData/catalog";
 import { toast } from "sonner";
 import CurrencyInput from "@/components/CurrencyInput";
 
 const PriceListPage = () => {
-  // NEW: state
-  const [items, setItems] = React.useState<CatalogItem[]>(getCatalog());
+  const [items, setItems] = React.useState<CatalogItem[]>([]);
+  const [loading, setLoading] = React.useState(true);
   const [tab, setTab] = React.useState<"product"|"service">("product");
 
-  const refresh = () => setItems(getCatalog());
+  const refresh = React.useCallback(async () => {
+    setLoading(true);
+    const data = await getCatalog();
+    setItems(data);
+    setLoading(false);
+  }, []);
 
-  const handleUpdate = (item: CatalogItem, field: keyof CatalogItem, value: any) => {
+  React.useEffect(() => {
+    refresh();
+  }, [refresh]);
+
+  const handleUpdate = async (item: CatalogItem, field: keyof CatalogItem, value: any) => {
     const updated: CatalogItem = { ...item, [field]: field === 'price' ? Number(value) || 0 : value };
-    const ok = updateCatalogItem(updated);
+    const ok = await updateCatalogItem(updated);
     if (ok) {
       toast.success("Lista de preços atualizada.");
       refresh();
@@ -61,6 +71,11 @@ const PriceListPage = () => {
             <CardTitle className="text-lg font-semibold">Tabela de Preços</CardTitle>
           </CardHeader>
           <CardContent className="pt-0">
+            {loading && (
+              <p className="text-sm text-muted-foreground py-4 text-center">
+                Carregando...
+              </p>
+            )}
             <Tabs value={tab} onValueChange={(v) => setTab(v as any)}>
               <TabsList className="grid grid-cols-2 w-full mb-3">
                 <TabsTrigger value="product">Produtos</TabsTrigger>
@@ -110,6 +125,9 @@ const PriceListPage = () => {
                       <TableHead>Nome</TableHead>
                       <TableHead>Unidade</TableHead>
                       <TableHead>Preço</TableHead>
+                      <TableHead>Categoria</TableHead>
+                      <TableHead>Custo Lab.</TableHead>
+                      <TableHead>Lucro</TableHead>
                       <TableHead>Ativo</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -124,6 +142,25 @@ const PriceListPage = () => {
                             onValueChange={(val) => handleUpdate(item, 'price', val)}
                             className="h-8 text-sm w-24"
                           />
+                        </TableCell>
+                        <TableCell>
+                          {item.category === 'exame_externo' ? 'Exame Externo' :
+                           item.category === 'exame_interno' ? 'Exame Interno' :
+                           item.category === 'vacina' ? 'Vacina' :
+                           item.category === 'cirurgia' ? 'Cirurgia' :
+                           item.category === 'servico' ? 'Serviço' : '-'}
+                        </TableCell>
+                        <TableCell>
+                          {item.cost != null
+                            ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.cost)
+                            : '-'}
+                        </TableCell>
+                        <TableCell className={
+                          (item.price - (item.cost ?? 0)) > 0 ? 'text-green-600 font-semibold' : 'text-red-500 font-semibold'
+                        }>
+                          {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
+                            item.price - (item.cost ?? 0)
+                          )}
                         </TableCell>
                         <TableCell>
                           <select

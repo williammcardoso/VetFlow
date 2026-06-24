@@ -186,6 +186,22 @@ function normalizeHtmlForPdf(html: string): string {
     return `font-size: ${pt}pt`;
   });
 
+  // Remove font-size e font-family de elementos de bloco.
+  // Tamanho e fonte dos parágrafos vêm do body stylesheet.
+  // Font-size e font-family intencionais do usuário ficam nos <span> filhos.
+  normalized = normalized.replace(
+    /<(p|div)(\s[^>]*)?>/gi,
+    (_m, tag, attrs) => {
+      if (!attrs) return `<${tag}>`;
+      let cleaned = (attrs as string)
+        .replace(/\s*font-size\s*:\s*[^;}"']+;?/gi, "")
+        .replace(/\s*font-family\s*:\s*[^;}"']+;?/gi, "");
+      // Se o style ficou vazio (ex: style=""), remove o atributo inteiro
+      cleaned = cleaned.replace(/\s*style\s*=\s*["']\s*["']/gi, "");
+      return `<${tag}${cleaned}>`;
+    }
+  );
+
   // Convert text-indent into a sequence of non-breaking spaces inserted at paragraph start
   // so only the first line appears indented in renderers that don't support text-indent.
   normalized = normalized.replace(
@@ -251,13 +267,18 @@ function normalizeHtmlForPdf(html: string): string {
           .replace(/&nbsp;/gi, " ")
           .replace(/\s+/g, " ")
           .trim();
+        if (!plainText) return "";
         const marker = ordered ? `${idx + 1}.` : "•";
         const keepStyle = extractAllowedInlineStyle(attrs, raw);
         const lineStyle = `margin-left: 14px; margin-bottom: 4px; line-height: 1.4; ${keepStyle}`.trim();
         return `<p style="${lineStyle}">${marker} ${plainText}</p>`;
       })
+      .filter(Boolean)
       .join("");
   };
+
+  // Remove parágrafos vazios (sem texto nem elementos filhos com conteúdo)
+  normalized = normalized.replace(/<(p|div)[^>]*>\s*<\/(p|div)>/gi, "");
 
   normalized = normalized.replace(/<ul[^>]*>([\s\S]*?)<\/ul>/gi, (_m, inner) => normalizeList(String(inner), false));
   normalized = normalized.replace(/<ol[^>]*>([\s\S]*?)<\/ol>/gi, (_m, inner) => normalizeList(String(inner), true));
@@ -305,6 +326,8 @@ interface DocumentPdfContentProps {
 }
 const DocumentPdfContent: React.FC<DocumentPdfContentProps> = ({ documentName, content, forceFontSize, forceCompact }) => {
   const normalizedHtml = normalizeHtmlForPdf(content || "");
+  console.log("[PDF DEBUG] content recebido:", content?.slice(0, 500));
+  console.log("[PDF DEBUG] normalizedHtml:", normalizedHtml?.slice(0, 500));
   const baseFontSize = Number(htmlStyles.body?.fontSize) || 11;
 
   // We only apply compact rendering when explicitly requested via forceCompact

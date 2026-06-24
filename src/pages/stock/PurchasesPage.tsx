@@ -1,10 +1,11 @@
-import React, { useMemo, useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { getCatalogByType, findCatalogItem, adjustStock } from "@/mockData/catalog";
+import { getCatalogByType, findCatalogItem, adjustStock } from "@/lib/catalogApi";
+import type { CatalogItem } from "@/mockData/catalog";
 import { addMockFinancialTransaction } from "@/mockData/financial";
 import CurrencyInput from "@/components/CurrencyInput";
 import { ShoppingBag } from "lucide-react";
@@ -20,7 +21,11 @@ interface PurchaseItem {
 }
 
 const PurchasesPage: React.FC = () => {
-  const products = useMemo(() => getCatalogByType('product'), []);
+  const [products, setProducts] = useState<CatalogItem[]>([]);
+
+  useEffect(() => {
+    getCatalogByType('product').then(setProducts);
+  }, []);
   const [selectedItemId, setSelectedItemId] = useState<string>("");
   const [quantity, setQuantity] = useState<string>("1");
   const [unitCost, setUnitCost] = useState<number>(0);
@@ -29,7 +34,7 @@ const PurchasesPage: React.FC = () => {
 
   const subtotal = items.reduce((sum, it) => sum + it.quantity * it.unitCost, 0);
 
-  const handleAddItem = () => {
+  const handleAddItem = async () => {
     if (!selectedItemId) {
       toast.error("Selecione um produto.");
       return;
@@ -40,7 +45,7 @@ const PurchasesPage: React.FC = () => {
       toast.error("Quantidade deve ser > 0 e custo >= 0.");
       return;
     }
-    const found = findCatalogItem(selectedItemId);
+    const found = await findCatalogItem(selectedItemId);
     if (!found) {
       toast.error("Produto não encontrado.");
       return;
@@ -53,13 +58,15 @@ const PurchasesPage: React.FC = () => {
     setItems(prev => prev.filter(i => i.itemId !== itemId));
   };
 
-  const handleSavePurchase = () => {
+  const handleSavePurchase = async () => {
     if (items.length === 0) {
       toast.error("Adicione ao menos um item à compra.");
       return;
     }
     // Ajustar estoque
-    items.forEach(it => adjustStock(it.itemId, it.quantity));
+    for (const it of items) {
+      await adjustStock(it.itemId, it.quantity);
+    }
     // Lançamento financeiro
     const now = new Date();
     addMockFinancialTransaction({

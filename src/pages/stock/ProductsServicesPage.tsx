@@ -1,11 +1,12 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { CatalogItem, CatalogItemType, getCatalog, addCatalogItem, updateCatalogItem, removeCatalogItem, adjustStock } from "@/mockData/catalog";
+import { getCatalog, addCatalogItem, updateCatalogItem, removeCatalogItem, adjustStock } from "@/lib/catalogApi";
+import type { CatalogItem, CatalogItemType } from "@/mockData/catalog";
 import CurrencyInput from "@/components/CurrencyInput";
 import { PackageSearch } from "lucide-react";
 import { PageShell } from "@/components/saas/PageShell";
@@ -23,24 +24,33 @@ const ProductsServicesPage: React.FC = () => {
   const [newSKU, setNewSKU] = useState("");
   const [newUnit, setNewUnit] = useState("");
   const [newStockQty, setNewStockQty] = useState<string>("0");
+  const [newCategory, setNewCategory] = useState<string>("");
+  const [newCost, setNewCost] = useState<number>(0);
+
+  const [loading, setLoading] = useState(false);
+
+  const refresh = useCallback(async () => {
+    setLoading(true);
+    const data = await getCatalog();
+    setItems(data);
+    setLoading(false);
+  }, []);
 
   useEffect(() => {
-    setItems(getCatalog());
-  }, []);
+    refresh();
+  }, [refresh]);
 
   const filteredItems = useMemo(
     () => items.filter(i => i.type === activeTab),
     [items, activeTab]
   );
 
-  const refresh = () => setItems(getCatalog());
-
-  const handleAddItem = () => {
+  const handleAddItem = async () => {
     if (!newName.trim()) {
       toast.error("Informe o nome do item.");
       return;
     }
-    const created = addCatalogItem({
+    const created = await addCatalogItem({
       name: newName.trim(),
       type: newType,
       price: Number(newPrice) || 0,
@@ -50,6 +60,8 @@ const ProductsServicesPage: React.FC = () => {
       brand: undefined,
       group: undefined,
       active: true,
+      category: newCategory || undefined,
+      cost: newCost > 0 ? newCost : undefined,
     });
     toast.success(`${created.type === 'product' ? 'Produto' : 'Serviço'} adicionado.`);
     setNewName("");
@@ -58,37 +70,39 @@ const ProductsServicesPage: React.FC = () => {
     setNewUnit("");
     setNewStockQty("0");
     setNewType("product");
-    refresh();
+    setNewCategory("");
+    setNewCost(0);
+    await refresh();
   };
 
-  const handleUpdateItem = (item: CatalogItem, field: keyof CatalogItem, value: string | number | boolean) => {
+  const handleUpdateItem = async (item: CatalogItem, field: keyof CatalogItem, value: string | number | boolean) => {
     const updated: CatalogItem = {
       ...item,
       [field]: field === 'price' ? Number(value) || 0 : value as any,
     };
-    const ok = updateCatalogItem(updated);
+    const ok = await updateCatalogItem(updated);
     if (ok) {
-      refresh();
+      await refresh();
     } else {
       toast.error("Falha ao atualizar item.");
     }
   };
 
-  const handleAdjustStock = (item: CatalogItem, delta: number) => {
+  const handleAdjustStock = async (item: CatalogItem, delta: number) => {
     if (item.type !== 'product') return;
-    const ok = adjustStock(item.id, delta);
+    const ok = await adjustStock(item.id, delta);
     if (ok) {
-      refresh();
+      await refresh();
       toast.success(`Estoque ${delta > 0 ? 'entrada' : 'saída'} registrada.`);
     } else {
       toast.error("Falha ao ajustar estoque.");
     }
   };
 
-  const handleRemoveItem = (id: string) => {
-    const ok = removeCatalogItem(id);
+  const handleRemoveItem = async (id: string) => {
+    const ok = await removeCatalogItem(id);
     if (ok) {
-      refresh();
+      await refresh();
       toast.success("Item removido.");
     } else {
       toast.error("Falha ao remover.");
@@ -124,18 +138,46 @@ const ProductsServicesPage: React.FC = () => {
             <Label className="text-xs">Preço</Label>
             <CurrencyInput value={newPrice} onValueChange={setNewPrice} className="h-8 text-sm w-full" />
           </div>
-          <div>
-            <Label className="text-xs">SKU</Label>
-            <Input value={newSKU} onChange={(e) => setNewSKU(e.target.value)} className="h-8 text-sm bg-input" placeholder="Opcional" />
-          </div>
+          {newType === 'product' && (
+            <div>
+              <Label className="text-xs">SKU</Label>
+              <Input value={newSKU} onChange={(e) => setNewSKU(e.target.value)} className="h-8 text-sm bg-input" placeholder="Opcional" />
+            </div>
+          )}
           <div>
             <Label className="text-xs">Unidade</Label>
             <Input value={newUnit} onChange={(e) => setNewUnit(e.target.value)} className="h-8 text-sm bg-input" placeholder="Ex.: un, dose" />
           </div>
           <div>
-            <Label className="text-xs">Estoque (produto)</Label>
-            <Input value={newStockQty} onChange={(e) => setNewStockQty(e.target.value)} className="h-8 text-sm bg-input" placeholder="0" />
+            <Label className="text-xs">Categoria</Label>
+            <select
+              value={newCategory}
+              onChange={(e) => setNewCategory(e.target.value)}
+              className="h-8 text-sm bg-input rounded-md border-border w-full"
+            >
+              <option value="">Selecione...</option>
+              <option value="servico">Serviço</option>
+              <option value="cirurgia">Cirurgia</option>
+              <option value="exame_interno">Exame Interno</option>
+              <option value="exame_externo">Exame Externo (Lab)</option>
+              <option value="vacina">Vacina</option>
+              <option value="produto">Produto</option>
+            </select>
           </div>
+          <div>
+            <Label className="text-xs">Custo Fornecedor (R$)</Label>
+            <CurrencyInput
+              value={newCost}
+              onValueChange={setNewCost}
+              className="h-8 text-sm w-full"
+            />
+          </div>
+          {newType === 'product' && (
+            <div>
+              <Label className="text-xs">Estoque (produto)</Label>
+              <Input value={newStockQty} onChange={(e) => setNewStockQty(e.target.value)} className="h-8 text-sm bg-input" placeholder="0" />
+            </div>
+          )}
           <div className="sm:col-span-1">
             <Button onClick={handleAddItem} className="h-8 w-full bg-[hsl(var(--vf-stock))] px-3 text-sm text-white hover:bg-[hsl(var(--vf-stock)/0.9)]">Adicionar</Button>
           </div>
@@ -207,6 +249,9 @@ const ProductsServicesPage: React.FC = () => {
                     <TableHead>Nome</TableHead>
                     <TableHead>Unidade</TableHead>
                     <TableHead>Preço</TableHead>
+                    <TableHead>Categoria</TableHead>
+                    <TableHead>Custo Lab.</TableHead>
+                    <TableHead>Lucro</TableHead>
                     <TableHead>Ativo</TableHead>
                     <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
@@ -222,6 +267,28 @@ const ProductsServicesPage: React.FC = () => {
                           onValueChange={(val) => handleUpdateItem(item, 'price', val)}
                           className="h-8 text-sm w-24"
                         />
+                      </TableCell>
+                      <TableCell>
+                        {item.category === 'exame_externo' ? 'Exame Externo' :
+                         item.category === 'exame_interno' ? 'Exame Interno' :
+                         item.category === 'vacina' ? 'Vacina' :
+                         item.category === 'cirurgia' ? 'Cirurgia' :
+                         item.category === 'servico' ? 'Serviço' :
+                         item.category === 'produto' ? 'Produto' : '-'}
+                      </TableCell>
+                      <TableCell>
+                        {item.cost != null
+                          ? new Intl.NumberFormat('pt-BR', {style:'currency',currency:'BRL'}).format(item.cost)
+                          : '-'}
+                      </TableCell>
+                      <TableCell className={
+                        (item.price - (item.cost ?? 0)) >= item.price
+                          ? 'text-green-600 font-semibold'
+                          : 'text-amber-600 font-semibold'
+                      }>
+                        {new Intl.NumberFormat('pt-BR', {style:'currency',currency:'BRL'}).format(
+                          item.price - (item.cost ?? 0)
+                        )}
                       </TableCell>
                       <TableCell>
                         <select

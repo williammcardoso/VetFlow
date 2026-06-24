@@ -16,6 +16,8 @@ function rowToItem(r: Record<string, unknown>): CatalogItem {
     group: r.group as string | undefined,
     active: r.active === true,
     recommended: r.recommended === true,
+    cost: r.cost != null ? Number(r.cost) : undefined,
+    category: r.category as string | undefined,
   };
 }
 
@@ -57,6 +59,8 @@ export async function addCatalogItem(
       group: item.group ?? null,
       active: item.active ?? true,
       recommended: item.recommended ?? false,
+      cost: item.cost ?? null,
+      category: item.category ?? null,
     })
     .select()
     .single();
@@ -81,6 +85,8 @@ export async function updateCatalogItem(updated: CatalogItem): Promise<boolean> 
       group: updated.group ?? null,
       active: updated.active,
       recommended: updated.recommended ?? false,
+      cost: updated.cost ?? null,
+      category: updated.category ?? null,
     })
     .eq("id", updated.id);
   if (error) {

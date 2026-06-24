@@ -111,8 +111,15 @@ export async function addPatientDocument(
       if (upErr) {
         console.error("[addPatientDocument] storage upload error", upErr);
       } else {
-        const { publicURL } = supabase.storage.from(BUCKET).getPublicUrl(path);
-        file_url = publicURL;
+        const { data: publicUrlData } = supabase.storage.from(BUCKET).getPublicUrl(path);
+        file_url = publicUrlData?.publicUrl ?? null;
+        if (!file_url) {
+          // fallback: tenta signed URL com validade de 1 ano
+          const { data: signedData } = await supabase.storage
+            .from(BUCKET)
+            .createSignedUrl(path, 60 * 60 * 24 * 365);
+          file_url = signedData?.signedUrl ?? null;
+        }
       }
     } catch (e) {
       console.error("[addPatientDocument] failed to upload data URL", e);

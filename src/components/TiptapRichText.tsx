@@ -1,12 +1,14 @@
  "use client";
 
-import React, { useEffect, useCallback, useImperativeHandle } from "react";
+import React, { useEffect, useCallback, useImperativeHandle, useRef } from "react";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Paragraph from "@tiptap/extension-paragraph";
 import { TextStyle, Color, BackgroundColor, FontSize } from "@tiptap/extension-text-style";
 import Highlight from "@tiptap/extension-highlight";
 import TextAlign from "@tiptap/extension-text-align";
+import { Extension } from "@tiptap/core";
+import { Plugin, PluginKey } from "@tiptap/pm/state";
 import { cn } from "@/lib/utils";
 import {
   ChevronDown,
@@ -41,6 +43,50 @@ export interface TiptapRichTextHandle {
   focusEditor: () => void;
 }
 
+const PasteSanitizer = Extension.create({
+  name: "pasteSanitizer",
+  addProseMirrorPlugins() {
+    return [
+      new Plugin({
+        key: new PluginKey("pasteSanitizer"),
+        props: {
+          transformPastedHTML(html: string) {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, "text/html");
+            // Remove inline styles problemáticos do Word mas preserva
+            // atributos semânticos (href, src, etc.)
+            doc.querySelectorAll("[style]").forEach((el) => {
+              const style = el.getAttribute("style") || "";
+              // Preserva apenas font-weight e font-style (negrito/itálico)
+              // Descarta font-family, font-size, color, background, margin, etc.
+              const keepDeclarations = style
+                .split(";")
+                .map((d) => d.trim())
+                .filter(Boolean)
+                .filter((d) => {
+                  const prop = d.split(":")[0].trim().toLowerCase();
+                  return prop === "font-weight" || prop === "font-style";
+                });
+              if (keepDeclarations.length > 0) {
+                el.setAttribute("style", keepDeclarations.join("; "));
+              } else {
+                el.removeAttribute("style");
+              }
+            });
+            // Remove spans vazios que o Word insere
+            doc.querySelectorAll("span").forEach((span) => {
+              if (!span.hasAttributes() && span.innerHTML.trim() === "") {
+                span.remove();
+              }
+            });
+            return doc.body.innerHTML;
+          },
+        },
+      }),
+    ];
+  },
+});
+
 const TiptapRichText = React.forwardRef<TiptapRichTextHandle, TiptapRichTextProps>(({
   value,
   onChange,
@@ -50,6 +96,8 @@ const TiptapRichText = React.forwardRef<TiptapRichTextHandle, TiptapRichTextProp
   readOnly = false,
   autoApplySizeToken = 0,
 }, ref) => {
+  const isInternalUpdate = useRef(false);
+
   // Visual mapping: "12" appears like common word-processor size onscreen.
   const SIZE_OPTIONS: Array<{ label: string; value: string }> = [
     { label: "9", value: "12px" },
@@ -86,6 +134,7 @@ const TiptapRichText = React.forwardRef<TiptapRichTextHandle, TiptapRichTextProp
   const editor = useEditor({
     editable: !readOnly,
     extensions: [
+      PasteSanitizer,
       StarterKit.configure({
         history: true,
         link: {
@@ -115,16 +164,19 @@ const TiptapRichText = React.forwardRef<TiptapRichTextHandle, TiptapRichTextProp
     ],
     content: value || "",
     onUpdate: ({ editor }) => {
+      isInternalUpdate.current = true;
       onChange(editor.getHTML());
+      isInternalUpdate.current = false;
     },
   });
 
   useEffect(() => {
     if (!editor) return;
-    // keep external value in sync (e.g. when template is applied)
-    if (value !== editor.getHTML()) {
-      editor.commands.setContent(value || "");
-    }
+    if (isInternalUpdate.current) return;
+    const currentHtml = editor.getHTML();
+    if (value === currentHtml) return;
+    // Só sincroniza se a diferença for real (template aplicado, reset externo)
+    editor.commands.setContent(value || "", false); // false = não dispara onUpdate
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value, editor]);
 
@@ -579,7 +631,7 @@ const TiptapRichText = React.forwardRef<TiptapRichTextHandle, TiptapRichTextProp
       )}
 
       <div
-        className="rounded-md border border-border bg-white p-3 shadow-sm"
+        className="rounded-md border border-border bg-white p-3 shadow-sm prose prose-sm max-w-none"
         style={{ minHeight }}
       >
         <EditorContent editor={editor} placeholder={placeholder as any} />

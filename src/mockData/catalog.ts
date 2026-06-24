@@ -1,10 +1,19 @@
 export type CatalogItemType = 'product' | 'service';
+export type CatalogCategory =
+  | 'produto'
+  | 'servico'
+  | 'cirurgia'
+  | 'exame_interno'
+  | 'exame_externo'
+  | 'vacina';
 
 export interface CatalogItem {
   id: string;
   name: string;
   type: CatalogItemType;
   price: number;
+  cost?: number;      // Custo do fornecedor (ex: repasse ao laboratório)
+  category?: CatalogCategory; // Categoria do item
   sku?: string;
   unit?: string;
   stockQty?: number; // Apenas para produto
@@ -17,11 +26,11 @@ export interface CatalogItem {
 const STORAGE_KEY = 'catalogItems';
 
 const defaultItems: CatalogItem[] = [
-  { id: 'prod1', name: 'Ração Premium 1kg', type: 'product', price: 50, sku: 'RAC-1KG', unit: 'un', stockQty: 20, brand: 'PetPlus', group: 'Alimentos', active: true, recommended: true },
-  { id: 'prod2', name: 'Brinquedo para Cachorro', type: 'product', price: 25, sku: 'BRI-DOG', unit: 'un', stockQty: 30, brand: 'PetFun', group: 'Acessórios', active: true, recommended: false },
-  { id: 'serv1', name: 'Consulta de Rotina', type: 'service', price: 120, unit: 'serviço', active: true },
-  { id: 'serv2', name: 'Vacina V8', type: 'service', price: 90, unit: 'dose', active: true },
-  { id: 'serv3', name: 'Exame de Sangue', type: 'service', price: 150, unit: 'exame', active: true },
+  { id: 'prod1', name: 'Ração Premium 1kg', type: 'product', price: 50, sku: 'RAC-1KG', unit: 'un', stockQty: 20, brand: 'PetPlus', group: 'Alimentos', active: true, recommended: true, category: 'produto' },
+  { id: 'prod2', name: 'Brinquedo para Cachorro', type: 'product', price: 25, sku: 'BRI-DOG', unit: 'un', stockQty: 30, brand: 'PetFun', group: 'Acessórios', active: true, recommended: false, category: 'produto' },
+  { id: 'serv1', name: 'Consulta de Rotina', type: 'service', price: 120, unit: 'serviço', active: true, category: 'servico' },
+  { id: 'serv2', name: 'Vacina V8', type: 'service', price: 90, unit: 'dose', active: true, category: 'vacina' },
+  { id: 'serv3', name: 'Exame de Sangue', type: 'service', price: 150, unit: 'exame', active: true, category: 'exame_externo', cost: 60 },
 ];
 
 const load = (): CatalogItem[] => {
@@ -45,6 +54,8 @@ const load = (): CatalogItem[] => {
       group: it.group,
       active: it.active !== false,
       recommended: it.recommended === true,
+      cost: typeof it.cost === 'number' ? it.cost : undefined,
+      category: it.category ?? undefined,
     }));
   } catch {
     return [...defaultItems];
@@ -77,6 +88,8 @@ export const addCatalogItem = (item: Omit<CatalogItem, 'id' | 'active'> & { acti
     brand: item.brand,
     group: item.group,
     active: item.active ?? true,
+    cost: item.cost,
+    category: item.category,
   };
   list.push(newItem);
   save(list);
@@ -98,6 +111,11 @@ export const removeCatalogItem = (id: string): boolean => {
   if (next.length === list.length) return false;
   save(next);
   return true;
+};
+
+// Retorna o lucro líquido de um item (preço - custo do fornecedor)
+export const getProfit = (item: CatalogItem): number => {
+  return item.price - (item.cost ?? 0);
 };
 
 export const adjustStock = (id: string, delta: number): boolean => {
