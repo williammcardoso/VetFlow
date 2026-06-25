@@ -4,7 +4,7 @@ import React from "react";
 import { Document, Page, Text, View, StyleSheet, Image, Font } from "@react-pdf/renderer";
 import { Budget } from "@/mockData/budgets";
 import { mockCompanySettings } from "@/mockData/settings";
-import { findCatalogItem } from "@/mockData/catalog";
+import type { CatalogItem } from "@/mockData/catalog";
 import type { UserProfile } from "@/lib/authApi";
 
 // ADDED: desativa hifenização global para evitar quebras como "pagamen-to"
@@ -145,11 +145,13 @@ const styles = StyleSheet.create({
 interface BudgetReportPdfContentProps {
   budget: Budget;
   userProfile?: UserProfile | null;
+  catalogItems?: CatalogItem[];
 }
 
 const formatBRL = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
 
-const BudgetReportPdfContent: React.FC<BudgetReportPdfContentProps> = ({ budget, userProfile }) => {
+const BudgetReportPdfContent: React.FC<BudgetReportPdfContentProps> = (props) => {
+  const { budget, userProfile, catalogItems = [] } = props;
   const company = mockCompanySettings;
   const total = budget.items.reduce((sum, it) => sum + it.qty * it.price, 0);
   const vetName = userProfile?.signature_text?.trim() || userProfile?.full_name?.trim() || "Não informado";
@@ -212,7 +214,7 @@ const BudgetReportPdfContent: React.FC<BudgetReportPdfContentProps> = ({ budget,
             <Text style={styles.thSubtotal}>Subtotal</Text>
           </View>
           {budget.items.map((it, idx) => {
-            const cat = findCatalogItem(it.itemId);
+            const cat = catalogItems.find(c => c.id === it.itemId);
             const isProduct = cat?.type === "product";
             const tagStyle = [styles.tdTag, isProduct ? styles.tdTagProduct : undefined];
             return (

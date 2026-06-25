@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
 import { addFinancialTransaction } from "@/lib/financialApi";
+import { addSaleItems } from "@/lib/saleItemsApi";
 import { getCatalog } from "@/lib/catalogApi";
 import type { CatalogItem } from "@/mockData/catalog";
 import { useClientsList } from "@/hooks/useSupabaseClients";
@@ -21,8 +22,10 @@ interface CartItem {
   catalogItemId: string;
   name: string;
   price: number;
-  cost: number; // custo do fornecedor
+  cost: number;
   quantity: number;
+  type: "product" | "service";
+  category?: string;
 }
 
 const POSPage = () => {
@@ -37,6 +40,7 @@ const POSPage = () => {
   const [selectedClientId, setSelectedClientId] = useState<string>("");
   const [selectedAnimalId, setSelectedAnimalId] = useState<string>("");
   const [paymentMethod, setPaymentMethod] = useState<string>("");
+  const [installments, setInstallments] = useState<number>(1);
   const [processing, setProcessing] = useState(false);
   const [clientOpen, setClientOpen] = useState(false);
 
@@ -70,6 +74,8 @@ const POSPage = () => {
         price: catalogItem.price,
         cost: catalogItem.cost ?? 0,
         quantity,
+        type: catalogItem.type,
+        category: catalogItem.category,
       }];
     });
     setSelectedItemId("");
@@ -91,7 +97,7 @@ const POSPage = () => {
         : undefined;
       const now = new Date();
       const description = `Venda para ${clientName}${animalName ? ` (${animalName})` : ""}: ${cart.map(i => `${i.name} x${i.quantity}`).join(", ")}`;
-      await addFinancialTransaction({
+      const transaction = await addFinancialTransaction({
         date: now.toISOString().split("T")[0],
         time: now.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
         description,
@@ -103,12 +109,32 @@ const POSPage = () => {
         paymentMethod,
         status: "pending",
         supplierCost: totalCost,
+        paymentInstallments: paymentMethod.includes("Parcelado") && installments > 1
+          ? installments
+          : undefined,
       });
+
+      if (transaction) {
+        await addSaleItems(
+          transaction.id,
+          cart.map((item) => ({
+            catalogItemId: item.catalogItemId,
+            name: item.name,
+            type: item.type as "product" | "service",
+            category: item.category,
+            quantity: item.quantity,
+            unitPrice: item.price,
+            cost: item.cost,
+            subtotal: item.price * item.quantity,
+          }))
+        );
+      }
       toast.success("Venda registrada com sucesso!");
       setCart([]);
       setSelectedClientId("");
       setSelectedAnimalId("");
       setPaymentMethod("");
+      setInstallments(1);
       navigate("/sales/my-sales");
     } catch {
       toast.error("Erro ao registrar venda.");
@@ -334,18 +360,40 @@ const POSPage = () => {
                 <Label className="text-xs text-muted-foreground">Forma de pagamento *</Label>
                 <select
                   value={paymentMethod}
-                  onChange={(e) => setPaymentMethod(e.target.value)}
+                  onChange={(e) => {
+                    setPaymentMethod(e.target.value);
+                    if (!e.target.value.includes("Parcelado")) setInstallments(1);
+                  }}
                   className="mt-1 h-10 w-full rounded-md border border-border bg-card px-3 text-sm focus:outline-none"
                 >
                   <option value="">Selecione...</option>
                   <option value="Dinheiro">Dinheiro</option>
                   <option value="Cartão de Débito">Cartão de Débito</option>
-                  <option value="Cartão de Crédito">Cartão de Crédito</option>
+                  <option value="Cartão de Crédito à Vista">Cartão de Crédito à Vista</option>
+                  <option value="Cartão de Crédito Parcelado">Cartão de Crédito Parcelado</option>
                   <option value="Pix">Pix</option>
                   <option value="Transferência">Transferência</option>
                   <option value="A prazo">A prazo</option>
                 </select>
               </div>
+
+              {paymentMethod === "Cartão de Crédito Parcelado" && (
+                <div>
+                  <Label className="text-xs text-muted-foreground">Número de parcelas</Label>
+                  <select
+                    value={installments}
+                    onChange={(e) => setInstallments(Number(e.target.value))}
+                    className="mt-1 h-10 w-full rounded-md border border-border bg-card px-3 text-sm focus:outline-none"
+                  >
+                    {[2,3,4,5,6,7,8,9,10,11,12].map(n => (
+                      <option key={n} value={n}>
+                        {n}x de {new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(subtotal / n)}
+                        {n > 3 ? " (com juros)" : " (sem juros)"}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
               <div className="rounded-lg border border-border bg-muted/30 p-3 text-center">
                 <div className="text-xs text-muted-foreground">Total da venda</div>
@@ -355,6 +403,11 @@ const POSPage = () => {
                 <div className="text-xs text-muted-foreground mt-1">
                   {cart.length} {cart.length === 1 ? "item" : "itens"}
                 </div>
+                {paymentMethod === "Cartão de Crédito Parcelado" && installments > 1 && (
+                  <div className="text-xs text-muted-foreground mt-1">
+                    {installments}x de {new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(subtotal / installments)}
+                  </div>
+                )}
               </div>
 
               <Button

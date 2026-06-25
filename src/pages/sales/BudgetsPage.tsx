@@ -7,6 +7,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import CurrencyInput from "@/components/CurrencyInput";
 import { toast } from "sonner";
 import { getCatalog, findCatalogItem, adjustStock } from "@/mockData/catalog";
+import { getCatalog as getCatalogApi } from "@/lib/catalogApi";
+import type { CatalogItem } from "@/mockData/catalog";
 import { addMockFinancialTransaction } from "@/mockData/financial";
 import { getBudgets, addBudget, updateBudgetStatus, removeBudget, Budget } from "@/mockData/budgets";
 import { getRegistryList } from "@/mockData/registry";
@@ -38,6 +40,8 @@ const BudgetsPage: React.FC = () => {
 
   const [budgets, setBudgets] = React.useState<Budget[]>(getBudgets());
   const { profile: currentUserProfile } = useCurrentUserProfile();
+  const [catalogItems, setCatalogItems] = React.useState<CatalogItem[]>([]);
+  React.useEffect(() => { getCatalogApi().then(setCatalogItems); }, []);
 
   const productsAndServices = React.useMemo(() => getCatalog(), []);
   const options = React.useMemo(
@@ -162,7 +166,7 @@ const BudgetsPage: React.FC = () => {
   };
 
   const handleOpenBudgetPdf = async (b: Budget) => {
-    const blob = await createPdfBlob(<BudgetReportPdfContent budget={b} userProfile={currentUserProfile} />);
+    const blob = await createPdfBlob(<BudgetReportPdfContent budget={b} userProfile={currentUserProfile} catalogItems={catalogItems} />);
     await openPdf({
       blob,
       fileName: `orcamento_${b.id}.pdf`,

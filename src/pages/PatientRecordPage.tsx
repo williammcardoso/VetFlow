@@ -88,6 +88,7 @@ import {
   UserRound
 } from "lucide-react";
 import { Calendar } from "lucide-react";
+import SaleDetailModal from "@/components/SaleDetailModal";
 
 import {
   readPatientDocuments,
@@ -427,6 +428,7 @@ const PatientRecordPage = () => {
   const catalogItems = catalogItemsFromHook.filter(i => i.active);
 
   const [saleModalOpen, setSaleModalOpen] = useState(false);
+  const [selectedPdvSale, setSelectedPdvSale] = useState<import("@/mockData/financial").FinancialTransaction | null>(null);
   const [saleDate, setSaleDate] = useState<string>(new Date().toISOString().split("T")[0]);
   const [saleAppointmentId, setSaleAppointmentId] = useState<string>("");
   const [saleResponsible, setSaleResponsible] = useState<string>("");
@@ -711,7 +713,7 @@ const PatientRecordPage = () => {
       validityDays: b.validityDays,
     };
 
-    const blob = await createPdfBlob(<BudgetReportPdfContent budget={budgetForPdf} userProfile={currentUserProfile} />);
+    const blob = await createPdfBlob(<BudgetReportPdfContent budget={budgetForPdf} userProfile={currentUserProfile} catalogItems={catalogItems} />);
     await openPdf({
       blob,
       fileName: `orcamento_${b.id}.pdf`,
@@ -2488,10 +2490,26 @@ const PatientRecordPage = () => {
               </CardHeader>
               <CardContent className="pt-0">
                 <Tabs value={financeTab} onValueChange={(v) => setFinanceTab(v as any)} className="w-full">
-                  <TabsList className="grid grid-cols-3 w-full mb-4">
-                    <TabsTrigger value="orcamentos">Orçamentos</TabsTrigger>
-                    <TabsTrigger value="vendas">Vendas</TabsTrigger>
-                    <TabsTrigger value="financeiro">Financeiro</TabsTrigger>
+                  <TabsList className="inline-flex h-9 rounded-lg bg-muted/60 p-1 mb-4">
+                    <TabsTrigger value="orcamentos" className="flex items-center gap-1.5 px-4 text-sm font-medium rounded-md">
+                      📋 Orçamentos
+                      {patientBudgets.length > 0 && (
+                        <span className="ml-1 rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-bold">
+                          {patientBudgets.length}
+                        </span>
+                      )}
+                    </TabsTrigger>
+                    <TabsTrigger value="vendas" className="flex items-center gap-1.5 px-4 text-sm font-medium rounded-md">
+                      🛒 Vendas
+                      {(patientSales.length + pdvSalesForAnimal.length) > 0 && (
+                        <span className="ml-1 rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-bold">
+                          {patientSales.length + pdvSalesForAnimal.length}
+                        </span>
+                      )}
+                    </TabsTrigger>
+                    <TabsTrigger value="financeiro" className="flex items-center gap-1.5 px-4 text-sm font-medium rounded-md">
+                      💰 Financeiro
+                    </TabsTrigger>
                   </TabsList>
 
                   <TabsContent value="orcamentos">
@@ -2606,9 +2624,23 @@ const PatientRecordPage = () => {
                                         </span>
                                       )}
                                     </div>
-                                    <p className="text-sm font-semibold text-foreground truncate max-w-[380px]">
-                                      {t.description}
-                                    </p>
+                                    <div className="flex items-center gap-2 flex-wrap mt-0.5">
+                                      <span className="inline-flex items-center rounded-md bg-[hsl(var(--vf-sales)/0.1)] px-2 py-0.5 text-xs font-semibold text-[hsl(var(--vf-sales))]">
+                                        PDV
+                                      </span>
+                                      <p className="text-sm font-semibold text-foreground truncate max-w-[340px]">
+                                        {(() => {
+                                          const colonIdx = t.description.indexOf(": ");
+                                          if (colonIdx === -1) return t.description;
+                                          const items = t.description
+                                            .slice(colonIdx + 2)
+                                            .split(", ")
+                                            .map(item => item.replace(/\s+x\d+$/, "").trim());
+                                          if (items.length <= 2) return items.join(" · ");
+                                          return `${items.slice(0, 2).join(" · ")} +${items.length - 2} item${items.length - 2 > 1 ? "s" : ""}`;
+                                        })()}
+                                      </p>
+                                    </div>
                                   </div>
                                   <div className="flex items-center gap-4 shrink-0 text-right">
                                     <div>
@@ -2631,14 +2663,24 @@ const PatientRecordPage = () => {
                                     </div>
                                   </div>
                                 </div>
+                                <div className="flex justify-end mt-2 pt-2 border-t border-border/50">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-7 text-xs rounded-lg hover:bg-muted"
+                                    onClick={() => setSelectedPdvSale(t)}
+                                  >
+                                    🔍 Ver detalhes
+                                  </Button>
+                                </div>
                               </Card>
                             );
                           })}
                         </div>
                       )}
 
-                      {patientSales.length > 0 ? (
-                        <div className="space-y-4">
+                      {patientSales.length > 0 && (
+                        <div className="space-y-4 mt-3">
                           {patientSales.map((sale) => {
                             const paid = getPaidForSale(sale.id);
                             const saldo = Math.max(0, sale.total - paid);
@@ -2750,8 +2792,6 @@ const PatientRecordPage = () => {
                             );
                           })}
                         </div>
-                      ) : (
-                        <p className="text-muted-foreground">Nenhuma venda registrada para este paciente.</p>
                       )}
                     </div>
                   </TabsContent>
@@ -3043,6 +3083,53 @@ const PatientRecordPage = () => {
                 </DialogFooter>
               </DialogContent>
             </Dialog>
+
+            <SaleDetailModal
+              open={!!selectedPdvSale}
+              transaction={selectedPdvSale}
+              onClose={() => setSelectedPdvSale(null)}
+              clientName={currentClient?.name}
+              clientPhone={currentClient?.phone || undefined}
+              clientAddress={
+                (() => {
+                  const a = currentClient?.address;
+                  if (!a) return undefined;
+                  if (typeof a === "string") return a;
+                  const parts = [
+                    a.street && a.number ? `${a.street}, ${a.number}` : a.street,
+                    a.complement,
+                    a.neighborhood,
+                    a.city,
+                    a.cep ? `CEP ${a.cep}` : undefined,
+                  ].filter(Boolean);
+                  return parts.length > 0 ? parts.join(" · ") : undefined;
+                })()
+              }
+              animalName={currentAnimal?.name}
+              animalSpecies={currentAnimal?.species || undefined}
+              animalBreed={currentAnimal?.breed || undefined}
+              animalAge={
+                (() => {
+                  if (!currentAnimal) return undefined;
+                  if (currentAnimal.birthday) {
+                    const birth = new Date(currentAnimal.birthday);
+                    const now = new Date();
+                    const totalMonths =
+                      (now.getFullYear() - birth.getFullYear()) * 12 +
+                      (now.getMonth() - birth.getMonth());
+                    if (totalMonths < 12) {
+                      return totalMonths === 1 ? "1 mes" : `${totalMonths} meses`;
+                    }
+                    const y = Math.floor(totalMonths / 12);
+                    const m = totalMonths % 12;
+                    const anoStr = y === 1 ? "1 ano" : `${y} anos`;
+                    const mesStr = m === 1 ? "1 mes" : m > 1 ? `${m} meses` : "";
+                    return mesStr ? `${anoStr} e ${mesStr}` : anoStr;
+                  }
+                  return undefined;
+                })()
+              }
+            />
           </TabsContent>
         </Tabs>
       </div>

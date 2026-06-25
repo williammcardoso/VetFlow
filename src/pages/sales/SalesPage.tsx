@@ -15,6 +15,8 @@ import { PageHeader } from "@/components/saas/PageHeader";
 import { SectionCard } from "@/components/saas/SectionCard";
 import { ToolbarRow } from "@/components/saas/ToolbarRow";
 import { ShoppingCart, Sparkles, Filter, ArrowLeft } from "lucide-react";
+import SaleDetailModal from "@/components/SaleDetailModal";
+import type { FinancialTransaction } from "@/mockData/financial";
 
 const SalesPage = () => {
   const { data: dbClients, isError: isClientsError } = useClientsList();
@@ -27,6 +29,7 @@ const SalesPage = () => {
   const [dateTo, setDateTo] = React.useState<string>("");
   const [paymentMethod, setPaymentMethod] = React.useState<string | undefined>(undefined);
   const [status, setStatus] = React.useState<'paid' | 'partial' | 'pending' | 'cancelled' | 'all'>('all');
+  const [selectedSale, setSelectedSale] = React.useState<FinancialTransaction | null>(null);
 
   const paymentMethods = React.useMemo(() => {
     const pmList = Array.from(new Set(mockFinancialTransactions
@@ -83,10 +86,8 @@ const SalesPage = () => {
     cancelled: { label: 'Cancelado', className: 'bg-gray-100 text-gray-500 border border-gray-200' },
   };
 
-  const getClientName = (clientId?: string) => {
-    if (!clientId) return null;
-    return clients.find(c => c.id === clientId)?.name || null;
-  };
+  const getClientName = (clientId?: string) =>
+    clientId ? (clients.find(c => c.id === clientId)?.name || undefined) : undefined;
 
   const cancelSale = async (id: string) => {
     const ok = await updateFinancialTransaction(id, { status: 'cancelled' });
@@ -96,6 +97,16 @@ const SalesPage = () => {
     } else {
       toast.error("Falha ao cancelar venda.");
     }
+  };
+
+  const getSaleItemsSummary = (description: string): string => {
+    const colonIdx = description.indexOf(": ");
+    if (colonIdx === -1) return description;
+    const items = description.slice(colonIdx + 2)
+      .split(", ")
+      .map(item => item.replace(/\s+x\d+$/, "").trim());
+    if (items.length <= 2) return items.join(" · ");
+    return `${items.slice(0, 2).join(" · ")} +${items.length - 2} item${items.length - 2 > 1 ? "s" : ""}`;
   };
 
   return (
@@ -225,13 +236,23 @@ const SalesPage = () => {
                               </span>
                             )}
                           </div>
-                          <p className="text-sm font-semibold text-foreground truncate max-w-[420px]">
-                            {transaction.description}
-                          </p>
+                          <div className="flex items-center gap-2 flex-wrap mt-0.5">
+                            <span className="inline-flex items-center rounded-md bg-[hsl(var(--vf-sales)/0.1)] px-2 py-0.5 text-xs font-semibold text-[hsl(var(--vf-sales))]">
+                              PDV
+                            </span>
+                            <p className="text-sm font-semibold text-foreground truncate max-w-[380px]">
+                              {getSaleItemsSummary(transaction.description)}
+                            </p>
+                          </div>
                           <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
                             <span>📅 {formatDateTime(transaction.date, transaction.time)}</span>
                             {transaction.paymentMethod && (
-                              <span>💳 {transaction.paymentMethod}</span>
+                              <span>
+                                💳 {transaction.paymentMethod}
+                                {transaction.paymentInstallments && transaction.paymentInstallments > 1
+                                  ? ` · ${transaction.paymentInstallments}x de ${new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(transaction.amount / transaction.paymentInstallments)}`
+                                  : ""}
+                              </span>
                             )}
                           </div>
                         </div>
@@ -261,6 +282,14 @@ const SalesPage = () => {
 
                       {/* Linha 2: ações */}
                       <div className="flex justify-end gap-2 pt-2 border-t border-border/50">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="rounded-md hover:bg-muted hover:text-foreground transition-colors"
+                          onClick={() => setSelectedSale(transaction)}
+                        >
+                          <FaEye className="h-4 w-4 mr-2" /> Ver detalhes
+                        </Button>
                         {(transaction.status || 'pending') !== 'cancelled' &&
                          (transaction.status || 'pending') !== 'paid' && (
                           <Link to={`/sales/receipts?saleId=${transaction.id}&amount=${Math.max(0, transaction.amount - (transaction.paidAmount || 0))}`}>
@@ -291,6 +320,86 @@ const SalesPage = () => {
           </CardContent>
         </Card>
       </SectionCard>
+
+      <SaleDetailModal
+        open={!!selectedSale}
+        transaction={selectedSale}
+        onClose={() => setSelectedSale(null)}
+        clientName={getClientName(selectedSale?.relatedClientId)}
+        clientPhone={
+          selectedSale?.relatedClientId
+            ? clients.find(c => c.id === selectedSale.relatedClientId)?.phone || undefined
+            : undefined
+        }
+        clientAddress={
+          selectedSale?.relatedClientId
+            ? (() => {
+                const client = clients.find(c => c.id === selectedSale.relatedClientId);
+                if (!client?.address) return undefined;
+                const a = client.address;
+                if (typeof a === "string") return a;
+                const parts = [
+                  a.street && a.number ? `${a.street}, ${a.number}` : a.street,
+                  a.complement,
+                  a.neighborhood,
+                  a.city,
+                  a.cep ? `CEP ${a.cep}` : undefined,
+                ].filter(Boolean);
+                return parts.length > 0 ? parts.join(" · ") : undefined;
+              })()
+            : undefined
+        }
+        animalName={
+          selectedSale?.relatedClientId && selectedSale?.relatedAnimalId
+            ? clients
+                .find(c => c.id === selectedSale.relatedClientId)
+                ?.animals.find(a => a.id === selectedSale.relatedAnimalId)
+                ?.name
+            : undefined
+        }
+        animalSpecies={
+          selectedSale?.relatedClientId && selectedSale?.relatedAnimalId
+            ? clients
+                .find(c => c.id === selectedSale.relatedClientId)
+                ?.animals.find(a => a.id === selectedSale.relatedAnimalId)
+                ?.species
+            : undefined
+        }
+        animalBreed={
+          selectedSale?.relatedClientId && selectedSale?.relatedAnimalId
+            ? clients
+                .find(c => c.id === selectedSale.relatedClientId)
+                ?.animals.find(a => a.id === selectedSale.relatedAnimalId)
+                ?.breed
+            : undefined
+        }
+        animalAge={
+          selectedSale?.relatedClientId && selectedSale?.relatedAnimalId
+            ? (() => {
+                const animal = clients
+                  .find(c => c.id === selectedSale.relatedClientId)
+                  ?.animals.find(a => a.id === selectedSale.relatedAnimalId);
+                if (!animal?.birthday) return undefined;
+                if (animal.birthday) {
+                  const birth = new Date(animal.birthday);
+                  const now = new Date();
+                  const years = now.getFullYear() - birth.getFullYear();
+                  const months = now.getMonth() - birth.getMonth();
+                  const totalMonths = years * 12 + months;
+                  if (totalMonths < 12) {
+                    return totalMonths === 1 ? "1 mes" : `${totalMonths} meses`;
+                  }
+                  const y = Math.floor(totalMonths / 12);
+                  const m = totalMonths % 12;
+                  const anoStr = y === 1 ? "1 ano" : `${y} anos`;
+                  const mesStr = m === 1 ? "1 mes" : m > 1 ? `${m} meses` : "";
+                  return mesStr ? `${anoStr} e ${mesStr}` : anoStr;
+                }
+                return undefined;
+              })()
+            : undefined
+        }
+      />
     </PageShell>
   );
 };
