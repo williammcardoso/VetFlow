@@ -8,6 +8,7 @@ import { addReceipt } from "@/lib/financialApi";
 import { formatDateTime } from "@/lib/utils";
 import { useRegistryList } from "@/hooks/useRegistryList";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { PageShell } from "@/components/saas/PageShell";
 import { SectionCard } from "@/components/saas/SectionCard";
@@ -60,6 +61,15 @@ const ReceiptsPage = () => {
   }, [paymentMethod, transactions]);
 
   const totals = receipts.reduce((sum, r) => sum + r.amount, 0);
+
+  const selectedSale = useMemo(() => {
+    if (!selectedSaleId || selectedSaleId === "none") return null;
+    return transactions.find(t => t.id === selectedSaleId) || null;
+  }, [selectedSaleId, transactions]);
+  const saleInstallments = selectedSale?.paymentInstallments ?? 1;
+  const installmentValue = saleInstallments > 1
+    ? Math.round((selectedSale?.amount ?? 0) / saleInstallments * 100) / 100
+    : 0;
 
   const handleAddReceipt = async () => {
     if (!receiptAmount || receiptAmount <= 0) {
@@ -175,7 +185,24 @@ const ReceiptsPage = () => {
               <label className="text-xs font-medium text-muted-foreground">
                 Venda relacionada (opcional)
               </label>
-              <Select onValueChange={setSelectedSaleId} value={selectedSaleId}>
+              <Select
+                onValueChange={(val) => {
+                  setSelectedSaleId(val);
+                  if (val && val !== "none") {
+                    const sale = transactions.find(t => t.id === val);
+                    if (sale) {
+                      const saldo = Math.max(0, sale.amount - (sale.paidAmount || 0));
+                      setReceiptAmount(saldo);
+                      // Preencher forma de pagamento automaticamente
+                      if (sale.paymentMethod) {
+                        const pm = pmRegistry.find(p => p.name === sale.paymentMethod);
+                        if (pm) setReceiptMethodId(pm.id);
+                      }
+                    }
+                  }
+                }}
+                value={selectedSaleId}
+              >
                 <SelectTrigger className="mt-1 h-10 border border-border bg-card">
                   <SelectValue placeholder="Selecione..." />
                 </SelectTrigger>
@@ -242,6 +269,20 @@ const ReceiptsPage = () => {
               </Button>
             </div>
           </div>
+
+          {saleInstallments > 1 && selectedSaleId !== "none" && (
+            <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 mt-3">
+              <div className="text-xs font-semibold text-blue-800 mb-2 flex items-center gap-2">
+                💳 Cartão parcelado — {saleInstallments}x de{" "}
+                {new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(installmentValue)}
+              </div>
+              <div className="text-xs text-blue-700">
+                O valor acima corresponde ao total da venda. O parcelamento
+                é gerenciado pela operadora do cartão — registre a baixa
+                pelo valor total quando o pagamento for confirmado.
+              </div>
+            </div>
+          )}
         </div>
       </SectionCard>
 
