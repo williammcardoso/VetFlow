@@ -22,6 +22,7 @@ function rowToTransaction(r: Record<string, unknown>): FinancialTransaction {
     paymentInstallments: r.payment_installments != null ? Number(r.payment_installments) : undefined,
     saleId: r.sale_id as string | undefined,
     supplierCost: r.supplier_cost != null ? Number(r.supplier_cost) : undefined,
+    financialFee: r.financial_fee != null ? Number(r.financial_fee) : undefined,
   };
 }
 
@@ -67,6 +68,7 @@ export async function addFinancialTransaction(
     payment_installments: newTransaction.paymentInstallments ?? null,
     sale_id: newTransaction.saleId ?? null,
     supplier_cost: newTransaction.supplierCost ?? 0,
+    financial_fee: newTransaction.financialFee ?? 0,
   };
   const { data, error } = await supabase.from(TABLE).insert(insertObj).select().single();
   if (error) {

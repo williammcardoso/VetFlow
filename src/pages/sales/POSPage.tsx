@@ -12,6 +12,7 @@ import { addSaleItems } from "@/lib/saleItemsApi";
 import { getCatalog } from "@/lib/catalogApi";
 import type { CatalogItem } from "@/mockData/catalog";
 import { useClientsList } from "@/hooks/useSupabaseClients";
+import { useRegistryList } from "@/hooks/useRegistryList";
 import { ShoppingCart, Plus, Trash2, CheckCircle, ArrowLeft, Package, Check, ChevronsUpDown } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
@@ -31,6 +32,7 @@ interface CartItem {
 const POSPage = () => {
   const { data: dbClients, isError: isClientsError } = useClientsList();
   const clients = dbClients || [];
+  const { list: paymentMethods } = useRegistryList("paymentMethods");
   const navigate = useNavigate();
 
   const [catalog, setCatalog] = useState<CatalogItem[]>([]);
@@ -41,6 +43,11 @@ const POSPage = () => {
   const [selectedAnimalId, setSelectedAnimalId] = useState<string>("");
   const [paymentMethod, setPaymentMethod] = useState<string>("");
   const [installments, setInstallments] = useState<number>(1);
+  const [passTaxes, setPassTaxes] = useState(false);
+  const [discountPct, setDiscountPct] = useState<string>("");
+  const [discountVal, setDiscountVal] = useState<string>("");
+  const [surchargePct, setSurchargePct] = useState<string>("");
+  const [surchargeVal, setSurchargeVal] = useState<string>("");
   const [processing, setProcessing] = useState(false);
   const [clientOpen, setClientOpen] = useState(false);
 
@@ -102,14 +109,15 @@ const POSPage = () => {
         time: now.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
         description,
         type: "income",
-        amount: subtotal,
+        amount: totalFinal,
         category: "Venda de Produtos",
         relatedClientId: selectedClientId,
         relatedAnimalId: selectedAnimalId || undefined,
         paymentMethod,
         status: "pending",
         supplierCost: totalCost,
-        paymentInstallments: paymentMethod.includes("Parcelado") && installments > 1
+        financialFee: financialFee > 0 ? financialFee : undefined,
+        paymentInstallments: allowsInstallments && installments > 1
           ? installments
           : undefined,
       });
@@ -135,12 +143,68 @@ const POSPage = () => {
       setSelectedAnimalId("");
       setPaymentMethod("");
       setInstallments(1);
+      setPassTaxes(false);
+      setDiscountPct(""); setDiscountVal("");
+      setSurchargePct(""); setSurchargeVal("");
       navigate("/sales/my-sales");
     } catch {
       toast.error("Erro ao registrar venda.");
     } finally {
       setProcessing(false);
     }
+  };
+
+  const selectedPaymentMethod = paymentMethods.find(pm => pm.name === paymentMethod);
+  const allowsInstallments = selectedPaymentMethod?.installments === true;
+  const paymentFee = Number(selectedPaymentMethod?.fee ?? 0);
+
+  // Taxa por parcela (usa installmentRates se disponível)
+  const installmentRates = selectedPaymentMethod?.installmentRates as Record<string, number> | undefined;
+  const effectiveFeeRate = installmentRates
+    ? (installmentRates[String(allowsInstallments ? installments : 1)] ?? paymentFee)
+    : paymentFee;
+
+  // Taxa financeira em valor
+  const taxAmount = subtotal * (effectiveFeeRate / 100);
+  const financialFee = passTaxes ? taxAmount : 0;
+
+  // Desconto
+  const discountAmount = discountVal
+    ? parseFloat(discountVal) || 0
+    : discountPct
+    ? subtotal * ((parseFloat(discountPct) || 0) / 100)
+    : 0;
+
+  // Acréscimo (manual + taxa repassada)
+  const surchargeManual = surchargeVal
+    ? parseFloat(surchargeVal) || 0
+    : surchargePct
+    ? subtotal * ((parseFloat(surchargePct) || 0) / 100)
+    : 0;
+  const surchargeTotal = surchargeManual + financialFee;
+
+  // Total final
+  const totalFinal = subtotal + surchargeTotal - discountAmount;
+
+  const handleDiscountPct = (v: string) => {
+    setDiscountPct(v);
+    const pct = parseFloat(v) || 0;
+    setDiscountVal(pct > 0 ? (subtotal * pct / 100).toFixed(2) : "");
+  };
+  const handleDiscountVal = (v: string) => {
+    setDiscountVal(v);
+    const val = parseFloat(v) || 0;
+    setDiscountPct(val > 0 && subtotal > 0 ? ((val / subtotal) * 100).toFixed(2) : "");
+  };
+  const handleSurchargePct = (v: string) => {
+    setSurchargePct(v);
+    const pct = parseFloat(v) || 0;
+    setSurchargeVal(pct > 0 ? (subtotal * pct / 100).toFixed(2) : "");
+  };
+  const handleSurchargeVal = (v: string) => {
+    setSurchargeVal(v);
+    const val = parseFloat(v) || 0;
+    setSurchargePct(val > 0 && subtotal > 0 ? ((val / subtotal) * 100).toFixed(2) : "");
   };
 
   return (
@@ -357,57 +421,180 @@ const POSPage = () => {
               )}
 
               <div>
-                <Label className="text-xs text-muted-foreground">Forma de pagamento *</Label>
+                <Label className="text-xs text-muted-foreground">
+                  Forma de pagamento *
+                </Label>
                 <select
                   value={paymentMethod}
                   onChange={(e) => {
                     setPaymentMethod(e.target.value);
-                    if (!e.target.value.includes("Parcelado")) setInstallments(1);
+                    if (!e.target.value.toLowerCase().includes("parcel")) {
+                      setInstallments(1);
+                    }
                   }}
                   className="mt-1 h-10 w-full rounded-md border border-border bg-card px-3 text-sm focus:outline-none"
                 >
                   <option value="">Selecione...</option>
-                  <option value="Dinheiro">Dinheiro</option>
-                  <option value="Cartão de Débito">Cartão de Débito</option>
-                  <option value="Cartão de Crédito à Vista">Cartão de Crédito à Vista</option>
-                  <option value="Cartão de Crédito Parcelado">Cartão de Crédito Parcelado</option>
-                  <option value="Pix">Pix</option>
-                  <option value="Transferência">Transferência</option>
-                  <option value="A prazo">A prazo</option>
+                  {paymentMethods.map(pm => (
+                    <option key={pm.id} value={pm.name}>
+                      {pm.name}
+                    </option>
+                  ))}
                 </select>
               </div>
 
-              {paymentMethod === "Cartão de Crédito Parcelado" && (
+              {allowsInstallments && (
                 <div>
-                  <Label className="text-xs text-muted-foreground">Número de parcelas</Label>
+                  <Label className="text-xs text-muted-foreground">
+                    Número de parcelas
+                  </Label>
                   <select
                     value={installments}
                     onChange={(e) => setInstallments(Number(e.target.value))}
                     className="mt-1 h-10 w-full rounded-md border border-border bg-card px-3 text-sm focus:outline-none"
                   >
-                    {[2,3,4,5,6,7,8,9,10,11,12].map(n => (
-                      <option key={n} value={n}>
-                        {n}x de {new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(subtotal / n)}
-                        {n > 3 ? " (com juros)" : " (sem juros)"}
-                      </option>
-                    ))}
+                    {[1,2,3,4,5,6,7,8,9,10,11,12].map(n => {
+                      const rate = installmentRates ? (installmentRates[String(n)] ?? paymentFee) : paymentFee;
+                      const parcelVal = totalFinal / n;
+                      return (
+                        <option key={n} value={n}>
+                          {n === 1
+                            ? `À vista — taxa ${rate}%`
+                            : `${n}x de ${new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(parcelVal)} — taxa ${rate}%`}
+                        </option>
+                      );
+                    })}
                   </select>
                 </div>
               )}
 
-              <div className="rounded-lg border border-border bg-muted/30 p-3 text-center">
-                <div className="text-xs text-muted-foreground">Total da venda</div>
-                <div className="text-2xl font-bold text-[hsl(var(--vf-sales))]">
-                  {new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(subtotal)}
-                </div>
-                <div className="text-xs text-muted-foreground mt-1">
-                  {cart.length} {cart.length === 1 ? "item" : "itens"}
-                </div>
-                {paymentMethod === "Cartão de Crédito Parcelado" && installments > 1 && (
-                  <div className="text-xs text-muted-foreground mt-1">
-                    {installments}x de {new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(subtotal / installments)}
+              {/* Desconto e Acréscimo */}
+              {cart.length > 0 && (
+                <div className="rounded-xl border border-border bg-muted/20 p-3 space-y-3">
+                  <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                    Desconto / Acréscimo
                   </div>
-                )}
+
+                  {/* Desconto */}
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Desconto</Label>
+                    <div className="flex gap-2 mt-1">
+                      <div className="relative w-20">
+                        <Input
+                          value={discountPct}
+                          onChange={(e) => handleDiscountPct(e.target.value)}
+                          className="h-9 text-sm pr-6 border border-border"
+                          placeholder="0"
+                          type="number"
+                          min="0"
+                          max="100"
+                        />
+                        <span className="absolute right-2 top-2 text-xs text-muted-foreground">%</span>
+                      </div>
+                      <div className="relative flex-1">
+                        <Input
+                          value={discountVal}
+                          onChange={(e) => handleDiscountVal(e.target.value)}
+                          className="h-9 text-sm pl-6 border border-border"
+                          placeholder="0,00"
+                          type="number"
+                          min="0"
+                        />
+                        <span className="absolute left-2 top-2 text-xs text-muted-foreground">R$</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Acréscimo */}
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Acréscimo manual</Label>
+                    <div className="flex gap-2 mt-1">
+                      <div className="relative w-20">
+                        <Input
+                          value={surchargePct}
+                          onChange={(e) => handleSurchargePct(e.target.value)}
+                          className="h-9 text-sm pr-6 border border-border"
+                          placeholder="0"
+                          type="number"
+                          min="0"
+                        />
+                        <span className="absolute right-2 top-2 text-xs text-muted-foreground">%</span>
+                      </div>
+                      <div className="relative flex-1">
+                        <Input
+                          value={surchargeVal}
+                          onChange={(e) => handleSurchargeVal(e.target.value)}
+                          className="h-9 text-sm pl-6 border border-border"
+                          placeholder="0,00"
+                          type="number"
+                          min="0"
+                        />
+                        <span className="absolute left-2 top-2 text-xs text-muted-foreground">R$</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Switch repassar taxas */}
+                  {effectiveFeeRate > 0 && (
+                    <div className="flex items-center justify-between pt-1 border-t border-border">
+                      <div>
+                        <div className="text-xs font-medium text-foreground">Repassar taxa ao cliente</div>
+                        <div className="text-xs text-muted-foreground">
+                          Taxa {effectiveFeeRate}% = {new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(taxAmount)}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setPassTaxes(!passTaxes)}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                          passTaxes ? 'bg-[hsl(var(--vf-sales))]' : 'bg-muted-foreground/30'
+                        }`}
+                      >
+                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                          passTaxes ? 'translate-x-6' : 'translate-x-1'
+                        }`} />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div className="rounded-lg border border-border bg-muted/30 p-3">
+                <div className="space-y-1.5 text-sm">
+                  <div className="flex justify-between text-muted-foreground">
+                    <span>Subtotal</span>
+                    <span>{new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(subtotal)}</span>
+                  </div>
+                  {discountAmount > 0 && (
+                    <div className="flex justify-between text-emerald-600">
+                      <span>Desconto ({discountPct}%)</span>
+                      <span>- {new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(discountAmount)}</span>
+                    </div>
+                  )}
+                  {surchargeManual > 0 && (
+                    <div className="flex justify-between text-amber-600">
+                      <span>Acréscimo</span>
+                      <span>+ {new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(surchargeManual)}</span>
+                    </div>
+                  )}
+                  {financialFee > 0 && (
+                    <div className="flex justify-between text-amber-600">
+                      <span>Taxa operadora ({effectiveFeeRate}%)</span>
+                      <span>+ {new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(financialFee)}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between font-bold text-base pt-1.5 border-t border-border">
+                    <span>Total</span>
+                    <span className="text-[hsl(var(--vf-sales))]">
+                      {new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(totalFinal)}
+                    </span>
+                  </div>
+                  {allowsInstallments && installments > 1 && (
+                    <div className="text-xs text-center text-muted-foreground">
+                      {installments}x de {new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(totalFinal / installments)}
+                    </div>
+                  )}
+                </div>
               </div>
 
               <Button
