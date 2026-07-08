@@ -103,7 +103,7 @@ const FinancialReportsPage: React.FC = () => {
     }
   }, [periodPreset]);
 
-  const { entradas, faturamento, recebido, saidas, saldo, movimentos, totalEmAberto, chartByDay, receitasPorCategoria, despesasPorCategoria, totalRepasses, lucroReal, margemReal } =
+  const { entradas, faturamento, recebido, saidas, saldo, movimentos, totalEmAberto, chartByDay, receitasPorCategoria, despesasPorCategoria, totalRepasses, lucroReal, margemReal, totalTaxas, liquidoReal, margemLiquida } =
     useMemo(() => {
       const allInPeriod = mockFinancialTransactions.filter((t) =>
         withinRange(t.date, dateFrom, dateTo)
@@ -182,10 +182,22 @@ const FinancialReportsPage: React.FC = () => {
         .filter(t => t.type === 'income' && t.category === 'Venda de Produtos')
         .reduce((s, t) => s + (t.supplierCost ?? 0), 0);
 
+      // Taxas de operadora repassadas ao cliente
+      const totalTaxas = allInPeriod
+        .filter(t => t.type === 'income')
+        .reduce((s, t) => s + (t.financialFee ?? 0), 0);
+
       const lucroReal = faturamento - totalRepasses;
 
       const margemReal = faturamento > 0
         ? Math.round((lucroReal / faturamento) * 100)
+        : 0;
+
+      // Lucro líquido real = faturamento - repasses fornecedores - taxas operadora
+      const liquidoReal = faturamento - totalRepasses - totalTaxas;
+
+      const margemLiquida = faturamento > 0
+        ? Math.round((liquidoReal / faturamento) * 100)
         : 0;
 
       return {
@@ -202,6 +214,9 @@ const FinancialReportsPage: React.FC = () => {
         totalRepasses,
         lucroReal,
         margemReal,
+        totalTaxas,
+        liquidoReal,
+        margemLiquida,
       };
     }, [mockFinancialTransactions, dateFrom, dateTo]);
 
@@ -231,6 +246,8 @@ const FinancialReportsPage: React.FC = () => {
       <div class="kpi"><strong>Faturamento:</strong> ${currency(faturamento)}</div>
       <div class="kpi"><strong>Recebido:</strong> ${currency(recebido)}</div>
       <div class="kpi"><strong>Repasses:</strong> ${currency(totalRepasses)}</div>
+      <div class="kpi"><strong>Taxas Operadora:</strong> ${currency(totalTaxas)}</div>
+      <div class="kpi" style="background:#f0fdf4"><strong>Lucro Líquido Real:</strong> ${currency(liquidoReal)} (${margemLiquida}%)</div>
       <div class="kpi" style="background:#f0fdf4"><strong>Lucro Real:</strong> ${currency(lucroReal)} (${margemReal}%)</div>
       <div class="kpi"><strong>Saídas:</strong> ${currency(saidas)}</div>
       <div class="kpi"><strong>A receber:</strong> ${currency(totalEmAberto)}</div>
@@ -345,6 +362,36 @@ const FinancialReportsPage: React.FC = () => {
                 − {new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(totalRepasses)}
               </div>
               <div className="text-xs text-muted-foreground mt-1">Laboratórios e fornecedores</div>
+            </CardContent>
+          </Card>
+
+          {/* Taxas de operadora */}
+          <Card className="vf-surface-card vf-tone-finance card-hover rounded-xl border-border/80">
+            <CardContent className="p-4">
+              <div className="text-xs text-orange-700 font-medium uppercase tracking-wide">
+                Taxas de Operadora
+              </div>
+              <div className="text-2xl font-bold text-orange-700 mt-1">
+                − {new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(totalTaxas)}
+              </div>
+              <div className="text-xs text-muted-foreground mt-1">
+                Taxas repassadas ao cliente
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Lucro líquido real */}
+          <Card className="vf-surface-card vf-tone-finance card-hover rounded-xl border-border/80">
+            <CardContent className="p-4">
+              <div className={`text-xs font-medium uppercase tracking-wide ${liquidoReal >= 0 ? "text-emerald-700" : "text-red-700"}`}>
+                Lucro Líquido Real
+              </div>
+              <div className={`text-2xl font-bold mt-1 ${liquidoReal >= 0 ? "text-emerald-700" : "text-red-700"}`}>
+                {new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(liquidoReal)}
+              </div>
+              <div className="text-xs text-muted-foreground mt-1">
+                Margem líquida: {margemLiquida}%
+              </div>
             </CardContent>
           </Card>
 
