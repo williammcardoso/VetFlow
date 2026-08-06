@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import ClientCombobox from "@/components/ClientCombobox";
 import { Textarea } from "@/components/ui/textarea";
 import { FaArrowLeft, FaPlus, FaTimes, FaSave } from "@/components/icons/fa";
 import React, { useState, useEffect, useRef, useMemo } from "react";
@@ -382,18 +383,15 @@ const AddAnimalPage = () => {
         <div className="grid grid-cols-1 gap-4 rounded-2xl border border-border/80 bg-card p-6 shadow-sm md:grid-cols-2 lg:grid-cols-3 vf-surface-card vf-tone-clinical card-hover">
           <div className="space-y-2">
             <Label htmlFor="tutor" className="text-muted-foreground font-medium">Tutor/Responsável*</Label>
-            <Select onValueChange={setSelectedTutorId} value={selectedTutorId} disabled={isEditing || !!initialClientIdFromParams}>
-              <SelectTrigger id="tutor" className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200">
-                <SelectValue placeholder="Selecione o tutor..." />
-              </SelectTrigger>
-              <SelectContent>
-                {(clientsData || []).map((client) => (
-                  <SelectItem key={client.id} value={client.id}>
-                    {client.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <ClientCombobox
+              id="tutor"
+              clients={clientsData || []}
+              value={selectedTutorId}
+              onChange={setSelectedTutorId}
+              placeholder="Selecione o tutor..."
+              disabled={isEditing || !!initialClientIdFromParams}
+              className="h-10 bg-input rounded-md"
+            />
           </div>
           <div className="space-y-2">
             <Label htmlFor="animalName" className="text-muted-foreground font-medium">Nome do Animal*</Label>

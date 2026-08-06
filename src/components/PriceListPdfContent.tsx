@@ -4,10 +4,10 @@ import { mockCompanySettings, mockUserSettings } from "@/mockData/settings";
 import type { CatalogItem } from "@/mockData/catalog";
 
 Font.register({
-  family: "Exo",
+  family: "Inter",
   fonts: [
-    { src: "https://github.com/google/fonts/raw/main/ofl/exo2/Exo2-Regular.ttf", fontWeight: 400 },
-    { src: "https://github.com/google/fonts/raw/main/ofl/exo2/Exo2-Bold.ttf", fontWeight: 700 },
+    { src: "/fonts/Inter-Regular.ttf", fontWeight: 400 },
+    { src: "/fonts/Inter-Bold.ttf", fontWeight: 700 },
   ],
 });
 
@@ -24,7 +24,7 @@ const styles = StyleSheet.create({
   page: {
     padding: 36,
     paddingBottom: 50,
-    fontFamily: "Exo",
+    fontFamily: "Inter",
     fontSize: 10,
     color: DARK,
     backgroundColor: WHITE,
@@ -92,20 +92,20 @@ const styles = StyleSheet.create({
   tableRowAlt: { backgroundColor: LIGHT },
   itemName: { flex: 1, fontSize: 9.5, color: DARK },
   itemPrice: {
-    width: 80,
+    width: 72,
     textAlign: "right",
     fontSize: 9.5,
     fontWeight: 700,
     color: TEAL,
   },
   itemCost: {
-    width: 80,
+    width: 72,
     textAlign: "right",
     fontSize: 8.5,
     color: AMBER,
   },
   itemMargin: {
-    width: 60,
+    width: 48,
     textAlign: "right",
     fontSize: 8.5,
     color: GRAY,
@@ -137,8 +137,9 @@ const fmt = (v: number) =>
 
 const CATEGORY_LABELS: Record<string, string> = {
   cirurgia: "Cirurgias",
-  exame_externo: "Exames Externos (Laboratorio)",
+  exame_externo: "Exames Externos",
   exame_interno: "Exames Internos",
+  especialista: "Especialistas",
   vacina: "Vacinas",
   servico: "Servicos Gerais",
   produto: "Produtos",
@@ -194,9 +195,10 @@ const PriceListPdfContent: React.FC<PriceListPdfContentProps> = ({
       {isInternal && (
         <View style={styles.tableHead}>
           <Text style={[styles.tableHeadText, { flex: 1 }]}>Procedimento</Text>
-          <Text style={[styles.tableHeadText, { width: 80, textAlign: "right" }]}>Preco</Text>
-          <Text style={[styles.tableHeadText, { width: 80, textAlign: "right" }]}>Custo</Text>
-          <Text style={[styles.tableHeadText, { width: 60, textAlign: "right" }]}>Margem</Text>
+          <Text style={[styles.tableHeadText, { width: 72, textAlign: "right" }]}>Preco</Text>
+          <Text style={[styles.tableHeadText, { width: 72, textAlign: "right" }]}>Repasse</Text>
+          <Text style={[styles.tableHeadText, { width: 90, textAlign: "left" }]}>Prestador</Text>
+          <Text style={[styles.tableHeadText, { width: 48, textAlign: "right" }]}>Margem</Text>
         </View>
       )}
       {groupItems.map((item, idx) => {
@@ -214,6 +216,9 @@ const PriceListPdfContent: React.FC<PriceListPdfContentProps> = ({
               <>
                 <Text style={styles.itemCost}>
                   {item.cost ? fmt(item.cost) : "-"}
+                </Text>
+                <Text style={[styles.itemCost, { width: 90, textAlign: "left", fontSize: 8 }]}>
+                  {item.costProvider || (item.cost ? "—" : "-")}
                 </Text>
                 <Text style={styles.itemMargin}>{margem}%</Text>
               </>

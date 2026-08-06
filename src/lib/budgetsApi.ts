@@ -9,11 +9,32 @@ function mapBudgetRow(r: Record<string, unknown>, items: BudgetItemType[]): Budg
     id: r.id as string,
     clientId: r.client_id as string | undefined,
     animalId: r.animal_id as string | undefined,
+    // Snapshot do momento da emissão — o PDF do orçamento imprime estes
+    // valores, então precisam sobreviver a mudanças no cadastro do cliente.
+    clientName: r.client_name as string | undefined,
+    animalName: r.animal_name as string | undefined,
+    clientPhone: r.client_phone as string | undefined,
     date: r.date as string,
     status: r.status as BudgetStatus,
     notes: r.notes as string | undefined,
+    paymentMethod: r.payment_method as string | undefined,
+    discountAmount: r.discount_amount != null ? Number(r.discount_amount) : undefined,
+    surchargeAmount: r.surcharge_amount != null ? Number(r.surcharge_amount) : undefined,
     items,
   };
+}
+
+/** Grava a forma de pagamento no momento da conversão em venda. */
+export async function setBudgetPaymentMethod(id: string, paymentMethod?: string): Promise<boolean> {
+  const { error } = await supabase
+    .from(BUDGETS_TABLE)
+    .update({ payment_method: paymentMethod ?? null })
+    .eq("id", id);
+  if (error) {
+    console.error("[setBudgetPaymentMethod] error", error);
+    return false;
+  }
+  return true;
 }
 
 export async function getBudgets(): Promise<Budget[]> {
@@ -51,9 +72,14 @@ export async function addBudget(
     id,
     client_id: data.clientId ?? null,
     animal_id: data.animalId ?? null,
+    client_name: data.clientName ?? null,
+    animal_name: data.animalName ?? null,
+    client_phone: data.clientPhone ?? null,
     date: data.date || new Date().toISOString().split("T")[0],
     status: data.status || "draft",
     notes: data.notes ?? null,
+    discount_amount: data.discountAmount ?? 0,
+    surcharge_amount: data.surchargeAmount ?? 0,
   });
   if (budgetError) {
     console.error("[addBudget] error", budgetError);
@@ -72,7 +98,19 @@ export async function addBudget(
     if (itemsError) console.error("[addBudget] items error", itemsError);
   }
   return mapBudgetRow(
-    { id, client_id: data.clientId, animal_id: data.animalId, date: data.date || "", status: data.status || "draft", notes: data.notes },
+    {
+      id,
+      client_id: data.clientId,
+      animal_id: data.animalId,
+      client_name: data.clientName,
+      animal_name: data.animalName,
+      client_phone: data.clientPhone,
+      date: data.date || "",
+      status: data.status || "draft",
+      notes: data.notes,
+      discount_amount: data.discountAmount ?? 0,
+      surcharge_amount: data.surchargeAmount ?? 0,
+    },
     items
   );
 }
@@ -83,6 +121,9 @@ export async function updateBudget(updated: Budget): Promise<boolean> {
     .update({
       client_id: updated.clientId ?? null,
       animal_id: updated.animalId ?? null,
+      client_name: updated.clientName ?? null,
+      animal_name: updated.animalName ?? null,
+      client_phone: updated.clientPhone ?? null,
       date: updated.date,
       status: updated.status,
       notes: updated.notes ?? null,

@@ -4,6 +4,7 @@ import { FaBuilding, FaMapPin, FaWrench, FaTimes, FaSave } from "@/components/ic
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { formatPhoneBR } from "@/lib/utils";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
@@ -28,7 +29,10 @@ const CompanySettingsPage = () => {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { id, value } = e.target;
-    setSettings((prev) => prev ? { ...prev, [id]: value } : prev);
+    // Telefone é impresso em todos os documentos — normaliza aqui para não
+    // depender de o usuário digitar formatado.
+    const next = id === "phone" ? formatPhoneBR(value) : value;
+    setSettings((prev) => prev ? { ...prev, [id]: next } : prev);
   };
 
   const handleSave = async () => {

@@ -140,17 +140,23 @@ const TiptapRichText = React.forwardRef<TiptapRichTextHandle, TiptapRichTextProp
         link: {
           openOnClick: true,
         },
+        // Desativado aqui porque registramos uma versão estendida logo abaixo.
+        // Sem isso o Tiptap registra o parágrafo duas vezes ("Duplicate extension
+        // names found"), com comportamento indefinido de atributos.
+        paragraph: false,
       }),
-      // extend paragraph node to allow a style attribute (so text-indent persists)
+      // Recuo de parágrafo: atributo dedicado (NÃO capturar o `style` inteiro,
+      // senão o text-align gravado junto passa a sobrescrever o alinhamento).
       Paragraph.extend({
         addAttributes() {
           return {
-            style: {
+            ...this.parent?.(),
+            textIndent: {
               default: null,
-              parseHTML: (element) => element.getAttribute("style") || null,
-              renderHTML: (attrs) => {
-                return attrs.style ? { style: attrs.style } : {};
-              },
+              parseHTML: (element) =>
+                (element as HTMLElement).style?.textIndent || null,
+              renderHTML: (attrs) =>
+                attrs.textIndent ? { style: `text-indent: ${attrs.textIndent}` } : {},
             },
           };
         },
@@ -175,8 +181,10 @@ const TiptapRichText = React.forwardRef<TiptapRichTextHandle, TiptapRichTextProp
     if (isInternalUpdate.current) return;
     const currentHtml = editor.getHTML();
     if (value === currentHtml) return;
-    // Só sincroniza se a diferença for real (template aplicado, reset externo)
-    editor.commands.setContent(value || "", false); // false = não dispara onUpdate
+    // Só sincroniza se a diferença for real (template aplicado, reset externo).
+    // Tiptap v3: o 2º argumento é um objeto de opções — passar `false` (assinatura
+    // da v2) fazia o emitUpdate cair no padrão `true` e disparar onChange espúrio.
+    editor.commands.setContent(value || "", { emitUpdate: false });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value, editor]);
 
@@ -289,95 +297,35 @@ const TiptapRichText = React.forwardRef<TiptapRichTextHandle, TiptapRichTextProp
     },
   }), [editor, insertVariableAtSelection]);
 
-  // Insert a paragraph-indent token (tab char) at the start of the current paragraph.
-  // Using a single tab character '\t' so it's invisible and consistent across paragraphs.
-  const insertParagraphIndent = useCallback(() => {
-    // debug start
-    // eslint-disable-next-line no-console
-    console.debug("[insertParagraphIndent] invoked");
-    if (!editor) {
-      // eslint-disable-next-line no-console
-      console.debug("[insertParagraphIndent] no editor instance");
-      return;
-    }
-    const { state } = editor;
-    const paraStart = state.selection.$from.start();
-    // Instead of inserting raw characters, set paragraph node style `text-indent`
-    try {
-      // Use a ProseMirror transaction to set the paragraph node's style attribute at the paragraph start.
-      const { tr, doc } = editor.state;
-      // Find the paragraph node and its position
-      const $pos = editor.state.selection.$from;
-      let nodePos = $pos.before();
-      let node = doc.nodeAt(nodePos);
-      // if node is not a paragraph, search upward for paragraph parent
-      let depth = $pos.depth;
-      while (node && node.type.name !== "paragraph" && depth > 0) {
-        nodePos = $pos.before(depth);
-        node = doc.nodeAt(nodePos);
-        depth--;
-      }
-      if (!node || node.type.name !== "paragraph") {
-        // fallback: insert a tab char if paragraph node not found
-        throw new Error("paragraph node not found");
-      }
-      const currentAttrs = node.attrs || {};
-      const currentStyle: string = (currentAttrs.style as string) || "";
-      // Toggle text-indent
-      if (/text-indent\s*:/i.test(currentStyle)) {
-        const newStyle = currentStyle.replace(/(?:^|;)\s*text-indent\s*:\s*[^;]+;?/i, "").trim().replace(/;$/, "");
-        const nextAttrs = { ...currentAttrs, style: newStyle || undefined };
-        tr.setNodeMarkup(nodePos, undefined, nextAttrs);
-      } else {
-        const newStyle = (currentStyle ? `${currentStyle}; ` : "") + "text-indent: 24px";
-        const nextAttrs = { ...currentAttrs, style: newStyle };
-        tr.setNodeMarkup(nodePos, undefined, nextAttrs);
-      }
-      editor.view.dispatch(tr);
-      editor.commands.focus();
-    } catch (err) {
-      // fallback: insert a tab char at paragraph start
-      // eslint-disable-next-line no-console
-      console.debug("[insertParagraphIndent] fallback to inserting tab char:", err);
-      const indentChar = "\t";
-      try {
-        // @ts-ignore
-        if (editor.commands.insertContentAt) {
-          // @ts-ignore
-          editor.commands.insertContentAt(paraStart, indentChar);
-          editor.commands.focus();
-          return;
-        }
-      } catch (e) {
-        // eslint-disable-next-line no-console
-        console.debug("[insertParagraphIndent] fallback insertContentAt error:", e);
-      }
-      editor.chain().focus().setTextSelection(paraStart).insertContent(indentChar).run();
-    }
-  }, [editor]);
+  // Recuo de primeira linha do parágrafo atual.
+  // `remove = true` força a remoção (usado no Shift+Tab); caso contrário alterna.
+  const INDENT_VALUE = "24px";
+  const toggleParagraphIndent = useCallback(
+    (remove = false) => {
+      if (!editor) return;
+      const current = editor.getAttributes("paragraph").textIndent as string | null;
+      const next = remove || current ? null : INDENT_VALUE;
+      editor.chain().focus().updateAttributes("paragraph", { textIndent: next }).run();
+    },
+    [editor]
+  );
 
-  // Intercept Tab key inside editor: prevent focus change and apply paragraph indent
+  // Tab dentro do editor não deve mudar o foco: alterna o recuo.
+  // Shift+Tab sempre remove (evita ter que usar Backspace, que junta o
+  // parágrafo com o anterior e herda o alinhamento dele).
   useEffect(() => {
     if (!editor) return;
     const handler = (e: KeyboardEvent) => {
-      // eslint-disable-next-line no-console
-      if (e.key === "Tab") {
-        // eslint-disable-next-line no-console
-        console.debug("[TiptapRichText] Tab key pressed inside editor");
-        e.preventDefault();
-        insertParagraphIndent();
-      }
+      if (e.key !== "Tab") return;
+      e.preventDefault();
+      toggleParagraphIndent(e.shiftKey);
     };
     const dom = editor.view?.dom as HTMLElement | undefined;
-    if (dom) {
-      dom.addEventListener("keydown", handler);
-      // eslint-disable-next-line no-console
-      console.debug("[TiptapRichText] attached keydown handler to editor DOM");
-    }
+    dom?.addEventListener("keydown", handler);
     return () => {
-      if (dom) dom.removeEventListener("keydown", handler);
+      dom?.removeEventListener("keydown", handler);
     };
-  }, [editor, insertParagraphIndent]);
+  }, [editor, toggleParagraphIndent]);
 
   const applyFontSize = useCallback(
     (size: string | null) => {
@@ -512,14 +460,14 @@ const TiptapRichText = React.forwardRef<TiptapRichTextHandle, TiptapRichTextProp
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-          {/* Insert indent button: adds an indent token at paragraph start */}
+          {/* Recuo de parágrafo (Tab alterna, Shift+Tab remove) */}
           <Button
             type="button"
-            variant="ghost"
+            variant={editor.isActive("paragraph", { textIndent: INDENT_VALUE }) ? "default" : "ghost"}
             size="sm"
             className={toolbarBtnClass}
-            title="Inserir recuo de parágrafo"
-            onClick={insertParagraphIndent}
+            title="Recuo de parágrafo (Tab alterna · Shift+Tab remove)"
+            onClick={() => toggleParagraphIndent()}
           >
             Tab
           </Button>
@@ -631,10 +579,17 @@ const TiptapRichText = React.forwardRef<TiptapRichTextHandle, TiptapRichTextProp
       )}
 
       <div
-        className="rounded-md border border-border bg-white p-3 shadow-sm prose prose-sm max-w-none"
+        className="flex flex-col rounded-md border border-border bg-white p-3 shadow-sm max-w-none"
         style={{ minHeight }}
       >
-        <EditorContent editor={editor} placeholder={placeholder as any} />
+        <div className="relative flex flex-1 flex-col">
+          {!readOnly && editor.isEmpty && placeholder && (
+            <span className="pointer-events-none absolute left-0 top-0 select-none text-sm text-muted-foreground">
+              {placeholder}
+            </span>
+          )}
+          <EditorContent editor={editor} className="rich-text-editor-content" />
+        </div>
       </div>
     </div>
   );

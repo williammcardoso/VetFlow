@@ -19,6 +19,10 @@ export interface FinancialTransaction {
   saleId?: string; // para recebimentos vinculados a uma venda específica
   supplierCost?: number; // custo do fornecedor/laboratório
   financialFee?: number; // taxa financeira repassada ao cliente
+  discountAmount?: number; // valor do desconto aplicado na venda
+  surchargeAmount?: number; // valor do acréscimo manual aplicado na venda (sem taxa de operadora)
+  cancelReason?: string; // motivo do cancelamento/estorno
+  cancelledAt?: string; // data/hora ISO do cancelamento
 }
 
 export interface OverallFinancialSummary {

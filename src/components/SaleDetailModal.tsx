@@ -4,14 +4,20 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { getSaleItems, SaleItem } from "@/lib/saleItemsApi";
 import type { FinancialTransaction } from "@/mockData/financial";
-import { Banknote, Package, Stethoscope, Loader2, Printer } from "lucide-react";
+import { Banknote, Package, Stethoscope, Loader2, Printer, Ban, Trash2 } from "lucide-react";
 import SaleReceiptPdfContent from "@/components/SaleReceiptPdfContent";
+import SaleCancellationPdfContent from "@/components/SaleCancellationPdfContent";
 import { createPdfBlob, openPdf } from "@/lib/pdfExport";
+import { getReversedAmountForSale } from "@/lib/saleCancellation";
+import { groupRepassesByProvider, resolveCostProvider } from "@/lib/costProviders";
+import { toast } from "sonner";
 
 interface SaleDetailModalProps {
   transaction: FinancialTransaction | null;
   open: boolean;
   onClose: () => void;
+  onRequestCancel?: (sale: FinancialTransaction) => void;
+  onRequestDelete?: (sale: FinancialTransaction) => void;
   clientName?: string;
   clientPhone?: string;
   clientAddress?: string;
@@ -28,6 +34,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   cirurgia: "Cirurgia",
   exame_externo: "Exame Externo",
   exame_interno: "Exame Interno",
+  especialista: "Especialista",
   vacina: "Vacina",
   servico: "Serviço",
   produto: "Produto",
@@ -38,18 +45,19 @@ const statusConfig: Record<string, { label: string; className: string }> = {
   paid:      { label: "Pago",      className: "bg-emerald-100 text-emerald-700 border border-emerald-200" },
   partial:   { label: "Parcial",   className: "bg-blue-100 text-blue-700 border border-blue-200" },
   pending:   { label: "Pendente",  className: "bg-amber-100 text-amber-700 border border-amber-200" },
-  cancelled: { label: "Cancelado", className: "bg-gray-100 text-gray-500 border border-gray-200" },
+  cancelled: { label: "Cancelado", className: "bg-red-100 text-red-700 border border-red-200" },
 };
 
 const SaleDetailModal: React.FC<SaleDetailModalProps> = (props) => {
   const {
-    transaction, open, onClose,
+    transaction, open, onClose, onRequestCancel, onRequestDelete,
     clientName, clientPhone, clientAddress,
     animalName, animalSpecies, animalBreed, animalAge,
   } = props;
   const [items, setItems] = useState<SaleItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [printing, setPrinting] = useState(false);
+  const [printingCancellation, setPrintingCancellation] = useState(false);
 
   useEffect(() => {
     if (!open || !transaction) return;
@@ -59,6 +67,29 @@ const SaleDetailModal: React.FC<SaleDetailModalProps> = (props) => {
       setLoading(false);
     });
   }, [open, transaction]);
+
+  const handlePrintCancellation = async () => {
+    if (!transaction) return;
+    setPrintingCancellation(true);
+    try {
+      const reversedAmount = await getReversedAmountForSale(transaction.id);
+      const blob = await createPdfBlob(
+        <SaleCancellationPdfContent
+          transaction={transaction}
+          items={items}
+          reversedAmount={reversedAmount}
+          clientName={clientName}
+          clientPhone={clientPhone}
+          animalName={animalName}
+        />
+      );
+      await openPdf({ blob, fileName: `estorno-${transaction.id.slice(-8)}.pdf` });
+    } catch {
+      toast.error("Erro ao gerar comprovante de estorno.");
+    } finally {
+      setPrintingCancellation(false);
+    }
+  };
 
   const handlePrint = async (mode: "client" | "internal") => {
     if (!transaction) return;
@@ -101,10 +132,14 @@ const SaleDetailModal: React.FC<SaleDetailModalProps> = (props) => {
     ? Math.round((lucro / transaction.amount) * 100)
     : 0;
   const hasItems = items.length > 0;
+  const repassesByProvider = groupRepassesByProvider(items);
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
-      <DialogContent className="max-w-2xl w-[95vw] max-h-[90vh] overflow-y-auto overflow-x-hidden">
+      {/* min-w-0: DialogContent é grid; sem isso o conteúdo sem quebra
+          (botões, valores) estoura a largura e some atrás da borda direita.
+          O overflow-x-hidden apenas escondia o sintoma. */}
+      <DialogContent className="max-w-2xl w-[95vw] max-h-[90vh] min-w-0 overflow-y-auto overflow-x-hidden">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-base">
             <Banknote className="h-4 w-4 text-[hsl(var(--vf-sales))]" />
@@ -139,21 +174,21 @@ const SaleDetailModal: React.FC<SaleDetailModalProps> = (props) => {
 
           {/* Valores */}
           <div className="grid grid-cols-3 gap-3 rounded-xl bg-muted/40 p-3">
-            <div className="text-center">
+            <div className="min-w-0 text-center">
               <div className="text-xs text-muted-foreground">Total</div>
-              <div className="text-base font-bold text-[hsl(var(--vf-sales))]">
+              <div className="truncate text-base font-bold text-[hsl(var(--vf-sales))]">
                 {fmt(transaction.amount)}
               </div>
             </div>
-            <div className="text-center">
+            <div className="min-w-0 text-center">
               <div className="text-xs text-muted-foreground">Pago</div>
-              <div className="text-base font-bold text-emerald-600">
+              <div className="truncate text-base font-bold text-emerald-600">
                 {fmt(transaction.paidAmount || 0)}
               </div>
             </div>
-            <div className="text-center">
+            <div className="min-w-0 text-center">
               <div className="text-xs text-muted-foreground">Saldo</div>
-              <div className={`text-base font-bold ${saldo > 0 ? "text-amber-600" : "text-gray-400"}`}>
+              <div className={`truncate text-base font-bold ${saldo > 0 ? "text-amber-600" : "text-gray-400"}`}>
                 {fmt(saldo)}
               </div>
             </div>
@@ -194,11 +229,21 @@ const SaleDetailModal: React.FC<SaleDetailModalProps> = (props) => {
                             )}
                             <div>
                               <div className="font-medium">{item.name}</div>
-                              {item.category && (
-                                <div className="text-xs text-muted-foreground">
-                                  {CATEGORY_LABELS[item.category] || item.category}
-                                </div>
-                              )}
+                              <div className="text-xs text-muted-foreground">
+                                {item.category
+                                  ? (CATEGORY_LABELS[item.category] || item.category)
+                                  : null}
+                                {item.cost > 0 && (() => {
+                                  const provider = resolveCostProvider(
+                                    item.costProvider,
+                                    item.category,
+                                    item.cost
+                                  );
+                                  return provider
+                                    ? `${item.category ? " · " : ""}Repasse: ${provider}`
+                                    : null;
+                                })()}
+                              </div>
                             </div>
                           </div>
                         </td>
@@ -225,14 +270,16 @@ const SaleDetailModal: React.FC<SaleDetailModalProps> = (props) => {
                     </tr>
                     {totalCost > 0 && (
                       <>
-                        <tr className="border-t border-border/50">
-                          <td colSpan={3} className="px-3 py-1.5 text-xs text-right text-amber-600">
-                            Repasses (custo fornecedores)
-                          </td>
-                          <td className="px-3 py-1.5 text-right text-xs font-semibold text-amber-600">
-                            − {fmt(totalCost)}
-                          </td>
-                        </tr>
+                        {repassesByProvider.map((row) => (
+                          <tr key={row.provider} className="border-t border-border/50">
+                            <td colSpan={3} className="px-3 py-1.5 text-xs text-right text-amber-600">
+                              Repasse → {row.provider}
+                            </td>
+                            <td className="px-3 py-1.5 text-right text-xs font-semibold text-amber-600">
+                              − {fmt(row.amount)}
+                            </td>
+                          </tr>
+                        ))}
                         <tr>
                           <td colSpan={3} className="px-3 py-1.5 text-xs text-right text-emerald-600">
                             Lucro estimado ({margem}% margem)
@@ -257,7 +304,9 @@ const SaleDetailModal: React.FC<SaleDetailModalProps> = (props) => {
           </div>
 
           {/* Ações */}
-          <div className="flex justify-between items-center pt-2 border-t border-border">
+          {/* flex-wrap: são até 6 ações; em telas menores precisam quebrar
+              em vez de vazar pela direita do modal. */}
+          <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 pt-2 border-t border-border">
             <div>
               {transaction.relatedClientId && transaction.relatedAnimalId && (
                 <Link
@@ -270,7 +319,7 @@ const SaleDetailModal: React.FC<SaleDetailModalProps> = (props) => {
                 </Link>
               )}
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               {saldo > 0 &&
                 (transaction.status || "pending") !== "cancelled" && (
                 <Link
@@ -305,6 +354,40 @@ const SaleDetailModal: React.FC<SaleDetailModalProps> = (props) => {
                 <Printer className="h-3.5 w-3.5" />
                 {printing ? "Gerando..." : "Relatório"}
               </Button>
+              {(transaction.status || "pending") === "cancelled" ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 text-xs rounded-lg gap-1.5 border-red-300 text-red-700 hover:bg-red-50"
+                  onClick={handlePrintCancellation}
+                  disabled={printingCancellation}
+                >
+                  <Printer className="h-3.5 w-3.5" />
+                  {printingCancellation ? "Gerando..." : "Comprovante de estorno"}
+                </Button>
+              ) : (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 text-xs rounded-lg gap-1.5 border-red-300 text-red-700 hover:bg-red-50"
+                  onClick={() => onRequestCancel?.(transaction)}
+                >
+                  <Ban className="h-3.5 w-3.5" />
+                  Cancelar
+                </Button>
+              )}
+              {(transaction.paidAmount || 0) === 0 &&
+               (transaction.status || "pending") !== "cancelled" && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 text-xs rounded-lg gap-1.5 border-red-300 text-red-700 hover:bg-red-50"
+                  onClick={() => onRequestDelete?.(transaction)}
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  Excluir
+                </Button>
+              )}
               <Button
                 variant="outline"
                 size="sm"

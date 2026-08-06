@@ -32,6 +32,7 @@ import { PageHeader } from "@/components/saas/PageHeader";
 import { CalendarDays, ChevronDown } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import StatusBadge from "@/components/saas/StatusBadge";
+import ClientCombobox from "@/components/ClientCombobox";
 
 const AgendaPage = () => {
   const { data: dbClients, isError: isClientsError } = useClientsList();
@@ -605,18 +606,13 @@ const AgendaPage = () => {
               <Label htmlFor="clientSelect" className="text-muted-foreground font-medium">
                 Cliente
               </Label>
-              <Select onValueChange={handleClientChange} value={newAppointmentClientId || undefined}>
-                <SelectTrigger id="clientSelect" className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200">
-                  <SelectValue placeholder="Selecione o cliente" />
-                </SelectTrigger>
-                <SelectContent>
-                  {clients.map((client) => (
-                    <SelectItem key={client.id} value={client.id}>
-                      {client.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <ClientCombobox
+                id="clientSelect"
+                clients={clients}
+                value={newAppointmentClientId || undefined}
+                onChange={(id) => handleClientChange(id ?? "")}
+                className="h-10 bg-input rounded-md"
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="animalSelect" className="text-muted-foreground font-medium">

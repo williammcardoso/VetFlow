@@ -18,6 +18,12 @@ export interface Budget {
   status: BudgetStatus;
   items: BudgetItem[];
   notes?: string;
+  /** Forma de pagamento usada na conversão em venda. */
+  paymentMethod?: string;
+  /** Negociação: abatido do subtotal dos itens. */
+  discountAmount?: number;
+  /** Negociação: somado ao subtotal dos itens. */
+  surchargeAmount?: number;
 }
 
 const STORAGE_KEY = "budgets";

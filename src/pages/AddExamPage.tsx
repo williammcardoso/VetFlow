@@ -9,9 +9,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ExamEntry, BiochemicalEntry } from "@/types/exam";
-import { addMockExam, updateMockExam, mockExams } from "@/mockData/exams";
+import { addExam, updateExam, getExamById } from "@/lib/examsApi";
 import { hemogramReferences } from "@/constants/examReferences";
 import { useClientWithAnimals } from "@/hooks/useSupabaseClients";
+import { useSystemVets } from "@/hooks/useSystemVets";
 
 // Tipos de exame
 const mockExamTypes = [
@@ -24,11 +25,6 @@ const mockExamTypes = [
   { id: "7", name: "Outro" },
 ];
 
-const mockVets = [
-  { id: "1", name: "Dr. Silva" },
-  { id: "2", name: "Dra. Costa" },
-  { id: "3", name: "Dr. Souza" },
-];
 
 // Analitos/Enzimas comuns em rotina (cães e gatos)
 const biochemicalEnzymeOptions = [
@@ -146,9 +142,15 @@ const AddExamPage = () => {
 
   const isEditing = !!examId;
 
+  const { vets: systemVets } = useSystemVets();
   const { data: currentClient } = useClientWithAnimals(clientId);
   const currentAnimal = currentClient?.animals.find(a => a.id === animalId); // Corrigido para encontrar o animal corretamente
   const animalSpecies = currentAnimal?.species === "Canino" ? "dog" : currentAnimal?.species === "Felino" ? "cat" : undefined;
+
+  // Exame carregado do banco (modo edição). Substitui a busca no array em
+  // memória, que não sobrevivia a um reload da página.
+  const [loadedExam, setLoadedExam] = useState<ExamEntry | null>(null);
+  const [saving, setSaving] = useState(false);
 
   // Estado principal
   const [examDate, setExamDate] = useState<string>(new Date().toISOString().split('T')[0]);
@@ -266,8 +268,12 @@ const AddExamPage = () => {
 
   // Carregar dados ao editar
   useEffect(() => {
+    let cancelled = false;
     if (isEditing && examId) {
-      const examToEdit = mockExams.find(e => e.id === examId);
+      void (async () => {
+      const examToEdit = await getExamById(examId);
+      if (cancelled) return;
+      setLoadedExam(examToEdit);
       if (examToEdit) {
         setExamDate(examToEdit.date);
         setExamTime(examToEdit.time || new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
@@ -315,18 +321,23 @@ const AddExamPage = () => {
         toast.error("Exame não encontrado para edição.");
         navigate(`/clients/${clientId}/animals/${animalId}/record`);
       }
+      })();
     } else {
+      setLoadedExam(null);
       resetExamSpecificFields();
       setExamDate(new Date().toISOString().split('T')[0]);
       setExamTime(new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
       setExamType(undefined);
       setExamVet(undefined);
     }
+    return () => {
+      cancelled = true;
+    };
   }, [isEditing, examId, clientId, animalId, navigate]);
 
   // Reset ao trocar tipo
   useEffect(() => {
-    if (!isEditing || (isEditing && examType !== mockExams.find(e => e.id === examId)?.type)) {
+    if (!isEditing || (isEditing && examType !== loadedExam?.type)) {
       resetExamSpecificFields();
       if (examType === "Hemograma Completo") {
         setMaterial("SANGUE COM E.D.T.A.");
@@ -337,7 +348,7 @@ const AddExamPage = () => {
         setBioEquipment("Bioclin 2200");
       }
     }
-  }, [examType, isEditing, examId]);
+  }, [examType, isEditing, examId, loadedExam]);
 
   const getReference = (param: string, type?: 'relative' | 'absolute' | 'full') => {
     if (!animalSpecies || !hemogramReferences[param]) return "N/A";
@@ -395,7 +406,7 @@ const AddExamPage = () => {
     );
   };
 
-  const handleSaveExam = () => {
+  const handleSaveExam = async () => {
     if (!examDate || !examTime || !examType || !examVet) {
       toast.error("Por favor, preencha a data, hora, tipo de exame e veterinário.");
       return;
@@ -408,6 +419,9 @@ const AddExamPage = () => {
 
     const examData: ExamEntry = {
       id: examId || `exam-${Date.now()}`,
+      // Sem animalId a API grava animal_id = null e o exame nunca aparece
+      // no prontuário do paciente (getExams filtra por animal_id).
+      animalId,
       date: examDate,
       time: examTime,
       type: examType,
@@ -461,14 +475,31 @@ const AddExamPage = () => {
       examData.result = examResult.trim() || undefined;
     }
 
-    if (isEditing && examId) {
-      updateMockExam(examData);
-      toast.success("Exame atualizado com sucesso!");
-    } else {
-      addMockExam(examData);
-      toast.success("Exame salvo com sucesso!");
+    setSaving(true);
+    try {
+      if (isEditing && examId) {
+        const ok = await updateExam(examData);
+        if (!ok) {
+          toast.error("Falha ao atualizar o exame. Tente novamente.");
+          return;
+        }
+        toast.success("Exame atualizado com sucesso!");
+      } else {
+        // A API gera o id; o do examData é descartado no insert.
+        const { id: _generatedId, ...entry } = examData;
+        const created = await addExam(entry);
+        if (!created) {
+          toast.error("Falha ao salvar o exame. Tente novamente.");
+          return;
+        }
+        toast.success("Exame salvo com sucesso!");
+      }
+      navigate(`/clients/${clientId}/animals/${animalId}/record`);
+    } catch {
+      toast.error("Erro ao salvar o exame.");
+    } finally {
+      setSaving(false);
     }
-    navigate(`/clients/${clientId}/animals/${animalId}/record`);
   };
 
   const pageTitle = isEditing ? "Editar Exame" : "Adicionar Exame";
@@ -547,11 +578,17 @@ const AddExamPage = () => {
                     <SelectValue placeholder="Selecione o veterinário" />
                   </SelectTrigger>
                   <SelectContent>
-                    {mockVets.map((vet) => (
-                      <SelectItem key={vet.id} value={vet.name}>
-                        {vet.name}
+                    {systemVets.length > 0 ? (
+                      systemVets.map((vetName) => (
+                        <SelectItem key={vetName} value={vetName}>
+                          {vetName}
+                        </SelectItem>
+                      ))
+                    ) : (
+                      <SelectItem value="__none" disabled>
+                        Complete seu nome em Configuração › Usuários
                       </SelectItem>
-                    ))}
+                    )}
                   </SelectContent>
                 </Select>
               </div>
@@ -1028,8 +1065,8 @@ const AddExamPage = () => {
               <FaTimes className="mr-2 h-4 w-4" /> Cancelar
             </Button>
           </Link>
-          <Button onClick={handleSaveExam} disabled={!examType} className="w-full sm:w-auto rounded-md bg-[hsl(var(--vf-clinical))] font-semibold text-white transition-all duration-200 shadow-md hover:bg-[hsl(var(--vf-clinical)/0.9)] hover:shadow-lg">
-            <FaSave className="mr-2 h-4 w-4" /> Salvar Exame
+          <Button onClick={handleSaveExam} disabled={!examType || saving} className="w-full sm:w-auto rounded-md bg-[hsl(var(--vf-clinical))] font-semibold text-white transition-all duration-200 shadow-md hover:bg-[hsl(var(--vf-clinical)/0.9)] hover:shadow-lg">
+            <FaSave className="mr-2 h-4 w-4" /> {saving ? "Salvando..." : "Salvar Exame"}
           </Button>
         </div>
       </div>

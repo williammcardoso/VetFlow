@@ -3,6 +3,8 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
+import { generateUUID } from "@/lib/utils";
+import { useSystemVets } from "@/hooks/useSystemVets";
 
 import SaasButton from "@/components/saas/SaasButton";
 import { Button } from "@/components/ui/button";
@@ -63,11 +65,6 @@ interface AppointmentFormProps {
   animalSpecies?: string;
 }
 
-const mockVets = [
-  { id: "1", name: "Dr. William Cardoso" },
-  { id: "2", name: "Dra. Ana Paula" },
-  { id: "3", name: "Dr. Carlos Eduardo" },
-];
 
 const VACCINE_NAME_OPTIONS = [
   "V8 (Óctupla)",
@@ -182,6 +179,7 @@ export default function AppointmentForm({
   animalSpecies,
 }: AppointmentFormProps) {
   const [searchParams] = useSearchParams();
+  const { vets: systemVets } = useSystemVets();
   const { list: vaccinesList } = useRegistryList("vaccines");
   const { list: appointmentTypesList } = useRegistryList("appointmentTypes");
 
@@ -212,12 +210,12 @@ export default function AppointmentForm({
     else if (typeof sessionStorage !== "undefined") {
       let sid = sessionStorage.getItem(sessionDraftStorageKey);
       if (!sid) {
-        sid = `draft-${crypto.randomUUID()}`;
+        sid = `draft-${generateUUID()}`;
         sessionStorage.setItem(sessionDraftStorageKey, sid);
       }
       draftIdRef.current = sid;
     } else {
-      draftIdRef.current = `draft-${crypto.randomUUID()}`;
+      draftIdRef.current = `draft-${generateUUID()}`;
     }
   }
 
@@ -231,6 +229,16 @@ export default function AppointmentForm({
   const [administrativeNote, setAdministrativeNote] = useState(
     initialData?.observacoesGerais || ""
   );
+
+  // Assim que o perfil carrega, assume o nome real do veterinário logado.
+  // Só substitui campo vazio ou o nome fixo antigo de mockData/settings —
+  // nunca sobrescreve o que o usuário digitou ou um atendimento em edição.
+  useEffect(() => {
+    if (initialData?.vet) return;
+    const primary = systemVets[0];
+    if (!primary) return;
+    setVet((current) => (!current || current === mockUserSettings.userName ? primary : current));
+  }, [systemVets, initialData?.vet]);
 
   // Sinais vitais/medidas
   const [pesoAtual, setPesoAtual] = useState<number | "">(initialData?.pesoAtual ?? "");
@@ -1333,8 +1341,8 @@ export default function AppointmentForm({
               required
             />
             <datalist id="systemvet-vets">
-              {mockVets.map((v) => (
-                <option key={v.id} value={v.name} />
+              {systemVets.map((v) => (
+                <option key={v} value={v} />
               ))}
             </datalist>
             <p className="text-xs text-muted-foreground">Padrão: usuário logado. Você pode trocar manualmente.</p>

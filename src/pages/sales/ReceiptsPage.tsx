@@ -326,11 +326,13 @@ const ReceiptsPage = () => {
           </div>
         ) : (
           <div className="space-y-2">
-            {receipts.map(rec => (
+            {receipts.map(rec => {
+              const isReversal = rec.amount < 0;
+              return (
               <div key={rec.id} className="flex items-center justify-between rounded-xl border border-border bg-card px-4 py-3 shadow-sm hover:shadow-md transition-shadow">
                 <div className="flex items-center gap-3 min-w-0">
-                  <div className="h-9 w-9 shrink-0 rounded-xl bg-emerald-50 flex items-center justify-center">
-                    <Banknote className="h-4 w-4 text-emerald-600" />
+                  <div className={`h-9 w-9 shrink-0 rounded-xl flex items-center justify-center ${isReversal ? "bg-red-50" : "bg-emerald-50"}`}>
+                    <Banknote className={`h-4 w-4 ${isReversal ? "text-red-600" : "text-emerald-600"}`} />
                   </div>
                   <div className="min-w-0">
                     <p className="text-sm font-semibold text-foreground truncate max-w-[320px]">
@@ -360,7 +362,7 @@ const ReceiptsPage = () => {
                   </div>
                 </div>
                 <div className="flex items-center gap-3 shrink-0">
-                  <span className="text-base font-bold text-emerald-600">
+                  <span className={`text-base font-bold ${isReversal ? "text-red-600" : "text-emerald-600"}`}>
                     {new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(rec.amount)}
                   </span>
                   {rec.relatedClientId && rec.relatedAnimalId && (
@@ -376,7 +378,8 @@ const ReceiptsPage = () => {
                   )}
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </SectionCard>

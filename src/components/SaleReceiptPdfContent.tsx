@@ -3,12 +3,13 @@ import { Document, Page, Text, View, StyleSheet, Font } from "@react-pdf/rendere
 import { mockCompanySettings, mockUserSettings } from "@/mockData/settings";
 import type { FinancialTransaction } from "@/mockData/financial";
 import type { SaleItem } from "@/lib/saleItemsApi";
+import { groupRepassesByProvider } from "@/lib/costProviders";
 
 Font.register({
-  family: "Exo",
+  family: "Inter",
   fonts: [
-    { src: "https://github.com/google/fonts/raw/main/ofl/exo2/Exo2-Regular.ttf", fontWeight: 400 },
-    { src: "https://github.com/google/fonts/raw/main/ofl/exo2/Exo2-Bold.ttf", fontWeight: 700 },
+    { src: "/fonts/Inter-Regular.ttf", fontWeight: 400 },
+    { src: "/fonts/Inter-Bold.ttf", fontWeight: 700 },
   ],
 });
 Font.registerHyphenationCallback((word) => [word]);
@@ -27,7 +28,7 @@ const base = StyleSheet.create({
   page: {
     padding: 48,
     paddingBottom: 64,
-    fontFamily: "Exo",
+    fontFamily: "Inter",
     fontSize: 10,
     color: DARK,
     backgroundColor: WHITE,
@@ -235,7 +236,7 @@ const STATUS: Record<string, { label: string; color: string; dot: string }> = {
   paid:      { label: "Pago",      color: "#059669", dot: "#059669" },
   partial:   { label: "Parcial",   color: "#2563EB", dot: "#2563EB" },
   pending:   { label: "Pendente",  color: "#D97706", dot: "#D97706" },
-  cancelled: { label: "Cancelado", color: SLATE,     dot: SLATE     },
+  cancelled: { label: "Cancelado", color: "#DC2626", dot: "#DC2626" },
 };
 
 export interface SaleReceiptPdfContentProps {
@@ -274,7 +275,14 @@ const SaleReceiptPdfContent: React.FC<SaleReceiptPdfContentProps> = (props) => {
   const totalCost = items.reduce((s, i) => s + i.cost * i.quantity, 0);
   const lucro = total - totalCost;
   const margem = total > 0 ? Math.round((lucro / total) * 100) : 0;
+  const repassesByProvider = groupRepassesByProvider(items);
   const st = STATUS[transaction.status || "pending"] || STATUS.pending;
+
+  const itemsSubtotal = items.reduce((s, i) => s + i.subtotal, 0);
+  const discountAmount = transaction.discountAmount || 0;
+  const surchargeAmount = transaction.surchargeAmount || 0;
+  const operatorFee = transaction.financialFee || 0;
+  const hasBreakdown = discountAmount > 0 || surchargeAmount > 0 || operatorFee > 0;
 
   return (
     <Document>
@@ -382,32 +390,55 @@ const SaleReceiptPdfContent: React.FC<SaleReceiptPdfContentProps> = (props) => {
                 <Text style={base.tdSub}>{fmt(item.subtotal)}</Text>
               </View>
             ))}
+          </View>
+        )}
 
-            {/* Linha TOTAL colada na tabela */}
-            {isInternal && totalCost > 0 && (
-              <>
-                <View style={{ flexDirection: "row", paddingVertical: 3, paddingHorizontal: 0, borderBottomWidth: 1, borderBottomColor: BORDER }}>
-                  <Text style={{ flex: 1, fontSize: 8.5, color: AMBER }}></Text>
-                  <Text style={{ width: 75, fontSize: 8.5, color: GRAY }}></Text>
-                  <Text style={{ width: 28 }}></Text>
-                  <Text style={{ width: 68, textAlign: "right", fontSize: 8.5, color: AMBER }}>- {fmt(totalCost)}</Text>
-                  <Text style={{ width: 75, textAlign: "right", fontSize: 8, color: AMBER }}>Repasse</Text>
+        {/* Composicao do valor (desconto, acrescimo, taxa, repasse, total) */}
+        {items.length > 0 && (
+          <View style={base.totalsOuter}>
+            <View style={base.totalsInner}>
+              {(hasBreakdown || (isInternal && totalCost > 0)) && (
+                <View style={base.totalLine}>
+                  <Text style={base.tlLabel}>Subtotal dos itens</Text>
+                  <Text style={base.tlValue}>{fmt(itemsSubtotal)}</Text>
                 </View>
-                <View style={{ flexDirection: "row", paddingVertical: 3, paddingHorizontal: 0, borderBottomWidth: 1, borderBottomColor: BORDER }}>
-                  <Text style={{ flex: 1, fontSize: 8.5, color: EMERALD }}></Text>
-                  <Text style={{ width: 75 }}></Text>
-                  <Text style={{ width: 28 }}></Text>
-                  <Text style={{ width: 68, textAlign: "right", fontSize: 8.5, color: EMERALD }}>{margem}%</Text>
-                  <Text style={{ width: 75, textAlign: "right", fontSize: 8, color: EMERALD }}>Lucro</Text>
+              )}
+              {discountAmount > 0 && (
+                <View style={base.totalLine}>
+                  <Text style={base.tlLabelAmber}>Desconto</Text>
+                  <Text style={base.tlValueAmber}>- {fmt(discountAmount)}</Text>
                 </View>
-              </>
-            )}
-            <View style={{ flexDirection: "row", paddingVertical: 6, borderTopWidth: 2, borderTopColor: TEAL, marginTop: 1 }}>
-              <Text style={{ flex: 1 }}></Text>
-              <Text style={{ width: 75 }}></Text>
-              <Text style={{ width: 28 }}></Text>
-              <Text style={{ width: 68, textAlign: "right", fontSize: 11, fontWeight: 700, color: TEAL }}>TOTAL</Text>
-              <Text style={{ width: 75, textAlign: "right", fontSize: 11, fontWeight: 700, color: TEAL }}>{fmt(total)}</Text>
+              )}
+              {surchargeAmount > 0 && (
+                <View style={base.totalLine}>
+                  <Text style={base.tlLabel}>Acrescimo</Text>
+                  <Text style={base.tlValue}>+ {fmt(surchargeAmount)}</Text>
+                </View>
+              )}
+              {operatorFee > 0 && (
+                <View style={base.totalLine}>
+                  <Text style={base.tlLabel}>Taxa de operadora</Text>
+                  <Text style={base.tlValue}>+ {fmt(operatorFee)}</Text>
+                </View>
+              )}
+              {isInternal && totalCost > 0 && (
+                <>
+                  {repassesByProvider.map((row) => (
+                    <View key={row.provider} style={base.totalLine}>
+                      <Text style={base.tlLabelAmber}>Repasse → {row.provider}</Text>
+                      <Text style={base.tlValueAmber}>- {fmt(row.amount)}</Text>
+                    </View>
+                  ))}
+                  <View style={base.totalLine}>
+                    <Text style={base.tlLabelGreen}>Lucro estimado ({margem}%)</Text>
+                    <Text style={base.tlValueGreen}>{fmt(lucro)}</Text>
+                  </View>
+                </>
+              )}
+              <View style={base.totalLineHighlight}>
+                <Text style={base.tlLabelHL}>TOTAL</Text>
+                <Text style={base.tlValueHL}>{fmt(total)}</Text>
+              </View>
             </View>
           </View>
         )}

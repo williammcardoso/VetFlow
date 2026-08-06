@@ -1,5 +1,8 @@
 export interface ExamEntry {
   id: string;
+  /** Paciente dono do exame. `examsApi.examToRow` mapeia para a coluna
+   *  `animal_id`, usada por `getExams(animalId)` para montar o prontuário. */
+  animalId?: string;
   date: string;
   time: string;
   type: string; // Ex: "Hemograma Completo", "Exame de Fezes", "Bioquímico"

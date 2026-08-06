@@ -48,7 +48,7 @@ function withDefaultTemplateTypography(html: string): string {
     const hasFontFamily = /font-family\s*:/i.test(style);
     const hasFontSize = /font-size\s*:/i.test(style);
     let next = style;
-    if (!hasFontFamily) next = `${next}${next ? ";" : ""} font-family: Exo`;
+    if (!hasFontFamily) next = `${next}${next ? ";" : ""} font-family: Inter`;
     if (!hasFontSize) next = `${next}${next ? ";" : ""} font-size: 12px`;
     return next.trim();
   };
@@ -66,7 +66,7 @@ function withDefaultTemplateTypography(html: string): string {
     }
   );
 
-  return `<div data-default-typography="1" style="font-family: Exo; font-size: 12px;">${styled}</div>`;
+  return `<div data-default-typography="1" style="font-family: Inter; font-size: 12px;">${styled}</div>`;
 }
 
 

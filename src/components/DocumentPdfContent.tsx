@@ -4,23 +4,23 @@ import Html from "react-pdf-html";
 import { mockCompanySettings, mockUserSettings } from "@/mockData/settings";
 
 Font.register({
-  family: "Exo",
+  family: "Inter",
   fonts: [
     {
-      src: "https://github.com/google/fonts/raw/main/ofl/exo2/Exo2-Regular.ttf",
+      src: "/fonts/Inter-Regular.ttf",
       fontWeight: 400,
     },
     {
-      src: "https://github.com/google/fonts/raw/main/ofl/exo2/Exo2-Bold.ttf",
+      src: "/fonts/Inter-Bold.ttf",
       fontWeight: 700,
     },
     {
-      src: "https://github.com/google/fonts/raw/main/ofl/exo2/Exo2-Italic.ttf",
+      src: "/fonts/Inter-Italic.ttf",
       fontWeight: 400,
       fontStyle: "italic",
     },
     {
-      src: "https://github.com/google/fonts/raw/main/ofl/exo2/Exo2-BoldItalic.ttf",
+      src: "/fonts/Inter-BoldItalic.ttf",
       fontWeight: 700,
       fontStyle: "italic",
     },
@@ -30,7 +30,7 @@ Font.register({
 const styles = StyleSheet.create({
   page: {
     padding: 30,
-    fontFamily: "Exo",
+    fontFamily: "Inter",
     fontSize: 12,
     color: "#333",
   },
@@ -70,7 +70,7 @@ const htmlStyles: Record<string, any> = {
     fontSize: 11,
     color: "#333333",
     lineHeight: 1.4,
-    fontFamily: "Helvetica",
+    fontFamily: "Inter",
   },
   p: {
     marginTop: 0,
@@ -147,17 +147,110 @@ const htmlStyles: Record<string, any> = {
   },
 };
 
+// Normaliza as "linhas em branco" do editor para o PDF, em duas frentes:
+//
+// 1. <br> no FIM de um parágrafo (ex.: `...5.5<br></span></p>`, criado por
+//    Shift+Enter): o navegador desenha uma linha vazia extra, mas o \n que o
+//    react-pdf-html gera para <br> não produz altura no fim de um bloco.
+//    Cada <br> final é removido e vira um <p class="pdf-blank-line"> logo
+//    após o parágrafo. <br> no MEIO do texto fica intacto (quebra normal).
+//
+// 2. Parágrafos sem texto visível recebem a classe pdf-blank-line. O
+//    react-pdf-html decodifica &nbsp; para espaço comum e descarta strings
+//    só-whitespace, então texto não dá altura — a altura vem do seletor
+//    `.pdf-blank-line` no stylesheet (height = uma linha de texto).
+//
+// Usa DOMParser em vez de regex porque o editor serializa esses casos de
+// várias formas: <p></p>, <p><br></p>, <br class="...">, spans vazios
+// aninhados, com ou sem atributos no <p>.
+function markBlankParagraphs(html: string): string {
+  if (typeof DOMParser === "undefined") return html;
+  try {
+    const doc = new DOMParser().parseFromString(`<div id="__pdf_root">${html}</div>`, "text/html");
+    const root = doc.getElementById("__pdf_root");
+    if (!root) return html;
+
+    const visibleText = (node: Node | null): string =>
+      (node?.textContent || "").replace(/\u00a0/g, " ").trim();
+
+    // Último <br> "efetivo" do parágrafo: desce por wrappers inline (span,
+    // strong...) ignorando text nodes vazios; null se o parágrafo não
+    // termina em <br>.
+    const lastEffectiveBr = (el: Element): Element | null => {
+      let node: ChildNode | null = el.lastChild;
+      while (node) {
+        if (node.nodeType === Node.TEXT_NODE) {
+          if (visibleText(node) !== "") return null;
+          node = node.previousSibling;
+          continue;
+        }
+        if (node.nodeType === Node.ELEMENT_NODE) {
+          const elem = node as Element;
+          if (elem.tagName === "BR") return elem;
+          if (elem.childNodes.length > 0) {
+            node = elem.lastChild;
+            continue;
+          }
+          // wrapper vazio (ex.: <span></span>) — olha o irmão anterior
+          node = elem.previousSibling;
+          continue;
+        }
+        node = node.previousSibling;
+      }
+      return null;
+    };
+
+    root.querySelectorAll("p").forEach((p) => {
+      let extras = 0;
+      let br = lastEffectiveBr(p);
+      while (br) {
+        br.remove();
+        extras++;
+        br = lastEffectiveBr(p);
+      }
+      // Parágrafo com texto + N breaks finais: cada break vira uma linha em
+      // branco depois dele. Se ficou vazio (era só <br>), o passo de
+      // parágrafos vazios abaixo já o marca — não duplicar.
+      if (extras > 0 && visibleText(p) !== "") {
+        for (let i = 0; i < extras; i++) {
+          const blank = doc.createElement("p");
+          blank.setAttribute("class", "pdf-blank-line");
+          p.after(blank);
+        }
+      }
+    });
+
+    root.querySelectorAll("p, div").forEach((el) => {
+      const text = (el.textContent || "").replace(/\u00a0/g, " ").trim();
+      // Só converte folhas: um wrapper com <p>/<div> dentro não pode virar
+      // linha em branco (colapsaria várias linhas vazias em uma só).
+      if (text === "" && !el.querySelector("img, table, ul, ol, li, hr, p, div")) {
+        // O react-pdf-html decodifica &nbsp; para espaço comum e DESCARTA
+        // strings só-whitespace (ltrim + `if (element === '') return`), então
+        // texto não dá altura à linha. A altura vem do seletor
+        // `.pdf-blank-line` no stylesheet (height = uma linha de texto).
+        el.innerHTML = "";
+        el.setAttribute("class", `${el.getAttribute("class") || ""} pdf-blank-line`.trim());
+      }
+    });
+    return root.innerHTML;
+  } catch {
+    return html;
+  }
+}
+
 function normalizeHtmlForPdf(html: string): string {
   if (!html) return "";
 
   const normalizeFontFamilyValue = (raw: string) => {
     const family = raw.replace(/["']/g, "").split(",")[0].trim().toLowerCase();
-    
+
     if (family.includes("courier") || family.includes("mono")) return "Courier";
     if (family.includes("times") || family.includes("serif")) return "Times-Roman";
-    if (family.includes("arial") || family.includes("helvetica") || family.includes("sans")) return "Helvetica";
-    
-    return "Exo";
+    // Arial/Helvetica/sans caem em Inter: é a única família sans com variante
+    // bold registrada no react-pdf — Helvetica embutida ignoraria
+    // fontWeight: 700 e o negrito sumiria dentro desses trechos.
+    return "Inter";
   };
 
   // Normalize font-family declarations to built-in react-pdf families.
@@ -277,8 +370,11 @@ function normalizeHtmlForPdf(html: string): string {
       .join("");
   };
 
-  // Remove parágrafos vazios (sem texto nem elementos filhos com conteúdo)
-  normalized = normalized.replace(/<(p|div)[^>]*>\s*<\/(p|div)>/gi, "");
+  // Parágrafos vazios são linhas em branco INTENCIONAIS do editor (ex.: o espaço
+  // antes da assinatura ou entre seções). Antes eram removidos, o que fazia o PDF
+  // sair mais "colado" que o editor. Recebem a classe pdf-blank-line, que ganha
+  // altura de uma linha no stylesheet do PDF — mantendo o WYSIWYG.
+  normalized = markBlankParagraphs(normalized);
 
   normalized = normalized.replace(/<ul[^>]*>([\s\S]*?)<\/ul>/gi, (_m, inner) => normalizeList(String(inner), false));
   normalized = normalized.replace(/<ol[^>]*>([\s\S]*?)<\/ol>/gi, (_m, inner) => normalizeList(String(inner), true));
@@ -326,8 +422,6 @@ interface DocumentPdfContentProps {
 }
 const DocumentPdfContent: React.FC<DocumentPdfContentProps> = ({ documentName, content, forceFontSize, forceCompact }) => {
   const normalizedHtml = normalizeHtmlForPdf(content || "");
-  console.log("[PDF DEBUG] content recebido:", content?.slice(0, 500));
-  console.log("[PDF DEBUG] normalizedHtml:", normalizedHtml?.slice(0, 500));
   const baseFontSize = Number(htmlStyles.body?.fontSize) || 11;
 
   // We only apply compact rendering when explicitly requested via forceCompact
@@ -412,12 +506,13 @@ const DocumentPdfContent: React.FC<DocumentPdfContentProps> = ({ documentName, c
       fontSize: finalFontSize,
       lineHeight: computedLineHeight,
     },
+    // Linha em branco intencional do editor (ver blankParagraphsToNbsp):
+    // altura fixa de uma linha de texto, já que o react-pdf-html descarta
+    // conteúdo só-whitespace e um <p> vazio teria altura ~zero.
+    ".pdf-blank-line": {
+      height: Math.max(8, Math.round(finalFontSize * computedLineHeight * 100) / 100),
+    },
   };
-  // Debugging info to help tune sizing at runtime
-  try {
-    // eslint-disable-next-line no-console
-    console.debug("[DocumentPdfContent] baseFontSize:", baseFontSize, "pagesDefault:", pagesDefault, "finalFontSize:", finalFontSize, "scale:", scale, "normalizedLen:", normalizedHtml.length);
-  } catch {}
   // If we are forcing a different font size (probe/compact), scale inline font-size declarations
   // in the normalized HTML so the body actually shrinks (inline styles otherwise override body).
   let contentHtml = normalizedHtml;
@@ -436,11 +531,8 @@ const DocumentPdfContent: React.FC<DocumentPdfContentProps> = ({ documentName, c
         const next = Math.max(6, Math.round(pt * scale * 100) / 100);
         return `font-size: ${next}pt`;
       });
-      // eslint-disable-next-line no-console
-      console.debug("[DocumentPdfContent] applied inline font-size scaling, newLen:", contentHtml.length);
-    } catch (e) {
-      // eslint-disable-next-line no-console
-      console.debug("[DocumentPdfContent] scale inline error:", e);
+    } catch {
+      // mantém o HTML sem escala se a substituição falhar
     }
   }
   return (
@@ -468,7 +560,24 @@ const DocumentPdfContent: React.FC<DocumentPdfContentProps> = ({ documentName, c
         {/* removed practitioner line (do not display user name/crmv above title) */}
 
         <View style={styles.bodyWrapper}>
-          <Html resetStyles stylesheet={htmlSheet}>
+          {/* O style aqui é obrigatório: sem ele o react-pdf-html usa
+              defaultFontSize = 18 no View raiz, e todo texto sem font-size
+              inline (ex.: itens de lista) herda 18 em vez do corpo do
+              documento. O seletor "body" do stylesheet nunca casa, porque o
+              conteúdo é um <div> sem <body>. */}
+          <Html
+            resetStyles
+            stylesheet={htmlSheet}
+            style={{
+              fontSize: finalFontSize,
+              lineHeight: computedLineHeight,
+              // Inter é a única família com variante bold REGISTRADA
+              // (Font.register no topo). Helvetica embutida não resolve
+              // fontWeight: 700 no react-pdf — o negrito some.
+              fontFamily: "Inter",
+              color: "#333333",
+            }}
+          >
             {`<div>${contentHtml}</div>`}
           </Html>
         </View>

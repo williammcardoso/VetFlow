@@ -2,7 +2,10 @@
 
 import React, { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import { toast } from "sonner";
 import SaasButton from "@/components/saas/SaasButton";
+import AppointmentPdfContent from "@/components/AppointmentPdfContent";
+import { createPdfBlob, openPdf } from "@/lib/pdfExport";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -15,6 +18,7 @@ import {
   ArrowLeft,
   Clipboard,
   Edit,
+  FileText,
   Scissors,
   Stethoscope,
 } from "lucide-react";
@@ -52,9 +56,21 @@ const renderField = (label: string, value: any) => {
         : "Não"
       : String(value);
 
+  const isMultiline = text.includes("\n");
+
+  if (isMultiline) {
+    return (
+      <div className="text-sm">
+        <div className="font-medium text-foreground mb-0.5">{label}</div>
+        <div className="text-muted-foreground whitespace-pre-wrap">{text}</div>
+      </div>
+    );
+  }
+
   return (
     <div className="text-sm text-muted-foreground">
-      <span className="font-medium text-foreground">{label}:</span> {text}
+      <span className="font-medium text-foreground">{label}:</span>{" "}
+      <span className="whitespace-pre-wrap">{text}</span>
     </div>
   );
 };
@@ -81,6 +97,7 @@ export default function AppointmentViewPage() {
   const [loadingAppointment, setLoadingAppointment] = useState(true);
   const [originAppointment, setOriginAppointment] = useState<AppointmentEntry | null>(null);
   const [originResolved, setOriginResolved] = useState(false);
+  const [generatingPdf, setGeneratingPdf] = useState(false);
 
   useEffect(() => {
     if (!appointmentId || !animalId) {
@@ -156,6 +173,29 @@ export default function AppointmentViewPage() {
       </div>
     );
   }
+
+  const handleGeneratePdf = async () => {
+    setGeneratingPdf(true);
+    try {
+      const blob = await createPdfBlob(
+        <AppointmentPdfContent
+          appointment={appointment}
+          clientName={client.name}
+          animalName={animal.name}
+          animalSpecies={animal.species}
+        />
+      );
+      await openPdf({
+        blob,
+        fileName: `atendimento_${animal.name}_${appointment.date}.pdf`,
+        persistOptions: { folder: "appointments" },
+      });
+    } catch {
+      toast.error("Erro ao gerar PDF do atendimento.");
+    } finally {
+      setGeneratingPdf(false);
+    }
+  };
 
   const renderTypeDetails = () => {
     if (appointment.type === "Consulta" || appointment.type === "Consulta (Modelo Antigo)") {
@@ -420,6 +460,14 @@ export default function AppointmentViewPage() {
           </div>
 
           <div className="flex flex-wrap gap-2">
+            <SaasButton
+              saasVariant="outline"
+              onClick={handleGeneratePdf}
+              disabled={generatingPdf}
+            >
+              <FileText className="mr-2 h-4 w-4" />
+              {generatingPdf ? "Gerando..." : "Gerar PDF"}
+            </SaasButton>
             <SaasButton
               saasVariant="outline"
               onClick={() =>

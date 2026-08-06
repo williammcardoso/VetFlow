@@ -7,8 +7,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { useFinancialTransactions } from "@/hooks/useFinancialTransactions";
-import { updateFinancialTransaction } from "@/lib/financialApi";
-import { toast } from "sonner";
 import { useClientsList } from "@/hooks/useSupabaseClients";
 import { PageShell } from "@/components/saas/PageShell";
 import { PageHeader } from "@/components/saas/PageHeader";
@@ -16,6 +14,9 @@ import { SectionCard } from "@/components/saas/SectionCard";
 import { ToolbarRow } from "@/components/saas/ToolbarRow";
 import { ShoppingCart, Sparkles, Filter, ArrowLeft } from "lucide-react";
 import SaleDetailModal from "@/components/SaleDetailModal";
+import CancelSaleDialog from "@/components/CancelSaleDialog";
+import ClientCombobox from "@/components/ClientCombobox";
+import DeleteSaleDialog from "@/components/DeleteSaleDialog";
 import type { FinancialTransaction } from "@/mockData/financial";
 
 const SalesPage = () => {
@@ -30,6 +31,8 @@ const SalesPage = () => {
   const [paymentMethod, setPaymentMethod] = React.useState<string | undefined>(undefined);
   const [status, setStatus] = React.useState<'paid' | 'partial' | 'pending' | 'cancelled' | 'all'>('all');
   const [selectedSale, setSelectedSale] = React.useState<FinancialTransaction | null>(null);
+  const [saleToCancel, setSaleToCancel] = React.useState<FinancialTransaction | null>(null);
+  const [saleToDelete, setSaleToDelete] = React.useState<FinancialTransaction | null>(null);
 
   const paymentMethods = React.useMemo(() => {
     const pmList = Array.from(new Set(mockFinancialTransactions
@@ -83,21 +86,11 @@ const SalesPage = () => {
     paid:      { label: 'Pago',      className: 'bg-emerald-100 text-emerald-700 border border-emerald-200' },
     partial:   { label: 'Parcial',   className: 'bg-blue-100 text-blue-700 border border-blue-200' },
     pending:   { label: 'Pendente',  className: 'bg-amber-100 text-amber-700 border border-amber-200' },
-    cancelled: { label: 'Cancelado', className: 'bg-gray-100 text-gray-500 border border-gray-200' },
+    cancelled: { label: 'Cancelado', className: 'bg-red-100 text-red-700 border border-red-200' },
   };
 
   const getClientName = (clientId?: string) =>
     clientId ? (clients.find(c => c.id === clientId)?.name || undefined) : undefined;
-
-  const cancelSale = async (id: string) => {
-    const ok = await updateFinancialTransaction(id, { status: 'cancelled' });
-    if (ok) {
-      toast.success("Venda cancelada.");
-      await refetch();
-    } else {
-      toast.error("Falha ao cancelar venda.");
-    }
-  };
 
   const getSaleItemsSummary = (description: string): string => {
     const colonIdx = description.indexOf(": ");
@@ -137,13 +130,14 @@ const SalesPage = () => {
           <div className="grid w-full grid-cols-1 gap-2 md:grid-cols-6">
             <div>
               <label className="text-xs text-muted-foreground">Cliente</label>
-              <Select onValueChange={(v) => setClientId(v === "all" ? undefined : v)} value={clientId ?? "all"}>
-                <SelectTrigger className="h-8 bg-input"><SelectValue placeholder="Todos" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos</SelectItem>
-                  {clients.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <ClientCombobox
+                clients={clients}
+                value={clientId}
+                onChange={(id) => { setClientId(id); setAnimalId(undefined); }}
+                placeholder="Todos"
+                allLabel="Todos"
+                className="h-8 bg-input"
+              />
             </div>
             <div>
               <label className="text-xs text-muted-foreground">Animal</label>
@@ -301,12 +295,23 @@ const SalesPage = () => {
                         <Button
                           variant="outline"
                           size="sm"
-                          className="h-8 rounded-lg"
+                          className="h-8 rounded-lg border-red-200 text-red-700 hover:bg-red-50"
                           disabled={(transaction.status || 'pending') === 'cancelled'}
-                          onClick={() => cancelSale(transaction.id)}
+                          onClick={() => setSaleToCancel(transaction)}
                         >
                           Cancelar
                         </Button>
+                        {(transaction.paidAmount || 0) === 0 &&
+                         (transaction.status || 'pending') !== 'cancelled' && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 rounded-lg border-red-200 text-red-700 hover:bg-red-50"
+                            onClick={() => setSaleToDelete(transaction)}
+                          >
+                            Excluir
+                          </Button>
+                        )}
                       </div>
                     </Card>
                   );
@@ -325,6 +330,8 @@ const SalesPage = () => {
         open={!!selectedSale}
         transaction={selectedSale}
         onClose={() => setSelectedSale(null)}
+        onRequestCancel={(sale) => { setSelectedSale(null); setSaleToCancel(sale); }}
+        onRequestDelete={(sale) => { setSelectedSale(null); setSaleToDelete(sale); }}
         clientName={getClientName(selectedSale?.relatedClientId)}
         clientPhone={
           selectedSale?.relatedClientId
@@ -399,6 +406,34 @@ const SalesPage = () => {
               })()
             : undefined
         }
+      />
+
+      <CancelSaleDialog
+        open={!!saleToCancel}
+        sale={saleToCancel}
+        onClose={() => setSaleToCancel(null)}
+        onCancelled={() => { void refetch(); }}
+        clientName={getClientName(saleToCancel?.relatedClientId)}
+        clientPhone={
+          saleToCancel?.relatedClientId
+            ? clients.find(c => c.id === saleToCancel.relatedClientId)?.phone || undefined
+            : undefined
+        }
+        animalName={
+          saleToCancel?.relatedClientId && saleToCancel?.relatedAnimalId
+            ? clients
+                .find(c => c.id === saleToCancel.relatedClientId)
+                ?.animals.find(a => a.id === saleToCancel.relatedAnimalId)
+                ?.name
+            : undefined
+        }
+      />
+
+      <DeleteSaleDialog
+        open={!!saleToDelete}
+        sale={saleToDelete}
+        onClose={() => setSaleToDelete(null)}
+        onDeleted={() => { void refetch(); }}
       />
     </PageShell>
   );

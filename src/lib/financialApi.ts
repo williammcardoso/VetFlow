@@ -23,6 +23,10 @@ function rowToTransaction(r: Record<string, unknown>): FinancialTransaction {
     saleId: r.sale_id as string | undefined,
     supplierCost: r.supplier_cost != null ? Number(r.supplier_cost) : undefined,
     financialFee: r.financial_fee != null ? Number(r.financial_fee) : undefined,
+    discountAmount: r.discount_amount != null ? Number(r.discount_amount) : undefined,
+    surchargeAmount: r.surcharge_amount != null ? Number(r.surcharge_amount) : undefined,
+    cancelReason: r.cancel_reason as string | undefined,
+    cancelledAt: r.cancelled_at as string | undefined,
   };
 }
 
@@ -69,6 +73,8 @@ export async function addFinancialTransaction(
     sale_id: newTransaction.saleId ?? null,
     supplier_cost: newTransaction.supplierCost ?? 0,
     financial_fee: newTransaction.financialFee ?? 0,
+    discount_amount: newTransaction.discountAmount ?? 0,
+    surcharge_amount: newTransaction.surchargeAmount ?? 0,
   };
   const { data, error } = await supabase.from(TABLE).insert(insertObj).select().single();
   if (error) {
@@ -96,6 +102,11 @@ export async function updateFinancialTransaction(id: string, changes: Partial<Fi
   if (changes.paymentInstallments != null) updates.payment_installments = changes.paymentInstallments;
   if (changes.saleId != null) updates.sale_id = changes.saleId;
   if (changes.supplierCost != null) updates.supplier_cost = changes.supplierCost;
+  if (changes.financialFee != null) updates.financial_fee = changes.financialFee;
+  if (changes.discountAmount != null) updates.discount_amount = changes.discountAmount;
+  if (changes.surchargeAmount != null) updates.surcharge_amount = changes.surchargeAmount;
+  if (changes.cancelReason != null) updates.cancel_reason = changes.cancelReason;
+  if (changes.cancelledAt != null) updates.cancelled_at = changes.cancelledAt;
   if (Object.keys(updates).length === 0) return true;
   const { error } = await supabase.from(TABLE).update(updates).eq("id", id);
   if (error) {
@@ -178,6 +189,15 @@ export async function addReceipt(data: {
       await updateFinancialTransaction(sale.id, { paidAmount: paid, status: newStatus });
     }
   }
+}
+
+export async function deleteFinancialTransaction(id: string): Promise<boolean> {
+  const { error } = await supabase.from(TABLE).delete().eq("id", id);
+  if (error) {
+    console.error("[deleteFinancialTransaction] error", error);
+    return false;
+  }
+  return true;
 }
 
 export async function removeReceipt(receiptId: string): Promise<boolean> {
