@@ -101,7 +101,7 @@ const Header: React.FC<HeaderProps> = ({
         id: "notif-low-stock",
         title: "Estoque crítico",
         description: `${lowStockCount} item(ns) com estoque baixo.`,
-        href: "/stock/stock-analysis",
+        href: "/stock/products-services",
         visible: lowStockCount > 0,
       },
     ].filter((n) => n.visible);

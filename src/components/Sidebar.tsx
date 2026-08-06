@@ -31,7 +31,10 @@ import {
   Users,
   Wallet,
   ClipboardList,
-  ChevronRight,
+  Tag,
+  Scale,
+  RotateCcw,
+  BarChart3,
 } from "lucide-react";
 
 interface NavItem {
@@ -46,6 +49,8 @@ interface NavItem {
 const navItemsBase: NavItem[] = [
   { title: "Painel de Controle", href: "/dashboard", icon: LayoutDashboard, section: "Atendimento" },
   { title: "Agenda", href: "/agenda", icon: Calendar },
+  { title: "Previsão de Retornos", href: "/clinical/returns-forecast", icon: RotateCcw },
+  { title: "Relatório de Atendimentos", href: "/clinical/appointments-report", icon: BarChart3 },
   { title: "Clientes", href: "/clients", icon: Users },
   {
     title: "Comercial",
@@ -56,6 +61,8 @@ const navItemsBase: NavItem[] = [
       { title: "PDV", href: "/sales/pos", icon: DollarSign },
       { title: "Orçamentos", href: "/sales/budgets", icon: FileText },
       { title: "Recebimentos", href: "/sales/receipts", icon: Receipt },
+      { title: "Lista de Preços", href: "/sales/price-list", icon: Tag },
+      { title: "Relatório de vendas", href: "/sales/reports", icon: FileText },
     ],
   },
   {
@@ -65,7 +72,9 @@ const navItemsBase: NavItem[] = [
     subItems: [
       { title: "Visão geral", href: "/financial", icon: Wallet },
       { title: "Relatórios", href: "/financial/reports", icon: FileText },
+      { title: "Fechamento 50/50", href: "/financial/monthly-closing", icon: Scale },
       { title: "Clientes financeiros", href: "/sales/client-financial", icon: Users },
+      { title: "Formas de pagamento", href: "/financial/payment-methods", icon: CreditCard },
     ],
   },
   {
@@ -75,8 +84,6 @@ const navItemsBase: NavItem[] = [
     subItems: [
       { title: "Catálogo", href: "/stock/products-services", icon: Package },
       { title: "Compras", href: "/stock/purchases", icon: ShoppingCart },
-      { title: "Outras saídas", href: "/stock/other-exits", icon: Package },
-      { title: "Inventário", href: "/stock/inventory", icon: Package },
     ],
   },
   {
@@ -107,19 +114,6 @@ const navItemsBase: NavItem[] = [
       { title: "Aparência", href: "/settings/appearance", icon: Settings },
       { title: "Acesso externo", href: "/settings/external-access", icon: Settings, requireRole: "admin" },
       { title: "Perfil de Acesso", href: "/settings/access-profile", icon: Settings, requireRole: "admin" },
-    ],
-  },
-  {
-    title: "Avançado",
-    icon: ChevronRight,
-    subItems: [
-      { title: "Relatório de vendas", href: "/sales/reports", icon: FileText },
-      { title: "Análise de estoque", href: "/stock/stock-analysis", icon: Package },
-      { title: "Pedido de compra", href: "/stock/purchase-order", icon: FileText },
-      { title: "Grupos de Produtos", href: "/stock/product-groups", icon: Folder },
-      { title: "Marcas", href: "/stock/brands", icon: Package },
-      { title: "Produtos recomendados", href: "/stock/recommended-products", icon: Package },
-      { title: "Formas de pagamento", href: "/financial/payment-methods", icon: CreditCard },
     ],
   },
 ];

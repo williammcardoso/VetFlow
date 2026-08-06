@@ -558,6 +558,28 @@ body,
   border-radius: 9999px;
 }
 
+/* TipTap editor — área de edição ocupa toda a altura reservada,
+   para que clicar abaixo da última linha posicione o cursor no texto
+   (antes só a primeira linha era clicável). */
+.rich-text-editor-content {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+}
+.rich-text-editor-content > .ProseMirror {
+  flex: 1 1 auto;
+  outline: none;
+  /* Mesma família do corpo do PDF (DocumentPdfContent passa fontFamily
+     "Inter" ao <Html>, servida de /fonts/Inter-*.ttf), para o editor
+     mostrar o mesmo resultado do documento impresso (WYSIWYG). */
+  font-family: 'Inter', Helvetica, Arial, sans-serif;
+}
+/* Linha em branco criada no editor deve ocupar altura, igual ao PDF. */
+.rich-text-editor-content > .ProseMirror p:empty::after {
+  content: "";
+  display: inline-block;
+}
+
 /* TipTap editor — estilos de lista */
 .tiptap ul {
   list-style-type: disc;
