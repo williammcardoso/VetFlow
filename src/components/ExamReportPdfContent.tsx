@@ -6,14 +6,14 @@ import { mockCompanySettings } from "@/mockData/settings";
 import { ExamEntry, HemogramReference, HemogramReferenceValue, ExamReportData, BiochemicalEntry } from "@/types/exam";
 // import { hemogramReferences } from "@/constants/examReferences"; // Removido: agora vem via props
 
-// Registrando a fonte Exo com pesos regular, bold, italic e bold-italic
+// Registrando a fonte Inter com pesos regular, bold, italic e bold-italic
 Font.register({
-  family: "Exo",
+  family: "Inter",
   fonts: [
-    { src: '/fonts/Exo-Regular.ttf', fontWeight: 400, format: 'truetype' },
-    { src: '/fonts/Exo-Bold.ttf', fontWeight: 700, format: 'truetype' },
-    { src: '/fonts/Exo-Italic.ttf', fontStyle: 'italic', fontWeight: 400, format: 'truetype' },
-    { src: '/fonts/Exo-BoldItalic.ttf', fontStyle: 'italic', fontWeight: 700, format: 'truetype' },
+    { src: '/fonts/Inter-Regular.ttf', fontWeight: 400, format: 'truetype' },
+    { src: '/fonts/Inter-Bold.ttf', fontWeight: 700, format: 'truetype' },
+    { src: '/fonts/Inter-Italic.ttf', fontStyle: 'italic', fontWeight: 400, format: 'truetype' },
+    { src: '/fonts/Inter-BoldItalic.ttf', fontStyle: 'italic', fontWeight: 700, format: 'truetype' },
   ],
 });
 
@@ -78,6 +78,15 @@ const formatNumberForDisplay = (num: number) => {
   }
 };
 
+const TEAL = "#0F766E";
+const DARK = "#111827";
+const GRAY = "#6B7280";
+const LIGHT_GRAY = "#F9FAFB";
+const WHITE = "#FFFFFF";
+const BORDER = "#E5E7EB";
+const SLATE = "#64748B";
+const ROW_BORDER = "#F1F5F9";
+
 const PLAQUETOGRAM_BORDER_COLOR = '#A0D9FF'; // Light blue for main table lines
 const PLAQUETOGRAM_REF_VALUE_BORDER_COLOR = '#007bff'; // Vibrant blue for reference values
 const PLAQUETOGRAM_REF_SEP_BORDER_COLOR = '#28a745'; // Green for reference separator
@@ -90,18 +99,18 @@ const TRIANGLE_HEIGHT = 10; // Altura do triângulo
 const styles = StyleSheet.create({
   page: {
     padding: 30,
-    fontFamily: "Exo",
+    paddingBottom: 44,
+    fontFamily: "Inter",
     fontSize: 10,
-    color: "#333",
+    color: DARK,
+    backgroundColor: WHITE,
   },
-  // Clinic Header (restored)
+  // Clinic Header
   clinicHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginBottom: 20,
-    paddingBottom: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: "#eee",
+    alignItems: "flex-start",
+    marginBottom: 5,
   },
   clinicInfoLeft: {
     flexDirection: "row",
@@ -109,58 +118,79 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   clinicName: {
-    fontSize: 16,
-    fontWeight: "bold",
+    fontSize: 15,
+    fontWeight: 700,
+    color: DARK,
   },
   clinicDetails: {
-    fontSize: 9,
-    color: "#666",
+    fontSize: 8,
+    color: GRAY,
+    marginTop: 1,
   },
   clinicAddressPhone: {
     textAlign: "right",
-    fontSize: 9,
-    color: "#666",
+    fontSize: 7.5,
+    color: GRAY,
+  },
+  ruleTeal: { height: 2, backgroundColor: TEAL, marginTop: 6 },
+  ruleLight: { height: 1, backgroundColor: BORDER, marginTop: 2, marginBottom: 12 },
+  docMeta: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: 12,
   },
   mainTitle: {
-    fontSize: 20,
-    textAlign: "center",
-    fontFamily: "Exo",
-    fontWeight: "bold",
-    marginBottom: 20,
+    fontSize: 17,
+    fontWeight: 700,
+    color: TEAL,
+    letterSpacing: 0.8,
   },
+  mainTitleSub: { fontSize: 8, color: SLATE, marginTop: 2 },
+  docRef: { fontSize: 8, color: SLATE, textAlign: "right" },
+  docDate: { fontSize: 8, color: SLATE, marginTop: 1, textAlign: "right" },
   infoSectionContainer: {
     flexDirection: "row",
-    gap: 10,
-    marginBottom: 20,
+    gap: 8,
+    marginBottom: 10,
   },
   infoCard: {
     flex: 1,
     borderWidth: 1,
-    borderColor: "#ddd",
-    borderRadius: 5,
-    padding: 10,
+    borderColor: BORDER,
+    borderRadius: 4,
+    padding: 8,
+    backgroundColor: LIGHT_GRAY,
   },
   infoTitle: {
-    fontSize: 11,
-    fontWeight: "bold",
+    fontSize: 7,
+    fontWeight: 700,
+    color: SLATE,
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
+    marginBottom: 3,
   },
   infoText: {
-    fontSize: 10,
+    fontSize: 9.5,
+    color: DARK,
     marginBottom: 2,
   },
   sectionTitle: {
-    fontSize: 13,
-    fontWeight: "bold",
-    marginTop: 15,
-    marginBottom: 10,
+    fontSize: 10,
+    fontWeight: 700,
+    color: TEAL,
+    marginTop: 14,
+    marginBottom: 8,
+    letterSpacing: 0.8,
     textTransform: "uppercase",
     borderBottomWidth: 1,
-    borderBottomColor: "#000",
+    borderBottomColor: BORDER,
     paddingBottom: 4,
   },
   subsectionTitle: {
-    fontSize: 11,
-    fontWeight: "bold",
+    fontSize: 10,
+    fontWeight: 700,
+    color: DARK,
     marginTop: 10,
     marginBottom: 5,
   },
@@ -169,10 +199,10 @@ const styles = StyleSheet.create({
   tableHeader: {
     flexDirection: "row",
     borderBottomWidth: 1,
-    borderBottomColor: "#000",
+    borderBottomColor: TEAL,
     paddingBottom: 5,
     marginBottom: 5,
-    backgroundColor: "#f5f5f5",
+    backgroundColor: LIGHT_GRAY,
   },
   headerCell: {
     fontSize: 9,
@@ -208,14 +238,15 @@ const styles = StyleSheet.create({
     marginBottom: 5, // Space below this header
     paddingBottom: 5,
     borderBottomWidth: 1,
-    borderBottomColor: "#000",
+    borderBottomColor: TEAL,
   },
   leukogramHeaderTitle: {
     width: 100, // NOME DO PARÂMETRO
-    fontSize: 13, // Larger font for the main title
-    fontWeight: "bold",
-    color: "#333",
+    fontSize: 12, // Larger font for the main title
+    fontWeight: 700,
+    color: TEAL,
     textTransform: "uppercase",
+    letterSpacing: 0.5,
     paddingLeft: 5,
   },
   leukogramHeaderResultLabels: { // NEW: Header for Result section
@@ -268,14 +299,15 @@ const styles = StyleSheet.create({
     marginBottom: 5,
     paddingBottom: 5,
     borderBottomWidth: 1,
-    borderBottomColor: "#000",
+    borderBottomColor: TEAL,
   },
   eritrogramPlaquetogramHeaderTitle: {
     width: 125, // Aumentado para dar mais espaço
-    fontSize: 13,
-    fontWeight: "bold",
-    color: "#333",
+    fontSize: 12,
+    fontWeight: 700,
+    color: TEAL,
     textTransform: "uppercase",
+    letterSpacing: 0.5,
     paddingLeft: 5,
   },
   eritrogramPlaquetogramHeaderResultLabel: {
@@ -299,6 +331,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 0,
     minHeight: 18,
+    borderBottomWidth: 0.5,
+    borderBottomColor: ROW_BORDER,
   },
   // Removed rowEven and rowOdd styles
   paramName: {
@@ -516,30 +550,48 @@ const styles = StyleSheet.create({
     fontSize: 10,
     lineHeight: 1.4,
     marginBottom: 5,
+    color: DARK,
   },
-  // REMOVIDO: footerContainer, signatureBlock, signatureLine, signatureLabel, signatureDetails, dateText
+  sigRow: { flexDirection: "row", justifyContent: "center", marginTop: 20 },
+  sigArea: { flex: 1, maxWidth: 240, alignItems: "center" },
+  sigLine: { height: 1, backgroundColor: "#CBD5E1", width: "100%", marginTop: 22, marginBottom: 4 },
+  sigName: { fontSize: 8.5, color: DARK, fontWeight: 700, textAlign: "center" },
+  sigSub: { fontSize: 7, color: GRAY, textAlign: "center", marginTop: 1 },
   signatureSmall: {
-    fontSize: 9,
-    color: "#333",
-    fontStyle: "italic",
+    fontSize: 8,
+    color: SLATE,
     marginTop: 2,
-    marginBottom: 6,
+    textAlign: "center",
   },
+  footer: {
+    position: "absolute",
+    bottom: 16,
+    left: 30,
+    right: 30,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingTop: 4,
+    borderTopWidth: 1,
+    borderTopColor: BORDER,
+  },
+  footerText: { fontSize: 6.5, color: "#9CA3AF" },
   // NEW: Styles for Biochemical Report
   biochemicalEnzymeHeader: {
-    backgroundColor: '#f0f0f0', // Light gray background
-    paddingVertical: 3, // Mais estreito
-    paddingHorizontal: 0, // Ocupa a linha inteira
+    backgroundColor: LIGHT_GRAY,
+    paddingVertical: 4,
+    paddingHorizontal: 0,
     marginBottom: 5,
     marginTop: 15,
-    borderWidth: 0, // Sem borda
-    borderRadius: 0, // Sem borda arredondada
+    borderWidth: 0,
+    borderRadius: 0,
+    borderLeftWidth: 2,
+    borderLeftColor: TEAL,
   },
   biochemicalEnzymeName: {
-    fontSize: 11, // Um pouco menor
-    fontWeight: 'bold',
-    color: '#333',
-    paddingLeft: 10, // Padding interno para o texto
+    fontSize: 11,
+    fontWeight: 700,
+    color: TEAL,
+    paddingLeft: 10,
   },
   biochemicalResultLine: { // Nova linha para resultado e referência
     flexDirection: 'row',
@@ -1015,42 +1067,50 @@ export const ExamReportPdfContent = ({
   return (
     <Document>
       <Page size="A4" style={styles.page}>
-        {/* Header da Clínica (Restored) */}
+        {/* Cabecalho */}
         <View style={styles.clinicHeader} fixed>
           <View style={styles.clinicInfoLeft}>
-            {/* <Image src={mockCompanySettings.logoUrl} style={styles.clinicLogo} /> */}
             <View>
               <Text style={styles.clinicName}>{mockCompanySettings.companyName}</Text>
-              <Text style={styles.clinicDetails}>CRMV {mockCompanySettings.crmv}</Text>
-              <Text style={styles.clinicDetails}>Registro no MAPA {mockCompanySettings.mapaRegistration}</Text>
+              <Text style={styles.clinicDetails}>CRMV {mockCompanySettings.crmv}  ·  MAPA {mockCompanySettings.mapaRegistration}</Text>
             </View>
           </View>
           <View style={styles.clinicAddressPhone}>
-            <Text>{mockCompanySettings.address}</Text>
-            <Text>{mockCompanySettings.city} - CEP: {mockCompanySettings.zipCode}</Text>
-            <Text>Telefone: {mockCompanySettings.phone}</Text>
+            <Text>{mockCompanySettings.phone}  ·  {mockCompanySettings.address}</Text>
+            <Text>{mockCompanySettings.city}  ·  CEP {mockCompanySettings.zipCode}</Text>
           </View>
         </View>
+        <View style={styles.ruleTeal} fixed />
+        <View style={styles.ruleLight} fixed />
 
-        <Text style={styles.mainTitle}>LAUDO DE EXAME</Text>
+        {/* Titulo */}
+        <View style={styles.docMeta}>
+          <View>
+            <Text style={styles.mainTitle}>LAUDO DE EXAME</Text>
+            <Text style={styles.mainTitleSub}>{exam.type}  ·  Vet. solicitante: {exam.vet}</Text>
+          </View>
+          <View>
+            <Text style={styles.docRef}>ID {animalId}</Text>
+            <Text style={styles.docDate}>{exam.date}</Text>
+          </View>
+        </View>
 
         {/* Informações do Animal e Tutor */}
         <View style={styles.infoSectionContainer}>
           <View style={styles.infoCard}>
-            <Text style={styles.infoTitle}>Animal</Text>
-            <Text style={styles.infoText}>ID: {animalId}</Text>
-            <Text style={styles.infoText}>Nome: {animalName}</Text>
-            <Text style={styles.infoText}>Espécie: {animalSpecies}</Text>
+            <Text style={styles.infoTitle}>Paciente</Text>
+            <Text style={styles.infoText}>{animalName}</Text>
+            <Text style={[styles.infoText, { fontSize: 8, color: GRAY }]}>{animalSpecies}  ·  ID {animalId}</Text>
           </View>
           <View style={styles.infoCard}>
             <Text style={styles.infoTitle}>Tutor</Text>
-            <Text style={styles.infoText}>Nome: {tutorName}</Text>
-            <Text style={styles.infoText}>Endereço: {tutorAddress || "Não informado"}</Text>
+            <Text style={styles.infoText}>{tutorName}</Text>
+            <Text style={[styles.infoText, { fontSize: 8, color: GRAY }]}>{tutorAddress || "Endereço não informado"}</Text>
           </View>
         </View>
 
         {/* General Exam Info */}
-        <Text style={styles.sectionTitle}>INFORMAÇÕES GERAIS DO EXAME</Text>
+        <Text style={styles.sectionTitle}>Informações do exame</Text>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 10 }}>
           <Text style={[styles.infoText, { width: '50%' }]}>Data do Exame: {exam.date}</Text>
           <Text style={[styles.infoText, { width: '50%' }]}>Tipo de Exame: {exam.type}</Text>
@@ -1209,16 +1269,28 @@ export const ExamReportPdfContent = ({
           </View>
         )}
 
-        {exam.liberadoPor && (
-          <View style={{ marginTop: 20, textAlign: 'center' }}>
-            <Text style={styles.signatureSmall}>
-              Liberado por: {exam.liberadoPor}
-            </Text>
-            <Text style={styles.signatureSmall}>
-              Data de Liberação: {exam.laboratoryDate ? formatDateToPortuguese(new Date(exam.laboratoryDate)) : formatDateToPortuguese(currentDate)}
-            </Text>
+        {/* Assinatura */}
+        <View style={styles.sigRow}>
+          <View style={styles.sigArea}>
+            <View style={styles.sigLine} />
+            <Text style={styles.sigName}>{exam.liberadoPor || exam.vet || mockCompanySettings.companyName}</Text>
+            <Text style={styles.sigSub}>CRMV {mockCompanySettings.crmv} · Responsável Técnico</Text>
+            {exam.liberadoPor && (
+              <Text style={styles.signatureSmall}>
+                Liberado em {exam.laboratoryDate ? formatDateToPortuguese(new Date(exam.laboratoryDate)) : formatDateToPortuguese(currentDate)}
+              </Text>
+            )}
           </View>
-        )}
+        </View>
+
+        {/* Footer */}
+        <View style={styles.footer} fixed>
+          <Text style={styles.footerText}>{mockCompanySettings.companyName} — Documento gerado pelo sistema</Text>
+          <Text
+            style={styles.footerText}
+            render={({ pageNumber, totalPages }) => `Página ${pageNumber} de ${totalPages} — Emitido em ${formatDateToPortuguese(currentDate)}`}
+          />
+        </View>
       </Page>
     </Document>
   );

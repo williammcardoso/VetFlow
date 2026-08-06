@@ -7,7 +7,7 @@ import { Document, Page, View, Text, StyleSheet, Font } from "@react-pdf/rendere
 import { mockCompanySettings } from "@/mockData/settings";
 import { ExamEntry, HemogramReference, HemogramReferenceValue, ExamReportData, BiochemicalEntry } from "@/types/exam";
 
-// Registrar fonte Exo (mesma família)
+// Fonte: Helvetica embutida (visual tecnico/minimalista)
 // Usaremos fonte padrão Helvetica para visual mais técnico/minimalista.
 
 // Helpers (copiados do original para garantir mesma lógica)
@@ -81,6 +81,7 @@ const parseMinMaxFromReferenceString = (refString: string | undefined): { min: n
 };
 
 const INDICATOR_WIDTH = 0.6;
+const TEAL = "#0F766E";
 
 // Estilos compactados (diferenças intencionais para caber em 1 página)
 const styles = StyleSheet.create({
@@ -95,11 +96,10 @@ const styles = StyleSheet.create({
   clinicHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginBottom: 5,
-    paddingBottom: 4,
-    borderBottomWidth: 1,
-    borderBottomColor: "#eee",
+    marginBottom: 3,
+    paddingBottom: 3,
   },
+  ruleTeal: { height: 1.4, backgroundColor: TEAL, marginBottom: 6 },
   clinicInfoLeft: {
     flexDirection: "row",
     alignItems: "center",
@@ -126,6 +126,8 @@ const styles = StyleSheet.create({
     lineHeight: 1.28,
     marginTop: 2,
     marginBottom: 12,
+    color: TEAL,
+    letterSpacing: 0.5,
   },
   identityPanel: {
     marginBottom: 0,
@@ -195,11 +197,13 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 9.3,
     fontWeight: "bold",
+    color: TEAL,
     marginTop: 6,
     marginBottom: 4,
     textTransform: "uppercase",
+    letterSpacing: 0.5,
     borderBottomWidth: 1,
-    borderBottomColor: "#000",
+    borderBottomColor: TEAL,
     paddingBottom: 3,
   },
   subsectionTitle: {
@@ -211,7 +215,7 @@ const styles = StyleSheet.create({
   tableHeader: {
     flexDirection: "row",
     borderBottomWidth: 1,
-    borderBottomColor: "#000",
+    borderBottomColor: TEAL,
     paddingBottom: 3,
     marginBottom: 3,
     backgroundColor: "#f8f8f8",
@@ -236,9 +240,9 @@ const styles = StyleSheet.create({
     marginBottom: 7,
     paddingBottom: 4,
     borderBottomWidth: 1,
-    borderBottomColor: "#000",
+    borderBottomColor: TEAL,
   },
-  leukogramHeaderTitle: { width: 108, fontSize: 10.2, fontWeight: "700", paddingLeft: 4 },
+  leukogramHeaderTitle: { width: 108, fontSize: 10.2, fontWeight: "700", color: TEAL, paddingLeft: 4 },
   leukogramHeaderResultLabels: { width: 94, flexDirection: 'row', alignItems: 'flex-end' },
   leukogramHeaderResultLabelText: { width: '50%', fontSize: 7, fontWeight: "700", textAlign: 'center' },
   leukogramHeaderReferenceLabels: { width: 222, flexDirection: 'row', alignItems: 'flex-end' },
@@ -253,9 +257,9 @@ const styles = StyleSheet.create({
     marginBottom: 7,
     paddingBottom: 4,
     borderBottomWidth: 1,
-    borderBottomColor: "#000",
+    borderBottomColor: TEAL,
   },
-  eritrogramPlaquetogramHeaderTitle: { width: 122, fontSize: 10.2, fontWeight: "700", paddingLeft: 4 },
+  eritrogramPlaquetogramHeaderTitle: { width: 122, fontSize: 10.2, fontWeight: "700", color: TEAL, paddingLeft: 4 },
   eritrogramPlaquetogramHeaderResultLabel: { width: 94, fontSize: 8.2, fontWeight: "700", textAlign: 'left' },
   eritrogramPlaquetogramHeaderReferenceLabel: { width: 210, fontSize: 8.2, fontWeight: "700", textAlign: 'center' },
   paramRow: { flexDirection: "row", alignItems: "center", marginBottom: 0, minHeight: 16 },
@@ -351,8 +355,8 @@ const styles = StyleSheet.create({
   strongText: { fontWeight: "bold", fontFamily: "Helvetica-Bold" },
   observationText: { fontSize: 8.8, lineHeight: 1.18, marginBottom: 1 },
   signatureSmall: { fontSize: 7.6, color: "#333", fontStyle: "italic", marginTop: 1, marginBottom: 2 },
-  biochemicalEnzymeHeader: { backgroundColor: '#f6f6f6', paddingVertical: 2, marginBottom: 4, marginTop: 10 },
-  biochemicalEnzymeName: { fontSize: 10, fontWeight: '700', color: '#333', paddingLeft: 8 },
+  biochemicalEnzymeHeader: { backgroundColor: '#f6f6f6', paddingVertical: 2, marginBottom: 4, marginTop: 10, borderLeftWidth: 2, borderLeftColor: TEAL },
+  biochemicalEnzymeName: { fontSize: 10, fontWeight: '700', color: TEAL, paddingLeft: 8 },
   biochemicalResultLine: { flexDirection: 'row', alignItems: 'baseline', marginBottom: 2, paddingLeft: 8 },
   biochemicalResultLabel: { fontSize: 9, fontWeight: '700', width: 56, color: '#333' },
   biochemicalResultValue: { fontSize: 9, fontWeight: '700', color: '#000', width: 48 },
@@ -654,6 +658,7 @@ export const ExamReportPdfContentHemogramaOnePage = ({
             <Text>Telefone: {mockCompanySettings.phone}</Text>
           </View>
         </View>
+        <View style={styles.ruleTeal} fixed />
 
         <Text style={styles.mainTitle}>HEMOGRAMA COMPLETO</Text>
 
@@ -864,9 +869,10 @@ export const ExamReportPdfContentHemogramaOnePage = ({
         )}
 
         {exam.liberadoPor && (
-          <View style={{ marginTop: 8, textAlign: 'center' }}>
-            <Text style={styles.signatureSmall}>Liberado por: {exam.liberadoPor}</Text>
-            <Text style={styles.signatureSmall}>Data de Liberação: {exam.laboratoryDate ? formatDateToPortuguese(new Date(exam.laboratoryDate)) : formatDateToPortuguese(currentDate)}</Text>
+          <View style={{ marginTop: 10, alignItems: 'center' }}>
+            <View style={{ height: 0.7, width: 160, backgroundColor: '#CBD5E1', marginBottom: 3 }} />
+            <Text style={[styles.signatureSmall, { fontStyle: 'normal', fontWeight: '700', color: '#111827' }]}>{exam.liberadoPor}</Text>
+            <Text style={styles.signatureSmall}>CRMV {mockCompanySettings.crmv} · Liberado em {exam.laboratoryDate ? formatDateToPortuguese(new Date(exam.laboratoryDate)) : formatDateToPortuguese(currentDate)}</Text>
           </View>
         )}
       </Page>
