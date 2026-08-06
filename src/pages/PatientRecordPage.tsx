@@ -37,7 +37,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
 import { PrescriptionEntry } from "@/types/medication";
-import { cn, formatDateTime } from "@/lib/utils";
+import { cn, formatDateTime, formatItemQty } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -89,6 +89,8 @@ import {
 } from "lucide-react";
 import { Calendar } from "lucide-react";
 import SaleDetailModal from "@/components/SaleDetailModal";
+import CancelSaleDialog from "@/components/CancelSaleDialog";
+import DeleteSaleDialog from "@/components/DeleteSaleDialog";
 
 import {
   readPatientDocuments,
@@ -429,6 +431,8 @@ const PatientRecordPage = () => {
 
   const [saleModalOpen, setSaleModalOpen] = useState(false);
   const [selectedPdvSale, setSelectedPdvSale] = useState<import("@/mockData/financial").FinancialTransaction | null>(null);
+  const [pdvSaleToCancel, setPdvSaleToCancel] = useState<import("@/mockData/financial").FinancialTransaction | null>(null);
+  const [pdvSaleToDelete, setPdvSaleToDelete] = useState<import("@/mockData/financial").FinancialTransaction | null>(null);
   const [saleDate, setSaleDate] = useState<string>(new Date().toISOString().split("T")[0]);
   const [saleAppointmentId, setSaleAppointmentId] = useState<string>("");
   const [saleResponsible, setSaleResponsible] = useState<string>("");
@@ -466,8 +470,8 @@ const PatientRecordPage = () => {
     if (!currentClient || !currentAnimal) { toast.error("Cliente/animal não encontrados."); return; }
 
     const description = saleAppointmentId
-      ? `Venda atendimento ${saleAppointmentId}: ${saleItems.map(i => `${i.name} x${i.qty}`).join(", ")}`
-      : `Venda: ${saleItems.map(i => `${i.name} x${i.qty}`).join(", ")}`;
+      ? `Venda atendimento ${saleAppointmentId}: ${saleItems.map(i => formatItemQty(i.name, i.qty)).join(", ")}`
+      : `Venda: ${saleItems.map(i => formatItemQty(i.name, i.qty)).join(", ")}`;
 
     const tx = await financialApi.addFinancialTransaction({
       date: saleDate,
@@ -750,7 +754,7 @@ const PatientRecordPage = () => {
     const tx = await financialApi.addFinancialTransaction({
       date: new Date().toISOString().split("T")[0],
       time: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
-      description: `Orçamento convertido (atend. ${appointmentId}): ${b.items.map(i => `${i.name} x${i.qty}`).join(", ")}`,
+      description: `Orçamento convertido (atend. ${appointmentId}): ${b.items.map(i => formatItemQty(i.name, i.qty)).join(", ")}`,
       type: "income",
       amount: b.total,
       category: "Venda de Produtos",
@@ -2603,7 +2607,7 @@ const PatientRecordPage = () => {
                               paid:      { label: 'Pago',      className: 'bg-emerald-100 text-emerald-700' },
                               partial:   { label: 'Parcial',   className: 'bg-blue-100 text-blue-700' },
                               pending:   { label: 'Pendente',  className: 'bg-amber-100 text-amber-700' },
-                              cancelled: { label: 'Cancelado', className: 'bg-gray-100 text-gray-500' },
+                              cancelled: { label: 'Cancelado', className: 'bg-red-100 text-red-700' },
                             };
                             const st = statusConfig[t.status || 'pending'] || statusConfig.pending;
                             const saldo = Math.max(0, t.amount - (t.paidAmount || 0));
@@ -3088,6 +3092,8 @@ const PatientRecordPage = () => {
               open={!!selectedPdvSale}
               transaction={selectedPdvSale}
               onClose={() => setSelectedPdvSale(null)}
+              onRequestCancel={(sale) => { setSelectedPdvSale(null); setPdvSaleToCancel(sale); }}
+              onRequestDelete={(sale) => { setSelectedPdvSale(null); setPdvSaleToDelete(sale); }}
               clientName={currentClient?.name}
               clientPhone={currentClient?.phone || undefined}
               clientAddress={
@@ -3133,6 +3139,23 @@ const PatientRecordPage = () => {
           </TabsContent>
         </Tabs>
       </div>
+
+      <CancelSaleDialog
+        open={!!pdvSaleToCancel}
+        sale={pdvSaleToCancel}
+        onClose={() => setPdvSaleToCancel(null)}
+        onCancelled={() => { void refetchFinancial(); }}
+        clientName={currentClient?.name}
+        clientPhone={currentClient?.phone || undefined}
+        animalName={currentAnimal?.name}
+      />
+
+      <DeleteSaleDialog
+        open={!!pdvSaleToDelete}
+        sale={pdvSaleToDelete}
+        onClose={() => setPdvSaleToDelete(null)}
+        onDeleted={() => { void refetchFinancial(); }}
+      />
 
       <Dialog open={observationModalOpen} onOpenChange={setObservationModalOpen}>
         <DialogContent>

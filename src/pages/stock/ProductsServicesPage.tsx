@@ -6,14 +6,93 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { getCatalog, addCatalogItem, updateCatalogItem, removeCatalogItem, adjustStock } from "@/lib/catalogApi";
 import type { CatalogItem, CatalogItemType } from "@/mockData/catalog";
+import { COST_PROVIDER_PRESETS, resolveCostProvider } from "@/lib/costProviders";
+import {
+  getServiceComponents,
+  setServiceComponents,
+  type ServiceComponent,
+} from "@/lib/serviceComponentsApi";
 import CurrencyInput from "@/components/CurrencyInput";
-import { PackageSearch, FileText, Pencil } from "lucide-react";
+import { PackageSearch, FileText, Pencil, Plus, Trash2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { PageShell } from "@/components/saas/PageShell";
 import { PageHeader } from "@/components/saas/PageHeader";
 import { SectionCard } from "@/components/saas/SectionCard";
 import PriceListPdfContent from "@/components/PriceListPdfContent";
 import { createPdfBlob, openPdf } from "@/lib/pdfExport";
+
+type BomDraftRow = { productId: string; quantity: number };
+
+// Ajuda a evitar o erro de cadastrar o custo do pacote/frasco inteiro quando a
+// composição de serviços consome por unidade menor (ex: mL, comprimido) — o
+// custo e o estoque do produto precisam estar na MESMA unidade de consumo.
+const UnitCostCalculator: React.FC<{ onApply: (unitCost: number) => void }> = ({ onApply }) => {
+  const [packageCost, setPackageCost] = useState<number>(0);
+  const [packageYield, setPackageYield] = useState<string>("");
+  const yieldNum = parseFloat(packageYield.replace(",", "."));
+  const unitCost = yieldNum > 0 ? packageCost / yieldNum : 0;
+
+  return (
+    <div className="mt-2 rounded-lg border border-dashed border-border/70 bg-muted/30 p-2">
+      <p className="mb-1.5 text-[11px] font-medium text-muted-foreground">
+        Calculadora: custo por unidade de consumo (evita erro de frasco × mL)
+      </p>
+      <div className="flex items-end gap-2">
+        <div className="flex-1">
+          <Label className="text-[10px] text-muted-foreground">Custo do pacote (R$)</Label>
+          <CurrencyInput value={packageCost} onValueChange={setPackageCost} className="mt-0.5 h-8 text-xs" />
+        </div>
+        <div className="flex-1">
+          <Label className="text-[10px] text-muted-foreground">Rende quantas unidades</Label>
+          <Input
+            value={packageYield}
+            onChange={(e) => setPackageYield(e.target.value)}
+            placeholder="ex: 10 (mL)"
+            className="mt-0.5 h-8 text-xs"
+            type="number"
+            min="0"
+            step="any"
+          />
+        </div>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          className="h-8 shrink-0 text-xs"
+          disabled={unitCost <= 0}
+          onClick={() => onApply(Number(unitCost.toFixed(4)))}
+        >
+          Usar {unitCost > 0 ? `R$ ${unitCost.toFixed(2)}` : ""}
+        </Button>
+      </div>
+    </div>
+  );
+};
+
+const SERVICE_CATEGORY_OPTIONS = [
+  { value: "servico", label: "Serviço geral" },
+  { value: "especialista", label: "Especialista (externo)" },
+  { value: "cirurgia", label: "Cirurgia" },
+  { value: "exame_interno", label: "Exame Interno" },
+  { value: "exame_externo", label: "Exame Externo" },
+  { value: "vacina", label: "Vacina" },
+] as const;
+
+const CATEGORY_BADGE: Record<string, { label: string; color: string }> = {
+  exame_externo: { label: "Exame Externo", color: "bg-blue-100 text-blue-700" },
+  exame_interno: { label: "Exame Interno", color: "bg-cyan-100 text-cyan-700" },
+  especialista: { label: "Especialista", color: "bg-violet-100 text-violet-700" },
+  vacina: { label: "Vacina", color: "bg-green-100 text-green-700" },
+  cirurgia: { label: "Cirurgia", color: "bg-red-100 text-red-700" },
+  servico: { label: "Serviço", color: "bg-purple-100 text-purple-700" },
+  produto: { label: "Produto", color: "bg-orange-100 text-orange-700" },
+};
+
+function defaultProviderForCategory(category: string): string {
+  if (category === "exame_externo") return "Laboratório externo";
+  if (category === "especialista") return "Especialista";
+  return "";
+}
 
 const ProductsServicesPage: React.FC = () => {
   const [items, setItems] = useState<CatalogItem[]>([]);
@@ -29,6 +108,8 @@ const ProductsServicesPage: React.FC = () => {
   const [newCategory, setNewCategory] = useState<string>("");
   const [newCategoryCustom, setNewCategoryCustom] = useState<string>("");
   const [newCost, setNewCost] = useState<number>(0);
+  const [newCostProvider, setNewCostProvider] = useState<string>("");
+  const [newCostProviderCustom, setNewCostProviderCustom] = useState<string>("");
 
   const [loading, setLoading] = useState(false);
   const [exportCategory, setExportCategory] = useState<string>("all");
@@ -38,9 +119,31 @@ const ProductsServicesPage: React.FC = () => {
   const [editPrice, setEditPrice] = useState<number>(0);
   const [editCategory, setEditCategory] = useState("");
   const [editCost, setEditCost] = useState<number>(0);
+  const [editCostProvider, setEditCostProvider] = useState<string>("");
+  const [editCostProviderCustom, setEditCostProviderCustom] = useState<string>("");
   const [editStockQty, setEditStockQty] = useState<string>("0");
   const [editUnit, setEditUnit] = useState("");
   const [editActive, setEditActive] = useState(true);
+  const [editBom, setEditBom] = useState<BomDraftRow[]>([]);
+  const [bomProductId, setBomProductId] = useState("");
+  const [bomQty, setBomQty] = useState("1");
+
+  const resolveProviderInput = (preset: string, custom: string) => {
+    if (preset === "outro") return custom.trim() || undefined;
+    return preset.trim() || undefined;
+  };
+
+  const productOptions = useMemo(
+    () => items.filter((i) => i.type === "product" && i.active),
+    [items]
+  );
+
+  const editBomCost = useMemo(() => {
+    return editBom.reduce((sum, row) => {
+      const prod = items.find((i) => i.id === row.productId);
+      return sum + (prod?.cost ?? 0) * row.quantity;
+    }, 0);
+  }, [editBom, items]);
 
   const availableCategories = React.useMemo(() => {
     const cats = new Set(items.map(i => i.category).filter(Boolean));
@@ -68,6 +171,13 @@ const ProductsServicesPage: React.FC = () => {
       toast.error("Informe o nome do item.");
       return;
     }
+    const costProvider = newCost > 0
+      ? resolveProviderInput(newCostProvider, newCostProviderCustom)
+      : undefined;
+    if (newCost > 0 && !costProvider) {
+      toast.error("Informe o prestador do repasse (ex.: Cardiologista, Laboratório externo).");
+      return;
+    }
     const created = await addCatalogItem({
       name: newName.trim(),
       type: newType,
@@ -82,7 +192,12 @@ const ProductsServicesPage: React.FC = () => {
         ? (newCategoryCustom.trim() || undefined)
         : (newCategory || undefined),
       cost: newCost > 0 ? newCost : undefined,
+      costProvider,
     });
+    if (!created) {
+      toast.error("Falha ao adicionar item.");
+      return;
+    }
     toast.success(`${created.type === 'product' ? 'Produto' : 'Serviço'} adicionado.`);
     setNewName("");
     setNewPrice(0);
@@ -93,6 +208,8 @@ const ProductsServicesPage: React.FC = () => {
     setNewCategory("");
     setNewCategoryCustom("");
     setNewCost(0);
+    setNewCostProvider("");
+    setNewCostProviderCustom("");
     await refresh();
   };
 
@@ -130,38 +247,93 @@ const ProductsServicesPage: React.FC = () => {
     }
   };
 
-  const openEditModal = (item: CatalogItem) => {
+  const openEditModal = async (item: CatalogItem) => {
     setEditingItem(item);
     setEditName(item.name);
     setEditPrice(item.price);
     setEditCategory(item.category || "");
     setEditCost(item.cost ?? 0);
+    const provider = item.costProvider || "";
+    const isPreset = COST_PROVIDER_PRESETS.includes(provider as (typeof COST_PROVIDER_PRESETS)[number]);
+    setEditCostProvider(provider ? (isPreset ? provider : "outro") : "");
+    setEditCostProviderCustom(provider && !isPreset ? provider : "");
     setEditStockQty(String(item.stockQty ?? 0));
     setEditUnit(item.unit || "");
     setEditActive(item.active);
+    setBomProductId("");
+    setBomQty("1");
+    if (item.type === "service") {
+      const comps = await getServiceComponents(item.id);
+      setEditBom(comps.map((c: ServiceComponent) => ({
+        productId: c.productId,
+        quantity: c.quantity,
+      })));
+    } else {
+      setEditBom([]);
+    }
+  };
+
+  const handleAddBomRow = () => {
+    if (!bomProductId) {
+      toast.error("Selecione um produto/insumo.");
+      return;
+    }
+    const qty = Number(bomQty.replace(",", ".")) || 0;
+    if (qty <= 0) {
+      toast.error("Quantidade inválida.");
+      return;
+    }
+    setEditBom((prev) => {
+      const existing = prev.find((r) => r.productId === bomProductId);
+      if (existing) {
+        return prev.map((r) =>
+          r.productId === bomProductId
+            ? { ...r, quantity: r.quantity + qty }
+            : r
+        );
+      }
+      return [...prev, { productId: bomProductId, quantity: qty }];
+    });
+    setBomProductId("");
+    setBomQty("1");
   };
 
   const handleSaveEdit = async () => {
     if (!editingItem) return;
     if (!editName.trim()) { toast.error("Informe o nome."); return; }
+    const costProvider = editCost > 0
+      ? resolveProviderInput(editCostProvider, editCostProviderCustom)
+      : undefined;
+    if (editCost > 0 && !costProvider) {
+      toast.error("Informe o prestador do repasse (ex.: Cardiologista, Laboratório externo).");
+      return;
+    }
     const updated: CatalogItem = {
       ...editingItem,
       name: editName.trim(),
       price: editPrice,
       category: editCategory || undefined,
       cost: editCost > 0 ? editCost : undefined,
+      costProvider,
       stockQty: editingItem.type === 'product' ? Number(editStockQty) || 0 : undefined,
       unit: editUnit.trim() || undefined,
       active: editActive,
     };
     const ok = await updateCatalogItem(updated);
-    if (ok) {
-      toast.success("Item atualizado.");
-      setEditingItem(null);
-      await refresh();
-    } else {
+    if (!ok) {
       toast.error("Falha ao atualizar.");
+      return;
     }
+    if (editingItem.type === "service") {
+      const bomOk = await setServiceComponents(editingItem.id, editBom);
+      if (!bomOk) {
+        toast.error("Item salvo, mas falhou ao salvar a composição de insumos.");
+        return;
+      }
+    }
+    toast.success("Item atualizado.");
+    setEditingItem(null);
+    await refresh();
   };
 
   const handlePrintPriceList = async (showCosts: boolean) => {
@@ -200,11 +372,12 @@ const ProductsServicesPage: React.FC = () => {
               <option value="cirurgia">Cirurgias</option>
               <option value="exame_externo">Exames Externos</option>
               <option value="exame_interno">Exames Internos</option>
+              <option value="especialista">Especialistas</option>
               <option value="vacina">Vacinas</option>
               <option value="servico">Serviços Gerais</option>
               <option value="produto">Produtos</option>
               {availableCategories
-                .filter(c => !['cirurgia','exame_externo','exame_interno','vacina','servico','produto'].includes(c))
+                .filter(c => !['cirurgia','exame_externo','exame_interno','especialista','vacina','servico','produto'].includes(c))
                 .map(c => (
                   <option key={c} value={c}>{c}</option>
                 ))
@@ -288,17 +461,22 @@ const ProductsServicesPage: React.FC = () => {
               <Label className="text-xs font-medium text-muted-foreground">Categoria</Label>
               <select
                 value={newCategory}
-                onChange={(e) => setNewCategory(e.target.value)}
+                onChange={(e) => {
+                  const cat = e.target.value;
+                  setNewCategory(cat);
+                  const suggested = defaultProviderForCategory(cat);
+                  if (suggested && !newCostProvider) {
+                    setNewCostProvider(suggested);
+                  }
+                }}
                 className="mt-1 h-10 w-full rounded-md border border-border bg-card px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--vf-stock)/0.3)]"
               >
                 <option value="">Categoria...</option>
                 {newType === 'service' ? (
                   <>
-                    <option value="servico">Serviço geral</option>
-                    <option value="cirurgia">Cirurgia</option>
-                    <option value="exame_interno">Exame Interno</option>
-                    <option value="exame_externo">Exame Externo (Lab)</option>
-                    <option value="vacina">Vacina</option>
+                    {SERVICE_CATEGORY_OPTIONS.map((o) => (
+                      <option key={o.value} value={o.value}>{o.label}</option>
+                    ))}
                     <option value="outro">Outro...</option>
                   </>
                 ) : (
@@ -322,22 +500,51 @@ const ProductsServicesPage: React.FC = () => {
               )}
             </div>
 
-            {(newCategory === 'exame_externo' || newCategory === 'medicamento' || newCost > 0) && (
-              <div className="w-36 shrink-0">
-                <Label className="text-xs font-medium text-muted-foreground">
-                  Custo forn. (R$)
-                </Label>
-                <CurrencyInput
-                  value={newCost}
-                  onValueChange={setNewCost}
-                  className="mt-1 h-10 border border-border bg-card text-sm w-full"
-                />
-                {newCost > 0 && newPrice > 0 && (
-                  <p className="mt-0.5 text-xs text-emerald-600 font-medium">
-                    {Math.round(((newPrice - newCost) / newPrice) * 100)}% margem
-                  </p>
+            {(newType === 'service' || newCategory === 'medicamento' || newCost > 0) && (
+              <>
+                <div className="w-36 shrink-0">
+                  <Label className="text-xs font-medium text-muted-foreground">
+                    Custo / Repasse (R$)
+                  </Label>
+                  <CurrencyInput
+                    value={newCost}
+                    onValueChange={setNewCost}
+                    className="mt-1 h-10 border border-border bg-card text-sm w-full"
+                  />
+                  {newCost > 0 && newPrice > 0 && (
+                    <p className="mt-0.5 text-xs text-emerald-600 font-medium">
+                      {Math.round(((newPrice - newCost) / newPrice) * 100)}% margem
+                    </p>
+                  )}
+                </div>
+                {newCost > 0 && (
+                  <div className="w-48 shrink-0">
+                    <Label className="text-xs font-medium text-muted-foreground">
+                      Prestador do repasse *
+                    </Label>
+                    <select
+                      value={newCostProvider}
+                      onChange={(e) => setNewCostProvider(e.target.value)}
+                      className="mt-1 h-10 w-full rounded-md border border-border bg-card px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--vf-stock)/0.3)]"
+                    >
+                      <option value="">Quem recebe...</option>
+                      {COST_PROVIDER_PRESETS.map((p) => (
+                        <option key={p} value={p}>{p}</option>
+                      ))}
+                      <option value="outro">Outro...</option>
+                    </select>
+                    {newCostProvider === "outro" && (
+                      <Input
+                        value={newCostProviderCustom}
+                        onChange={(e) => setNewCostProviderCustom(e.target.value)}
+                        className="mt-1 h-9 border border-border bg-card text-sm"
+                        placeholder="Nome do prestador..."
+                        autoFocus
+                      />
+                    )}
+                  </div>
                 )}
-              </div>
+              </>
             )}
 
             {newType === 'product' && (
@@ -359,7 +566,7 @@ const ProductsServicesPage: React.FC = () => {
                     value={newUnit}
                     onChange={(e) => setNewUnit(e.target.value)}
                     className="mt-1 h-10 border border-border bg-card text-sm"
-                    placeholder="un, cx..."
+                    placeholder="mL, cp, un..."
                   />
                 </div>
               </>
@@ -375,6 +582,17 @@ const ProductsServicesPage: React.FC = () => {
               </Button>
             </div>
           </div>
+
+          {newType === 'product' && (
+            <div className="mt-3">
+              <p className="text-[11px] text-muted-foreground">
+                O <strong>Custo</strong> e o <strong>Estoque</strong> precisam estar na mesma unidade que será
+                consumida nas composições de serviço (ex.: se o serviço consome em mL, cadastre o custo por mL e
+                o estoque em mL — não pelo frasco/pacote inteiro).
+              </p>
+              <UnitCostCalculator onApply={setNewCost} />
+            </div>
+          )}
         </div>
       </SectionCard>
 
@@ -464,7 +682,7 @@ const ProductsServicesPage: React.FC = () => {
                           onClick={() => handleAdjustStock(item, -1)}
                           className="h-6 w-6 rounded-md border border-border bg-muted/60 text-sm font-bold text-muted-foreground hover:border-red-300 hover:bg-red-50 hover:text-red-500 transition-colors flex items-center justify-center"
                         >−</button>
-                        <span className="w-8 text-center text-sm font-semibold tabular-nums">
+                        <span className={`w-8 text-center text-sm font-semibold tabular-nums ${(item.stockQty ?? 0) < 0 ? "text-red-600" : ""}`}>
                           {item.stockQty ?? 0}
                         </span>
                         <button
@@ -522,7 +740,8 @@ const ProductsServicesPage: React.FC = () => {
                   <TableHead>Nome</TableHead>
                   <TableHead>Preço</TableHead>
                   <TableHead>Categoria</TableHead>
-                  <TableHead>Custo Lab.</TableHead>
+                  <TableHead>Custo / Repasse</TableHead>
+                  <TableHead>Prestador</TableHead>
                   <TableHead>Lucro</TableHead>
                   <TableHead>Ativo</TableHead>
                   <TableHead className="text-right">Ações</TableHead>
@@ -537,15 +756,7 @@ const ProductsServicesPage: React.FC = () => {
                     </TableCell>
                     <TableCell>
                       {(() => {
-                        const map: Record<string, { label: string; color: string }> = {
-                          exame_externo: { label: 'Exame Externo', color: 'bg-blue-100 text-blue-700' },
-                          exame_interno: { label: 'Exame Interno', color: 'bg-cyan-100 text-cyan-700' },
-                          vacina:        { label: 'Vacina',         color: 'bg-green-100 text-green-700' },
-                          cirurgia:      { label: 'Cirurgia',       color: 'bg-red-100 text-red-700' },
-                          servico:       { label: 'Serviço',        color: 'bg-purple-100 text-purple-700' },
-                          produto:       { label: 'Produto',        color: 'bg-orange-100 text-orange-700' },
-                        };
-                        const cat = item.category ? map[item.category] : null;
+                        const cat = item.category ? CATEGORY_BADGE[item.category] : null;
                         if (cat) return (
                           <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${cat.color}`}>
                             {cat.label}
@@ -563,6 +774,14 @@ const ProductsServicesPage: React.FC = () => {
                       {item.cost != null
                         ? new Intl.NumberFormat('pt-BR', {style:'currency',currency:'BRL'}).format(item.cost)
                         : '-'}
+                    </TableCell>
+                    <TableCell>
+                      {(() => {
+                        const provider = resolveCostProvider(item.costProvider, item.category, item.cost);
+                        return provider
+                          ? <span className="text-xs font-medium text-amber-700">{provider}</span>
+                          : <span className="text-muted-foreground text-xs">-</span>;
+                      })()}
                     </TableCell>
                     <TableCell>
                       {(() => {
@@ -627,7 +846,7 @@ const ProductsServicesPage: React.FC = () => {
 
       {/* Modal de edição */}
       <Dialog open={!!editingItem} onOpenChange={(open) => { if (!open) setEditingItem(null); }}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Pencil className="h-4 w-4" />
@@ -659,18 +878,21 @@ const ProductsServicesPage: React.FC = () => {
                 <Label className="text-xs font-medium text-muted-foreground">Categoria</Label>
                 <select
                   value={editCategory}
-                  onChange={(e) => setEditCategory(e.target.value)}
+                  onChange={(e) => {
+                    const cat = e.target.value;
+                    setEditCategory(cat);
+                    const suggested = defaultProviderForCategory(cat);
+                    if (suggested && !editCostProvider) {
+                      setEditCostProvider(suggested);
+                    }
+                  }}
                   className="mt-1 h-10 w-full rounded-md border border-border bg-card px-3 text-sm focus:outline-none"
                 >
                   <option value="">Sem categoria</option>
                   {editingItem?.type === 'service' ? (
-                    <>
-                      <option value="servico">Serviço geral</option>
-                      <option value="cirurgia">Cirurgia</option>
-                      <option value="exame_interno">Exame Interno</option>
-                      <option value="exame_externo">Exame Externo (Lab)</option>
-                      <option value="vacina">Vacina</option>
-                    </>
+                    SERVICE_CATEGORY_OPTIONS.map((o) => (
+                      <option key={o.value} value={o.value}>{o.label}</option>
+                    ))
                   ) : (
                     <>
                       <option value="produto">Produto geral</option>
@@ -683,22 +905,160 @@ const ProductsServicesPage: React.FC = () => {
               </div>
             </div>
 
-            {(editCategory === 'exame_externo' || editCategory === 'medicamento' || editCost > 0) && (
+            {(editingItem?.type === 'service' || editCategory === 'medicamento' || editCost > 0) && (
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs font-medium text-muted-foreground">
+                    {editingItem?.type === "service"
+                      ? "Repasse a prestador (R$)"
+                      : "Custo / Repasse (R$)"}
+                  </Label>
+                  <CurrencyInput
+                    value={editCost}
+                    onValueChange={setEditCost}
+                    className="mt-1 h-10 border border-border w-full"
+                  />
+                  {editingItem?.type === "service" && (
+                    <p className="mt-1 text-[10px] text-muted-foreground">
+                      Só o valor pago ao lab/especialista. Insumos ficam na composição abaixo.
+                    </p>
+                  )}
+                </div>
+                {editCost > 0 && (
+                  <div>
+                    <Label className="text-xs font-medium text-muted-foreground">
+                      Prestador do repasse *
+                    </Label>
+                    <select
+                      value={editCostProvider}
+                      onChange={(e) => setEditCostProvider(e.target.value)}
+                      className="mt-1 h-10 w-full rounded-md border border-border bg-card px-3 text-sm focus:outline-none"
+                    >
+                      <option value="">Quem recebe...</option>
+                      {COST_PROVIDER_PRESETS.map((p) => (
+                        <option key={p} value={p}>{p}</option>
+                      ))}
+                      <option value="outro">Outro...</option>
+                    </select>
+                    {editCostProvider === "outro" && (
+                      <Input
+                        value={editCostProviderCustom}
+                        onChange={(e) => setEditCostProviderCustom(e.target.value)}
+                        className="mt-1 h-9 border border-border text-sm"
+                        placeholder="Nome do prestador..."
+                        autoFocus
+                      />
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {editingItem?.type === "product" && (
               <div>
-                <Label className="text-xs font-medium text-muted-foreground">
-                  Custo fornecedor (R$)
-                  <span className="ml-1 text-[10px] text-muted-foreground/60">repasse ao lab/fornecedor</span>
-                </Label>
-                <CurrencyInput
-                  value={editCost}
-                  onValueChange={setEditCost}
-                  className="mt-1 h-10 border border-border w-full"
-                />
-                {editCost > 0 && editPrice > 0 && (
-                  <p className="mt-1 text-xs text-emerald-600 font-medium">
-                    Margem: {Math.round(((editPrice - editCost) / editPrice) * 100)}%
-                    · Lucro: {new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(editPrice - editCost)}
+                <p className="text-[11px] text-muted-foreground">
+                  O <strong>Custo</strong> e o <strong>Estoque</strong> abaixo precisam estar na mesma unidade que
+                  será consumida nas composições de serviço (ex.: se um serviço consome em mL, cadastre o custo por
+                  mL e o estoque em mL — não pelo frasco/pacote inteiro).
+                </p>
+                <UnitCostCalculator onApply={setEditCost} />
+              </div>
+            )}
+
+            {editingItem?.type === "service" && (
+              <div className="rounded-lg border border-border bg-muted/20 p-3 space-y-3">
+                <div>
+                  <div className="text-xs font-semibold text-foreground">Composição de insumos</div>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">
+                    Ex.: Fluidoterapia = soro + equipo + cateter. Na venda o estoque de cada um baixa automaticamente.
                   </p>
+                </div>
+
+                <div className="flex flex-wrap items-end gap-2">
+                  <div className="min-w-[180px] flex-1">
+                    <Label className="text-[11px] text-muted-foreground">Produto / insumo</Label>
+                    <select
+                      value={bomProductId}
+                      onChange={(e) => setBomProductId(e.target.value)}
+                      className="mt-1 h-9 w-full rounded-md border border-border bg-card px-2 text-sm"
+                    >
+                      <option value="">Selecione...</option>
+                      {productOptions.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name}
+                          {p.cost != null
+                            ? ` · ${new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(p.cost)}`
+                            : ""}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="w-24">
+                    <Label className="text-[11px] text-muted-foreground">Qtd</Label>
+                    <Input
+                      value={bomQty}
+                      onChange={(e) => setBomQty(e.target.value)}
+                      className="mt-1 h-9 border border-border"
+                      type="number"
+                      min="0.001"
+                      step="any"
+                    />
+                  </div>
+                  <Button type="button" size="sm" className="h-9 gap-1" onClick={handleAddBomRow}>
+                    <Plus className="h-3.5 w-3.5" /> Add
+                  </Button>
+                </div>
+
+                {editBom.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">Nenhum insumo cadastrado.</p>
+                ) : (
+                  <div className="space-y-1.5">
+                    {editBom.map((row) => {
+                      const prod = items.find((i) => i.id === row.productId);
+                      const lineCost = (prod?.cost ?? 0) * row.quantity;
+                      return (
+                        <div
+                          key={row.productId}
+                          className="flex items-center justify-between gap-2 rounded-md border border-border/70 bg-card px-2.5 py-1.5 text-sm"
+                        >
+                          <div className="min-w-0">
+                            <div className="font-medium truncate">{prod?.name || row.productId}</div>
+                            <div className="text-[11px] text-muted-foreground">
+                              {row.quantity} ×{" "}
+                              {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(prod?.cost ?? 0)}
+                              {" = "}
+                              {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(lineCost)}
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            className="h-7 w-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-red-500 hover:bg-red-50"
+                            onClick={() => setEditBom((prev) => prev.filter((r) => r.productId !== row.productId))}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      );
+                    })}
+                    <div className="flex justify-between text-xs pt-1 border-t border-border/60">
+                      <span className="text-muted-foreground">Custo dos insumos</span>
+                      <span className="font-semibold text-amber-700">
+                        {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(editBomCost)}
+                      </span>
+                    </div>
+                    {(editBomCost > 0 || editCost > 0) && editPrice > 0 && (
+                      <div className="flex justify-between text-xs">
+                        <span className="text-muted-foreground">
+                          Custo total (insumos + repasse)
+                        </span>
+                        <span className="font-semibold text-emerald-700">
+                          {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(editBomCost + editCost)}
+                          {" · "}
+                          {Math.round(((editPrice - editBomCost - editCost) / editPrice) * 100)}% margem
+                        </span>
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
             )}
@@ -721,7 +1081,7 @@ const ProductsServicesPage: React.FC = () => {
                     value={editUnit}
                     onChange={(e) => setEditUnit(e.target.value)}
                     className="mt-1 h-10 border border-border"
-                    placeholder="un, cx, frasco..."
+                    placeholder="mL, cp, un..."
                   />
                 </div>
               </div>

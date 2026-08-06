@@ -17,6 +17,7 @@ function rowToItem(r: Record<string, unknown>): CatalogItem {
     active: r.active === true,
     recommended: r.recommended === true,
     cost: r.cost != null ? Number(r.cost) : undefined,
+    costProvider: (r.cost_provider as string | undefined) || undefined,
     category: r.category as string | undefined,
   };
 }
@@ -60,6 +61,7 @@ export async function addCatalogItem(
       active: item.active ?? true,
       recommended: item.recommended ?? false,
       cost: item.cost ?? null,
+      cost_provider: item.costProvider ?? null,
       category: item.category ?? null,
     })
     .select()
@@ -86,6 +88,7 @@ export async function updateCatalogItem(updated: CatalogItem): Promise<boolean> 
       active: updated.active,
       recommended: updated.recommended ?? false,
       cost: updated.cost ?? null,
+      cost_provider: updated.costProvider ?? null,
       category: updated.category ?? null,
     })
     .eq("id", updated.id);
@@ -109,7 +112,7 @@ export async function adjustStock(id: string, delta: number): Promise<boolean> {
   const item = await findCatalogItem(id);
   if (!item || item.type !== "product") return false;
   const current = item.stockQty || 0;
-  const newQty = Math.max(0, current + delta);
+  const newQty = current + delta;
   const { error } = await supabase.from(TABLE).update({ stock_qty: newQty }).eq("id", id);
   if (error) {
     console.error("[adjustStock] error", error);

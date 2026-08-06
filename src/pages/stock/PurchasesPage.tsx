@@ -4,9 +4,10 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { getCatalogByType, findCatalogItem, adjustStock } from "@/lib/catalogApi";
+import { getCatalogByType, findCatalogItem, adjustStock, updateCatalogItem } from "@/lib/catalogApi";
 import type { CatalogItem } from "@/mockData/catalog";
-import { addMockFinancialTransaction } from "@/mockData/financial";
+import { addFinancialTransaction } from "@/lib/financialApi";
+import { formatItemQty } from "@/lib/utils";
 import CurrencyInput from "@/components/CurrencyInput";
 import { ShoppingBag } from "lucide-react";
 import { PageShell } from "@/components/saas/PageShell";
@@ -30,9 +31,18 @@ const PurchasesPage: React.FC = () => {
   const [quantity, setQuantity] = useState<string>("1");
   const [unitCost, setUnitCost] = useState<number>(0);
   const [supplier, setSupplier] = useState<string>("");
+  const [saving, setSaving] = useState(false);
   const [items, setItems] = useState<PurchaseItem[]>([]);
 
   const subtotal = items.reduce((sum, it) => sum + it.quantity * it.unitCost, 0);
+
+  // Ao escolher o produto, traz o custo atual do catálogo como ponto de
+  // partida — assim fica visível se a compra veio mais cara ou mais barata.
+  useEffect(() => {
+    if (!selectedItemId) return;
+    const found = products.find((p) => p.id === selectedItemId);
+    if (found?.cost != null) setUnitCost(found.cost);
+  }, [selectedItemId, products]);
 
   const handleAddItem = async () => {
     if (!selectedItemId) {
@@ -63,22 +73,40 @@ const PurchasesPage: React.FC = () => {
       toast.error("Adicione ao menos um item à compra.");
       return;
     }
-    // Ajustar estoque
-    for (const it of items) {
-      await adjustStock(it.itemId, it.quantity);
+    setSaving(true);
+    try {
+      // Estoque + custo do item. Atualizar o custo é essencial: ele é copiado
+      // para cada venda (sale_items.cost) e alimenta a divisão 50/50. Sem
+      // isso, comprar mais caro continuaria calculando lucro pelo custo antigo.
+      for (const it of items) {
+        await adjustStock(it.itemId, it.quantity);
+        const catItem = await findCatalogItem(it.itemId);
+        if (catItem && it.unitCost > 0 && catItem.cost !== it.unitCost) {
+          await updateCatalogItem({ ...catItem, cost: it.unitCost });
+        }
+      }
+      // Lançamento financeiro (antes ia para um array em memória e se perdia
+      // no reload, enquanto o estoque era atualizado de verdade).
+      const now = new Date();
+      const created = await addFinancialTransaction({
+        date: now.toISOString().split('T')[0],
+        time: now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+        description: `Compra de estoque${supplier ? ` - Fornecedor: ${supplier}` : ""}: ${items.map(i => formatItemQty(i.name, i.quantity)).join(', ')}`,
+        type: 'expense',
+        amount: subtotal,
+        category: 'Estoque',
+      });
+      if (!created) {
+        toast.error("Estoque atualizado, mas falhou ao registrar a despesa.");
+        return;
+      }
+      toast.success("Compra registrada. Estoque e custo dos itens atualizados.");
+      // Recarrega para a lista já refletir o novo custo/estoque.
+      setProducts(await getCatalogByType("product"));
+      setSupplier(""); setItems([]);
+    } finally {
+      setSaving(false);
     }
-    // Lançamento financeiro
-    const now = new Date();
-    addMockFinancialTransaction({
-      date: now.toISOString().split('T')[0],
-      time: now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-      description: `Compra de estoque${supplier ? ` - Fornecedor: ${supplier}` : ""}: ${items.map(i => `${i.name} x${i.quantity}`).join(', ')}`,
-      type: 'expense',
-      amount: subtotal,
-      category: 'Estoque',
-    });
-    toast.success("Compra registrada e estoque atualizado.");
-    setSupplier(""); setItems([]);
   };
 
   return (
@@ -159,11 +187,11 @@ const PurchasesPage: React.FC = () => {
           )}
           <div className="flex justify-end mt-3">
             <Button
-              onClick={handleSavePurchase}
-              disabled={items.length === 0}
+              onClick={() => void handleSavePurchase()}
+              disabled={items.length === 0 || saving}
               className="h-9 bg-[hsl(var(--vf-stock))] px-4 text-white hover:bg-[hsl(var(--vf-stock)/0.9)]"
             >
-              Salvar Compra
+              {saving ? "Salvando..." : "Salvar Compra"}
             </Button>
           </div>
         </div>

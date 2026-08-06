@@ -10,9 +10,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { cn, formatDateTime } from "@/lib/utils";
+import { formatDateTime, formatItemQty } from "@/lib/utils";
 import type { FinancialTransaction } from "@/mockData/financial";
 import { useFinancialTransactions } from "@/hooks/useFinancialTransactions";
+import { getSaleItemsBySaleIds, type SaleItem } from "@/lib/saleItemsApi";
+import { groupRepassesByProvider, resolveCostProvider } from "@/lib/costProviders";
+import { useClientsList } from "@/hooks/useSupabaseClients";
 import {
   ChartContainer,
   ChartTooltip,
@@ -34,6 +37,22 @@ import {
 import { FileText, Printer, Wallet, TrendingUp, PieChart as PieChartIcon } from "lucide-react";
 import { PageShell } from "@/components/saas/PageShell";
 import { PageHeader } from "@/components/saas/PageHeader";
+
+type RepasseDetalhe = {
+  id: string;
+  date: string;
+  time?: string;
+  saleId: string;
+  serviceName: string;
+  provider: string;
+  amount: number;
+  quantity: number;
+  clientId?: string;
+  clientName: string;
+  animalId?: string;
+  animalName: string;
+  patientCode?: number;
+};
 
 const withinRange = (dateStr: string, from?: string, to?: string) => {
   const dt = new Date(`${dateStr}T00:00`);
@@ -78,10 +97,13 @@ const sumReceiptsForSaleLocal = (list: FinancialTransaction[], saleId: string) =
 
 const FinancialReportsPage: React.FC = () => {
   const { transactions: mockFinancialTransactions } = useFinancialTransactions();
+  const { data: clients = [] } = useClientsList();
   const defaultPeriod = useMemo(getDefaultPeriod, []);
   const [periodPreset, setPeriodPreset] = useState<string>("this_month");
   const [dateFrom, setDateFrom] = useState<string>(defaultPeriod.from);
   const [dateTo, setDateTo] = useState<string>(defaultPeriod.to);
+  const [periodSaleItems, setPeriodSaleItems] = useState<SaleItem[]>([]);
+  const [providerFilter, setProviderFilter] = useState<string>("all");
 
   useEffect(() => {
     const now = new Date();
@@ -103,7 +125,95 @@ const FinancialReportsPage: React.FC = () => {
     }
   }, [periodPreset]);
 
-  const { entradas, faturamento, recebido, saidas, saldo, movimentos, totalEmAberto, chartByDay, receitasPorCategoria, despesasPorCategoria, totalRepasses, lucroReal, margemReal, totalTaxas, liquidoReal, margemLiquida } =
+  // Itens das vendas do período — base do relatório de repasses por prestador
+  useEffect(() => {
+    const saleIds = mockFinancialTransactions
+      .filter(
+        (t) =>
+          withinRange(t.date, dateFrom, dateTo) &&
+          t.type === "income" &&
+          t.category === "Venda de Produtos" &&
+          (t.status || "pending") !== "cancelled"
+      )
+      .map((t) => t.id);
+    let cancelled = false;
+    getSaleItemsBySaleIds(saleIds).then((items) => {
+      if (!cancelled) setPeriodSaleItems(items);
+    });
+    setProviderFilter("all");
+    return () => {
+      cancelled = true;
+    };
+  }, [mockFinancialTransactions, dateFrom, dateTo]);
+
+  const clientById = useMemo(() => {
+    const map = new Map<string, { name: string; animals: Map<string, { name: string; patientCode?: number }> }>();
+    for (const c of clients) {
+      const animals = new Map<string, { name: string; patientCode?: number }>();
+      for (const a of c.animals || []) {
+        animals.set(a.id, { name: a.name, patientCode: a.patientCode });
+      }
+      map.set(c.id, { name: c.name, animals });
+    }
+    return map;
+  }, [clients]);
+
+  const repassesDetalhados = useMemo((): RepasseDetalhe[] => {
+    const saleById = new Map(
+      mockFinancialTransactions
+        .filter(
+          (t) =>
+            withinRange(t.date, dateFrom, dateTo) &&
+            t.type === "income" &&
+            t.category === "Venda de Produtos" &&
+            (t.status || "pending") !== "cancelled"
+        )
+        .map((t) => [t.id, t] as const)
+    );
+
+    const rows: RepasseDetalhe[] = [];
+    for (const item of periodSaleItems) {
+      const line = (item.cost || 0) * (item.quantity || 0);
+      if (line <= 0) continue;
+      const sale = saleById.get(item.saleId);
+      if (!sale) continue;
+      const provider =
+        resolveCostProvider(item.costProvider, item.category, item.cost) || "Prestador externo";
+      const client = sale.relatedClientId ? clientById.get(sale.relatedClientId) : undefined;
+      const animal =
+        sale.relatedAnimalId && client
+          ? client.animals.get(sale.relatedAnimalId)
+          : undefined;
+      rows.push({
+        id: item.id,
+        date: sale.date,
+        time: sale.time,
+        saleId: sale.id,
+        serviceName: item.name,
+        provider,
+        amount: line,
+        quantity: item.quantity,
+        clientId: sale.relatedClientId,
+        clientName: client?.name || "Cliente não informado",
+        animalId: sale.relatedAnimalId,
+        animalName: animal?.name || (sale.relatedAnimalId ? "Paciente" : "Sem paciente"),
+        patientCode: animal?.patientCode,
+      });
+    }
+
+    return rows.sort((a, b) => {
+      const A = new Date(`${a.date}T${a.time || "00:00"}`).getTime();
+      const B = new Date(`${b.date}T${b.time || "00:00"}`).getTime();
+      return B - A;
+    });
+  }, [periodSaleItems, mockFinancialTransactions, dateFrom, dateTo, clientById]);
+
+  const filteredRepassesDetalhados = useMemo(() => {
+    if (providerFilter === "all") return repassesDetalhados;
+    return repassesDetalhados.filter((r) => r.provider === providerFilter);
+  }, [repassesDetalhados, providerFilter]);
+
+  const { entradas, faturamento, recebido, saidas, saldo, movimentos, totalEmAberto, chartByDay, receitasPorCategoria, despesasPorCategoria, totalRepasses, lucroReal, margemReal, totalTaxas, liquidoReal, margemLiquida, repassesPorPrestador } =
     useMemo(() => {
       const allInPeriod = mockFinancialTransactions.filter((t) =>
         withinRange(t.date, dateFrom, dateTo)
@@ -178,27 +288,25 @@ const FinancialReportsPage: React.FC = () => {
         return s + Math.max(0, sale.amount - paid);
       }, 0);
 
-      const totalRepasses = allInPeriod
-        .filter(t => t.type === 'income' && t.category === 'Venda de Produtos')
+      const totalRepassesVendas = allInPeriod
+        .filter(t => t.type === 'income' && t.category === 'Venda de Produtos' && (t.status || 'pending') !== 'cancelled')
         .reduce((s, t) => s + (t.supplierCost ?? 0), 0);
 
       // Taxas de operadora repassadas ao cliente
       const totalTaxas = allInPeriod
-        .filter(t => t.type === 'income')
+        .filter(t => t.type === 'income' && t.category === 'Venda de Produtos' && (t.status || 'pending') !== 'cancelled')
         .reduce((s, t) => s + (t.financialFee ?? 0), 0);
 
+      const repassesPorPrestador = groupRepassesByProvider(periodSaleItems);
+      // Itens detalhados são a fonte da verdade; vendas antigas sem itens usam o agregado.
+      const totalRepasses =
+        periodSaleItems.length > 0
+          ? repassesPorPrestador.reduce((s, r) => s + r.amount, 0)
+          : totalRepassesVendas;
       const lucroReal = faturamento - totalRepasses;
-
-      const margemReal = faturamento > 0
-        ? Math.round((lucroReal / faturamento) * 100)
-        : 0;
-
-      // Lucro líquido real = faturamento - repasses fornecedores - taxas operadora
       const liquidoReal = faturamento - totalRepasses - totalTaxas;
-
-      const margemLiquida = faturamento > 0
-        ? Math.round((liquidoReal / faturamento) * 100)
-        : 0;
+      const margemReal = faturamento > 0 ? Math.round((lucroReal / faturamento) * 100) : 0;
+      const margemLiquida = faturamento > 0 ? Math.round((liquidoReal / faturamento) * 100) : 0;
 
       return {
         entradas,
@@ -217,8 +325,9 @@ const FinancialReportsPage: React.FC = () => {
         totalTaxas,
         liquidoReal,
         margemLiquida,
+        repassesPorPrestador,
       };
-    }, [mockFinancialTransactions, dateFrom, dateTo]);
+    }, [mockFinancialTransactions, dateFrom, dateTo, periodSaleItems]);
 
   const periodLabel =
     periodPreset === "this_month"
@@ -251,6 +360,20 @@ const FinancialReportsPage: React.FC = () => {
       <div class="kpi" style="background:#f0fdf4"><strong>Lucro Real:</strong> ${currency(lucroReal)} (${margemReal}%)</div>
       <div class="kpi"><strong>Saídas:</strong> ${currency(saidas)}</div>
       <div class="kpi"><strong>A receber:</strong> ${currency(totalEmAberto)}</div>
+      <h2>Repasses por prestador</h2>
+      <table><thead><tr><th>Prestador</th><th style="text-align:right">Valor</th></tr></thead><tbody>${
+        repassesPorPrestador.length
+          ? repassesPorPrestador.map((r) => `<tr><td>${r.provider}</td><td style="text-align:right">${currency(r.amount)}</td></tr>`).join("")
+          : "<tr><td colspan='2'>Nenhum repasse no período</td></tr>"
+      }</tbody></table>
+      <h2>Detalhamento por paciente</h2>
+      <table><thead><tr><th>Data</th><th>Paciente</th><th>Tutor</th><th>Serviço</th><th>Prestador</th><th style="text-align:right">Repasse</th></tr></thead><tbody>${
+        filteredRepassesDetalhados.length
+          ? filteredRepassesDetalhados.map((r) =>
+              `<tr><td>${formatDateTime(r.date, r.time)}</td><td>${r.animalName}${r.patientCode != null ? ` (#${r.patientCode})` : ""}</td><td>${r.clientName}</td><td>${formatItemQty(r.serviceName, r.quantity)}</td><td>${r.provider}</td><td style="text-align:right">${currency(r.amount)}</td></tr>`
+            ).join("")
+          : "<tr><td colspan='6'>Nenhum repasse no período</td></tr>"
+      }</tbody></table>
       <h2>Movimentos do período</h2>
       <table><thead><tr><th>Data</th><th>Descrição</th><th>Categoria</th><th>Pagamento</th><th style="text-align:right">Valor</th></tr></thead><tbody>${movementsRows || "<tr><td colspan='5'>Sem dados</td></tr>"}</tbody></table>
       </body></html>
@@ -356,12 +479,14 @@ const FinancialReportsPage: React.FC = () => {
           <Card className="vf-surface-card vf-tone-finance card-hover rounded-xl border-border/80">
             <CardContent className="p-4">
               <div className="text-xs text-amber-700 font-medium uppercase tracking-wide">
-                Repasses a Fornecedores
+                Repasses a Prestadores
               </div>
               <div className="text-2xl font-bold text-amber-700 mt-1">
                 − {new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(totalRepasses)}
               </div>
-              <div className="text-xs text-muted-foreground mt-1">Laboratórios e fornecedores</div>
+              <div className="text-xs text-muted-foreground mt-1">
+                Labs, especialistas e fornecedores
+              </div>
             </CardContent>
           </Card>
 
@@ -432,6 +557,193 @@ const FinancialReportsPage: React.FC = () => {
             </CardContent>
           </Card>
         </div>
+
+        {/* Repasses por prestador */}
+        <Card className="vf-surface-card vf-tone-finance card-hover rounded-xl border-border/80 print:break-inside-avoid">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <PieChartIcon className="h-4 w-4 text-amber-700" /> Repasses por prestador
+            </CardTitle>
+            <p className="text-sm text-muted-foreground font-normal">
+              Quanto deve ser repassado a cada lab, especialista ou fornecedor no período.
+            </p>
+          </CardHeader>
+          <CardContent>
+            {repassesPorPrestador.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-6 text-center">
+                Nenhum repasse no período. Cadastre o custo e o prestador nos itens do catálogo.
+              </p>
+            ) : (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-border">
+                        <th className="text-left py-2 font-medium text-muted-foreground">Prestador</th>
+                        <th className="text-right py-2 font-medium text-muted-foreground">Valor</th>
+                        <th className="text-right py-2 font-medium text-muted-foreground">%</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {repassesPorPrestador.map((row) => (
+                        <tr key={row.provider} className="border-b border-border/50">
+                          <td className="py-2 font-medium text-amber-800">{row.provider}</td>
+                          <td className="py-2 text-right font-semibold text-amber-700">
+                            {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(row.amount)}
+                          </td>
+                          <td className="py-2 text-right text-muted-foreground">
+                            {totalRepasses > 0 ? Math.round((row.amount / totalRepasses) * 100) : 0}%
+                          </td>
+                        </tr>
+                      ))}
+                      <tr className="border-t border-border bg-muted/30">
+                        <td className="py-2 font-semibold">Total</td>
+                        <td className="py-2 text-right font-bold text-amber-700">
+                          {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(totalRepasses)}
+                        </td>
+                        <td className="py-2 text-right text-muted-foreground">100%</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+                <ChartContainer
+                  config={repassesPorPrestador.reduce(
+                    (acc, _, i) => ({ ...acc, [i]: { color: CHART_COLORS.pie[i % CHART_COLORS.pie.length] } }),
+                    {}
+                  )}
+                  className="h-[240px] w-full"
+                >
+                  <PieChart>
+                    <Pie
+                      data={repassesPorPrestador.map((r) => ({ name: r.provider, value: r.amount }))}
+                      dataKey="value"
+                      nameKey="name"
+                      cx="50%"
+                      cy="50%"
+                      outerRadius={80}
+                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                    >
+                      {repassesPorPrestador.map((_, i) => (
+                        <Cell key={i} fill={CHART_COLORS.pie[i % CHART_COLORS.pie.length]} />
+                      ))}
+                    </Pie>
+                    <ChartTooltip formatter={(v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v)} />
+                  </PieChart>
+                </ChartContainer>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Detalhamento: paciente x prestador */}
+        <Card className="vf-surface-card vf-tone-finance card-hover rounded-xl border-border/80 print:break-inside-avoid">
+          <CardHeader className="pb-2">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <FileText className="h-4 w-4 text-amber-700" /> Pacientes com serviços externos
+                </CardTitle>
+                <p className="text-sm text-muted-foreground font-normal mt-1">
+                  Quem utilizou cada prestador (lab, especialista, etc.) no período.
+                </p>
+              </div>
+              {repassesPorPrestador.length > 0 && (
+                <Select value={providerFilter} onValueChange={setProviderFilter}>
+                  <SelectTrigger className="h-9 w-[220px] border border-border bg-card print:hidden">
+                    <SelectValue placeholder="Filtrar prestador" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos os prestadores</SelectItem>
+                    {repassesPorPrestador.map((r) => (
+                      <SelectItem key={r.provider} value={r.provider}>
+                        {r.provider}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+          </CardHeader>
+          <CardContent>
+            {filteredRepassesDetalhados.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-6 text-center">
+                Nenhum paciente com repasse no período
+                {providerFilter !== "all" ? " para este prestador" : ""}.
+              </p>
+            ) : (
+              <div className="overflow-x-auto max-h-[420px] overflow-y-auto">
+                <table className="w-full text-sm">
+                  <thead className="sticky top-0 bg-card z-10">
+                    <tr className="border-b border-border">
+                      <th className="text-left py-2 font-medium text-muted-foreground">Data</th>
+                      <th className="text-left py-2 font-medium text-muted-foreground">Paciente</th>
+                      <th className="text-left py-2 font-medium text-muted-foreground">Tutor</th>
+                      <th className="text-left py-2 font-medium text-muted-foreground">Serviço</th>
+                      <th className="text-left py-2 font-medium text-muted-foreground">Prestador</th>
+                      <th className="text-right py-2 font-medium text-muted-foreground">Repasse</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredRepassesDetalhados.map((row) => (
+                      <tr key={row.id} className="border-b border-border/50">
+                        <td className="py-2 whitespace-nowrap text-muted-foreground">
+                          {formatDateTime(row.date, row.time)}
+                        </td>
+                        <td className="py-2">
+                          {row.clientId && row.animalId ? (
+                            <Link
+                              to={`/clients/${row.clientId}/animals/${row.animalId}/record`}
+                              className="font-medium text-foreground hover:text-[hsl(var(--vf-finance))] hover:underline"
+                            >
+                              {row.animalName}
+                              {row.patientCode != null && (
+                                <span className="ml-1 text-xs text-muted-foreground">#{row.patientCode}</span>
+                              )}
+                            </Link>
+                          ) : (
+                            <span className="font-medium">{row.animalName}</span>
+                          )}
+                        </td>
+                        <td className="py-2 text-muted-foreground">{row.clientName}</td>
+                        <td className="py-2">
+                          {row.serviceName}
+                          {row.quantity > 1 && (
+                            <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-100 px-1 text-[10px] font-bold leading-none text-amber-800">
+                              {row.quantity}
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-2">
+                          <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200">
+                            {row.provider}
+                          </span>
+                        </td>
+                        <td className="py-2 text-right font-semibold text-amber-700 whitespace-nowrap">
+                          {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(row.amount)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr className="border-t border-border bg-muted/30">
+                      <td colSpan={5} className="py-2 font-semibold">
+                        Total{providerFilter !== "all" ? ` · ${providerFilter}` : ""}
+                        <span className="ml-2 text-xs font-normal text-muted-foreground">
+                          ({filteredRepassesDetalhados.length} {filteredRepassesDetalhados.length === 1 ? "item" : "itens"})
+                        </span>
+                      </td>
+                      <td className="py-2 text-right font-bold text-amber-700">
+                        {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(
+                          filteredRepassesDetalhados.reduce((s, r) => s + r.amount, 0)
+                        )}
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Gráfico de barras: Entradas x Saídas por dia */}
         <Card className="vf-surface-card vf-tone-finance card-hover rounded-xl border-border/80 print:break-inside-avoid">

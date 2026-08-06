@@ -8,7 +8,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
 import { addFinancialTransaction } from "@/lib/financialApi";
-import { addSaleItems } from "@/lib/saleItemsApi";
 import { getCatalog } from "@/lib/catalogApi";
 import type { CatalogItem } from "@/mockData/catalog";
 import { useClientsList } from "@/hooks/useSupabaseClients";
@@ -18,12 +17,19 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { PageShell } from "@/components/saas/PageShell";
 import { PageHeader } from "@/components/saas/PageHeader";
+import { groupRepassesByProvider, resolveCostProvider } from "@/lib/costProviders";
+import { formatItemQty } from "@/lib/utils";
+import { resolveCartLineCosts } from "@/lib/saleCosting";
+import { fulfillSaleLines } from "@/lib/saleFulfillment";
 
 interface CartItem {
   catalogItemId: string;
   name: string;
   price: number;
   cost: number;
+  productCost: number;
+  providerCost: number;
+  costProvider?: string;
   quantity: number;
   type: "product" | "service";
   category?: string;
@@ -50,9 +56,34 @@ const POSPage = () => {
   const [surchargeVal, setSurchargeVal] = useState<string>("");
   const [processing, setProcessing] = useState(false);
   const [clientOpen, setClientOpen] = useState(false);
+  /** Custo unitário resolvido (BOM + prestador) por item do catálogo */
+  const [resolvedCosts, setResolvedCosts] = useState<
+    Map<string, { unitCost: number; unitProductCost: number; unitProviderCost: number; costProvider?: string }>
+  >(new Map());
 
   useEffect(() => {
-    getCatalog().then(items => setCatalog(items.filter(i => i.active)));
+    getCatalog().then(async (items) => {
+      const active = items.filter((i) => i.active);
+      setCatalog(active);
+      const catalogById = new Map(active.map((i) => [i.id, i]));
+      const resolved = await resolveCartLineCosts(
+        active.map((i) => ({ catalogItemId: i.id, quantity: 1 })),
+        catalogById
+      );
+      const map = new Map<
+        string,
+        { unitCost: number; unitProductCost: number; unitProviderCost: number; costProvider?: string }
+      >();
+      resolved.forEach((v, k) => {
+        map.set(k, {
+          unitCost: v.unitCost,
+          unitProductCost: v.unitProductCost,
+          unitProviderCost: v.unitProviderCost,
+          costProvider: v.costProvider,
+        });
+      });
+      setResolvedCosts(map);
+    });
   }, []);
 
   const filteredAnimals = selectedClientId
@@ -68,6 +99,11 @@ const POSPage = () => {
     if (quantity <= 0) { toast.error("Quantidade inválida."); return; }
     const catalogItem = catalog.find(i => i.id === selectedItemId);
     if (!catalogItem) return;
+    const resolved = resolvedCosts.get(catalogItem.id);
+    const unitCost = resolved?.unitCost ?? catalogItem.cost ?? 0;
+    const productCost = resolved?.unitProductCost ?? (catalogItem.type === "product" ? (catalogItem.cost ?? 0) : 0);
+    const providerCost = resolved?.unitProviderCost ?? (catalogItem.type === "service" ? (catalogItem.cost ?? 0) : 0);
+    const costProvider = resolved?.costProvider ?? catalogItem.costProvider;
     setCart(prev => {
       const existing = prev.findIndex(i => i.catalogItemId === selectedItemId);
       if (existing > -1) {
@@ -79,7 +115,10 @@ const POSPage = () => {
         catalogItemId: catalogItem.id,
         name: catalogItem.name,
         price: catalogItem.price,
-        cost: catalogItem.cost ?? 0,
+        cost: unitCost,
+        productCost,
+        providerCost,
+        costProvider,
         quantity,
         type: catalogItem.type,
         category: catalogItem.category,
@@ -103,7 +142,7 @@ const POSPage = () => {
         ? clients.find(c => c.id === selectedClientId)?.animals.find(a => a.id === selectedAnimalId)?.name
         : undefined;
       const now = new Date();
-      const description = `Venda para ${clientName}${animalName ? ` (${animalName})` : ""}: ${cart.map(i => `${i.name} x${i.quantity}`).join(", ")}`;
+      const description = `Venda para ${clientName}${animalName ? ` (${animalName})` : ""}: ${cart.map(i => formatItemQty(i.name, i.quantity)).join(", ")}`;
       const transaction = await addFinancialTransaction({
         date: now.toISOString().split("T")[0],
         time: now.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
@@ -117,25 +156,26 @@ const POSPage = () => {
         status: "pending",
         supplierCost: totalCost,
         financialFee: financialFee > 0 ? financialFee : undefined,
+        discountAmount: discountAmount > 0 ? discountAmount : undefined,
+        surchargeAmount: surchargeManual > 0 ? surchargeManual : undefined,
         paymentInstallments: allowsInstallments && installments > 1
           ? installments
           : undefined,
       });
 
       if (transaction) {
-        await addSaleItems(
-          transaction.id,
-          cart.map((item) => ({
+        await fulfillSaleLines({
+          saleId: transaction.id,
+          catalog,
+          lines: cart.map((item) => ({
             catalogItemId: item.catalogItemId,
             name: item.name,
-            type: item.type as "product" | "service",
+            type: item.type,
             category: item.category,
             quantity: item.quantity,
             unitPrice: item.price,
-            cost: item.cost,
-            subtotal: item.price * item.quantity,
-          }))
-        );
+          })),
+        });
       }
       toast.success("Venda registrada com sucesso!");
       setCart([]);
@@ -289,7 +329,14 @@ const POSPage = () => {
                   <TableBody>
                     {cart.map(item => (
                       <TableRow key={item.catalogItemId}>
-                        <TableCell className="font-medium">{item.name}</TableCell>
+                        <TableCell className="font-medium">
+                          <div>{item.name}</div>
+                          {item.cost > 0 && resolveCostProvider(item.costProvider, item.category, item.cost) && (
+                            <div className="text-[11px] text-amber-700">
+                              → {resolveCostProvider(item.costProvider, item.category, item.cost)}
+                            </div>
+                          )}
+                        </TableCell>
                         <TableCell className="text-center">{item.quantity}</TableCell>
                         <TableCell className="text-right text-sm">
                           {new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(item.price)}
@@ -326,9 +373,16 @@ const POSPage = () => {
                   {totalCost > 0 && (
                     <>
                       <div>
-                        <span className="text-muted-foreground">Repasses (fornecedores)</span>
+                        <span className="text-muted-foreground">Repasses</span>
                         <div className="font-bold text-base text-amber-600">
                           − {new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(totalCost)}
+                        </div>
+                        <div className="mt-0.5 space-y-0.5">
+                          {groupRepassesByProvider(cart).map((row) => (
+                            <div key={row.provider} className="text-[11px] text-amber-700/80">
+                              {row.provider}: {new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(row.amount)}
+                            </div>
+                          ))}
                         </div>
                       </div>
                       <div>
