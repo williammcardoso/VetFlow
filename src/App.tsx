@@ -45,35 +45,24 @@ import { AuthProvider, useAuth } from "./contexts/AuthContext";
 // Sales Pages
 import SalesPage from "./pages/sales/SalesPage";
 import POSPage from "./pages/sales/POSPage";
-import SoldPackagesPage from "./pages/sales/SoldPackagesPage";
 import ReceiptsPage from "./pages/sales/ReceiptsPage";
 import BudgetsPage from "./pages/sales/BudgetsPage";
-import StatementModelPage from "./pages/sales/StatementModelPage";
 import SalesReportsPage from "./pages/sales/SalesReportsPage";
 import ClientFinancialPage from "./pages/sales/ClientFinancialPage";
+import PriceListPage from "./pages/sales/PriceListPage";
+
+// Clinical pages
+import ReturnsForecastPage from "./pages/clinical/ReturnsForecastPage";
+import AppointmentsReportPage from "./pages/clinical/AppointmentsReportPage";
 
 // Financial Sub-pages
-import TransactionsPage from "./pages/financial/TransactionsPage";
-import CardReconciliationPage from "./pages/financial/CardReconciliationPage";
-import AccountsPayablePage from "./pages/financial/AccountsPayablePage";
-import StatementFinancialPage from "./pages/financial/StatementPage";
-import CashFlowPage from "./pages/financial/CashFlowPage";
-import AccountsCardsPage from "./pages/financial/AccountsCardsPage";
-import CategoriesPage from "./pages/financial/CategoriesPage";
-import SuppliersPage from "./pages/financial/SuppliersPage";
 import FinancialPaymentMethodsPage from "./pages/financial/PaymentMethodsPage";
 import FinancialReportsPage from "./pages/financial/FinancialReportsPage";
+import MonthlyClosingPage from "./pages/financial/MonthlyClosingPage";
 
 // Stock pages
 import ProductsServicesPage from "./pages/stock/ProductsServicesPage";
 import PurchasesPage from "./pages/stock/PurchasesPage";
-import OtherExitsPage from "./pages/stock/OtherExitsPage";
-import StockAnalysisPage from "./pages/stock/StockAnalysisPage";
-import InventoryPage from "./pages/stock/InventoryPage";
-import PurchaseOrderPage from "./pages/stock/PurchaseOrderPage";
-import ProductGroupsPage from "./pages/stock/ProductGroupsPage";
-import BrandsPage from "./pages/stock/BrandsPage";
-import RecommendedProductsPage from "./pages/stock/RecommendedProductsPage";
 
 // Settings
 import ExternalAccessPage from "./pages/settings/ExternalAccessPage";
@@ -216,6 +205,8 @@ const App = () => {
                     />
 
                     <Route path="/agenda" element={<AgendaPage />} />
+                    <Route path="/clinical/returns-forecast" element={<ReturnsForecastPage />} />
+                    <Route path="/clinical/appointments-report" element={<AppointmentsReportPage />} />
                     <Route path="/help" element={<HelpPage />} />
 
                     {/* Vendas */}
@@ -224,44 +215,28 @@ const App = () => {
                     <Route path="/sales/reports" element={<SalesReportsPage />} />
                     <Route path="/sales/budgets" element={<BudgetsPage />} />
                     <Route path="/sales/receipts" element={<ReceiptsPage />} />
-                    <Route path="/sales/sold-packages" element={<SoldPackagesPage />} />
-                    <Route path="/sales/statement-model" element={<StatementModelPage />} />
                     <Route path="/sales/client-financial" element={<ClientFinancialPage />} />
 
                     {/* Redirects de compatibilidade */}
                     <Route path="/sales/consult-sales" element={<Navigate to="/sales/my-sales" replace />} />
                     <Route path="/sales/cash-movements" element={<Navigate to="/financial" replace />} />
                     <Route path="/sales/payment-methods" element={<Navigate to="/financial/payment-methods" replace />} />
-                    <Route path="/sales/price-list" element={<Navigate to="/stock/products-services" replace />} />
+                    <Route path="/sales/price-list" element={<PriceListPage />} />
                     <Route path="/sales/client-ranking" element={<Navigate to="/sales/client-financial" replace />} />
                     <Route path="/sales/client-balance" element={<Navigate to="/sales/client-financial" replace />} />
 
                     {/* Financeiro */}
                     <Route path="/financial" element={<FinancialPage />} />
                     <Route path="/financial/reports" element={<FinancialReportsPage />} />
+                    <Route path="/financial/monthly-closing" element={<MonthlyClosingPage />} />
                     <Route path="/financial/accounts-receivable" element={<Navigate to="/financial" replace />} />
                     <Route path="/financial/receipts" element={<Navigate to="/financial" replace />} />
                     <Route path="/financial/cash-movements" element={<Navigate to="/financial" replace />} />
-                    <Route path="/financial/transactions" element={<TransactionsPage />} />
-                    <Route path="/financial/card-reconciliation" element={<CardReconciliationPage />} />
-                    <Route path="/financial/accounts-payable" element={<AccountsPayablePage />} />
-                    <Route path="/financial/statement" element={<StatementFinancialPage />} />
-                    <Route path="/financial/cash-flow" element={<CashFlowPage />} />
-                    <Route path="/financial/accounts-cards" element={<AccountsCardsPage />} />
-                    <Route path="/financial/categories" element={<CategoriesPage />} />
-                    <Route path="/financial/suppliers" element={<SuppliersPage />} />
                     <Route path="/financial/payment-methods" element={<FinancialPaymentMethodsPage />} />
 
                     {/* Estoque */}
                     <Route path="/stock/products-services" element={<ProductsServicesPage />} />
                     <Route path="/stock/purchases" element={<PurchasesPage />} />
-                    <Route path="/stock/other-exits" element={<OtherExitsPage />} />
-                    <Route path="/stock/stock-analysis" element={<StockAnalysisPage />} />
-                    <Route path="/stock/inventory" element={<InventoryPage />} />
-                    <Route path="/stock/purchase-order" element={<PurchaseOrderPage />} />
-                    <Route path="/stock/product-groups" element={<ProductGroupsPage />} />
-                    <Route path="/stock/brands" element={<BrandsPage />} />
-                    <Route path="/stock/recommended-products" element={<RecommendedProductsPage />} />
                     <Route path="*" element={<NotFound />} />
                   </Route>
                 </Routes>

@@ -5,6 +5,7 @@ export type CatalogCategory =
   | 'cirurgia'
   | 'exame_interno'
   | 'exame_externo'
+  | 'especialista'
   | 'vacina';
 
 export interface CatalogItem {
@@ -12,7 +13,8 @@ export interface CatalogItem {
   name: string;
   type: CatalogItemType;
   price: number;
-  cost?: number;      // Custo do fornecedor (ex: repasse ao laboratório)
+  cost?: number;      // Valor a repassar (custo do prestador/fornecedor)
+  costProvider?: string; // Quem recebe o repasse (ex.: Cardiologista, Lab externo)
   category?: CatalogCategory; // Categoria do item
   sku?: string;
   unit?: string;
@@ -30,7 +32,8 @@ const defaultItems: CatalogItem[] = [
   { id: 'prod2', name: 'Brinquedo para Cachorro', type: 'product', price: 25, sku: 'BRI-DOG', unit: 'un', stockQty: 30, brand: 'PetFun', group: 'Acessórios', active: true, recommended: false, category: 'produto' },
   { id: 'serv1', name: 'Consulta de Rotina', type: 'service', price: 120, unit: 'serviço', active: true, category: 'servico' },
   { id: 'serv2', name: 'Vacina V8', type: 'service', price: 90, unit: 'dose', active: true, category: 'vacina' },
-  { id: 'serv3', name: 'Exame de Sangue', type: 'service', price: 150, unit: 'exame', active: true, category: 'exame_externo', cost: 60 },
+  { id: 'serv3', name: 'Exame de Sangue', type: 'service', price: 150, unit: 'exame', active: true, category: 'exame_externo', cost: 60, costProvider: 'Laboratório externo' },
+  { id: 'serv4', name: 'Consulta Cardiológica', type: 'service', price: 250, unit: 'serviço', active: true, category: 'especialista', cost: 200, costProvider: 'Cardiologista' },
 ];
 
 const load = (): CatalogItem[] => {
@@ -55,6 +58,7 @@ const load = (): CatalogItem[] => {
       active: it.active !== false,
       recommended: it.recommended === true,
       cost: typeof it.cost === 'number' ? it.cost : undefined,
+      costProvider: typeof it.costProvider === 'string' ? it.costProvider : undefined,
       category: it.category ?? undefined,
     }));
   } catch {
@@ -89,6 +93,7 @@ export const addCatalogItem = (item: Omit<CatalogItem, 'id' | 'active'> & { acti
     group: item.group,
     active: item.active ?? true,
     cost: item.cost,
+    costProvider: item.costProvider,
     category: item.category,
   };
   list.push(newItem);
