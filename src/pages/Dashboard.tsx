@@ -1,9 +1,11 @@
+import { useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { getCatalog as getCatalogApi } from "@/lib/catalogApi";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import StatusBadge from "@/components/saas/StatusBadge";
 import DashboardStatusStrip from "@/components/saas/DashboardStatusStrip";
-import { getCatalog } from "@/mockData/catalog";
 import { PageHeader } from "@/components/saas/PageHeader";
 import { useScheduleMutations } from "@/hooks/useSchedules";
 import type { ScheduleStatus, ScheduleUI } from "@/lib/schedulesApi";
@@ -24,9 +26,12 @@ import {
   BarChart3,
   CalendarDays,
   ChevronDown,
+  RotateCcw,
+  Syringe,
 } from "lucide-react";
 import { useClientsList } from "@/hooks/useSupabaseClients";
 import { useSchedulesList } from "@/hooks/useSchedules";
+import { useAppointments } from "@/hooks/useAppointments";
 import { PageShell } from "@/components/saas/PageShell";
 import { Link } from "react-router-dom";
 
@@ -34,43 +39,74 @@ const Dashboard = () => {
   const { data: dbClients, isError } = useClientsList();
   const { data: schedules = [] } = useSchedulesList();
   const { update } = useScheduleMutations();
+  const { appointments: allAppointments } = useAppointments();
+  const { data: catalogItems = [] } = useQuery({ queryKey: ["catalog"], queryFn: getCatalogApi });
   const now = new Date();
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
   const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
   const oneDayMs = 24 * 60 * 60 * 1000;
 
-  const toDateTime = (app: ScheduleUI) => {
+  // "YYYY-MM-DD" puro vira meia-noite UTC se parseado direto; em fuso negativo
+  // (Brasil, UTC-3) isso volta pro dia anterior. Forcar hora local evita o bug.
+  const parseLocalDate = (dateStr: string) => new Date(`${dateStr}T00:00:00`);
+
+  const toScheduleDateTime = (app: ScheduleUI) => {
     const dt = new Date(app.date);
     const [h = 0, m = 0] = (app.time || "00:00").split(":").map(Number);
     dt.setHours(h, m, 0, 0);
     return dt;
   };
 
-  const appointmentsThisMonth = schedules.filter((app) => {
-    const d = toDateTime(app);
-    return d >= startOfMonth && d <= endOfMonth;
-  }).length;
+  const toAppointmentDateTime = (app: { date: string; time?: string }) => {
+    const dt = parseLocalDate(app.date);
+    const [h = 0, m = 0] = (app.time || "00:00").split(":").map(Number);
+    dt.setHours(h, m, 0, 0);
+    return dt;
+  };
 
-  const last24hAppointments = schedules.filter((app) => {
-    const d = toDateTime(app);
+  // Counts from appointments table (medical records actually done)
+  const appointmentsThisMonthList = allAppointments.filter((app) => {
+    const d = toAppointmentDateTime(app);
+    return d >= startOfMonth && d <= endOfMonth;
+  });
+  const appointmentsThisMonth = appointmentsThisMonthList.length;
+
+  const monthTypeBreakdown = useMemo(() => {
+    const counts: Record<string, number> = {};
+    appointmentsThisMonthList.forEach((a) => {
+      const t = a.type || "Outros";
+      counts[t] = (counts[t] || 0) + 1;
+    });
+    return Object.entries(counts).sort((a, b) => b[1] - a[1]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allAppointments, now.getMonth(), now.getFullYear()]);
+
+  const last24hAppointments = allAppointments.filter((app) => {
+    const d = toAppointmentDateTime(app);
     const diff = now.getTime() - d.getTime();
     return diff >= 0 && diff <= oneDayMs;
   }).length;
 
-  const lowStockCount = getCatalog().filter(
+  const appointmentsToday = allAppointments.filter((app) => {
+    const d = toAppointmentDateTime(app);
+    return (
+      d.getFullYear() === now.getFullYear() &&
+      d.getMonth() === now.getMonth() &&
+      d.getDate() === now.getDate()
+    );
+  }).length;
+
+  const lowStockCount = catalogItems.filter(
     (it) => it.type === "product" && typeof it.stockQty === "number" && it.stockQty <= 5
   ).length;
 
   const totalAnimals = (dbClients || []).reduce((acc, c) => acc + (c.animals?.length || 0), 0);
 
-  const upcoming = [...schedules]
-    .sort((a, b) => {
-      const da = toDateTime(a).getTime();
-      const db = toDateTime(b).getTime();
-      return da - db;
-    })
+  // Upcoming = agenda calendar (schedules table), not medical records
+  const upcomingAll = [...schedules]
+    .sort((a, b) => toScheduleDateTime(a).getTime() - toScheduleDateTime(b).getTime())
     .filter((a) => {
-      const itemDate = toDateTime(a);
+      const itemDate = toScheduleDateTime(a);
       const isToday =
         itemDate.getFullYear() === now.getFullYear() &&
         itemDate.getMonth() === now.getMonth() &&
@@ -79,19 +115,61 @@ const Dashboard = () => {
       const status = a.status || "scheduled";
       if (status === "attended" || status === "cancelled" || status === "no_show") return false;
       return itemDate.getTime() >= now.getTime();
-    })
-    .slice(0, 3);
-
-  const appointmentsToday = schedules.filter((app) => {
-    const d = toDateTime(app);
-    return (
-      d.getFullYear() === now.getFullYear() &&
-      d.getMonth() === now.getMonth() &&
-      d.getDate() === now.getDate()
-    );
-  }).length;
-  const operationalAlerts = lowStockCount > 0 ? 1 : 0;
+    });
+  const upcoming = upcomingAll.slice(0, 3);
   const todayLabel = now.toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "short" });
+
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const in7days = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
+
+  const animalMap = useMemo(() => {
+    const map = new Map<string, { animalName: string; clientName: string; clientId: string }>();
+    for (const client of (dbClients || [])) {
+      for (const animal of (client.animals || [])) {
+        map.set(animal.id, { animalName: animal.name, clientName: client.name, clientId: client.id });
+      }
+    }
+    return map;
+  }, [dbClients]);
+
+  const returnsThisWeek = useMemo(() => {
+    return allAppointments
+      .filter((app) => {
+        const days = (app.details as Record<string, unknown>)?.retornoRecomendadoEmDias as number | undefined;
+        if (!days) return false;
+        const returnDate = new Date(parseLocalDate(app.date).getTime() + days * 86400000);
+        return returnDate >= today && returnDate <= in7days;
+      })
+      .map((app) => {
+        const days = (app.details as Record<string, unknown>).retornoRecomendadoEmDias as number;
+        const returnDate = new Date(parseLocalDate(app.date).getTime() + days * 86400000);
+        const info = animalMap.get(app.animalId);
+        return { animalId: app.animalId, animalName: info?.animalName ?? "Pet", clientName: info?.clientName ?? "Tutor", clientId: info?.clientId, returnDate };
+      })
+      .slice(0, 5);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allAppointments, animalMap]);
+
+  const vaccinesThisWeek = useMemo(() => {
+    return allAppointments
+      .filter((app) => {
+        if (app.type !== "Vacina") return false;
+        const nextDose = (app.details as Record<string, unknown>)?.proximaDose as string | undefined;
+        if (!nextDose) return false;
+        const doseDate = parseLocalDate(nextDose);
+        return doseDate >= today && doseDate <= in7days;
+      })
+      .map((app) => {
+        const d = app.details as Record<string, unknown>;
+        const doseDate = parseLocalDate(d.proximaDose as string);
+        const info = animalMap.get(app.animalId);
+        return { animalId: app.animalId, animalName: info?.animalName ?? "Pet", clientName: info?.clientName ?? "Tutor", clientId: info?.clientId, doseDate, vaccine: (d.tipoVacina as string) || "Vacina" };
+      })
+      .slice(0, 5);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allAppointments, animalMap]);
+
+  const hasWeekAlerts = returnsThisWeek.length > 0 || vaccinesThisWeek.length > 0;
 
   const handleStatusChange = async (app: ScheduleUI, status: ScheduleStatus) => {
     await update.mutateAsync({ ...app, status });
@@ -116,17 +194,19 @@ const Dashboard = () => {
             <Badge className="h-8 rounded-full bg-violet-100 px-3 text-xs font-semibold text-violet-700">
               {todayLabel}
             </Badge>
-            <Badge className="h-8 rounded-full bg-emerald-100 px-3 text-xs font-semibold text-emerald-700">
-              {appointmentsToday} hoje
-            </Badge>
+            <Link to="/clinical/appointments-report?period=today">
+              <Badge className="h-8 cursor-pointer rounded-full bg-emerald-100 px-3 text-xs font-semibold text-emerald-700 transition-colors hover:bg-emerald-200">
+                {appointmentsToday} hoje
+              </Badge>
+            </Link>
           </div>
         }
       />
 
       <DashboardStatusStrip
-        appointmentsToday={appointmentsToday}
-        upcomingCount={upcoming.length}
-        operationalAlerts={operationalAlerts}
+        attendedToday={appointmentsToday}
+        weeklyAlerts={returnsThisWeek.length + vaccinesThisWeek.length}
+        lowStockCount={lowStockCount}
       />
 
       <Card className="rounded-2xl border border-border/65 bg-card p-4 shadow-sm sm:p-5">
@@ -138,16 +218,25 @@ const Dashboard = () => {
         </div>
 
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <Card className="min-h-[152px] rounded-2xl border border-emerald-200/80 bg-emerald-50/50 p-[18px] transition-all duration-200 hover:-translate-y-1 hover:border-emerald-400/70 hover:shadow-md dark:border-emerald-700/40 dark:bg-emerald-950/20">
+          <Link
+            to="/clinical/appointments-report?period=this_month"
+            className="block min-h-[152px] rounded-2xl border border-emerald-200/80 bg-emerald-50/50 p-[18px] transition-all duration-200 hover:-translate-y-1 hover:border-emerald-400/70 hover:shadow-md dark:border-emerald-700/40 dark:bg-emerald-950/20"
+          >
             <div className="flex items-start justify-between gap-3">
-              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Consultas no mes</p>
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Atendimentos no mes</p>
               <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700 dark:bg-emerald-900/45 dark:text-emerald-300">
                 <Stethoscope className="h-6 w-6" />
               </span>
             </div>
             <p className="mt-2 text-4xl font-semibold tracking-tight text-emerald-700 dark:text-emerald-300">{appointmentsThisMonth}</p>
-            <p className="mt-1.5 line-clamp-2 text-sm text-muted-foreground">Volume assistencial do mes atual.</p>
-          </Card>
+            {monthTypeBreakdown.length > 0 ? (
+              <p className="mt-1.5 line-clamp-2 text-sm text-muted-foreground">
+                {monthTypeBreakdown.map(([type, count]) => `${count} ${type}`).join(" / ")}
+              </p>
+            ) : (
+              <p className="mt-1.5 text-sm text-muted-foreground">Nenhum atendimento registrado neste mes.</p>
+            )}
+          </Link>
 
           <Card className="min-h-[152px] rounded-2xl border border-sky-200/80 bg-sky-50/50 p-[18px] transition-all duration-200 hover:-translate-y-1 hover:border-sky-400/70 hover:shadow-md dark:border-sky-700/40 dark:bg-sky-950/20">
             <div className="flex items-start justify-between gap-3">
@@ -162,7 +251,10 @@ const Dashboard = () => {
             </p>
           </Card>
 
-          <Card className="min-h-[152px] rounded-2xl border border-violet-200/80 bg-violet-50/50 p-[18px] transition-all duration-200 hover:-translate-y-1 hover:border-violet-400/70 hover:shadow-md dark:border-violet-700/40 dark:bg-violet-950/20">
+          <Link
+            to="/clinical/appointments-report?period=today"
+            className="block min-h-[152px] rounded-2xl border border-violet-200/80 bg-violet-50/50 p-[18px] transition-all duration-200 hover:-translate-y-1 hover:border-violet-400/70 hover:shadow-md dark:border-violet-700/40 dark:bg-violet-950/20"
+          >
             <div className="flex items-start justify-between gap-3">
               <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Atendimentos 24h</p>
               <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-violet-100 text-violet-700 dark:bg-violet-900/45 dark:text-violet-300">
@@ -170,10 +262,13 @@ const Dashboard = () => {
               </span>
             </div>
             <p className="mt-2 text-4xl font-semibold tracking-tight text-violet-700 dark:text-violet-300">{last24hAppointments}</p>
-            <p className="mt-1.5 line-clamp-2 text-sm text-muted-foreground">Producao clinica consolidada em 24h.</p>
-          </Card>
+            <p className="mt-1.5 line-clamp-2 text-sm text-muted-foreground">Producao clinica nas ultimas 24h. Ver relatorio.</p>
+          </Link>
 
-          <Card className="min-h-[152px] rounded-2xl border border-amber-200/80 bg-amber-50/55 p-[18px] transition-all duration-200 hover:-translate-y-1 hover:border-amber-400/70 hover:shadow-md dark:border-amber-700/40 dark:bg-amber-950/20">
+          <Link
+            to="/stock/products-services"
+            className="block min-h-[152px] rounded-2xl border border-amber-200/80 bg-amber-50/55 p-[18px] transition-all duration-200 hover:-translate-y-1 hover:border-amber-400/70 hover:shadow-md dark:border-amber-700/40 dark:bg-amber-950/20"
+          >
             <div className="flex items-start justify-between gap-3">
               <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Estoque critico</p>
               <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-100 text-amber-800 dark:bg-amber-900/45 dark:text-amber-300">
@@ -182,9 +277,70 @@ const Dashboard = () => {
             </div>
             <p className="mt-2 text-4xl font-semibold tracking-tight text-amber-700 dark:text-amber-300">{lowStockCount}</p>
             <p className="mt-1.5 line-clamp-2 text-sm text-muted-foreground">Itens com reposicao operacional urgente.</p>
-          </Card>
+          </Link>
         </div>
       </Card>
+
+      {hasWeekAlerts && (
+        <Card className="rounded-2xl border border-border/65 bg-card p-4 shadow-sm sm:p-5">
+          <div className="mb-3 flex items-start justify-between gap-3">
+            <div>
+              <h2 className="text-[1.08rem] font-semibold tracking-tight text-foreground">Alertas da semana</h2>
+              <p className="text-xs text-muted-foreground">Retornos e vacinas nos próximos 7 dias.</p>
+            </div>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {returnsThisWeek.length > 0 && (
+              <div>
+                <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-orange-600 dark:text-orange-400">
+                  <RotateCcw className="h-3.5 w-3.5" /> Retornos previstos
+                </p>
+                <div className="space-y-2">
+                  {returnsThisWeek.map((r, i) => (
+                    <div key={`ret-${r.animalId}-${i}`} className="flex items-center justify-between rounded-lg border border-orange-200/70 bg-orange-50/50 px-3 py-2 dark:border-orange-700/30 dark:bg-orange-950/20">
+                      <div className="min-w-0">
+                        {r.clientId ? (
+                          <Link to={`/clients/${r.clientId}/animals/${r.animalId}/record`} className="truncate text-sm font-semibold text-foreground hover:underline">{r.animalName}</Link>
+                        ) : (
+                          <p className="truncate text-sm font-semibold text-foreground">{r.animalName}</p>
+                        )}
+                        <p className="truncate text-xs text-muted-foreground">{r.clientName}</p>
+                      </div>
+                      <span className="ml-2 shrink-0 text-xs font-medium text-orange-700 dark:text-orange-300">
+                        {r.returnDate.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {vaccinesThisWeek.length > 0 && (
+              <div>
+                <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-blue-600 dark:text-blue-400">
+                  <Syringe className="h-3.5 w-3.5" /> Vacinas a aplicar
+                </p>
+                <div className="space-y-2">
+                  {vaccinesThisWeek.map((v, i) => (
+                    <div key={`vac-${v.animalId}-${i}`} className="flex items-center justify-between rounded-lg border border-blue-200/70 bg-blue-50/50 px-3 py-2 dark:border-blue-700/30 dark:bg-blue-950/20">
+                      <div className="min-w-0">
+                        {v.clientId ? (
+                          <Link to={`/clients/${v.clientId}/animals/${v.animalId}/record`} className="truncate text-sm font-semibold text-foreground hover:underline">{v.animalName}</Link>
+                        ) : (
+                          <p className="truncate text-sm font-semibold text-foreground">{v.animalName}</p>
+                        )}
+                        <p className="truncate text-xs text-muted-foreground">{v.clientName} · {v.vaccine}</p>
+                      </div>
+                      <span className="ml-2 shrink-0 text-xs font-medium text-blue-700 dark:text-blue-300">
+                        {v.doseDate.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </Card>
+      )}
 
       <div className="grid gap-4 lg:grid-cols-[1.35fr_1fr]">
         <Card className="min-h-[236px] h-full rounded-2xl border border-border/65 bg-card p-4 shadow-sm sm:p-5">
@@ -194,7 +350,7 @@ const Dashboard = () => {
               <h2 className="text-[1.08rem] font-semibold tracking-tight text-foreground">Proximos atendimentos</h2>
             </div>
             <Badge className="h-7 rounded-full bg-[hsl(var(--vf-clinical))]/25 px-2.5 text-xs font-semibold text-vf-clinical shadow-sm">
-              {upcoming.length} eventos
+              {upcomingAll.length} eventos
             </Badge>
           </div>
 
@@ -210,7 +366,7 @@ const Dashboard = () => {
                       </div>
                       <div className="text-right">
                         <p className="text-xs text-muted-foreground">
-                          {toDateTime(app).toLocaleDateString("pt-BR")} às {app.time}
+                          {toScheduleDateTime(app).toLocaleDateString("pt-BR")} às {app.time}
                         </p>
                         <StatusBadge status={app.status || "scheduled"} className="mt-1 inline-flex" />
                       </div>
