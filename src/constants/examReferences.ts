@@ -92,3 +92,71 @@ export function getHemogramReferences(): Record<string, HemogramReference> {
     return defaultHemogramReferences;
   }
 }
+
+export interface BiochemicalReferenceEntry {
+  unit: string;
+  dog: { min?: number; max?: number };
+  cat: { min?: number; max?: number };
+}
+
+/**
+ * Referências bioquímicas salvas em Cadastros > Referências de Exame
+ * (mesma chave "examReferences" do hemograma, bloco "biochemical"). Sem
+ * cadastro prévio, retorna vazio — ao contrário do hemograma, não há
+ * valores padrão embutidos aqui: faixa bioquímica varia bastante por
+ * método/equipamento do laboratório, então cabe ao usuário informar uma
+ * vez em Cadastros e o app reaproveita dali em diante.
+ */
+export function getBiochemicalReferences(): Record<string, BiochemicalReferenceEntry> {
+  try {
+    const raw = localStorage.getItem(EXAM_REFS_STORAGE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    const biochemical = parsed?.biochemical;
+    if (!biochemical || typeof biochemical !== "object") return {};
+    const result: Record<string, BiochemicalReferenceEntry> = {};
+    for (const [name, entry] of Object.entries(biochemical as Record<string, any>)) {
+      result[name] = {
+        unit: entry?.unit || "",
+        dog: {
+          min: typeof entry?.dog?.min === "number" ? entry.dog.min : undefined,
+          max: typeof entry?.dog?.max === "number" ? entry.dog.max : undefined,
+        },
+        cat: {
+          min: typeof entry?.cat?.min === "number" ? entry.cat.min : undefined,
+          max: typeof entry?.cat?.max === "number" ? entry.cat.max : undefined,
+        },
+      };
+    }
+    return result;
+  } catch {
+    return {};
+  }
+}
+
+/** Analitos bioquímicos padrão — mesma lista usada no cadastro de referências. */
+export const DEFAULT_BIOCHEMICAL_NAMES = [
+  "Ureia", "Creatinina", "ALT (TGP)", "AST (TGO)", "ALP (Fosfatase Alcalina)", "GGT",
+  "CK (CPK)", "Amilase", "Lipase", "Glicose", "Colesterol", "Triglicerídeos",
+  "Bilirrubina total", "Bilirrubina direta", "Proteínas totais", "Albumina",
+  "Cálcio", "Fósforo", "Frutosamina",
+];
+
+/**
+ * Nomes dos analitos bioquímicos já cadastrados (Cadastros > Referências de
+ * Exame), na mesma ordem em que o usuário os criou. Usado para listar opções
+ * de checkbox no Pedido de Exame sem duplicar a lista em outro lugar.
+ */
+export function getBiochemicalNames(): string[] {
+  try {
+    const raw = localStorage.getItem(EXAM_REFS_STORAGE_KEY);
+    if (!raw) return DEFAULT_BIOCHEMICAL_NAMES;
+    const parsed = JSON.parse(raw);
+    const biochemical = parsed?.biochemical;
+    if (!biochemical || typeof biochemical !== "object") return DEFAULT_BIOCHEMICAL_NAMES;
+    const names = Object.keys(biochemical);
+    return names.length > 0 ? names : DEFAULT_BIOCHEMICAL_NAMES;
+  } catch {
+    return DEFAULT_BIOCHEMICAL_NAMES;
+  }
+}

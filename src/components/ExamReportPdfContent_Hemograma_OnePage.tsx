@@ -26,9 +26,16 @@ const normalizeNumber = (raw: string | undefined) => {
   if (lastCommaIndex > lastDotIndex) {
     cleaned = cleaned.replace(/\./g, '');
     cleaned = cleaned.replace(/,/g, '.');
+  } else if (lastDotIndex !== -1) {
+    // Sem vírgula: "1.250" (milhar, 3 dígitos após o ponto) vs "6.5" (decimal).
+    // Sem essa distinção "1.250" virava 1,25 em vez de 1250.
+    const dotCount = (cleaned.match(/\./g) || []).length;
+    const decimalsAfterLastDot = cleaned.length - lastDotIndex - 1;
+    if (dotCount > 1 || decimalsAfterLastDot === 3) {
+      cleaned = cleaned.replace(/\./g, '');
+    }
   } else {
     cleaned = cleaned.replace(/,/g, '');
-    cleaned = cleaned.replace(/\.(?=[^.]*\.)/g, '');
   }
   return parseFloat(cleaned);
 };
@@ -311,14 +318,6 @@ const styles = StyleSheet.create({
     top: 6,
     height: 5.2,
   },
-  modernIndicatorFill: {
-    position: 'absolute',
-    left: 0,
-    top: 6,
-    height: 5.2,
-    borderRadius: 2.8,
-    opacity: 0.42,
-  },
   modernIndicatorTick: {
     position: 'absolute',
     top: 5.2,
@@ -326,27 +325,14 @@ const styles = StyleSheet.create({
     height: 6.5,
     backgroundColor: 'rgba(0,0,0,0.25)',
   },
-  modernIndicatorPointer: {
+  modernIndicatorMarker: {
     position: 'absolute',
-    width: 0,
-    height: 0,
-    borderLeftWidth: 3.6,
-    borderRightWidth: 3.6,
-    borderBottomWidth: 5.3,
-    borderStyle: 'solid',
-    borderLeftColor: 'transparent',
-    borderRightColor: 'transparent',
-    top: 0.3,
-  },
-  modernIndicatorDot: {
-    position: 'absolute',
-    top: 5.1,
-    width: 3.7,
-    height: 3.7,
-    borderRadius: 1.85,
-    backgroundColor: '#fff',
-    borderWidth: 0.8,
-    borderColor: '#6b7280',
+    top: 5.6,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    borderWidth: 0.9,
+    borderColor: '#ffffff',
   },
   fixedIndicator: { position: 'absolute', width: INDICATOR_WIDTH, height: '100%', backgroundColor: '#000000', top: 0 },
   resultNormal: { color: "#000000" },
@@ -414,10 +400,10 @@ const IndicatorBar: React.FC<IndicatorBarProps> = ({ value, minRef, maxRef, valu
   const ACTIVE_RANGE_START_PERCENT = 0.25;
   const ACTIVE_RANGE_END_PERCENT = 0.75;
   const numValue = normalizeNumber(value);
-  let pointerColor = '#64748b';
-  if (valueStatus === 'low') pointerColor = '#dc3545';
-  if (valueStatus === 'normal') pointerColor = '#16a34a';
-  if (valueStatus === 'high') pointerColor = '#2563eb';
+  let markerColor = '#64748b';
+  if (valueStatus === 'low') markerColor = '#dc3545';
+  if (valueStatus === 'normal') markerColor = '#16a34a';
+  if (valueStatus === 'high') markerColor = '#2563eb';
   if (isNaN(numValue)) {
     return (
       <View style={styles.modernIndicatorContainer}>
@@ -445,22 +431,15 @@ const IndicatorBar: React.FC<IndicatorBarProps> = ({ value, minRef, maxRef, valu
   }
   ballLeftPosition = Math.max(0, Math.min(BAR_WIDTH - 1, ballLeftPosition));
 
-  let fillColor = '#94a3b8';
-  if (valueStatus === 'low') fillColor = '#ef4444';
-  if (valueStatus === 'normal') fillColor = '#22c55e';
-  if (valueStatus === 'high') fillColor = '#2563eb';
-
   return (
     <View style={styles.modernIndicatorContainer}>
       <View style={styles.modernIndicatorTrack} />
       <View style={[styles.modernIndicatorSegment, { left: 0, width: '25%', backgroundColor: '#f8d3d6', borderTopLeftRadius: 2.6, borderBottomLeftRadius: 2.6 }]} />
       <View style={[styles.modernIndicatorSegment, { left: '25%', width: '50%', backgroundColor: '#d8f1df' }]} />
       <View style={[styles.modernIndicatorSegment, { left: '75%', width: '25%', backgroundColor: '#d8e7ff', borderTopRightRadius: 2.6, borderBottomRightRadius: 2.6 }]} />
-      <View style={[styles.modernIndicatorFill, { width: ballLeftPosition + 1, backgroundColor: fillColor }]} />
       <View style={[styles.modernIndicatorTick, { left: (ACTIVE_RANGE_START_PERCENT * BAR_WIDTH) - (INDICATOR_WIDTH / 2) }]} />
       <View style={[styles.modernIndicatorTick, { left: (ACTIVE_RANGE_END_PERCENT * BAR_WIDTH) - (INDICATOR_WIDTH / 2) }]} />
-      <View style={[styles.modernIndicatorPointer, { left: ballLeftPosition - 4, borderBottomColor: pointerColor }]} />
-      <View style={[styles.modernIndicatorDot, { left: ballLeftPosition - 2.1 }]} />
+      <View style={[styles.modernIndicatorMarker, { left: ballLeftPosition - 3, backgroundColor: markerColor }]} />
     </View>
   );
 };
@@ -869,10 +848,10 @@ export const ExamReportPdfContentHemogramaOnePage = ({
         )}
 
         {exam.liberadoPor && (
-          <View style={{ marginTop: 10, alignItems: 'center' }}>
-            <View style={{ height: 0.7, width: 160, backgroundColor: '#CBD5E1', marginBottom: 3 }} />
-            <Text style={[styles.signatureSmall, { fontStyle: 'normal', fontWeight: '700', color: '#111827' }]}>{exam.liberadoPor}</Text>
-            <Text style={styles.signatureSmall}>CRMV {mockCompanySettings.crmv} · Liberado em {exam.laboratoryDate ? formatDateToPortuguese(new Date(exam.laboratoryDate)) : formatDateToPortuguese(currentDate)}</Text>
+          <View style={{ marginTop: 36, alignItems: 'center' }}>
+            <View style={{ height: 0.7, width: 200, backgroundColor: '#CBD5E1', marginBottom: 5 }} />
+            <Text style={[styles.signatureSmall, { fontStyle: 'normal', fontWeight: '700', color: '#111827', fontSize: 9 }]}>{exam.liberadoPor}</Text>
+            <Text style={[styles.signatureSmall, { marginTop: 1 }]}>CRMV {mockCompanySettings.crmv} · Liberado em {exam.laboratoryDate ? formatDateToPortuguese(new Date(exam.laboratoryDate)) : formatDateToPortuguese(currentDate)}</Text>
           </View>
         )}
       </Page>

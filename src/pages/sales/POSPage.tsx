@@ -44,7 +44,8 @@ const POSPage = () => {
   const [catalog, setCatalog] = useState<CatalogItem[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [selectedItemId, setSelectedItemId] = useState<string>("");
-  const [quantity, setQuantity] = useState<number>(1);
+  const [quantityInput, setQuantityInput] = useState<string>("1");
+  const quantity = Number(quantityInput.replace(",", ".")) || 0;
   const [selectedClientId, setSelectedClientId] = useState<string>("");
   const [selectedAnimalId, setSelectedAnimalId] = useState<string>("");
   const [paymentMethod, setPaymentMethod] = useState<string>("");
@@ -125,7 +126,7 @@ const POSPage = () => {
       }];
     });
     setSelectedItemId("");
-    setQuantity(1);
+    setQuantityInput("1");
     toast.success(`${catalogItem.name} adicionado.`);
   };
 
@@ -294,10 +295,12 @@ const POSPage = () => {
                 <div className="w-24 shrink-0">
                   <Label className="text-xs text-muted-foreground">Quantidade</Label>
                   <Input
-                    type="number"
-                    min="1"
-                    value={quantity}
-                    onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
+                    inputMode="decimal"
+                    value={quantityInput}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      if (v === "" || /^[0-9]*[.,]?[0-9]*$/.test(v)) setQuantityInput(v);
+                    }}
                     className="mt-1 h-10 border border-border bg-card text-sm"
                   />
                 </div>

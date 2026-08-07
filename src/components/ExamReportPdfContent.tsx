@@ -40,14 +40,17 @@ const normalizeNumber = (raw: string | undefined) => {
   if (lastCommaIndex > lastDotIndex) {
     cleaned = cleaned.replace(/\./g, ''); // Remove todos os pontos (separadores de milhares)
     cleaned = cleaned.replace(/,/g, '.'); // Substitui a vírgula por ponto (separador decimal)
+  } else if (lastDotIndex !== -1) {
+    // Sem vírgula: "1.250" (milhar, 3 dígitos após o ponto, ex.: referências de
+    // leucócitos/plaquetas) precisa virar 1250, não 1,25 — só decimais reais
+    // como "14.5" (1-2 dígitos após o ponto) devem manter o ponto.
+    const dotCount = (cleaned.match(/\./g) || []).length;
+    const decimalsAfterLastDot = cleaned.length - lastDotIndex - 1;
+    if (dotCount > 1 || decimalsAfterLastDot === 3) {
+      cleaned = cleaned.replace(/\./g, '');
+    }
   } else {
-    // Caso contrário, assume que o ponto é o separador decimal (formato inglês: 1,234.56 ou 14.5)
-    // Ou que não há separador decimal (inteiro: 280000)
-    cleaned = cleaned.replace(/,/g, ''); // Remove todas as vírgulas (separadores de milhares)
-    // Remove todos os pontos, EXCETO o último (se houver mais de um)
-    // Ex: "280.000" -> "280000." (o parseFloat lida com o ponto final)
-    // Ex: "14.5" -> "14.5"
-    cleaned = cleaned.replace(/\.(?=[^.]*\.)/g, ''); 
+    cleaned = cleaned.replace(/,/g, '');
   }
 
   return parseFloat(cleaned);

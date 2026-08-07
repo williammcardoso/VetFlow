@@ -15,8 +15,10 @@ type Species = "dog" | "cat";
 
 type RefValue = {
   full?: string;
-  min?: number;
-  max?: number;
+  // string enquanto o campo está sendo digitado (permite "." e "," antes de
+  // virar número completo); só é normalizado para number no momento de salvar.
+  min?: number | string;
+  max?: number | string;
   relative?: string;
   absolute?: string;
 };
@@ -25,8 +27,8 @@ type HemogramRefsShape = Record<string, { dog: RefValue; cat: RefValue }>;
 
 type BiochemEntry = {
   unit: string;
-  dog: { min?: number; max?: number };
-  cat: { min?: number; max?: number };
+  dog: { min?: number | string; max?: number | string };
+  cat: { min?: number | string; max?: number | string };
 };
 
 type BiochemicalRefsShape = Record<string, BiochemEntry>;
@@ -188,8 +190,10 @@ const ExamReferencesPage: React.FC = () => {
     setRefs(prev => {
       const next: RefsState = { ...prev, hemogram: { ...prev.hemogram } };
       const currentSpecies = { ...(next.hemogram[paramKey]?.[species] || {}) };
-      if (field === "min") currentSpecies.min = value ? Number(value) : undefined;
-      if (field === "max") currentSpecies.max = value ? Number(value) : undefined;
+      // Mantém como string enquanto digita — converter para Number aqui
+      // descartava "." ou "," no meio da digitação (ex.: "166." virava "166").
+      if (field === "min") currentSpecies.min = value === "" ? undefined : value;
+      if (field === "max") currentSpecies.max = value === "" ? undefined : value;
 
       // Extrair unidade atual da full, se houver
       let existingUnit = (currentSpecies.full || "").trim().split(" ").pop() || "";
@@ -308,8 +312,8 @@ const ExamReferencesPage: React.FC = () => {
         copy.unit = value;
       } else {
         const bucket = { ...(species === "dog" ? copy.dog : copy.cat) };
-        if (field === "min") bucket.min = value ? Number(value) : undefined;
-        if (field === "max") bucket.max = value ? Number(value) : undefined;
+        if (field === "min") bucket.min = value === "" ? undefined : value;
+        if (field === "max") bucket.max = value === "" ? undefined : value;
         if (species === "dog") copy.dog = bucket; else copy.cat = bucket;
       }
       next.biochemical[name] = copy;
@@ -317,8 +321,56 @@ const ExamReferencesPage: React.FC = () => {
     });
   };
 
+  // Campos de min/max ficam como string enquanto o usuário digita (para não
+  // perder "." ou ","); aqui, ao salvar, viram number de verdade.
+  // Precisa distinguir "." como separador de milhar (ex.: "175.000" nas
+  // referências de plaquetas) de "." como decimal (ex.: "5.5") — um Number()
+  // direto lia "175.000" como 175, corrompendo o mín/máx salvo e fazendo o
+  // status/barra do indicador no laudo ficarem errados mesmo com resultado
+  // dentro da faixa. Mesma heurística usada em normalizeNumber (PDFs de exame).
+  const toNum = (v: number | string | undefined): number | undefined => {
+    if (v === undefined || v === "") return undefined;
+    if (typeof v === "number") return Number.isNaN(v) ? undefined : v;
+    let cleaned = v.trim();
+    const lastDot = cleaned.lastIndexOf(".");
+    const lastComma = cleaned.lastIndexOf(",");
+    if (lastComma > lastDot) {
+      cleaned = cleaned.replace(/\./g, "").replace(",", ".");
+    } else if (lastDot !== -1) {
+      const dotCount = (cleaned.match(/\./g) || []).length;
+      const decimalsAfterLastDot = cleaned.length - lastDot - 1;
+      if (dotCount > 1 || decimalsAfterLastDot === 3) {
+        cleaned = cleaned.replace(/\./g, "");
+      }
+    }
+    const n = Number(cleaned);
+    return Number.isNaN(n) ? undefined : n;
+  };
+
   const handleSave = () => {
-    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(refs));
+    const normalized: RefsState = {
+      hemogram: Object.fromEntries(
+        Object.entries(refs.hemogram).map(([key, val]) => [
+          key,
+          {
+            dog: { ...val.dog, min: toNum(val.dog.min), max: toNum(val.dog.max) },
+            cat: { ...val.cat, min: toNum(val.cat.min), max: toNum(val.cat.max) },
+          },
+        ])
+      ),
+      biochemical: Object.fromEntries(
+        Object.entries(refs.biochemical).map(([name, val]) => [
+          name,
+          {
+            unit: val.unit,
+            dog: { min: toNum(val.dog.min), max: toNum(val.dog.max) },
+            cat: { min: toNum(val.cat.min), max: toNum(val.cat.max) },
+          },
+        ])
+      ),
+    };
+    setRefs(normalized);
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(normalized));
     toast.success("Referências de exame salvas com sucesso.");
   };
 

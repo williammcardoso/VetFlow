@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Link, useParams, useNavigate } from "react-router-dom";
 import { FaArrowLeft, FaTimes, FaSave, FaFlask, FaMicroscope, FaFileMedicalAlt, FaNotesMedical, FaUserMd, FaPlus, FaTrash } from "@/components/icons/fa";
 import { Button } from "@/components/ui/button";
@@ -10,7 +10,7 @@ import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ExamEntry, BiochemicalEntry } from "@/types/exam";
 import { addExam, updateExam, getExamById } from "@/lib/examsApi";
-import { hemogramReferences } from "@/constants/examReferences";
+import { getHemogramReferences, getBiochemicalReferences } from "@/constants/examReferences";
 import { useClientWithAnimals } from "@/hooks/useSupabaseClients";
 import { useSystemVets } from "@/hooks/useSystemVets";
 
@@ -56,6 +56,7 @@ interface ExamFieldWithReferenceProps {
   label: string;
   value: string;
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onBlur?: () => void;
   referenceKey: string;
   unit: string;
   placeholder?: string;
@@ -67,6 +68,7 @@ const ExamFieldWithReference = React.memo(({
   label,
   value,
   onChange,
+  onBlur,
   referenceKey,
   unit,
   placeholder = "",
@@ -82,6 +84,7 @@ const ExamFieldWithReference = React.memo(({
       placeholder={placeholder}
       value={value}
       onChange={onChange}
+      onBlur={onBlur}
       className="w-[90px] bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200 flex-shrink-0"
     />
     <span className="text-xs text-muted-foreground w-[50px] text-left flex-shrink-0 whitespace-nowrap">{unit}</span>
@@ -98,6 +101,7 @@ interface LeukocyteFieldWithReferenceProps {
   onRelativeChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   absoluteValue: string;
   onAbsoluteChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onAbsoluteBlur?: () => void;
   referenceKey: string;
   getReference: (param: string, type?: 'relative' | 'absolute' | 'full') => string;
 }
@@ -109,6 +113,7 @@ const LeukocyteFieldWithReference = React.memo(({
   onRelativeChange,
   absoluteValue,
   onAbsoluteChange,
+  onAbsoluteBlur,
   referenceKey,
   getReference,
 }: LeukocyteFieldWithReferenceProps) => (
@@ -116,7 +121,7 @@ const LeukocyteFieldWithReference = React.memo(({
     <Label className="min-w-[90px] text-left text-muted-foreground font-medium flex-shrink-0">{label}</Label>
     <Input id={`${idPrefix}-relative`} type="text" value={relativeValue} onChange={onRelativeChange} className="w-[50px] bg-input flex-shrink-0" />
     <span className="text-xs text-muted-foreground flex-shrink-0">%</span>
-    <Input id={`${idPrefix}-absolute`} type="text" value={absoluteValue} onChange={onAbsoluteChange} className="w-[70px] bg-input flex-shrink-0" />
+    <Input id={`${idPrefix}-absolute`} type="text" value={absoluteValue} onChange={onAbsoluteChange} onBlur={onAbsoluteBlur} className="w-[70px] bg-input flex-shrink-0" />
     <span className="text-xs text-muted-foreground flex-shrink-0">/µL</span>
 
     <div className="flex-1 flex flex-wrap gap-1 justify-end">
@@ -142,10 +147,17 @@ const AddExamPage = () => {
 
   const isEditing = !!examId;
 
-  const { vets: systemVets } = useSystemVets();
+  const { vets: systemVets } = useSystemVets({ onlyVets: true });
   const { data: currentClient } = useClientWithAnimals(clientId);
   const currentAnimal = currentClient?.animals.find(a => a.id === animalId); // Corrigido para encontrar o animal corretamente
   const animalSpecies = currentAnimal?.species === "Canino" ? "dog" : currentAnimal?.species === "Felino" ? "cat" : undefined;
+
+  // Lidas uma vez do Cadastro de Referências de Exame (localStorage) — antes
+  // a tela usava a constante estática hemogramReferences e ignorava
+  // qualquer edição feita em Cadastros, então o valor mostrado aqui podia
+  // divergir do que o laudo (PDF) imprimia.
+  const hemogramReferences = useMemo(() => getHemogramReferences(), []);
+  const biochemicalReferences = useMemo(() => getBiochemicalReferences(), []);
 
   // Exame carregado do banco (modo edição). Substitui a busca no array em
   // memória, que não sobrevivia a um reload da página.
@@ -358,6 +370,76 @@ const AddExamPage = () => {
     if (type === 'absolute' && refData.absolute) return refData.absolute;
     return "N/A";
   };
+
+  // Alguns laboratórios só informam o valor absoluto (/µL) do leucograma,
+  // sem o percentual — nesse caso o relativo precisa ser calculado à mão
+  // (absoluto ÷ leucócitos totais × 100). Preenche sozinho quando o campo
+  // Relativo estiver vazio, sem nunca sobrescrever um valor que o usuário já
+  // tenha digitado. Calcula no onBlur (ao sair do campo), não a cada tecla:
+  // um useEffect por tecla calculava sobre o valor ainda incompleto (ex.: só
+  // o "2" de "250") e já preenchia Relativo com "0" — como "0" não é string
+  // vazia, o guard de "não sobrescrever" travava ali, mesmo terminando de
+  // digitar o valor certo depois.
+  const parseLeukoNumber = (raw: string): number | undefined => {
+    const trimmed = (raw || "").trim();
+    if (!trimmed) return undefined;
+    let cleaned = trimmed.replace(/[^0-9.,]/g, "");
+    const lastDot = cleaned.lastIndexOf(".");
+    const lastComma = cleaned.lastIndexOf(",");
+    if (lastComma > lastDot) {
+      cleaned = cleaned.replace(/\./g, "").replace(",", ".");
+    } else if (lastDot !== -1) {
+      const dotCount = (cleaned.match(/\./g) || []).length;
+      const decimalsAfterLastDot = cleaned.length - lastDot - 1;
+      if (dotCount > 1 || decimalsAfterLastDot === 3) {
+        cleaned = cleaned.replace(/\./g, "");
+      }
+    }
+    const n = Number(cleaned);
+    return Number.isNaN(n) ? undefined : n;
+  };
+
+  const recomputeLeukocyteRelatives = () => {
+    const total = parseLeukoNumber(leucocitosTotais);
+    if (!total || total <= 0) return;
+    const pairs: Array<{ absoluto: string; relativo: string; setRelativo: (v: string) => void }> = [
+      { absoluto: mielocitosAbsoluto, relativo: mielocitosRelativo, setRelativo: setMielocitosRelativo },
+      { absoluto: metamielocitosAbsoluto, relativo: metamielocitosRelativo, setRelativo: setMetamielocitosRelativo },
+      { absoluto: bastonetesAbsoluto, relativo: bastonetesRelativo, setRelativo: setBastonetesRelativo },
+      { absoluto: segmentadosAbsoluto, relativo: segmentadosRelativo, setRelativo: setSegmentadosRelativo },
+      { absoluto: eosinofilosAbsoluto, relativo: eosinofilosRelativo, setRelativo: setEosinofilosRelativo },
+      { absoluto: basofilosAbsoluto, relativo: basofilosRelativo, setRelativo: setBasofilosRelativo },
+      { absoluto: linfocitosAbsoluto, relativo: linfocitosRelativo, setRelativo: setLinfocitosRelativo },
+      { absoluto: monocitosAbsoluto, relativo: monocitosRelativo, setRelativo: setMonocitosRelativo },
+    ];
+    for (const pair of pairs) {
+      if (pair.relativo.trim() !== "") continue;
+      const abs = parseLeukoNumber(pair.absoluto);
+      if (abs === undefined) continue;
+      const pct = Math.round((abs / total) * 1000) / 10;
+      pair.setRelativo(String(pct));
+    }
+  };
+
+  // Ao escolher (ou digitar, se "Outro") o analito, preenche mín./máx./
+  // unidade a partir do que foi configurado em Cadastros > Referências de
+  // Exame > Bioquímico para a espécie do paciente — antes esses 3 campos
+  // não tinham nenhum preenchimento automático, sempre em branco. Segue
+  // editável manualmente depois de preenchido.
+  useEffect(() => {
+    const enzymeName = selectedEnzyme === "Outro" ? customEnzyme.trim() : (selectedEnzyme || "").trim();
+    if (!enzymeName || !animalSpecies) {
+      setBioMinReference("");
+      setBioMaxReference("");
+      setBioReferenceUnit("");
+      return;
+    }
+    const entry = biochemicalReferences[enzymeName];
+    const ref = entry?.[animalSpecies];
+    setBioMinReference(ref?.min !== undefined ? String(ref.min) : "");
+    setBioMaxReference(ref?.max !== undefined ? String(ref.max) : "");
+    setBioReferenceUnit(entry?.unit || "");
+  }, [selectedEnzyme, customEnzyme, animalSpecies, biochemicalReferences]);
 
   // Bioquímico: adicionar/remover/atualizar
   const handleAddBiochemical = () => {
@@ -677,15 +759,15 @@ const AddExamPage = () => {
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="grid gap-4 pt-0 px-2">
-                      <ExamFieldWithReference getReference={getReference} id="leucocitosTotais" label="Leucócitos totais" value={leucocitosTotais} onChange={(e) => setLeucocitosTotais(e.target.value)} referenceKey="leucocitosTotais" unit="/µL" />
-                      <LeukocyteFieldWithReference getReference={getReference} idPrefix="mielocitos" label="Mielócitos" relativeValue={mielocitosRelativo} onRelativeChange={(e) => setMielocitosRelativo(e.target.value)} absoluteValue={mielocitosAbsoluto} onAbsoluteChange={(e) => setMielocitosAbsoluto(e.target.value)} referenceKey="mielocitos" />
-                      <LeukocyteFieldWithReference getReference={getReference} idPrefix="metamielocitos" label="Metamielócitos" relativeValue={metamielocitosRelativo} onRelativeChange={(e) => setMetamielocitosRelativo(e.target.value)} absoluteValue={metamielocitosAbsoluto} onAbsoluteChange={(e) => setMetamielocitosAbsoluto(e.target.value)} referenceKey="metamielocitos" />
-                      <LeukocyteFieldWithReference getReference={getReference} idPrefix="bastonetes" label="Bastonetes" relativeValue={bastonetesRelativo} onRelativeChange={(e) => setBastonetesRelativo(e.target.value)} absoluteValue={bastonetesAbsoluto} onAbsoluteChange={(e) => setBastonetesAbsoluto(e.target.value)} referenceKey="bastonetes" />
-                      <LeukocyteFieldWithReference getReference={getReference} idPrefix="segmentados" label="Segmentados" relativeValue={segmentadosRelativo} onRelativeChange={(e) => setSegmentadosRelativo(e.target.value)} absoluteValue={segmentadosAbsoluto} onAbsoluteChange={(e) => setSegmentadosAbsoluto(e.target.value)} referenceKey="segmentados" />
-                      <LeukocyteFieldWithReference getReference={getReference} idPrefix="eosinofilos" label="Eosinófilos" relativeValue={eosinofilosRelativo} onRelativeChange={(e) => setEosinofilosRelativo(e.target.value)} absoluteValue={eosinofilosAbsoluto} onAbsoluteChange={(e) => setEosinofilosAbsoluto(e.target.value)} referenceKey="eosinofilos" />
-                      <LeukocyteFieldWithReference getReference={getReference} idPrefix="basofilos" label="Basófilos" relativeValue={basofilosRelativo} onRelativeChange={(e) => setBasofilosRelativo(e.target.value)} absoluteValue={basofilosAbsoluto} onAbsoluteChange={(e) => setBasofilosAbsoluto(e.target.value)} referenceKey="basofilos" />
-                      <LeukocyteFieldWithReference getReference={getReference} idPrefix="linfocitos" label="Linfócitos" relativeValue={linfocitosRelativo} onRelativeChange={(e) => setLinfocitosRelativo(e.target.value)} absoluteValue={linfocitosAbsoluto} onAbsoluteChange={(e) => setLinfocitosAbsoluto(e.target.value)} referenceKey="linfocitos" />
-                      <LeukocyteFieldWithReference getReference={getReference} idPrefix="monocitos" label="Monócitos" relativeValue={monocitosRelativo} onRelativeChange={(e) => setMonocitosRelativo(e.target.value)} absoluteValue={monocitosAbsoluto} onAbsoluteChange={(e) => setMonocitosAbsoluto(e.target.value)} referenceKey="monocitos" />
+                      <ExamFieldWithReference getReference={getReference} id="leucocitosTotais" label="Leucócitos totais" value={leucocitosTotais} onChange={(e) => setLeucocitosTotais(e.target.value)} onBlur={recomputeLeukocyteRelatives} referenceKey="leucocitosTotais" unit="/µL" />
+                      <LeukocyteFieldWithReference getReference={getReference} idPrefix="mielocitos" label="Mielócitos" relativeValue={mielocitosRelativo} onRelativeChange={(e) => setMielocitosRelativo(e.target.value)} absoluteValue={mielocitosAbsoluto} onAbsoluteChange={(e) => setMielocitosAbsoluto(e.target.value)} onAbsoluteBlur={recomputeLeukocyteRelatives} referenceKey="mielocitos" />
+                      <LeukocyteFieldWithReference getReference={getReference} idPrefix="metamielocitos" label="Metamielócitos" relativeValue={metamielocitosRelativo} onRelativeChange={(e) => setMetamielocitosRelativo(e.target.value)} absoluteValue={metamielocitosAbsoluto} onAbsoluteChange={(e) => setMetamielocitosAbsoluto(e.target.value)} onAbsoluteBlur={recomputeLeukocyteRelatives} referenceKey="metamielocitos" />
+                      <LeukocyteFieldWithReference getReference={getReference} idPrefix="bastonetes" label="Bastonetes" relativeValue={bastonetesRelativo} onRelativeChange={(e) => setBastonetesRelativo(e.target.value)} absoluteValue={bastonetesAbsoluto} onAbsoluteChange={(e) => setBastonetesAbsoluto(e.target.value)} onAbsoluteBlur={recomputeLeukocyteRelatives} referenceKey="bastonetes" />
+                      <LeukocyteFieldWithReference getReference={getReference} idPrefix="segmentados" label="Segmentados" relativeValue={segmentadosRelativo} onRelativeChange={(e) => setSegmentadosRelativo(e.target.value)} absoluteValue={segmentadosAbsoluto} onAbsoluteChange={(e) => setSegmentadosAbsoluto(e.target.value)} onAbsoluteBlur={recomputeLeukocyteRelatives} referenceKey="segmentados" />
+                      <LeukocyteFieldWithReference getReference={getReference} idPrefix="eosinofilos" label="Eosinófilos" relativeValue={eosinofilosRelativo} onRelativeChange={(e) => setEosinofilosRelativo(e.target.value)} absoluteValue={eosinofilosAbsoluto} onAbsoluteChange={(e) => setEosinofilosAbsoluto(e.target.value)} onAbsoluteBlur={recomputeLeukocyteRelatives} referenceKey="eosinofilos" />
+                      <LeukocyteFieldWithReference getReference={getReference} idPrefix="basofilos" label="Basófilos" relativeValue={basofilosRelativo} onRelativeChange={(e) => setBasofilosRelativo(e.target.value)} absoluteValue={basofilosAbsoluto} onAbsoluteChange={(e) => setBasofilosAbsoluto(e.target.value)} onAbsoluteBlur={recomputeLeukocyteRelatives} referenceKey="basofilos" />
+                      <LeukocyteFieldWithReference getReference={getReference} idPrefix="linfocitos" label="Linfócitos" relativeValue={linfocitosRelativo} onRelativeChange={(e) => setLinfocitosRelativo(e.target.value)} absoluteValue={linfocitosAbsoluto} onAbsoluteChange={(e) => setLinfocitosAbsoluto(e.target.value)} onAbsoluteBlur={recomputeLeukocyteRelatives} referenceKey="linfocitos" />
+                      <LeukocyteFieldWithReference getReference={getReference} idPrefix="monocitos" label="Monócitos" relativeValue={monocitosRelativo} onRelativeChange={(e) => setMonocitosRelativo(e.target.value)} absoluteValue={monocitosAbsoluto} onAbsoluteChange={(e) => setMonocitosAbsoluto(e.target.value)} onAbsoluteBlur={recomputeLeukocyteRelatives} referenceKey="monocitos" />
 
                       <div className="space-y-2 col-span-full">
                         <Label htmlFor="observacoesSerieBranca" className="text-muted-foreground font-medium">Observações série branca</Label>
