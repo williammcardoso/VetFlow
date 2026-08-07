@@ -275,7 +275,44 @@ export async function updateAnimalDetails(clientId: string, animalId: string, up
     return false;
   }
 
-  // If weight changed, optionally append to weight history table if present (not implemented)
+  // Peso mudou -> grava uma linha no histórico (antes só o campo "atual" do
+  // animal era salvo; o histórico da aba Peso do prontuário nunca era
+  // persistido em lugar nenhum, mesmo aparecendo preenchido na tela).
+  // Cobre os dois pontos que atualizam peso: o botão "Adicionar Peso" do
+  // prontuário e o AppointmentForm (peso registrado junto de um atendimento).
+  if (updates.weight != null) {
+    const { error: weightError } = await supabase.from("patient_weight_entries").insert({
+      animal_id: animalId,
+      weight: updates.weight,
+      source: updates.lastWeightSource || null,
+      recorded_date: meta?.date || new Date().toISOString().split("T")[0],
+      recorded_time: meta?.time || null,
+    });
+    if (weightError) {
+      console.error("[updateAnimalDetails] weight history insert error", weightError);
+    }
+  }
+
   return true;
+}
+
+export async function getWeightHistory(animalId: string): Promise<WeightEntry[]> {
+  const { data, error } = await supabase
+    .from("patient_weight_entries")
+    .select("id, weight, source, recorded_date, recorded_time")
+    .eq("animal_id", animalId)
+    .order("recorded_date", { ascending: false })
+    .order("recorded_time", { ascending: false });
+  if (error) {
+    console.error("[getWeightHistory] error", error);
+    return [];
+  }
+  return (data || []).map((r: any) => ({
+    id: r.id,
+    date: r.recorded_date,
+    time: r.recorded_time || "",
+    weight: Number(r.weight),
+    source: r.source || "",
+  }));
 }
 

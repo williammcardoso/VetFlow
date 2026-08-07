@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState, useEffect } from "react";
+import React, { useMemo, useState, useEffect, useCallback } from "react";
 import { Link, useParams, useNavigate, useSearchParams } from "react-router-dom";
 import {
   FaArrowLeft, FaUsers, FaPaw, FaPlus, FaEye, FaStethoscope, FaCalendarAlt, FaDollarSign, FaSyringe, FaWeightHanging, FaFileAlt, FaClipboardList, FaCommentAlt, FaHeart, FaMale, FaUser, FaPrint, FaDownload, FaTimes, FaSave, FaBalanceScale, FaFileMedical, FaExclamationTriangle, FaFlask, FaTag, FaBox, FaClock, FaMoneyBillWave, FaArrowUp, FaArrowDown, FaTrashAlt, FaPrescriptionBottleAlt, FaEdit, FaIdCard, FaPhone, FaUndo, FaShoppingCart, FaHandHoldingUsd
@@ -52,9 +52,10 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { PrescriptionPdfContent } from "@/components/PrescriptionPdfContent";
 import { ExamReportPdfContent } from "@/components/ExamReportPdfContent";
 import ExamReportPdfContentHemogramaOnePage from "@/components/ExamReportPdfContent_Hemograma_OnePage";
+import ExamReportPdfContentBioquimicoOnePage from "@/components/ExamReportPdfContent_Bioquimico_OnePage";
 import type { FinancialTransaction } from "@/mockData/financial";
 import { AppointmentEntry, BaseAppointmentDetails } from "@/types/appointment";
-import { updateAnimalDetails } from "@/lib/clientsApi";
+import { updateAnimalDetails, getWeightHistory } from "@/lib/clientsApi";
 import { Client, Animal, WeightEntry } from "@/types/client";
 import { ExamEntry } from "@/types/exam";
 import { useFinancialTransactions } from "@/hooks/useFinancialTransactions";
@@ -64,13 +65,15 @@ import { useExams } from "@/hooks/useExams";
 import { useCatalog } from "@/hooks/useCatalog";
 import { useRegistryList } from "@/hooks/useRegistryList";
 import * as financialApi from "@/lib/financialApi";
-import * as catalogApi from "@/lib/catalogApi";
+import { fulfillSaleLines } from "@/lib/saleFulfillment";
 import { getHemogramReferences } from "@/constants/examReferences";
 import { mockCompanySettings } from "@/mockData/settings";
 import AutocompleteSelect from "@/components/AutocompleteSelect";
 import CurrencyInput from "@/components/CurrencyInput";
 import BudgetReportPdfContent from "@/components/BudgetReportPdfContent";
 import DocumentPdfContent from "@/components/DocumentPdfContent";
+import ExamRequestPdfContent, { type ExamRequestPdfData } from "@/components/ExamRequestPdfContent";
+import { EXAM_REQUEST_MARKER } from "@/lib/examRequestMarker";
 import { replaceTemplateVariables } from "@/utils/templateReplacements";
 import { getPatientDisplayId } from "@/utils/patientDisplayId";
 import PatientAppointmentsTab from "@/components/patient/appointments/PatientAppointmentsTab";
@@ -103,15 +106,9 @@ import { useQueryClient } from "@tanstack/react-query";
 import { createPdfBlob, downloadPdf, openPdf } from "@/lib/pdfExport";
 import { useCurrentUserProfile } from "@/hooks/useCurrentUserProfile";
 import { useAuth } from "@/contexts/AuthContext";
-
-// Tipos locais para observações
-interface ObservationEntry {
-  id: string;
-  date: string;
-  time: string;
-  observation: string;
-  displayAsAlert?: boolean;
-}
+import { useObservations } from "@/hooks/useObservations";
+import * as observationsApi from "@/lib/observationsApi";
+import type { ObservationEntry } from "@/lib/observationsApi";
 
 // Helpers de storage ausentes
 const salesStorageKey = (aid?: string) => `patient:sales:${aid || "unknown"}`;
@@ -258,6 +255,21 @@ const sumReceiptsForSaleLocal = (list: FinancialTransaction[], saleId: string) =
     )
     .reduce((s, r) => s + r.amount, 0);
 
+/**
+ * Documentos "Pedido de Exame" carregam os dados estruturados num comentário
+ * HTML no início do content (ver AddExamRequestPage) — se achar, usamos o PDF
+ * dedicado (visual premium) em vez do conversor HTML->PDF genérico.
+ */
+function extractExamRequestData(content: string): ExamRequestPdfData | null {
+  const match = content.match(new RegExp(`^<!--${EXAM_REQUEST_MARKER}:([\\s\\S]*?)-->`));
+  if (!match) return null;
+  try {
+    return JSON.parse(match[1].replace(/--\\>/g, "-->")) as ExamRequestPdfData;
+  } catch {
+    return null;
+  }
+}
+
 const PatientRecordPage = () => {
   const { clientId, animalId } = useParams<{ clientId: string; animalId: string }>();
   const navigate = useNavigate();
@@ -317,15 +329,21 @@ const PatientRecordPage = () => {
     [animalAppointments]
   );
 
-  const [weightHistory, setWeightHistory] = useState<WeightEntry[]>(currentAnimal?.weightHistory || []);
+  const [weightHistory, setWeightHistory] = useState<WeightEntry[]>([]);
   const [newWeight, setNewWeight] = useState<number | "">("");
   const [newWeightDate, setNewWeightDate] = useState<string>(new Date().toISOString().split('T')[0]);
 
+  // Histórico real (patient_weight_entries) — antes vinha sempre vazio de
+  // currentAnimal.weightHistory (nunca era persistido, só a tela fingia
+  // que tinha sido salvo até o próximo reload).
+  const refetchWeightHistory = useCallback(async () => {
+    if (!animalId) return;
+    setWeightHistory(await getWeightHistory(animalId));
+  }, [animalId]);
+
   useEffect(() => {
-    if (currentAnimal?.weightHistory) {
-      setWeightHistory(currentAnimal.weightHistory);
-    }
-  }, [currentAnimal?.weightHistory]);
+    void refetchWeightHistory();
+  }, [refetchWeightHistory]);
 
   const sortedWeightHistory = useMemo(() => {
     return [...weightHistory].sort((a, b) => {
@@ -356,7 +374,7 @@ const PatientRecordPage = () => {
     });
   }, [prescriptions]);
 
-  const [observations, setObservations] = useState<ObservationEntry[]>([]);
+  const { observations, refetch: refetchObservations } = useObservations(animalId);
   const [newObservation, setNewObservation] = useState<string>("");
   const [newObservationAlert, setNewObservationAlert] = useState<boolean>(false);
   const isObservationEmpty = !newObservation || newObservation.trim().length === 0;
@@ -465,9 +483,13 @@ const PatientRecordPage = () => {
     setSaleItems(prev => prev.filter((_, i) => !(i === index && _.itemId === itemId)));
   };
 
+  const [savingSale, setSavingSale] = useState(false);
   const handleSaveSale = async () => {
+    if (savingSale) return;
     if (saleItems.length === 0) { toast.error("Adicione itens à venda."); return; }
     if (!currentClient || !currentAnimal) { toast.error("Cliente/animal não encontrados."); return; }
+    setSavingSale(true);
+    try {
 
     const description = saleAppointmentId
       ? `Venda atendimento ${saleAppointmentId}: ${saleItems.map(i => formatItemQty(i.name, i.qty)).join(", ")}`
@@ -482,14 +504,26 @@ const PatientRecordPage = () => {
       category: "Venda de Produtos",
       relatedAnimalId: currentAnimal.id,
       relatedClientId: currentClient.id,
+      status: "pending",
     });
     const nextId = tx?.id;
     if (!nextId) { toast.error("Erro ao registrar venda."); return; }
 
-    for (const it of saleItems) {
-      const cat = catalogItemsFromHook.find(c => c.id === it.itemId);
-      if (cat && cat.type === "product") await catalogApi.adjustStock(it.itemId, -it.qty);
-    }
+    // Grava os itens de verdade (sale_items) e baixa estoque de produtos +
+    // insumos de composição — mesmo fluxo do PDV. Antes essa venda só gravava
+    // a transação e mexia no estoque na mão, sem sale_items: ficava invisível
+    // pro relatório de repasses e pro Fechamento 50/50 (que leem sale_items).
+    await fulfillSaleLines({
+      saleId: nextId,
+      catalog: catalogItemsFromHook,
+      lines: saleItems.map((it) => ({
+        catalogItemId: it.itemId,
+        name: it.name,
+        type: it.type,
+        quantity: it.qty,
+        unitPrice: it.unitPrice,
+      })),
+    });
     await refetchCatalog();
     await refetchFinancial();
 
@@ -511,6 +545,9 @@ const PatientRecordPage = () => {
     setSaleDate(new Date().toISOString().split("T")[0]);
     setSaleAppointmentId(""); setSaleResponsible(""); setSaleObservations(""); setSaleStatusLocal("open"); setSaleItems([]);
     toast.success("Venda registrada com sucesso!");
+    } finally {
+      setSavingSale(false);
+    }
   };
 
   const updateSaleStatus = async (saleId: string, status: SaleStatusLocal) => {
@@ -555,18 +592,25 @@ const PatientRecordPage = () => {
     }
   }, [paymentSaleId, patientSales, mockFinancialTransactions]);
 
+  const [savingPayment, setSavingPayment] = useState(false);
   const doRegisterPaymentProntuario = async (saleId: string, amount: number) => {
-    const pmName = paymentMethodId ? (pmRegistry.find((pm) => pm.id === paymentMethodId)?.name || undefined) : undefined;
-    await financialApi.registerReceiptWithSale({
-      saleId,
-      amount,
-      date: paymentDate,
-      time: paymentTime,
-      paymentMethod: pmName,
-      relatedClientId: currentClient?.id,
-      relatedAnimalId: currentAnimal?.id,
-    });
-    await refetchFinancial();
+    if (savingPayment) return;
+    setSavingPayment(true);
+    try {
+      const pmName = paymentMethodId ? (pmRegistry.find((pm) => pm.id === paymentMethodId)?.name || undefined) : undefined;
+      await financialApi.registerReceiptWithSale({
+        saleId,
+        amount,
+        date: paymentDate,
+        time: paymentTime,
+        paymentMethod: pmName,
+        relatedClientId: currentClient?.id,
+        relatedAnimalId: currentAnimal?.id,
+      });
+      await refetchFinancial();
+    } finally {
+      setSavingPayment(false);
+    }
     setPaymentSaleId(undefined);
     setPaymentDate(new Date().toISOString().split("T")[0]);
     setPaymentTime(new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }));
@@ -734,14 +778,21 @@ const PatientRecordPage = () => {
     setConvertAppointmentId("");
     setConvertModalOpen(true);
   };
-  const confirmConvert = () => {
+  const [convertingBudget, setConvertingBudget] = useState(false);
+  const confirmConvert = async () => {
+    if (convertingBudget) return;
     if (!convertTargetBudgetId) return;
     if (!convertAppointmentId) { toast.error("Selecione um atendimento para converter em venda."); return; }
-    const ok = convertBudgetToSale(convertTargetBudgetId, convertAppointmentId);
-    if (ok) {
-      setConvertModalOpen(false);
-      setConvertTargetBudgetId(null);
-      setConvertAppointmentId("");
+    setConvertingBudget(true);
+    try {
+      const ok = await convertBudgetToSale(convertTargetBudgetId, convertAppointmentId);
+      if (ok) {
+        setConvertModalOpen(false);
+        setConvertTargetBudgetId(null);
+        setConvertAppointmentId("");
+      }
+    } finally {
+      setConvertingBudget(false);
     }
   };
 
@@ -760,14 +811,22 @@ const PatientRecordPage = () => {
       category: "Venda de Produtos",
       relatedAnimalId: currentAnimal.id,
       relatedClientId: currentClient.id,
+      status: "pending",
     });
     const nextId = tx?.id;
     if (!nextId) return false;
 
-    for (const it of b.items) {
-      const cat = catalogItemsFromHook.find(c => c.id === it.itemId);
-      if (cat && cat.type === "product") await catalogApi.adjustStock(it.itemId, -it.qty);
-    }
+    await fulfillSaleLines({
+      saleId: nextId,
+      catalog: catalogItemsFromHook,
+      lines: b.items.map((it) => ({
+        catalogItemId: it.itemId,
+        name: it.name,
+        type: it.type,
+        quantity: it.qty,
+        unitPrice: it.unitPrice,
+      })),
+    });
     await refetchCatalog();
     await refetchFinancial();
 
@@ -1768,6 +1827,42 @@ const PatientRecordPage = () => {
                                 </Button>
                               )}
 
+                              {/* Botão: Laudo compacto — bioquímico (mesmo padrão do compacto de hemograma) */}
+                              {exam.type === "Bioquímico" && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => {
+                                    const tutorAddress = `${currentClient.address.street}, ${currentClient.address.number} - ${currentClient.address.city} - ${currentClient.address.state}`;
+                                    createPdfBlob(
+                                      <ExamReportPdfContentBioquimicoOnePage
+                                        animalName={currentAnimal.name}
+                                        animalId={currentAnimal.id}
+                                        displayId={getPatientDisplayId(currentAnimal.id, currentClient.animals)}
+                                        animalSpecies={currentAnimal.species}
+                                        animalBreed={currentAnimal.breed}
+                                        tutorName={currentClient.name}
+                                        tutorAddress={tutorAddress}
+                                        exam={exam}
+                                      />
+                                    ).then((blob) => openPdf({
+                                      blob,
+                                      fileName: `laudo_compacto_${exam.id || exam.date}.pdf`,
+                                      persistOptions: { folder: "exams" },
+                                    })).then(() => {
+                                      toast.success("Laudo compacto (bioquímico) gerado!");
+                                    }).catch((err) => {
+                                      console.error(err);
+                                      toast.error("Erro ao gerar o PDF compacto.");
+                                    });
+                                  }}
+                                  className="rounded-md hover:bg-muted hover:text-foreground transition-colors duration-200"
+                                  title="Imprimir (Compacto)"
+                                >
+                                  <FaFileAlt className="h-4 w-4" />
+                                </Button>
+                              )}
+
                               <Button
                                 variant="ghost"
                                 size="icon"
@@ -1828,16 +1923,7 @@ const PatientRecordPage = () => {
                       if (success) {
                         await queryClient.invalidateQueries({ queryKey: ["clients-with-animals"] });
                         await queryClient.invalidateQueries({ queryKey: ["client-with-animals", clientId] });
-                        setWeightHistory((prev) => [
-                          {
-                            id: `manual-${Date.now()}`,
-                            date: newWeightDate,
-                            time: entryTime,
-                            weight: Number(newWeight),
-                            source: "Manual",
-                          },
-                          ...prev,
-                        ]);
+                        await refetchWeightHistory();
                         setNewWeight("");
                         setNewWeightDate(new Date().toISOString().split('T')[0]);
                         toast.success("Peso adicionado ao histórico!");
@@ -1933,25 +2019,36 @@ const PatientRecordPage = () => {
                   <FaFileAlt className="h-5 w-5 text-primary" /> Documentos
                 </CardTitle>
                 {canEditPrescriptions ? (
-                  <Button size="sm" asChild className="w-full sm:w-auto rounded-md bg-[hsl(var(--vf-clinical))] font-semibold text-white transition-all duration-200 shadow-md hover:bg-[hsl(var(--vf-clinical)/0.9)] hover:shadow-lg">
-                    <Link to={`/clients/${clientId}/animals/${animalId}/add-document`}>
-                      <FaPlus className="h-4 w-4 mr-2" /> Cadastrar novo documento
-                    </Link>
-                  </Button>
+                  <div className="flex w-full flex-wrap gap-2 sm:w-auto">
+                    <Button size="sm" asChild className="rounded-md bg-[hsl(var(--vf-clinical))] font-semibold text-white transition-all duration-200 shadow-md hover:bg-[hsl(var(--vf-clinical)/0.9)] hover:shadow-lg">
+                      <Link to={`/clients/${clientId}/animals/${animalId}/add-document`}>
+                        <FaPlus className="h-4 w-4 mr-2" /> Cadastrar novo documento
+                      </Link>
+                    </Button>
+                    <Button size="sm" variant="outline" asChild className="rounded-md border-[hsl(var(--vf-clinical)/0.4)] font-semibold text-[hsl(var(--vf-clinical))] hover:bg-[hsl(var(--vf-clinical)/0.08)]">
+                      <Link to={`/clients/${clientId}/animals/${animalId}/add-exam-request`}>
+                        <FaPlus className="h-4 w-4 mr-2" /> Pedido de exame
+                      </Link>
+                    </Button>
+                  </div>
                 ) : null}
               </CardHeader>
               <CardContent className="pt-0">
                 {documents.length > 0 ? (
                   <div className="space-y-3">
                     {documents.map((doc) => {
+                      const examRequestData = doc.source === "editor" && doc.content ? extractExamRequestData(doc.content) : null;
                       const onView = async () => {
                         if (doc.source === "editor" && doc.content) {
                           try {
-                            // Apply template replacements in a case-insensitive way before generating PDF
-                            const contentWithVars = replaceTemplateVariables(doc.content || "", currentAnimal, currentClient, currentUserProfile);
-                            const blob = await createPdfBlob(
-                              <DocumentPdfContent documentName={doc.name} content={contentWithVars} />
-                            );
+                            const blob = examRequestData
+                              ? await createPdfBlob(<ExamRequestPdfContent data={examRequestData} />)
+                              : await createPdfBlob(
+                                  <DocumentPdfContent
+                                    documentName={doc.name}
+                                    content={replaceTemplateVariables(doc.content || "", currentAnimal, currentClient, currentUserProfile)}
+                                  />
+                                );
                             await openPdf({
                               blob,
                               fileName: `${doc.name}.pdf`,
@@ -1985,10 +2082,14 @@ const PatientRecordPage = () => {
                       const onDownload = async () => {
                         if (doc.source === "editor" && doc.content) {
                           try {
-                            const contentWithVars = replaceTemplateVariables(doc.content || "", currentAnimal, currentClient, currentUserProfile);
-                            const blob = await createPdfBlob(
-                              <DocumentPdfContent documentName={doc.name} content={contentWithVars} />
-                            );
+                            const blob = examRequestData
+                              ? await createPdfBlob(<ExamRequestPdfContent data={examRequestData} />)
+                              : await createPdfBlob(
+                                  <DocumentPdfContent
+                                    documentName={doc.name}
+                                    content={replaceTemplateVariables(doc.content || "", currentAnimal, currentClient, currentUserProfile)}
+                                  />
+                                );
                             await downloadPdf({
                               blob,
                               fileName: `${doc.name}.pdf`,
@@ -2360,17 +2461,18 @@ const PatientRecordPage = () => {
                 <CardTitle className="flex items-center gap-2 text-lg font-semibold text-foreground">
                   <FaCommentAlt className="h-5 w-5 text-primary" /> Observações Gerais
                 </CardTitle>
-                <Button size="sm" onClick={() => {
-                  if (newObservation.trim()) {
-                    const now = new Date();
-                    const newEntry: ObservationEntry = {
-                      id: String(observations.length + 1),
-                      date: now.toISOString().split('T')[0],
-                      time: now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+                <Button size="sm" onClick={async () => {
+                  if (newObservation.trim() && animalId) {
+                    const created = await observationsApi.addObservation(animalId, {
                       observation: newObservation.trim(),
                       displayAsAlert: newObservationAlert,
-                    };
-                    setObservations([...observations, newEntry]);
+                      createdBy: currentVetName,
+                    });
+                    if (!created) {
+                      toast.error("Falha ao salvar observação.");
+                      return;
+                    }
+                    await refetchObservations();
                     setNewObservation("");
                     setNewObservationAlert(false);
                   }
@@ -2749,15 +2851,23 @@ const PatientRecordPage = () => {
                                         <Button variant="outline" size="sm" className="transition-all" onClick={() => updateSaleStatus(sale.id, sale.saleStatus === "open" ? "finalized" : "open")}>
                                           {sale.saleStatus === "open" ? "Finalizar venda" : "Reabrir venda"}
                                         </Button>
-                                        <Button variant="outline" size="sm" className="text-amber-700 border-amber-300 hover:bg-amber-50" onClick={() => updateSaleStatus(sale.id, "cancelled")} title="Cancelar / Devolução">
+                                        <Button
+                                          variant="outline"
+                                          size="sm"
+                                          className="text-amber-700 border-amber-300 hover:bg-amber-50"
+                                          title="Cancelar / Devolução"
+                                          onClick={() => {
+                                            const realTx = mockFinancialTransactions.find((t) => t.id === sale.id);
+                                            if (!realTx) {
+                                              toast.error("Venda não encontrada no financeiro.");
+                                              return;
+                                            }
+                                            setPdvSaleToCancel(realTx);
+                                          }}
+                                        >
                                           Cancelar venda
                                         </Button>
                                       </>
-                                    )}
-                                    {isCancelled && (
-                                      <Button variant="outline" size="sm" className="text-emerald-700 border-emerald-300 hover:bg-emerald-50" onClick={() => updateSaleStatus(sale.id, "open")}>
-                                        Reabrir venda
-                                      </Button>
                                     )}
                                   </div>
                                   <Button variant="ghost" size="sm" onClick={() => toggleExpanded(sale.id)}>
@@ -2869,9 +2979,9 @@ const PatientRecordPage = () => {
                               <Textarea value={paymentObservations} onChange={(e)=>setPaymentObservations(e.target.value)} className="bg-input border border-border rounded-md mt-1" />
                             </div>
                             <div className="flex justify-end pt-1">
-                              <Button onClick={handleAddPayment} className="rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 font-semibold transition-all duration-200 shadow-sm hover:shadow-md">
+                              <Button onClick={handleAddPayment} disabled={savingPayment} className="rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 font-semibold transition-all duration-200 shadow-sm hover:shadow-md">
                                 <FaHandHoldingUsd className="h-4 w-4 mr-2" />
-                                Registrar pagamento
+                                {savingPayment ? "Salvando..." : "Registrar pagamento"}
                               </Button>
                             </div>
                           </CardContent>
@@ -2890,8 +3000,8 @@ const PatientRecordPage = () => {
                             </AlertDialogHeader>
                             <AlertDialogFooter>
                               <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                              <AlertDialogAction onClick={handleConfirmOverpayProntuario} className="bg-emerald-600 hover:bg-emerald-700">
-                                Registrar apenas o saldo
+                              <AlertDialogAction onClick={handleConfirmOverpayProntuario} disabled={savingPayment} className="bg-emerald-600 hover:bg-emerald-700">
+                                {savingPayment ? "Salvando..." : "Registrar apenas o saldo"}
                               </AlertDialogAction>
                             </AlertDialogFooter>
                           </AlertDialogContent>
@@ -3083,7 +3193,7 @@ const PatientRecordPage = () => {
                 </div>
                 <DialogFooter>
                   <Button variant="outline" onClick={()=>setConvertModalOpen(false)}>Cancelar</Button>
-                  <Button onClick={confirmConvert}>Converter</Button>
+                  <Button onClick={confirmConvert} disabled={convertingBudget}>{convertingBudget ? "Convertendo..." : "Converter"}</Button>
                 </DialogFooter>
               </DialogContent>
             </Dialog>
@@ -3144,7 +3254,19 @@ const PatientRecordPage = () => {
         open={!!pdvSaleToCancel}
         sale={pdvSaleToCancel}
         onClose={() => setPdvSaleToCancel(null)}
-        onCancelled={() => { void refetchFinancial(); }}
+        onCancelled={() => {
+          void refetchFinancial();
+          // Sincroniza o espelho local da aba "Vendas" (manual) com o status
+          // real — sem isso o badge "Cancelada" não aparecia lá mesmo com o
+          // estorno já revertendo estoque/recebimentos de verdade.
+          if (pdvSaleToCancel) {
+            const updated = patientSales.map((s) =>
+              s.id === pdvSaleToCancel.id ? { ...s, saleStatus: "cancelled" as SaleStatusLocal } : s
+            );
+            setPatientSales(updated);
+            writePatientSales(animalId, updated);
+          }
+        }}
         clientName={currentClient?.name}
         clientPhone={currentClient?.phone || undefined}
         animalName={currentAnimal?.name}
@@ -3201,20 +3323,22 @@ const PatientRecordPage = () => {
               Cancelar
             </Button>
             <Button
-              onClick={() => {
+              onClick={async () => {
                 if (!selectedObservation) return;
                 const nextText = observationEditText.trim();
                 if (!nextText) {
                   toast.error("A observação não pode ficar vazia.");
                   return;
                 }
-                setObservations((prev) =>
-                  prev.map((o) =>
-                    o.id === selectedObservation.id
-                      ? { ...o, observation: nextText, displayAsAlert: observationEditAlert }
-                      : o
-                  )
-                );
+                const updated = await observationsApi.updateObservation(selectedObservation.id, {
+                  observation: nextText,
+                  displayAsAlert: observationEditAlert,
+                });
+                if (!updated) {
+                  toast.error("Falha ao atualizar observação.");
+                  return;
+                }
+                await refetchObservations();
                 setObservationEditOpen(false);
                 toast.success("Observação atualizada!");
               }}
@@ -3236,9 +3360,14 @@ const PatientRecordPage = () => {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => {
+              onClick={async () => {
                 if (!observationDeleteId) return;
-                setObservations((prev) => prev.filter((o) => o.id !== observationDeleteId));
+                const ok = await observationsApi.removeObservation(observationDeleteId);
+                if (!ok) {
+                  toast.error("Falha ao excluir observação.");
+                  return;
+                }
+                await refetchObservations();
                 setObservationDeleteId(null);
                 toast.info("Observação excluída.");
               }}
@@ -3386,7 +3515,7 @@ const PatientRecordPage = () => {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setSaleModalOpen(false)}>Cancelar</Button>
-            <Button onClick={handleSaveSale}>Salvar Venda</Button>
+            <Button onClick={handleSaveSale} disabled={savingSale}>{savingSale ? "Salvando..." : "Salvar Venda"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

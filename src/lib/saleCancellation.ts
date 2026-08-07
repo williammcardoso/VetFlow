@@ -17,6 +17,13 @@ export async function getReceiptsForSale(saleId: string): Promise<FinancialTrans
   );
 }
 
+/** Só os recebimentos de verdade (positivos) — exclui estornos já lançados
+ * anteriormente, que também ficam nessa mesma lista como valores negativos. */
+async function getPositiveReceiptsForSale(saleId: string): Promise<FinancialTransaction[]> {
+  const receipts = await getReceiptsForSale(saleId);
+  return receipts.filter((r) => r.amount > 0);
+}
+
 // Soma dos recebimentos já estornados (entradas negativas geradas por um cancelamento anterior)
 export async function getReversedAmountForSale(saleId: string): Promise<number> {
   const receipts = await getReceiptsForSale(saleId);
@@ -37,13 +44,16 @@ export async function cancelSaleWithReversal(params: {
   const list = await getFinancialTransactions();
   const sale = list.find((t) => t.id === saleId && t.category === "Venda de Produtos");
   if (!sale) return null;
+  if ((sale.status || "pending") === "cancelled") return null;
 
   const now = new Date();
   const date = now.toISOString().split("T")[0];
   const time = now.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
 
-  // 1) Lançamento negativo para cada recebimento registrado nesta venda
-  const receipts = await getReceiptsForSale(saleId);
+  // 1) Lançamento negativo para cada recebimento registrado nesta venda —
+  // só os positivos, para não "des-estornar" um estorno anterior se essa
+  // função rodar de novo por engano.
+  const receipts = await getPositiveReceiptsForSale(saleId);
   for (const receipt of receipts) {
     await addFinancialTransaction({
       date,
