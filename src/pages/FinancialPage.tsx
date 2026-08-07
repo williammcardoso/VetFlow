@@ -125,7 +125,7 @@ const sumReceiptsForSale = (list: FinancialTransaction[], saleId: string) => {
 const FinancialPage: React.FC = () => {
   const [dateFrom, setDateFrom] = useState<string>("");
   const [dateTo, setDateTo] = useState<string>("");
-  const [drilldown, setDrilldown] = useState<"faturado" | "recebido" | "aberto" | "custo" | null>(null);
+  const [drilldown, setDrilldown] = useState<"faturado" | "recebido" | "aberto" | "custo" | "compras" | null>(null);
   const { transactions, loading } = useFinancialTransactions();
 
   const data = useMemo(() => {
@@ -158,12 +158,20 @@ const FinancialPage: React.FC = () => {
       }
     });
 
-    // Custo dos itens vendidos e taxas de operadora: é o que separa
-    // faturamento de lucro real — base da divisão 50/50 com a agropecuária.
+    // Custo dos itens vendidos (repasse a prestador) e taxas de operadora:
+    // é o que separa faturamento de lucro real — base da divisão 50/50.
     const costItems = sales.filter((s) => (s.supplierCost ?? 0) > 0);
     const totalRepasses = sales.reduce((s, t) => s + (t.supplierCost ?? 0), 0);
     const totalTaxas = sales.reduce((s, t) => s + (t.financialFee ?? 0), 0);
-    const lucroReal = totalFaturado - totalRepasses - totalTaxas;
+
+    // Compras de estoque do período (Almoxarifado) — desde 2026-08-07 é daqui
+    // que vem o custo de insumo, agregado por mês em vez de por venda.
+    const purchases = transactions.filter(
+      (t) => t.type === "expense" && t.category === "Estoque" && withinRange(t.date, dateFrom, dateTo)
+    );
+    const totalCompras = purchases.reduce((s, t) => s + t.amount, 0);
+
+    const lucroReal = totalFaturado - totalRepasses - totalCompras - totalTaxas;
     const margemReal = totalFaturado > 0 ? Math.round((lucroReal / totalFaturado) * 100) : 0;
 
     const ticketMedio = sales.length > 0 ? totalFaturado / sales.length : 0;
@@ -216,6 +224,8 @@ const FinancialPage: React.FC = () => {
       receipts,
       openSales,
       costItems,
+      purchases,
+      totalCompras,
     };
   }, [transactions, dateFrom, dateTo]);
 
@@ -224,8 +234,8 @@ const FinancialPage: React.FC = () => {
   const clickableCardClass = cn(cardClass, "cursor-pointer");
 
   const drilldownContent: Record<
-    "faturado" | "recebido" | "aberto" | "custo",
-    { title: string; empty: string; rows: { label: string; sublabel: string; value: number; valueClass?: string }[] }
+    "faturado" | "recebido" | "aberto" | "custo" | "compras",
+    { title: string; empty: string; rows: { id?: string; label: string; sublabel: string; value: number; valueClass?: string }[] }
   > = {
     faturado: {
       title: "Total faturado — vendas do período",
@@ -250,6 +260,7 @@ const FinancialPage: React.FC = () => {
       title: "Em aberto — vendas com saldo pendente",
       empty: "Nenhuma venda em aberto no período.",
       rows: data.openSales.map((s) => ({
+        id: s.id,
         label: s.description,
         sublabel: formatDateTime(s.date, s.time),
         value: s.remaining,
@@ -263,6 +274,16 @@ const FinancialPage: React.FC = () => {
         label: s.description,
         sublabel: formatDateTime(s.date, s.time),
         value: s.supplierCost ?? 0,
+        valueClass: "text-amber-700",
+      })),
+    },
+    compras: {
+      title: "Compras de estoque — Almoxarifado",
+      empty: "Nenhuma compra registrada no período.",
+      rows: data.purchases.map((p) => ({
+        label: p.description,
+        sublabel: formatDateTime(p.date, p.time),
+        value: p.amount,
         valueClass: "text-amber-700",
       })),
     },
@@ -547,9 +568,20 @@ const FinancialPage: React.FC = () => {
           <Card className={clickableCardClass} onClick={() => setDrilldown("custo")}>
             <CardContent className="p-4 flex items-center justify-between">
               <div>
-                <div className="text-xs text-muted-foreground">Custo dos itens</div>
+                <div className="text-xs text-muted-foreground">Repasses (prestador)</div>
                 <div className="text-xl font-bold text-amber-700">
                   {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(data.totalRepasses)}
+                </div>
+              </div>
+              <Tag className="h-5 w-5 text-amber-700" />
+            </CardContent>
+          </Card>
+          <Card className={clickableCardClass} onClick={() => setDrilldown("compras")}>
+            <CardContent className="p-4 flex items-center justify-between">
+              <div>
+                <div className="text-xs text-muted-foreground">Compras (Almoxarifado)</div>
+                <div className="text-xl font-bold text-amber-700">
+                  {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(data.totalCompras)}
                 </div>
               </div>
               <Tag className="h-5 w-5 text-amber-700" />
@@ -735,11 +767,8 @@ const FinancialPage: React.FC = () => {
                 {drilldownContent[drilldown].rows.length > 0 ? (
                   drilldownContent[drilldown].rows.map((row, i) => {
                     const { who, items } = splitSaleDescription(row.label);
-                    return (
-                      <div
-                        key={i}
-                        className="flex items-start justify-between gap-3 rounded-lg border border-border bg-muted/30 p-3"
-                      >
+                    const rowContent = (
+                      <>
                         <div className="min-w-0">
                           {who && <div className="truncate text-xs text-muted-foreground">{who}</div>}
                           <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-sm font-medium text-foreground">
@@ -760,9 +789,30 @@ const FinancialPage: React.FC = () => {
                           </div>
                           <div className="text-xs text-muted-foreground">{row.sublabel}</div>
                         </div>
-                        <div className={cn("shrink-0 text-sm font-bold tabular-nums", row.valueClass)}>
-                          {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(row.value)}
+                        <div className="flex shrink-0 items-center gap-2">
+                          <div className={cn("text-sm font-bold tabular-nums", row.valueClass)}>
+                            {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(row.value)}
+                          </div>
+                          {drilldown === "aberto" && row.id && (
+                            <span className="rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-semibold text-red-700">
+                              Dar baixa
+                            </span>
+                          )}
                         </div>
+                      </>
+                    );
+                    const rowClass = "flex items-start justify-between gap-3 rounded-lg border border-border bg-muted/30 p-3";
+                    return drilldown === "aberto" && row.id ? (
+                      <Link
+                        key={i}
+                        to={`/sales/receipts?saleId=${row.id}&amount=${row.value}`}
+                        className={cn(rowClass, "transition-colors hover:border-red-300 hover:bg-red-50/60")}
+                      >
+                        {rowContent}
+                      </Link>
+                    ) : (
+                      <div key={i} className={rowClass}>
+                        {rowContent}
                       </div>
                     );
                   })

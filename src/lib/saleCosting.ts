@@ -1,8 +1,4 @@
 import type { CatalogItem } from "@/mockData/catalog";
-import {
-  getServiceComponentsByServiceIds,
-  type ServiceComponent,
-} from "@/lib/serviceComponentsApi";
 
 export interface ResolvedLineCost {
   catalogItemId: string;
@@ -13,48 +9,28 @@ export interface ResolvedLineCost {
   /** unitProductCost + unitProviderCost */
   unitCost: number;
   costProvider?: string;
-  /** Insumos por 1 unidade do serviço vendido */
-  consumptions: Array<{
-    productId: string;
-    productName: string;
-    quantity: number;
-    unitCost: number;
-  }>;
 }
 
 /**
- * Resolve custo de produto vs prestador + insumos (BOM) para itens do carrinho.
+ * Resolve custo de produto vs prestador para itens do carrinho.
  * - Produto vendido: productCost = catalog.cost
  * - Serviço com prestador: providerCost = catalog.cost (se houver costProvider ou cost)
- * - Serviço com composição: productCost += soma dos insumos
+ *
+ * O custo de insumo por composição (BOM) foi removido (2026-08-07): o modelo
+ * de negócio mudou — a agropecuária passou a funcionar como almoxarifado, e o
+ * custo de insumos/produtos agora entra no Fechamento 50/50 como despesa
+ * agregada do mês (Compras de Estoque), não mais rateado por venda/serviço.
+ * Serviço vendido sem repasse externo não carrega custo de produto nenhum.
  */
 export async function resolveCartLineCosts(
   lines: Array<{ catalogItemId: string; quantity: number }>,
   catalogById: Map<string, CatalogItem>
 ): Promise<Map<string, ResolvedLineCost>> {
-  const serviceIds = lines
-    .map((l) => catalogById.get(l.catalogItemId))
-    .filter((item): item is CatalogItem => !!item && item.type === "service")
-    .map((item) => item.id);
-
-  const componentsByService = await getServiceComponentsByServiceIds(serviceIds);
   const result = new Map<string, ResolvedLineCost>();
 
   for (const line of lines) {
     const item = catalogById.get(line.catalogItemId);
     if (!item) continue;
-
-    const components: ServiceComponent[] = componentsByService.get(item.id) || [];
-    const consumptions = components.map((c) => ({
-      productId: c.productId,
-      productName: c.productName || "Insumo",
-      quantity: c.quantity,
-      unitCost: c.productCost ?? 0,
-    }));
-    const bomUnitCost = consumptions.reduce(
-      (s, c) => s + c.unitCost * c.quantity,
-      0
-    );
 
     let unitProductCost = 0;
     let unitProviderCost = 0;
@@ -62,17 +38,13 @@ export async function resolveCartLineCosts(
 
     if (item.type === "product") {
       unitProductCost = item.cost ?? 0;
-    } else {
-      unitProductCost = bomUnitCost;
-      // Repasse externo fica separado dos insumos
-      if ((item.cost ?? 0) > 0) {
-        unitProviderCost = item.cost ?? 0;
-        if (!costProvider) {
-          costProvider =
-            item.category === "exame_externo"
-              ? "Laboratório externo"
-              : "Prestador externo";
-        }
+    } else if ((item.cost ?? 0) > 0) {
+      unitProviderCost = item.cost ?? 0;
+      if (!costProvider) {
+        costProvider =
+          item.category === "exame_externo"
+            ? "Laboratório externo"
+            : "Prestador externo";
       }
     }
 
@@ -82,7 +54,6 @@ export async function resolveCartLineCosts(
       unitProviderCost,
       unitCost: unitProductCost + unitProviderCost,
       costProvider: unitProviderCost > 0 ? costProvider : undefined,
-      consumptions,
     });
   }
 

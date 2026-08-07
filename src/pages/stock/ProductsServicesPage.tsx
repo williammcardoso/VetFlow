@@ -7,67 +7,14 @@ import { toast } from "sonner";
 import { getCatalog, addCatalogItem, updateCatalogItem, removeCatalogItem, adjustStock } from "@/lib/catalogApi";
 import type { CatalogItem, CatalogItemType } from "@/mockData/catalog";
 import { COST_PROVIDER_PRESETS, resolveCostProvider } from "@/lib/costProviders";
-import {
-  getServiceComponents,
-  setServiceComponents,
-  type ServiceComponent,
-} from "@/lib/serviceComponentsApi";
 import CurrencyInput from "@/components/CurrencyInput";
-import { PackageSearch, FileText, Pencil, Plus, Trash2 } from "lucide-react";
+import { PackageSearch, FileText, Pencil } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { PageShell } from "@/components/saas/PageShell";
 import { PageHeader } from "@/components/saas/PageHeader";
 import { SectionCard } from "@/components/saas/SectionCard";
 import PriceListPdfContent from "@/components/PriceListPdfContent";
 import { createPdfBlob, openPdf } from "@/lib/pdfExport";
-
-type BomDraftRow = { productId: string; quantity: number };
-
-// Ajuda a evitar o erro de cadastrar o custo do pacote/frasco inteiro quando a
-// composição de serviços consome por unidade menor (ex: mL, comprimido) — o
-// custo e o estoque do produto precisam estar na MESMA unidade de consumo.
-const UnitCostCalculator: React.FC<{ onApply: (unitCost: number) => void }> = ({ onApply }) => {
-  const [packageCost, setPackageCost] = useState<number>(0);
-  const [packageYield, setPackageYield] = useState<string>("");
-  const yieldNum = parseFloat(packageYield.replace(",", "."));
-  const unitCost = yieldNum > 0 ? packageCost / yieldNum : 0;
-
-  return (
-    <div className="mt-2 rounded-lg border border-dashed border-border/70 bg-muted/30 p-2">
-      <p className="mb-1.5 text-[11px] font-medium text-muted-foreground">
-        Calculadora: custo por unidade de consumo (evita erro de frasco × mL)
-      </p>
-      <div className="flex items-end gap-2">
-        <div className="flex-1">
-          <Label className="text-[10px] text-muted-foreground">Custo do pacote (R$)</Label>
-          <CurrencyInput value={packageCost} onValueChange={setPackageCost} className="mt-0.5 h-8 text-xs" />
-        </div>
-        <div className="flex-1">
-          <Label className="text-[10px] text-muted-foreground">Rende quantas unidades</Label>
-          <Input
-            value={packageYield}
-            onChange={(e) => setPackageYield(e.target.value)}
-            placeholder="ex: 10 (mL)"
-            className="mt-0.5 h-8 text-xs"
-            type="number"
-            min="0"
-            step="any"
-          />
-        </div>
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          className="h-8 shrink-0 text-xs"
-          disabled={unitCost <= 0}
-          onClick={() => onApply(Number(unitCost.toFixed(4)))}
-        >
-          Usar {unitCost > 0 ? `R$ ${unitCost.toFixed(2)}` : ""}
-        </Button>
-      </div>
-    </div>
-  );
-};
 
 const SERVICE_CATEGORY_OPTIONS = [
   { value: "servico", label: "Serviço geral" },
@@ -124,26 +71,11 @@ const ProductsServicesPage: React.FC = () => {
   const [editStockQty, setEditStockQty] = useState<string>("0");
   const [editUnit, setEditUnit] = useState("");
   const [editActive, setEditActive] = useState(true);
-  const [editBom, setEditBom] = useState<BomDraftRow[]>([]);
-  const [bomProductId, setBomProductId] = useState("");
-  const [bomQty, setBomQty] = useState("1");
 
   const resolveProviderInput = (preset: string, custom: string) => {
     if (preset === "outro") return custom.trim() || undefined;
     return preset.trim() || undefined;
   };
-
-  const productOptions = useMemo(
-    () => items.filter((i) => i.type === "product" && i.active),
-    [items]
-  );
-
-  const editBomCost = useMemo(() => {
-    return editBom.reduce((sum, row) => {
-      const prod = items.find((i) => i.id === row.productId);
-      return sum + (prod?.cost ?? 0) * row.quantity;
-    }, 0);
-  }, [editBom, items]);
 
   const availableCategories = React.useMemo(() => {
     const cats = new Set(items.map(i => i.category).filter(Boolean));
@@ -247,7 +179,7 @@ const ProductsServicesPage: React.FC = () => {
     }
   };
 
-  const openEditModal = async (item: CatalogItem) => {
+  const openEditModal = (item: CatalogItem) => {
     setEditingItem(item);
     setEditName(item.name);
     setEditPrice(item.price);
@@ -260,42 +192,6 @@ const ProductsServicesPage: React.FC = () => {
     setEditStockQty(String(item.stockQty ?? 0));
     setEditUnit(item.unit || "");
     setEditActive(item.active);
-    setBomProductId("");
-    setBomQty("1");
-    if (item.type === "service") {
-      const comps = await getServiceComponents(item.id);
-      setEditBom(comps.map((c: ServiceComponent) => ({
-        productId: c.productId,
-        quantity: c.quantity,
-      })));
-    } else {
-      setEditBom([]);
-    }
-  };
-
-  const handleAddBomRow = () => {
-    if (!bomProductId) {
-      toast.error("Selecione um produto/insumo.");
-      return;
-    }
-    const qty = Number(bomQty.replace(",", ".")) || 0;
-    if (qty <= 0) {
-      toast.error("Quantidade inválida.");
-      return;
-    }
-    setEditBom((prev) => {
-      const existing = prev.find((r) => r.productId === bomProductId);
-      if (existing) {
-        return prev.map((r) =>
-          r.productId === bomProductId
-            ? { ...r, quantity: r.quantity + qty }
-            : r
-        );
-      }
-      return [...prev, { productId: bomProductId, quantity: qty }];
-    });
-    setBomProductId("");
-    setBomQty("1");
   };
 
   const handleSaveEdit = async () => {
@@ -323,13 +219,6 @@ const ProductsServicesPage: React.FC = () => {
     if (!ok) {
       toast.error("Falha ao atualizar.");
       return;
-    }
-    if (editingItem.type === "service") {
-      const bomOk = await setServiceComponents(editingItem.id, editBom);
-      if (!bomOk) {
-        toast.error("Item salvo, mas falhou ao salvar a composição de insumos.");
-        return;
-      }
     }
     toast.success("Item atualizado.");
     setEditingItem(null);
@@ -566,7 +455,7 @@ const ProductsServicesPage: React.FC = () => {
                     value={newUnit}
                     onChange={(e) => setNewUnit(e.target.value)}
                     className="mt-1 h-10 border border-border bg-card text-sm"
-                    placeholder="mL, cp, un..."
+                    placeholder="un, cx, frasco..."
                   />
                 </div>
               </>
@@ -582,17 +471,6 @@ const ProductsServicesPage: React.FC = () => {
               </Button>
             </div>
           </div>
-
-          {newType === 'product' && (
-            <div className="mt-3">
-              <p className="text-[11px] text-muted-foreground">
-                O <strong>Custo</strong> e o <strong>Estoque</strong> precisam estar na mesma unidade que será
-                consumida nas composições de serviço (ex.: se o serviço consome em mL, cadastre o custo por mL e
-                o estoque em mL — não pelo frasco/pacote inteiro).
-              </p>
-              <UnitCostCalculator onApply={setNewCost} />
-            </div>
-          )}
         </div>
       </SectionCard>
 
@@ -920,7 +798,8 @@ const ProductsServicesPage: React.FC = () => {
                   />
                   {editingItem?.type === "service" && (
                     <p className="mt-1 text-[10px] text-muted-foreground">
-                      Só o valor pago ao lab/especialista. Insumos ficam na composição abaixo.
+                      Valor pago a laboratório/especialista externo (se houver). O custo de insumos consumidos
+                      entra no Fechamento 50/50 pela Lista de Compras do Almoxarifado, não aqui.
                     </p>
                   )}
                 </div>
@@ -954,115 +833,6 @@ const ProductsServicesPage: React.FC = () => {
               </div>
             )}
 
-            {editingItem?.type === "product" && (
-              <div>
-                <p className="text-[11px] text-muted-foreground">
-                  O <strong>Custo</strong> e o <strong>Estoque</strong> abaixo precisam estar na mesma unidade que
-                  será consumida nas composições de serviço (ex.: se um serviço consome em mL, cadastre o custo por
-                  mL e o estoque em mL — não pelo frasco/pacote inteiro).
-                </p>
-                <UnitCostCalculator onApply={setEditCost} />
-              </div>
-            )}
-
-            {editingItem?.type === "service" && (
-              <div className="rounded-lg border border-border bg-muted/20 p-3 space-y-3">
-                <div>
-                  <div className="text-xs font-semibold text-foreground">Composição de insumos</div>
-                  <p className="text-[11px] text-muted-foreground mt-0.5">
-                    Ex.: Fluidoterapia = soro + equipo + cateter. Na venda o estoque de cada um baixa automaticamente.
-                  </p>
-                </div>
-
-                <div className="flex flex-wrap items-end gap-2">
-                  <div className="min-w-[180px] flex-1">
-                    <Label className="text-[11px] text-muted-foreground">Produto / insumo</Label>
-                    <select
-                      value={bomProductId}
-                      onChange={(e) => setBomProductId(e.target.value)}
-                      className="mt-1 h-9 w-full rounded-md border border-border bg-card px-2 text-sm"
-                    >
-                      <option value="">Selecione...</option>
-                      {productOptions.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.name}
-                          {p.cost != null
-                            ? ` · ${new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(p.cost)}`
-                            : ""}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="w-24">
-                    <Label className="text-[11px] text-muted-foreground">Qtd</Label>
-                    <Input
-                      value={bomQty}
-                      onChange={(e) => setBomQty(e.target.value)}
-                      className="mt-1 h-9 border border-border"
-                      type="number"
-                      min="0.001"
-                      step="any"
-                    />
-                  </div>
-                  <Button type="button" size="sm" className="h-9 gap-1" onClick={handleAddBomRow}>
-                    <Plus className="h-3.5 w-3.5" /> Add
-                  </Button>
-                </div>
-
-                {editBom.length === 0 ? (
-                  <p className="text-xs text-muted-foreground">Nenhum insumo cadastrado.</p>
-                ) : (
-                  <div className="space-y-1.5">
-                    {editBom.map((row) => {
-                      const prod = items.find((i) => i.id === row.productId);
-                      const lineCost = (prod?.cost ?? 0) * row.quantity;
-                      return (
-                        <div
-                          key={row.productId}
-                          className="flex items-center justify-between gap-2 rounded-md border border-border/70 bg-card px-2.5 py-1.5 text-sm"
-                        >
-                          <div className="min-w-0">
-                            <div className="font-medium truncate">{prod?.name || row.productId}</div>
-                            <div className="text-[11px] text-muted-foreground">
-                              {row.quantity} ×{" "}
-                              {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(prod?.cost ?? 0)}
-                              {" = "}
-                              {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(lineCost)}
-                            </div>
-                          </div>
-                          <button
-                            type="button"
-                            className="h-7 w-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-red-500 hover:bg-red-50"
-                            onClick={() => setEditBom((prev) => prev.filter((r) => r.productId !== row.productId))}
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
-                        </div>
-                      );
-                    })}
-                    <div className="flex justify-between text-xs pt-1 border-t border-border/60">
-                      <span className="text-muted-foreground">Custo dos insumos</span>
-                      <span className="font-semibold text-amber-700">
-                        {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(editBomCost)}
-                      </span>
-                    </div>
-                    {(editBomCost > 0 || editCost > 0) && editPrice > 0 && (
-                      <div className="flex justify-between text-xs">
-                        <span className="text-muted-foreground">
-                          Custo total (insumos + repasse)
-                        </span>
-                        <span className="font-semibold text-emerald-700">
-                          {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(editBomCost + editCost)}
-                          {" · "}
-                          {Math.round(((editPrice - editBomCost - editCost) / editPrice) * 100)}% margem
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
-
             {editingItem?.type === 'product' && (
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -1081,7 +851,7 @@ const ProductsServicesPage: React.FC = () => {
                     value={editUnit}
                     onChange={(e) => setEditUnit(e.target.value)}
                     className="mt-1 h-10 border border-border"
-                    placeholder="mL, cp, un..."
+                    placeholder="un, cx, frasco..."
                   />
                 </div>
               </div>

@@ -92,9 +92,15 @@ const MonthlyClosingPdfContent: React.FC<Props> = ({ data }) => {
             <Text style={s.rowValue}>{fmt(data.bruto)}</Text>
           </View>
           <View style={s.row}>
-            <Text style={s.rowLabel}>(−) Custo de produtos e insumos</Text>
-            <Text style={[s.rowValue, s.rowNeg]}>{fmt(data.custoProdutos)}</Text>
+            <Text style={s.rowLabel}>(−) Compras de estoque (Almoxarifado)</Text>
+            <Text style={[s.rowValue, s.rowNeg]}>{fmt(data.custoCompras)}</Text>
           </View>
+          {data.custoProdutos > 0 && (
+            <View style={s.row}>
+              <Text style={s.rowLabel}>(−) Custo de produtos (venda antiga)</Text>
+              <Text style={[s.rowValue, s.rowNeg]}>{fmt(data.custoProdutos)}</Text>
+            </View>
+          )}
           <View style={s.row}>
             <Text style={s.rowLabel}>(−) Repasses (labs / especialistas)</Text>
             <Text style={[s.rowValue, s.rowNeg]}>{fmt(data.custoRepasses)}</Text>

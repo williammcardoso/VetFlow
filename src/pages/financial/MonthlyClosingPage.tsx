@@ -40,7 +40,7 @@ import {
 } from "@/lib/monthlyClosingsApi";
 import MonthlyClosingPdfContent from "@/components/MonthlyClosingPdfContent";
 import { createPdfBlob, openPdf } from "@/lib/pdfExport";
-import { ArrowLeft, Calculator, Lock, Unlock, Printer, Scale } from "lucide-react";
+import { ArrowLeft, Calculator, Lock, Unlock, Printer, Scale, ShoppingBag } from "lucide-react";
 import { toast } from "sonner";
 
 const fmt = (v: number) =>
@@ -86,6 +86,20 @@ const MonthlyClosingPage: React.FC = () => {
     [transactions, from, to]
   );
 
+  // Lista de Compras do Almoxarifado (Estoque → Compras) — desde 2026-08-07 é
+  // daqui que vem o custo de insumo, agregado por mês, em vez de por venda.
+  const monthPurchases = useMemo(
+    () =>
+      transactions.filter(
+        (t) =>
+          t.type === "expense" &&
+          t.category === "Estoque" &&
+          t.date >= from &&
+          t.date <= to
+      ),
+    [transactions, from, to]
+  );
+
   useEffect(() => {
     let cancelled = false;
     getSaleItemsBySaleIds(monthSales.map((s) => s.id)).then((items) => {
@@ -103,8 +117,9 @@ const MonthlyClosingPage: React.FC = () => {
         month,
         sales: monthSales,
         saleItems,
+        purchases: monthPurchases,
       }),
-    [year, month, monthSales, saleItems]
+    [year, month, monthSales, saleItems, monthPurchases]
   );
 
   const isClosed = !!closedRecord;
@@ -174,7 +189,12 @@ const MonthlyClosingPage: React.FC = () => {
 
   const rows = [
     { label: "Faturamento bruto", value: closing.bruto, tone: "neutral" as const },
-    { label: "(−) Custo de produtos e insumos", value: -closing.custoProdutos, tone: "amber" as const },
+    { label: "(−) Compras de estoque (Almoxarifado)", value: -closing.custoCompras, tone: "amber" as const },
+    // Legado: só aparece se houver venda antiga com custo de insumo embutido
+    // (composição/BOM, descontinuada) — meses novos não geram esse valor.
+    ...(closing.custoProdutos > 0
+      ? [{ label: "(−) Custo de produtos (venda antiga)", value: -closing.custoProdutos, tone: "amber" as const }]
+      : []),
     { label: "(−) Repasses (labs / especialistas)", value: -closing.custoRepasses, tone: "amber" as const },
     { label: "(−) Taxas de cartão / operadora", value: -closing.taxasCartao, tone: "amber" as const },
   ];
@@ -266,6 +286,11 @@ const MonthlyClosingPage: React.FC = () => {
                 </AlertDialog>
               )
             )}
+            <Link to="/stock/purchases">
+              <Button variant="outline" className="gap-2">
+                <ShoppingBag className="h-4 w-4" /> Lista de Compras
+              </Button>
+            </Link>
             <Link to="/financial">
               <Button variant="ghost" className="gap-2 text-muted-foreground">
                 <ArrowLeft className="h-4 w-4" /> Voltar
@@ -323,7 +348,7 @@ const MonthlyClosingPage: React.FC = () => {
               <div>
                 <div className="text-xs text-muted-foreground">Fórmula</div>
                 <div className="text-sm font-medium mt-1 leading-snug">
-                  Bruto − produtos/insumos − repasses − taxas
+                  Bruto − compras (almoxarifado) − repasses − taxas
                 </div>
                 <div className="text-[11px] text-muted-foreground mt-1">
                   Saídas operacionais não entram

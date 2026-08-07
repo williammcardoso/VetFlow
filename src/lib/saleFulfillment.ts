@@ -23,8 +23,10 @@ export interface FulfilledSaleCosts {
 }
 
 /**
- * Grava itens da venda com custo separado (produto vs prestador),
- * baixa estoque de produtos vendidos e de insumos da composição.
+ * Grava itens da venda com custo separado (produto vs prestador) e baixa
+ * estoque de produtos vendidos diretamente. Serviço não baixa mais insumo
+ * por composição (ver saleCosting.ts) — o custo de insumo entra agregado no
+ * Fechamento 50/50 via Compras de Estoque.
  */
 export async function fulfillSaleLines(params: {
   saleId: string;
@@ -55,18 +57,13 @@ export async function fulfillSaleLines(params: {
       cost: unitProduct + unitProvider,
       costProvider: r?.costProvider,
       subtotal: line.unitPrice * qty,
-      consumptions: (r?.consumptions || []).map((c) => ({
-        productId: c.productId,
-        productName: c.productName,
-        quantity: c.quantity * qty,
-        unitCost: c.unitCost,
-      })),
     };
   });
 
   await addSaleItems(saleId, saleItems);
 
-  // Baixa: produtos vendidos + insumos de serviços
+  // Baixa de estoque só de produtos vendidos diretamente (não de insumo por
+  // composição de serviço, que não existe mais).
   const stockDeltas = new Map<string, number>();
   for (const line of lines) {
     const item = catalogById.get(line.catalogItemId);
@@ -74,13 +71,6 @@ export async function fulfillSaleLines(params: {
       stockDeltas.set(
         line.catalogItemId,
         (stockDeltas.get(line.catalogItemId) || 0) - line.quantity
-      );
-    }
-    const r = resolved.get(line.catalogItemId);
-    for (const c of r?.consumptions || []) {
-      stockDeltas.set(
-        c.productId,
-        (stockDeltas.get(c.productId) || 0) - c.quantity * line.quantity
       );
     }
   }
