@@ -179,7 +179,7 @@ export default function AppointmentForm({
   animalSpecies,
 }: AppointmentFormProps) {
   const [searchParams] = useSearchParams();
-  const { vets: systemVets } = useSystemVets();
+  const { vets: systemVets } = useSystemVets({ onlyVets: true });
   const { list: vaccinesList } = useRegistryList("vaccines");
   const { list: appointmentTypesList } = useRegistryList("appointmentTypes");
 

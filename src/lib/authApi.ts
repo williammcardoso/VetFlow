@@ -15,6 +15,7 @@ export type UserProfile = {
   crmv: string;
   mapa_registration: string;
   signature_text: string;
+  signature_url: string;
   updated_at?: string;
 };
 
@@ -23,6 +24,8 @@ export type AppUser = {
   username: string;
   role: AuthRole;
   active: boolean;
+  is_vet: boolean;
+  display_name: string;
   profile_id?: string | null;
   profile_name?: string | null;
   created_at?: string;
@@ -80,6 +83,8 @@ function normalizeRpcUser(data: unknown): AppUser | null {
     username,
     role,
     active,
+    is_vet: (row as { is_vet?: boolean }).is_vet !== false,
+    display_name: String((row as { display_name?: string }).display_name || ""),
     profile_id: (row as { profile_id?: string | null }).profile_id ?? null,
     profile_name: (row as { profile_name?: string | null }).profile_name ?? null,
     created_at: (row as { created_at?: string }).created_at,
@@ -159,6 +164,7 @@ function normalizeRpcProfile(data: unknown): UserProfile | null {
     crmv: String((row as { crmv?: string }).crmv || ""),
     mapa_registration: String((row as { mapa_registration?: string }).mapa_registration || ""),
     signature_text: String((row as { signature_text?: string }).signature_text || ""),
+    signature_url: String((row as { signature_url?: string }).signature_url || ""),
     updated_at: (row as { updated_at?: string }).updated_at,
   };
 }
@@ -333,6 +339,40 @@ export async function updateAppUserRole(targetUserId: string, role: AuthRole): P
   return updated;
 }
 
+export async function updateAppUserIsVet(targetUserId: string, isVet: boolean): Promise<AppUser> {
+  ensureSupabase();
+  const session = getSession();
+  if (!session) throw new Error("Sessão inválida.");
+
+  const { data, error } = await supabase.rpc("update_app_user_is_vet", {
+    p_actor_user_id: session.id,
+    p_target_user_id: targetUserId,
+    p_is_vet: isVet,
+  });
+
+  if (error) throw new Error(error.message || "Falha ao atualizar usuário.");
+  const updated = normalizeRpcUser(data);
+  if (!updated) throw new Error("Resposta inválida ao atualizar usuário.");
+  return updated;
+}
+
+export async function updateAppUserDisplayName(targetUserId: string, displayName: string): Promise<AppUser> {
+  ensureSupabase();
+  const session = getSession();
+  if (!session) throw new Error("Sessão inválida.");
+
+  const { data, error } = await supabase.rpc("update_app_user_display_name", {
+    p_actor_user_id: session.id,
+    p_target_user_id: targetUserId,
+    p_display_name: displayName,
+  });
+
+  if (error) throw new Error(error.message || "Falha ao atualizar usuário.");
+  const updated = normalizeRpcUser(data);
+  if (!updated) throw new Error("Resposta inválida ao atualizar usuário.");
+  return updated;
+}
+
 export async function adminResetAppUserPassword(targetUserId: string, newPassword: string): Promise<AppUser> {
   ensureSupabase();
   const session = getSession();
@@ -369,6 +409,7 @@ export async function getMyUserProfile(): Promise<UserProfile> {
       crmv: "",
       mapa_registration: "",
       signature_text: "",
+      signature_url: "",
     };
     cacheUserProfile(fallback);
     return fallback;
@@ -383,6 +424,7 @@ export async function saveMyUserProfile(payload: {
   crmv: string;
   mapa_registration: string;
   signature_text: string;
+  signature_url?: string;
 }): Promise<UserProfile> {
   ensureSupabase();
   const session = getSession();
@@ -395,6 +437,7 @@ export async function saveMyUserProfile(payload: {
     p_crmv: payload.crmv,
     p_mapa_registration: payload.mapa_registration,
     p_signature_text: payload.signature_text,
+    p_signature_url: payload.signature_url ?? "",
   });
 
   if (error) throw new Error(error.message || "Falha ao salvar perfil do usuário.");

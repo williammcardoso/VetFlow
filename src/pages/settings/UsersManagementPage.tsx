@@ -10,11 +10,14 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   adminResetAppUserPassword,
   createAppUser,
   listAppUsersWithAccessProfile,
   setAppUserActive,
+  updateAppUserDisplayName,
+  updateAppUserIsVet,
   updateAppUserRole,
   type AppUser,
   type AuthRole,
@@ -34,6 +37,7 @@ const UsersManagementPage: React.FC = () => {
   const [searchText, setSearchText] = React.useState("");
   const [statusFilter, setStatusFilter] = React.useState<"all" | "active" | "inactive">("all");
   const [roleFilter, setRoleFilter] = React.useState<"all" | AuthRole>("all");
+  const [displayNameDrafts, setDisplayNameDrafts] = React.useState<Record<string, string>>({});
   const [passwordResetUser, setPasswordResetUser] = React.useState<AppUser | null>(null);
   const [newPassword, setNewPassword] = React.useState("");
   const [confirmPassword, setConfirmPassword] = React.useState("");
@@ -119,6 +123,34 @@ const UsersManagementPage: React.FC = () => {
       toast.success("Papel do usuário atualizado.");
     } catch (err) {
       const message = err instanceof Error ? err.message : "Falha ao atualizar papel do usuário.";
+      toast.error(message);
+    } finally {
+      setBusyUserId(null);
+    }
+  };
+
+  const handleSaveDisplayName = async (user: AppUser) => {
+    const draft = (displayNameDrafts[user.id] ?? user.display_name ?? "").trim();
+    if (draft === (user.display_name || "")) return;
+    setBusyUserId(user.id);
+    try {
+      const updated = await updateAppUserDisplayName(user.id, draft);
+      setUsers((prev) => prev.map((u) => (u.id === updated.id ? { ...u, ...updated } : u)));
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Falha ao atualizar usuário.";
+      toast.error(message);
+    } finally {
+      setBusyUserId(null);
+    }
+  };
+
+  const handleToggleVet = async (user: AppUser, isVet: boolean) => {
+    setBusyUserId(user.id);
+    try {
+      const updated = await updateAppUserIsVet(user.id, isVet);
+      setUsers((prev) => prev.map((u) => (u.id === updated.id ? { ...u, ...updated } : u)));
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Falha ao atualizar usuário.";
       toast.error(message);
     } finally {
       setBusyUserId(null);
@@ -285,7 +317,9 @@ const UsersManagementPage: React.FC = () => {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Usuário</TableHead>
+                    <TableHead>Nome de exibição (relatórios)</TableHead>
                     <TableHead>Papel</TableHead>
+                    <TableHead>Veterinário</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Perfil de acesso</TableHead>
                     <TableHead className="text-right">Ações</TableHead>
@@ -295,6 +329,16 @@ const UsersManagementPage: React.FC = () => {
                   {filteredUsers.map((user) => (
                     <TableRow key={user.id}>
                       <TableCell className="font-medium">{user.username}</TableCell>
+                      <TableCell>
+                        <Input
+                          value={displayNameDrafts[user.id] ?? user.display_name ?? ""}
+                          onChange={(e) => setDisplayNameDrafts((prev) => ({ ...prev, [user.id]: e.target.value }))}
+                          onBlur={() => void handleSaveDisplayName(user)}
+                          placeholder={`Ex.: Dr(a). ${user.username}`}
+                          disabled={busyUserId === user.id}
+                          className="h-8 w-[200px]"
+                        />
+                      </TableCell>
                       <TableCell>
                         <Select
                           value={user.role}
@@ -309,6 +353,14 @@ const UsersManagementPage: React.FC = () => {
                             <SelectItem value="admin">Administrador</SelectItem>
                           </SelectContent>
                         </Select>
+                      </TableCell>
+                      <TableCell>
+                        <Checkbox
+                          checked={user.is_vet}
+                          onCheckedChange={(checked) => void handleToggleVet(user, checked === true)}
+                          disabled={busyUserId === user.id}
+                          aria-label="É veterinário?"
+                        />
                       </TableCell>
                       <TableCell>
                         <Badge variant={user.active ? "default" : "outline"}>{user.active ? "Ativo" : "Inativo"}</Badge>

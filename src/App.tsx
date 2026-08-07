@@ -15,6 +15,7 @@ import PatientRecordPage from "./pages/PatientRecordPage";
 import AddExamPage from "./pages/AddExamPage";
 import AddPrescriptionPage from "./pages/AddPrescriptionPage";
 import AddDocumentPage from "./pages/AddDocumentPage";
+import AddExamRequestPage from "./pages/AddExamRequestPage";
 import AddAppointmentPage from "./pages/AddAppointmentPage";
 import AppointmentViewPage from "./pages/AppointmentViewPage";
 import SpeciesPage from "./pages/registrations/SpeciesPage";
@@ -150,6 +151,14 @@ const App = () => {
                       element={
                         <ProtectedRoute requireModule="prescriptions" requireAction="edit">
                           <AddDocumentPage />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/clients/:clientId/animals/:animalId/add-exam-request"
+                      element={
+                        <ProtectedRoute requireModule="prescriptions" requireAction="edit">
+                          <AddExamRequestPage />
                         </ProtectedRoute>
                       }
                     />

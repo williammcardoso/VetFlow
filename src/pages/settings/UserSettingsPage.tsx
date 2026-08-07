@@ -10,9 +10,10 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "sonner";
 import { getMyUserProfile, saveMyUserProfile } from "@/lib/authApi";
 import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 import { PageShell } from "@/components/saas/PageShell";
 import { PageHeader } from "@/components/saas/PageHeader";
-import { UserCog, ArrowLeft } from "lucide-react";
+import { UserCog, ArrowLeft, Trash2, Upload } from "lucide-react";
 
 type UserSettingsForm = {
   userName: string;
@@ -20,7 +21,21 @@ type UserSettingsForm = {
   userCrmv: string;
   userMapaRegistration: string;
   signatureText: string;
+  signatureUrl: string;
 };
+
+const SIGNATURE_BUCKET = "documents";
+
+async function uploadSignatureImage(userId: string, file: File): Promise<string | null> {
+  const path = `signatures/${userId}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
+  const { error: upErr } = await supabase.storage.from(SIGNATURE_BUCKET).upload(path, file, { upsert: false });
+  if (upErr) {
+    console.error("[uploadSignatureImage] upload error", upErr);
+    return null;
+  }
+  const { data } = supabase.storage.from(SIGNATURE_BUCKET).getPublicUrl(path);
+  return data?.publicUrl ?? null;
+}
 
 const UserSettingsPage = () => {
   const navigate = useNavigate();
@@ -28,6 +43,7 @@ const UserSettingsPage = () => {
   const [settings, setSettings] = useState<UserSettingsForm | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploadingSignature, setUploadingSignature] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -39,6 +55,7 @@ const UserSettingsPage = () => {
           userCrmv: profile.crmv || "",
           userMapaRegistration: profile.mapa_registration || "",
           signatureText: profile.signature_text || "",
+          signatureUrl: profile.signature_url || "",
         });
         setLoading(false);
       })
@@ -53,6 +70,28 @@ const UserSettingsPage = () => {
     setSettings((prev) => prev ? { ...prev, [id]: value } : prev);
   };
 
+  const handleSignatureFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file || !session) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("Envie uma imagem (PNG ou JPG) da assinatura.");
+      return;
+    }
+    setUploadingSignature(true);
+    try {
+      const url = await uploadSignatureImage(session.id, file);
+      if (!url) {
+        toast.error("Falha ao enviar a imagem da assinatura.");
+        return;
+      }
+      setSettings((prev) => (prev ? { ...prev, signatureUrl: url } : prev));
+      toast.success("Assinatura carregada. Clique em Salvar para confirmar.");
+    } finally {
+      setUploadingSignature(false);
+    }
+  };
+
   const handleSave = async () => {
     if (!settings) return;
     setSaving(true);
@@ -63,6 +102,7 @@ const UserSettingsPage = () => {
         crmv: settings.userCrmv,
         mapa_registration: settings.userMapaRegistration,
         signature_text: settings.signatureText,
+        signature_url: settings.signatureUrl,
       });
       toast.success("Perfil salvo com sucesso.");
     } catch (err) {
@@ -183,6 +223,54 @@ const UserSettingsPage = () => {
                 <p className="text-xs text-muted-foreground">
                   Este texto será usado em receitas e documentos quando houver assinatura eletrônica.
                 </p>
+              </div>
+
+              <div className="space-y-2 border-t border-border mt-2 pt-4">
+                <Label className="text-muted-foreground font-medium">Assinatura digital (imagem escaneada)</Label>
+                <p className="text-xs text-muted-foreground">
+                  Opcional — a maioria dos documentos usa a linha em branco para assinar no papel. Só use isto se
+                  precisar entregar um documento já assinado digitalmente; nesse caso, marque "usar assinatura
+                  digital" na hora de gerar o documento.
+                </p>
+                <div className="flex items-center gap-3">
+                  {settings.signatureUrl ? (
+                    <img
+                      src={settings.signatureUrl}
+                      alt="Assinatura"
+                      className="h-14 rounded-md border border-border bg-white object-contain px-2"
+                    />
+                  ) : (
+                    <div className="flex h-14 w-28 items-center justify-center rounded-md border border-dashed border-border text-[11px] text-muted-foreground">
+                      Sem assinatura
+                    </div>
+                  )}
+                  <div className="flex flex-col gap-1.5">
+                    <Label
+                      htmlFor="signatureFile"
+                      className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted"
+                    >
+                      <Upload className="h-3.5 w-3.5" />
+                      {uploadingSignature ? "Enviando..." : settings.signatureUrl ? "Trocar imagem" : "Enviar imagem"}
+                    </Label>
+                    <input
+                      id="signatureFile"
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      disabled={uploadingSignature}
+                      onChange={handleSignatureFile}
+                    />
+                    {settings.signatureUrl && (
+                      <button
+                        type="button"
+                        className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-red-600"
+                        onClick={() => setSettings((prev) => (prev ? { ...prev, signatureUrl: "" } : prev))}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" /> Remover
+                      </button>
+                    )}
+                  </div>
+                </div>
               </div>
             </CardContent>
           </Card>
