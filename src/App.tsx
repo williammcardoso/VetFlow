@@ -6,7 +6,6 @@ import { BrowserRouter, Routes, Route, Navigate, Outlet, useLocation } from "rea
 import { useEffect } from "react";
 import Layout from "./components/Layout";
 import Dashboard from "./pages/Dashboard";
-import Index from "./pages/Index";
 import ClientsPage from "./pages/ClientsPage";
 import ClientFormPage from "./pages/ClientFormPage";
 import AddAnimalPage from "./pages/AddAnimalPage";
@@ -116,7 +115,7 @@ const App = () => {
                   <Route path="/login" element={<LoginPage />} />
 
                   <Route element={<ProtectedAppShell />}>
-                    <Route path="/" element={<Index />} />
+                    <Route path="/" element={<Navigate to="/dashboard" replace />} />
                     <Route path="/dashboard" element={<Dashboard />} />
                     <Route path="/clients" element={<ClientsPage />} />
                     <Route path="/clients/add" element={<ClientFormPage />} />

@@ -25,11 +25,17 @@ const LoginPage: React.FC = () => {
   );
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
 
+  // Se já estiver autenticado (ex.: acessou /login direto por engano com a
+  // sessão ainda válida), manda pra onde a pessoa tentava ir originalmente
+  // (from) em vez de sempre forçar /dashboard — sem isso, esse efeito
+  // sobrescrevia o redirecionamento certo do handleSubmit quando havia um
+  // link direto (ex.: prontuário) que expirou a sessão no meio do caminho.
   React.useEffect(() => {
     if (isAuthenticated) {
-      navigate("/dashboard", { replace: true });
+      const from = (location.state as { from?: string } | null)?.from;
+      navigate(from || "/dashboard", { replace: true });
     }
-  }, [isAuthenticated, navigate]);
+  }, [isAuthenticated, navigate, location.state]);
 
   React.useEffect(() => {
     const onOnline = () => setIsOnline(true);

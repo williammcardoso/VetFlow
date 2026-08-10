@@ -49,9 +49,9 @@ interface NavItem {
 const navItemsBase: NavItem[] = [
   { title: "Painel de Controle", href: "/dashboard", icon: LayoutDashboard, section: "Atendimento" },
   { title: "Agenda", href: "/agenda", icon: Calendar },
+  { title: "Clientes", href: "/clients", icon: Users },
   { title: "Previsão de Retornos", href: "/clinical/returns-forecast", icon: RotateCcw },
   { title: "Relatório de Atendimentos", href: "/clinical/appointments-report", icon: BarChart3 },
-  { title: "Clientes", href: "/clients", icon: Users },
   {
     title: "Comercial",
     icon: ShoppingCart,
