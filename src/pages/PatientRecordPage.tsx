@@ -103,7 +103,7 @@ import {
 } from "@/lib/documentsApi";
 import { useClientWithAnimals } from "@/hooks/useSupabaseClients";
 import { useQueryClient } from "@tanstack/react-query";
-import { createPdfBlob, downloadPdf, openPdf } from "@/lib/pdfExport";
+import { createPdfBlob, downloadPdf, openPdf, persistPdf } from "@/lib/pdfExport";
 import { useCurrentUserProfile } from "@/hooks/useCurrentUserProfile";
 import { useAuth } from "@/contexts/AuthContext";
 import { useObservations } from "@/hooks/useObservations";
@@ -2393,13 +2393,24 @@ const PatientRecordPage = () => {
                                 size="icon"
                                 type="button"
                                 className="rounded-md hover:bg-muted hover:text-foreground transition-colors duration-200"
-                                title="Enviar PDF por WhatsApp (o arquivo será baixado para você anexar)"
-                                onClick={() => {
+                                title="Enviar receita por WhatsApp (com link do PDF, sem precisar anexar)"
+                                onClick={async () => {
                                   if (!currentClient || !currentAnimal) {
                                     toast.error("Erro: Dados do cliente ou animal não disponíveis.");
                                     return;
                                   }
-                                  createPdfBlob(
+                                  // Precisa validar ANTES de prefixar o "55" — "55" sozinho já é uma
+                                  // string não-vazia, então um cliente sem telefone cadastrado nunca
+                                  // caía no fallback e abria o WhatsApp sem destinatário nenhum
+                                  // (aparentando "ir pro meu próprio WhatsApp").
+                                  const raw = (currentClient.mainPhoneContact ?? "").replace(/\D/g, "");
+                                  if (raw.length < 10) {
+                                    toast.error("Este cliente não tem um telefone válido cadastrado. Atualize o telefone no cadastro do cliente para enviar por WhatsApp.");
+                                    return;
+                                  }
+                                  const num = raw.length <= 10 ? "55" + raw : raw.startsWith("55") ? raw : "55" + raw;
+
+                                  const blob = await createPdfBlob(
                                     PrescriptionPdfContent({
                                       animalName: currentAnimal.name,
                                       animalId: currentAnimal.id,
@@ -2419,18 +2430,23 @@ const PatientRecordPage = () => {
                                       manipulatedPrescription: rx.manipulatedPrescription,
                                       userProfile: currentUserProfile,
                                     })
-                                  ).then((blob) => downloadPdf({
-                                    blob,
-                                    fileName: `receita_${currentAnimal.name}_${currentClient.name}_${rx.date || "sem-data"}.pdf`,
-                                    persistOptions: { folder: "prescriptions" },
-                                  })).then(() => {
-                                    const raw = (currentClient.mainPhoneContact ?? "").replace(/\D/g, "");
-                                    const withCountry = raw.length <= 10 ? "55" + raw : raw.startsWith("55") ? raw : "55" + raw;
-                                    const num = withCountry || "5500000000000";
+                                  );
+                                  const fileName = `receita_${currentAnimal.name}_${currentClient.name}_${rx.date || "sem-data"}.pdf`;
+
+                                  // O WhatsApp não tem como anexar arquivo via link — o que dá pra
+                                  // fazer de fato "sem anexar na mão" é subir o PDF e mandar o link
+                                  // direto na mensagem, pro tutor só tocar e abrir/baixar.
+                                  const pdfUrl = await persistPdf(blob, { folder: "prescriptions", fileName });
+                                  if (pdfUrl) {
+                                    const msg = encodeURIComponent(`Olá! Segue a receita de ${currentAnimal.name} (${formatDateTime(rx.date, rx.time)}).\n\nAbra o PDF aqui: ${pdfUrl}`);
+                                    window.open(`https://wa.me/${num}?text=${msg}`, "_blank");
+                                    toast.success("WhatsApp aberto com o link da receita.");
+                                  } else {
+                                    await downloadPdf({ blob, fileName, persist: false });
                                     const msg = encodeURIComponent(`Olá! Segue a receita de ${currentAnimal.name} (${formatDateTime(rx.date, rx.time)}). O PDF foi baixado - por favor anexe o arquivo e envie.`);
                                     window.open(`https://wa.me/${num}?text=${msg}`, "_blank");
                                     toast.success("PDF baixado. Abra o WhatsApp e anexe o arquivo para enviar ao tutor.");
-                                  });
+                                  }
                                 }}
                               >
                                 <SiWhatsapp className="h-5 w-5 text-[#25D366]" />

@@ -23,6 +23,12 @@ function ensurePdfName(name: string) {
   return clean.toLowerCase().endsWith(".pdf") ? clean : `${clean}.pdf`;
 }
 
+/** Sobe o PDF pro storage e devolve a URL pública — usado quando o PDF
+ * precisa virar um link (ex.: mensagem de WhatsApp), não só ser aberto/baixado. */
+export async function persistPdf(blob: Blob, options?: PersistOptions & { fileName: string }): Promise<string | null> {
+  return tryPersistPdf(blob, options);
+}
+
 async function tryPersistPdf(blob: Blob, options?: PersistOptions): Promise<string | null> {
   try {
     const bucket = options?.bucket || DEFAULT_BUCKET;
