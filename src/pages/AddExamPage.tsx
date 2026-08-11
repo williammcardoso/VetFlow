@@ -8,9 +8,14 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ExamEntry, BiochemicalEntry } from "@/types/exam";
+import { ExamEntry, BiochemicalEntry, HemogramReference } from "@/types/exam";
 import { addExam, updateExam, getExamById } from "@/lib/examsApi";
-import { getHemogramReferences, getBiochemicalReferences } from "@/constants/examReferences";
+import {
+  fetchHemogramReferences,
+  fetchBiochemicalReferences,
+  hemogramReferences as defaultHemogramReferencesFallback,
+  type BiochemicalReferenceEntry,
+} from "@/constants/examReferences";
 import { useClientWithAnimals } from "@/hooks/useSupabaseClients";
 import { useSystemVets } from "@/hooks/useSystemVets";
 
@@ -152,12 +157,17 @@ const AddExamPage = () => {
   const currentAnimal = currentClient?.animals.find(a => a.id === animalId); // Corrigido para encontrar o animal corretamente
   const animalSpecies = currentAnimal?.species === "Canino" ? "dog" : currentAnimal?.species === "Felino" ? "cat" : undefined;
 
-  // Lidas uma vez do Cadastro de Referências de Exame (localStorage) — antes
-  // a tela usava a constante estática hemogramReferences e ignorava
-  // qualquer edição feita em Cadastros, então o valor mostrado aqui podia
-  // divergir do que o laudo (PDF) imprimia.
-  const hemogramReferences = useMemo(() => getHemogramReferences(), []);
-  const biochemicalReferences = useMemo(() => getBiochemicalReferences(), []);
+  // Vêm do Cadastro de Referências de Exame no Supabase — antes a tela usava
+  // a constante estática hemogramReferences (ignorava qualquer edição feita
+  // em Cadastros) e, depois, o localStorage (divergia entre dispositivos).
+  const [hemogramReferences, setHemogramReferences] = useState<Record<string, HemogramReference>>(defaultHemogramReferencesFallback);
+  const [biochemicalReferences, setBiochemicalReferences] = useState<Record<string, BiochemicalReferenceEntry>>({});
+  useEffect(() => {
+    let cancelled = false;
+    fetchHemogramReferences().then((refs) => { if (!cancelled) setHemogramReferences(refs); });
+    fetchBiochemicalReferences().then((refs) => { if (!cancelled) setBiochemicalReferences(refs); });
+    return () => { cancelled = true; };
+  }, []);
 
   // Exame carregado do banco (modo edição). Substitui a busca no array em
   // memória, que não sobrevivia a um reload da página.

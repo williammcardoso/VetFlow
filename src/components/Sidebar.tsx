@@ -92,7 +92,7 @@ const navItemsBase: NavItem[] = [
     subItems: [
       { title: "Espécies", href: "/registrations/species", icon: PawPrint },
       { title: "Raças", href: "/registrations/breeds", icon: PawPrint },
-      { title: "Pelagens", href: "/registrations/coat-types", icon: PawPrint },
+      { title: "Cores de Pelagem", href: "/registrations/coat-types", icon: PawPrint },
       { title: "Patologias", href: "/registrations/pathologies", icon: Folder },
       { title: "Tipos de atendimento", href: "/registrations/appointment-types", icon: ClipboardList },
       { title: "Vacinas", href: "/registrations/vaccines", icon: ClipboardList },

@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
 import { toast } from "sonner";
-import { hemogramReferences as defaultRefs } from "@/constants/examReferences";
+import { hemogramReferences as defaultRefs, fetchExamReferencesRaw, saveExamReferences } from "@/constants/examReferences";
 import { PageShell } from "@/components/saas/PageShell";
 import { PageHeader } from "@/components/saas/PageHeader";
 import { SectionCard } from "@/components/saas/SectionCard";
@@ -37,8 +37,6 @@ type RefsState = {
   hemogram: HemogramRefsShape;
   biochemical: BiochemicalRefsShape;
 };
-
-const LOCAL_STORAGE_KEY = "examReferences";
 
 const NON_LEUKO_KEYS = [
   "eritrocitos",
@@ -122,17 +120,16 @@ const getInitialBiochemicalRefs = (): BiochemicalRefsShape => {
   return initial;
 };
 
-const loadRefs = (): RefsState => {
+// Pura (sem I/O) — recebe o blob já buscado do Supabase (ou vazio, se nada
+// cadastrado ainda) e mescla com os valores padrão/lista inicial de analitos.
+const mergeRefs = (parsed: Record<string, unknown> | null | undefined): RefsState => {
   try {
-    const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
     const hemogramBase = getInitialHemogramRefs();
     const biochemicalBase = getInitialBiochemicalRefs();
 
-    if (!raw) {
+    if (!parsed) {
       return { hemogram: hemogramBase, biochemical: biochemicalBase };
     }
-
-    const parsed = JSON.parse(raw);
 
     // Migração: se vier na estrutura antiga (apenas hemogram flat), adaptar
     if (!parsed.hemogram && !parsed.biochemical) {
@@ -152,17 +149,17 @@ const loadRefs = (): RefsState => {
     // Estrutura nova
     const hemogramMerged: HemogramRefsShape = { ...hemogramBase };
     for (const key of Object.keys(hemogramBase)) {
-      const incoming = parsed.hemogram?.[key];
+      const incoming = (parsed.hemogram as Record<string, unknown> | undefined)?.[key];
       if (incoming) {
         hemogramMerged[key] = {
-          dog: { ...hemogramBase[key].dog, ...incoming.dog },
-          cat: { ...hemogramBase[key].cat, ...incoming.cat },
+          dog: { ...hemogramBase[key].dog, ...(incoming as any).dog },
+          cat: { ...hemogramBase[key].cat, ...(incoming as any).cat },
         };
       }
     }
 
     const biochemicalMerged: BiochemicalRefsShape = { ...biochemicalBase };
-    const incomingBiochem = parsed.biochemical || {};
+    const incomingBiochem = (parsed.biochemical as Record<string, any>) || {};
     for (const name of Object.keys(incomingBiochem)) {
       const inc = incomingBiochem[name];
       biochemicalMerged[name] = {
@@ -179,11 +176,26 @@ const loadRefs = (): RefsState => {
 };
 
 const ExamReferencesPage: React.FC = () => {
-  const [refs, setRefs] = useState<RefsState>(() => loadRefs());
+  const [refs, setRefs] = useState<RefsState>(() => mergeRefs(null));
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
   // Para adicionar rapidamente novo analito bioquímico
   const [newBiochemName, setNewBiochemName] = useState("");
   const [newBiochemUnit, setNewBiochemUnit] = useState("");
+
+  // Vem do Supabase (Cadastros > Referências de Exame) — antes vinha só do
+  // localStorage do navegador, então o celular podia mostrar referências
+  // diferentes do computador.
+  useEffect(() => {
+    let cancelled = false;
+    fetchExamReferencesRaw().then((raw) => {
+      if (cancelled) return;
+      setRefs(mergeRefs(raw as Record<string, unknown>));
+      setLoading(false);
+    });
+    return () => { cancelled = true; };
+  }, []);
 
   // Funções de atualização (hemograma/plaquetas)
   const onChangeNonLeuko = (paramKey: string, species: Species, field: "min" | "max" | "unit", value: string) => {
@@ -347,7 +359,8 @@ const ExamReferencesPage: React.FC = () => {
     return Number.isNaN(n) ? undefined : n;
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    if (saving) return;
     const normalized: RefsState = {
       hemogram: Object.fromEntries(
         Object.entries(refs.hemogram).map(([key, val]) => [
@@ -369,9 +382,18 @@ const ExamReferencesPage: React.FC = () => {
         ])
       ),
     };
-    setRefs(normalized);
-    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(normalized));
-    toast.success("Referências de exame salvas com sucesso.");
+    setSaving(true);
+    try {
+      const ok = await saveExamReferences(normalized);
+      if (!ok) {
+        toast.error("Falha ao salvar referências de exame.");
+        return;
+      }
+      setRefs(normalized);
+      toast.success("Referências de exame salvas com sucesso.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const renderedNonLeukoRows = useMemo(() => {
@@ -504,11 +526,16 @@ const ExamReferencesPage: React.FC = () => {
           <CardTitle className="flex items-center justify-between text-base sm:text-lg">
             <span>Gerenciar Referências</span>
             <div className="flex gap-2">
-              <Button onClick={handleSave} className="h-8 bg-[hsl(var(--vf-registry))] px-3 text-sm text-white hover:bg-[hsl(var(--vf-registry)/0.9)]">Salvar</Button>
+              <Button onClick={() => void handleSave()} disabled={saving || loading} className="h-8 bg-[hsl(var(--vf-registry))] px-3 text-sm text-white hover:bg-[hsl(var(--vf-registry)/0.9)]">
+                {saving ? "Salvando..." : "Salvar"}
+              </Button>
             </div>
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3 sm:space-y-4">
+          {loading ? (
+            <p className="py-6 text-center text-sm text-muted-foreground">Carregando referências...</p>
+          ) : (
           <Accordion type="multiple" className="w-full space-y-2">
             <AccordionItem value="eritrograma" className="overflow-hidden !border-b-0 rounded-xl border border-amber-300/55 bg-amber-50/35">
               <AccordionTrigger className="px-3 text-sm font-semibold text-foreground hover:bg-amber-100/75 hover:no-underline data-[state=open]:bg-amber-100/85">Eritrograma e Plaquetas</AccordionTrigger>
@@ -646,6 +673,7 @@ const ExamReferencesPage: React.FC = () => {
               </AccordionContent>
             </AccordionItem>
           </Accordion>
+          )}
         </CardContent>
       </Card>
       </SectionCard>

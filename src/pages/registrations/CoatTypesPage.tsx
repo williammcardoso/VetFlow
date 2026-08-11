@@ -19,44 +19,44 @@ const CoatTypesPage: React.FC = () => {
     const name = newName.trim();
     if (!name) return;
     if (coatTypes.some((c) => c.name.toLowerCase() === name.toLowerCase())) {
-      toast.error("Essa pelagem já existe.");
+      toast.error("Essa cor já existe.");
       return;
     }
 
     const created = await addRegistryItem("coatTypes", { name });
     if (!created) {
-      toast.error("Falha ao adicionar pelagem.");
+      toast.error("Falha ao adicionar cor.");
       return;
     }
     setNewName("");
-    toast.success("Pelagem adicionada.");
+    toast.success("Cor adicionada.");
     await refetch();
   };
 
   const handleRemove = async (id: string) => {
     const ok = await removeRegistryItem("coatTypes", id);
     if (!ok) {
-      toast.error("Falha ao remover pelagem.");
+      toast.error("Falha ao remover cor.");
       return;
     }
-    toast.success("Pelagem removida.");
+    toast.success("Cor removida.");
     await refetch();
   };
 
   return (
     <PageShell>
       <PageHeader
-        title="Cadastro de Pelagens"
-        description="Lista de pelagens usada no cadastro clínico dos animais."
+        title="Cores de Pelagem"
+        description="Lista de cores de pelagem usada no cadastro clínico dos animais."
         icon={Palette}
         module="registry"
-        breadcrumb={<>Painel &gt; Cadastros &gt; Pelagens</>}
-        actions={<Badge variant="secondary">{coatTypes.length} pelagem(ns)</Badge>}
+        breadcrumb={<>Painel &gt; Cadastros &gt; Cores de Pelagem</>}
+        actions={<Badge variant="secondary">{coatTypes.length} cor(es)</Badge>}
       />
 
       <SectionCard
-        title="Pelagens"
-        description="Cadastro rápido e lista compacta das pelagens em um único painel."
+        title="Cores de Pelagem"
+        description="Cadastro rápido e lista compacta das cores de pelagem em um único painel."
         icon={Palette}
         tone="registry"
       >
@@ -67,7 +67,7 @@ const CoatTypesPage: React.FC = () => {
           <CardContent className="space-y-4">
             <div className="flex flex-wrap items-center gap-2">
               <Input
-                placeholder="Ex.: Semilonga"
+                placeholder="Ex.: Tricolor"
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
                 className="max-w-md bg-input"
@@ -76,19 +76,19 @@ const CoatTypesPage: React.FC = () => {
                 <Plus className="mr-2 h-4 w-4" />
                 Adicionar
               </Button>
-              <Badge className="bg-[hsl(var(--vf-registry))]/15 text-vf-registry">{coatTypes.length} pelagem(ns)</Badge>
+              <Badge className="bg-[hsl(var(--vf-registry))]/15 text-vf-registry">{coatTypes.length} cor(es)</Badge>
             </div>
 
             {error && (
               <div className="rounded-lg border border-destructive/25 bg-destructive/10 p-3">
-                <p className="text-sm font-medium text-destructive">Erro ao carregar pelagens</p>
+                <p className="text-sm font-medium text-destructive">Erro ao carregar cores de pelagem</p>
                 <p className="mt-1 text-xs text-muted-foreground">{error}</p>
               </div>
             )}
             {loading ? (
               <p className="py-2 text-sm text-muted-foreground">Carregando...</p>
             ) : coatTypes.length === 0 && !error ? (
-              <p className="py-2 text-sm text-muted-foreground">Nenhuma pelagem cadastrada.</p>
+              <p className="py-2 text-sm text-muted-foreground">Nenhuma cor cadastrada.</p>
             ) : (
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
                 {coatTypes.map((c, idx) => (

@@ -21,7 +21,7 @@ import { useClientWithAnimals } from "@/hooks/useSupabaseClients";
 import { useCurrentUserProfile } from "@/hooks/useCurrentUserProfile";
 import { useSystemVets } from "@/hooks/useSystemVets";
 import { addPatientDocument } from "@/lib/documentsApi";
-import { getBiochemicalNames } from "@/constants/examReferences";
+import { fetchBiochemicalNames, DEFAULT_BIOCHEMICAL_NAMES } from "@/constants/examReferences";
 import { EXAM_REQUEST_MARKER } from "@/lib/examRequestMarker";
 import { formatAgeLong, formatPhoneBR } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -83,7 +83,12 @@ const AddExamRequestPage: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vets, currentUserProfile?.full_name]);
 
-  const bioquimicos = useMemo(() => getBiochemicalNames(), []);
+  const [bioquimicos, setBioquimicos] = useState<string[]>(DEFAULT_BIOCHEMICAL_NAMES);
+  useEffect(() => {
+    let cancelled = false;
+    fetchBiochemicalNames().then((names) => { if (!cancelled) setBioquimicos(names); });
+    return () => { cancelled = true; };
+  }, []);
 
   const sections = useMemo(
     () => [

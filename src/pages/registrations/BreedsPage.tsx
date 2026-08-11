@@ -7,6 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { PawPrint, Plus, Trash2, Filter, Pencil, Check, X } from "lucide-react";
 import { PageHeader } from "@/components/saas/PageHeader";
+import { PageShell } from "@/components/saas/PageShell";
+import { SectionCard } from "@/components/saas/SectionCard";
 import { VfCard } from "@/components/saas/VfCard";
 import { useRegistryList } from "@/hooks/useRegistryList";
 import { addRegistryItem, removeRegistryItem, updateRegistryItem } from "@/lib/registryApi";
@@ -146,7 +148,7 @@ const BreedsPage: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <PageShell>
       <PageHeader
         title="Cadastro de Raças"
         description="Raças organizadas por espécie, com leitura clínica rápida."
@@ -156,6 +158,12 @@ const BreedsPage: React.FC = () => {
         actions={<Badge variant="secondary">{rows.length} raça(s)</Badge>}
       />
 
+      <SectionCard
+        title="Nova raça e filtros"
+        description="Cadastre uma raça vinculada a uma espécie e filtre a lista abaixo."
+        icon={PawPrint}
+        tone="registry"
+      >
       <VfCard className="border-primary/20">
         <CardHeader>
           <CardTitle className="flex items-center justify-between text-base text-foreground">
@@ -217,7 +225,14 @@ const BreedsPage: React.FC = () => {
           </div>
         </CardContent>
       </VfCard>
+      </SectionCard>
 
+      <SectionCard
+        title="Raças cadastradas"
+        description="Agrupadas por espécie — edite ou remova diretamente na lista."
+        icon={PawPrint}
+        tone="registry"
+      >
       {loading ? (
         <VfCard>
           <CardContent className="py-8 text-center text-muted-foreground">Carregando...</CardContent>
@@ -280,7 +295,8 @@ const BreedsPage: React.FC = () => {
           </Card>
         ))
       )}
-    </div>
+      </SectionCard>
+    </PageShell>
   );
 };
 
