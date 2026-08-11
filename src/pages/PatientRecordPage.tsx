@@ -918,13 +918,19 @@ const PatientRecordPage = () => {
       return encodeURIComponent(parts.join("\n"));
     };
 
+    // api.whatsapp.com/send direto, em vez de wa.me — wa.me é um redirect da
+    // própria Meta que, ao converter pra api.whatsapp.com/send, corrompe
+    // emoji de 4 bytes no meio do caminho (confirmado testando o link real:
+    // %F0%9F%90%BE certo em wa.me virava %EF%BF%BD no api.whatsapp.com/send
+    // gerado por eles ~1s depois). Indo direto no endpoint final, pula essa
+    // conversão que estava mastigando os emoji.
     const pdfUrl = await persistPdf(opts.blob, { folder: opts.folder, fileName: opts.fileName });
     if (pdfUrl) {
-      window.open(`https://wa.me/${num}?text=${buildMsg(pdfUrl)}`, "_blank");
+      window.open(`https://api.whatsapp.com/send?phone=${num}&text=${buildMsg(pdfUrl)}`, "_blank");
       toast.success("WhatsApp aberto com o link do documento.");
     } else {
       await downloadPdf({ blob: opts.blob, fileName: opts.fileName, persist: false });
-      window.open(`https://wa.me/${num}?text=${buildMsg()}`, "_blank");
+      window.open(`https://api.whatsapp.com/send?phone=${num}&text=${buildMsg()}`, "_blank");
       toast.success("PDF baixado. Abra o WhatsApp e anexe o arquivo para enviar ao tutor.");
     }
   };
