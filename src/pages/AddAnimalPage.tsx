@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import WeightInput from "@/components/inputs/WeightInput";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import ClientCombobox from "@/components/ClientCombobox";
@@ -488,7 +489,7 @@ const AddAnimalPage = () => {
           </div>
           <div className="space-y-2">
             <Label htmlFor="weight" className="text-muted-foreground font-medium">Peso (kg)*</Label>
-            <Input id="weight" type="number" placeholder="Ex: 5.5" value={weight} onChange={(e) => setWeight(Number(e.target.value))} className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200" />
+            <WeightInput id="weight" placeholder="Ex: 5,5" value={weight} onChange={setWeight} className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200" />
           </div>
           <div className="space-y-2">
             <Label htmlFor="microchip" className="text-muted-foreground font-medium">Microchip</Label>

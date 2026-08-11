@@ -66,7 +66,7 @@ import { useCatalog } from "@/hooks/useCatalog";
 import { useRegistryList } from "@/hooks/useRegistryList";
 import * as financialApi from "@/lib/financialApi";
 import { fulfillSaleLines } from "@/lib/saleFulfillment";
-import { getHemogramReferences } from "@/constants/examReferences";
+import { fetchHemogramReferences } from "@/constants/examReferences";
 import { mockCompanySettings } from "@/mockData/settings";
 import AutocompleteSelect from "@/components/AutocompleteSelect";
 import CurrencyInput from "@/components/CurrencyInput";
@@ -884,6 +884,51 @@ const PatientRecordPage = () => {
     return `${text} kg`;
   };
 
+  // Envia um PDF (receita, laudo de exame etc.) por WhatsApp: sobe o arquivo
+  // e manda o link direto na mensagem (WhatsApp não aceita anexo via link,
+  // só texto) — compartilhado entre Receitas e Exames pra não duplicar a
+  // validação de telefone/formatação de mensagem em cada botão.
+  const sendPdfViaWhatsApp = async (opts: {
+    blob: Blob;
+    fileName: string;
+    folder: string;
+    title: string;
+    intro: string;
+    dateLabel: string;
+  }) => {
+    if (!currentClient) return;
+    const raw = (currentClient.mainPhoneContact ?? "").replace(/\D/g, "");
+    if (raw.length < 10) {
+      toast.error("Este cliente não tem um telefone válido cadastrado. Atualize o telefone no cadastro do cliente para enviar por WhatsApp.");
+      return;
+    }
+    const num = raw.length <= 10 ? "55" + raw : raw.startsWith("55") ? raw : "55" + raw;
+
+    const buildMsg = (link?: string) => {
+      const parts = [
+        `🐾 *${opts.title}*`,
+        "",
+        opts.intro,
+        `🗓️ ${opts.dateLabel}`,
+        "",
+        link ? `📎 Abra o PDF aqui:\n${link}` : "📎 O PDF foi baixado — por favor anexe o arquivo e envie.",
+        "",
+        "Qualquer dúvida, é só chamar! 💬",
+      ];
+      return encodeURIComponent(parts.join("\n"));
+    };
+
+    const pdfUrl = await persistPdf(opts.blob, { folder: opts.folder, fileName: opts.fileName });
+    if (pdfUrl) {
+      window.open(`https://wa.me/${num}?text=${buildMsg(pdfUrl)}`, "_blank");
+      toast.success("WhatsApp aberto com o link do documento.");
+    } else {
+      await downloadPdf({ blob: opts.blob, fileName: opts.fileName, persist: false });
+      window.open(`https://wa.me/${num}?text=${buildMsg()}`, "_blank");
+      toast.success("PDF baixado. Abra o WhatsApp e anexe o arquivo para enviar ao tutor.");
+    }
+  };
+
   // ADDED: Navegar para a edição do animal
   const handleEditAnimal = () => {
     navigate(`/clients/${clientId}/animals/${animalId}/edit`);
@@ -1194,7 +1239,7 @@ const PatientRecordPage = () => {
               </div>
 
               {/* CHIPS DO PACIENTE */}
-              <div className="mt-4 flex flex-wrap gap-2 max-h-[3.4rem] overflow-hidden">
+              <div className="mt-4 flex flex-wrap gap-2">
                 <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-white px-3 py-1 text-[12px] leading-5">
                   <FaIdCard className="h-3 w-3 text-primary" />
                   <span className="text-muted-foreground">ID:</span>
@@ -1760,8 +1805,9 @@ const PatientRecordPage = () => {
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                onClick={() => {
+                                onClick={async () => {
                                   const tutorAddress = `${currentClient.address.street}, ${currentClient.address.number} - ${currentClient.address.city} - ${currentClient.address.state}`;
+                                  const hemogramRefs = await fetchHemogramReferences();
                                   createPdfBlob(
                                     <ExamReportPdfContent
                                       animalName={currentAnimal.name}
@@ -1771,7 +1817,7 @@ const PatientRecordPage = () => {
                                       tutorName={currentClient.name}
                                       tutorAddress={tutorAddress}
                                       exam={exam}
-                                      hemogramReferences={getHemogramReferences()}
+                                      hemogramReferences={hemogramRefs}
                                     />
                                   ).then((blob) => openPdf({
                                     blob,
@@ -1795,8 +1841,9 @@ const PatientRecordPage = () => {
                                 <Button
                                   variant="ghost"
                                   size="icon"
-                                  onClick={() => {
+                                  onClick={async () => {
                                     const tutorAddress = `${currentClient.address.street}, ${currentClient.address.number} - ${currentClient.address.city} - ${currentClient.address.state}`;
+                                    const hemogramRefs = await fetchHemogramReferences();
                                     createPdfBlob(
                                       <ExamReportPdfContentHemogramaOnePage
                                         animalName={currentAnimal.name}
@@ -1807,7 +1854,7 @@ const PatientRecordPage = () => {
                                         tutorName={currentClient.name}
                                         tutorAddress={tutorAddress}
                                         exam={exam}
-                                        hemogramReferences={getHemogramReferences()}
+                                        hemogramReferences={hemogramRefs}
                                       />
                                     ).then((blob) => openPdf({
                                       blob,
@@ -1862,6 +1909,72 @@ const PatientRecordPage = () => {
                                   <FaFileAlt className="h-4 w-4" />
                                 </Button>
                               )}
+
+                              {/* Botão: Enviar exame por WhatsApp (com link do PDF) */}
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                type="button"
+                                title="Enviar exame por WhatsApp (com link do PDF, sem precisar anexar)"
+                                onClick={async () => {
+                                  if (!currentClient || !currentAnimal) {
+                                    toast.error("Erro: Dados do cliente ou animal não disponíveis.");
+                                    return;
+                                  }
+                                  const tutorAddress = `${currentClient.address.street}, ${currentClient.address.number} - ${currentClient.address.city} - ${currentClient.address.state}`;
+                                  const displayId = getPatientDisplayId(currentAnimal.id, currentClient.animals);
+                                  const blob = exam.type === "Hemograma Completo"
+                                    ? await createPdfBlob(
+                                        <ExamReportPdfContentHemogramaOnePage
+                                          animalName={currentAnimal.name}
+                                          animalId={currentAnimal.id}
+                                          displayId={displayId}
+                                          animalSpecies={currentAnimal.species}
+                                          animalBreed={currentAnimal.breed}
+                                          tutorName={currentClient.name}
+                                          tutorAddress={tutorAddress}
+                                          exam={exam}
+                                          hemogramReferences={await fetchHemogramReferences()}
+                                        />
+                                      )
+                                    : exam.type === "Bioquímico"
+                                      ? await createPdfBlob(
+                                          <ExamReportPdfContentBioquimicoOnePage
+                                            animalName={currentAnimal.name}
+                                            animalId={currentAnimal.id}
+                                            displayId={displayId}
+                                            animalSpecies={currentAnimal.species}
+                                            animalBreed={currentAnimal.breed}
+                                            tutorName={currentClient.name}
+                                            tutorAddress={tutorAddress}
+                                            exam={exam}
+                                          />
+                                        )
+                                      : await createPdfBlob(
+                                          <ExamReportPdfContent
+                                            animalName={currentAnimal.name}
+                                            animalId={currentAnimal.id}
+                                            displayId={displayId}
+                                            animalSpecies={currentAnimal.species}
+                                            tutorName={currentClient.name}
+                                            tutorAddress={tutorAddress}
+                                            exam={exam}
+                                            hemogramReferences={await fetchHemogramReferences()}
+                                          />
+                                        );
+                                  await sendPdfViaWhatsApp({
+                                    blob,
+                                    fileName: `laudo_${exam.type || "exame"}_${exam.id || exam.date}.pdf`,
+                                    folder: "exams",
+                                    title: `Resultado de Exame — ${exam.type || "Exame"}`,
+                                    intro: `Olá! Segue o resultado do exame *${exam.type || "Exame"}* de *${currentAnimal.name}*.`,
+                                    dateLabel: formatDateTime(exam.date, exam.time),
+                                  });
+                                }}
+                                className="rounded-md hover:bg-muted hover:text-foreground transition-colors duration-200"
+                              >
+                                <SiWhatsapp className="h-5 w-5 text-[#25D366]" />
+                              </Button>
 
                               <Button
                                 variant="ghost"
@@ -2399,17 +2512,6 @@ const PatientRecordPage = () => {
                                     toast.error("Erro: Dados do cliente ou animal não disponíveis.");
                                     return;
                                   }
-                                  // Precisa validar ANTES de prefixar o "55" — "55" sozinho já é uma
-                                  // string não-vazia, então um cliente sem telefone cadastrado nunca
-                                  // caía no fallback e abria o WhatsApp sem destinatário nenhum
-                                  // (aparentando "ir pro meu próprio WhatsApp").
-                                  const raw = (currentClient.mainPhoneContact ?? "").replace(/\D/g, "");
-                                  if (raw.length < 10) {
-                                    toast.error("Este cliente não tem um telefone válido cadastrado. Atualize o telefone no cadastro do cliente para enviar por WhatsApp.");
-                                    return;
-                                  }
-                                  const num = raw.length <= 10 ? "55" + raw : raw.startsWith("55") ? raw : "55" + raw;
-
                                   const blob = await createPdfBlob(
                                     PrescriptionPdfContent({
                                       animalName: currentAnimal.name,
@@ -2431,22 +2533,14 @@ const PatientRecordPage = () => {
                                       userProfile: currentUserProfile,
                                     })
                                   );
-                                  const fileName = `receita_${currentAnimal.name}_${currentClient.name}_${rx.date || "sem-data"}.pdf`;
-
-                                  // O WhatsApp não tem como anexar arquivo via link — o que dá pra
-                                  // fazer de fato "sem anexar na mão" é subir o PDF e mandar o link
-                                  // direto na mensagem, pro tutor só tocar e abrir/baixar.
-                                  const pdfUrl = await persistPdf(blob, { folder: "prescriptions", fileName });
-                                  if (pdfUrl) {
-                                    const msg = encodeURIComponent(`Olá! Segue a receita de ${currentAnimal.name} (${formatDateTime(rx.date, rx.time)}).\n\nAbra o PDF aqui: ${pdfUrl}`);
-                                    window.open(`https://wa.me/${num}?text=${msg}`, "_blank");
-                                    toast.success("WhatsApp aberto com o link da receita.");
-                                  } else {
-                                    await downloadPdf({ blob, fileName, persist: false });
-                                    const msg = encodeURIComponent(`Olá! Segue a receita de ${currentAnimal.name} (${formatDateTime(rx.date, rx.time)}). O PDF foi baixado - por favor anexe o arquivo e envie.`);
-                                    window.open(`https://wa.me/${num}?text=${msg}`, "_blank");
-                                    toast.success("PDF baixado. Abra o WhatsApp e anexe o arquivo para enviar ao tutor.");
-                                  }
+                                  await sendPdfViaWhatsApp({
+                                    blob,
+                                    fileName: `receita_${currentAnimal.name}_${currentClient.name}_${rx.date || "sem-data"}.pdf`,
+                                    folder: "prescriptions",
+                                    title: "Receita Veterinária",
+                                    intro: `Olá! Segue a receita de *${currentAnimal.name}*.`,
+                                    dateLabel: formatDateTime(rx.date, rx.time),
+                                  });
                                 }}
                               >
                                 <SiWhatsapp className="h-5 w-5 text-[#25D366]" />
