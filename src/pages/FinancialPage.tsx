@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -7,6 +7,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { cn, formatDateTime, parseItemQty } from "@/lib/utils";
 import { useFinancialTransactions } from "@/hooks/useFinancialTransactions";
 import type { FinancialTransaction } from "@/mockData/financial";
+import { getSaleItemsBySaleIds, type SaleItem } from "@/lib/saleItemsApi";
+import { groupRepassesByProvider } from "@/lib/costProviders";
 import {
   DollarSign,
   CheckCircle,
@@ -127,6 +129,31 @@ const FinancialPage: React.FC = () => {
   const [dateTo, setDateTo] = useState<string>("");
   const [drilldown, setDrilldown] = useState<"faturado" | "recebido" | "aberto" | "custo" | "compras" | null>(null);
   const { transactions, loading } = useFinancialTransactions();
+  const [periodSaleItems, setPeriodSaleItems] = useState<SaleItem[]>([]);
+
+  // Itens das vendas do período — repasse a prestador de verdade vem daqui
+  // (sale_items.cost/costProvider), não do campo supplierCost da transação
+  // (esse ficou legado desde a mudança pro modelo de composição por item;
+  // sem isso "Repasses (prestador)" sempre mostrava R$ 0,00 aqui, mesmo
+  // quando o Relatório Financeiro mostrava o valor certo).
+  useEffect(() => {
+    const saleIds = transactions
+      .filter(
+        (t) =>
+          t.type === "income" &&
+          t.category === "Venda de Produtos" &&
+          (t.status || "pending") !== "cancelled" &&
+          withinRange(t.date, dateFrom, dateTo)
+      )
+      .map((t) => t.id);
+    let cancelled = false;
+    getSaleItemsBySaleIds(saleIds).then((items) => {
+      if (!cancelled) setPeriodSaleItems(items);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [transactions, dateFrom, dateTo]);
 
   const data = useMemo(() => {
     // Filtro por período. Venda cancelada não é faturamento — sem isso o
@@ -160,8 +187,13 @@ const FinancialPage: React.FC = () => {
 
     // Custo dos itens vendidos (repasse a prestador) e taxas de operadora:
     // é o que separa faturamento de lucro real — base da divisão 50/50.
+    // repassesPorPrestador (sale_items) é a fonte de verdade atual; supplierCost
+    // na transação é legado (vendas de antes da mudança pro modelo por item).
+    const repassesPorPrestador = groupRepassesByProvider(periodSaleItems);
+    const totalRepassesPorItem = repassesPorPrestador.reduce((s, r) => s + r.amount, 0);
     const costItems = sales.filter((s) => (s.supplierCost ?? 0) > 0);
-    const totalRepasses = sales.reduce((s, t) => s + (t.supplierCost ?? 0), 0);
+    const totalRepassesLegado = sales.reduce((s, t) => s + (t.supplierCost ?? 0), 0);
+    const totalRepasses = totalRepassesPorItem > 0 ? totalRepassesPorItem : totalRepassesLegado;
     const totalTaxas = sales.reduce((s, t) => s + (t.financialFee ?? 0), 0);
 
     // Compras de estoque do período (Almoxarifado) — desde 2026-08-07 é daqui
@@ -224,10 +256,11 @@ const FinancialPage: React.FC = () => {
       receipts,
       openSales,
       costItems,
+      repassesPorPrestador,
       purchases,
       totalCompras,
     };
-  }, [transactions, dateFrom, dateTo]);
+  }, [transactions, dateFrom, dateTo, periodSaleItems]);
 
   const cardClass =
     "vf-surface-card vf-tone-finance rounded-xl border border-border bg-card shadow-sm transition-all hover:border-[hsl(var(--vf-finance)/0.35)] hover:shadow-md";
@@ -268,14 +301,22 @@ const FinancialPage: React.FC = () => {
       })),
     },
     custo: {
-      title: "Custo dos itens — repasse por venda",
-      empty: "Nenhum custo de item registrado no período.",
-      rows: data.costItems.map((s) => ({
-        label: s.description,
-        sublabel: formatDateTime(s.date, s.time),
-        value: s.supplierCost ?? 0,
-        valueClass: "text-amber-700",
-      })),
+      title: "Repasses a prestador — por prestador",
+      empty: "Nenhum repasse a prestador registrado no período.",
+      rows:
+        data.repassesPorPrestador.length > 0
+          ? data.repassesPorPrestador.map((r) => ({
+              label: r.provider,
+              sublabel: "Repasse a prestador no período",
+              value: r.amount,
+              valueClass: "text-amber-700",
+            }))
+          : data.costItems.map((s) => ({
+              label: s.description,
+              sublabel: formatDateTime(s.date, s.time),
+              value: s.supplierCost ?? 0,
+              valueClass: "text-amber-700",
+            })),
     },
     compras: {
       title: "Compras de estoque — Almoxarifado",

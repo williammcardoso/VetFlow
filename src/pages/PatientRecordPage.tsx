@@ -491,9 +491,10 @@ const PatientRecordPage = () => {
     setSavingSale(true);
     try {
 
-    const description = saleAppointmentId
-      ? `Venda atendimento ${saleAppointmentId}: ${saleItems.map(i => formatItemQty(i.name, i.qty)).join(", ")}`
-      : `Venda: ${saleItems.map(i => formatItemQty(i.name, i.qty)).join(", ")}`;
+    // Nome do tutor/pet em vez do ID cru do atendimento — o ID continua
+    // salvo em appointmentId (abaixo) para fins de vínculo, só não aparece
+    // mais no texto que o Financeiro exibe pro usuário.
+    const description = `Venda: ${currentClient.name} (${currentAnimal.name}) — ${saleItems.map(i => formatItemQty(i.name, i.qty)).join(", ")}`;
 
     const tx = await financialApi.addFinancialTransaction({
       date: saleDate,
@@ -598,12 +599,16 @@ const PatientRecordPage = () => {
     setSavingPayment(true);
     try {
       const pmName = paymentMethodId ? (pmRegistry.find((pm) => pm.id === paymentMethodId)?.name || undefined) : undefined;
+      const description = currentClient && currentAnimal
+        ? `Recebimento: ${currentClient.name} (${currentAnimal.name})`
+        : undefined;
       await financialApi.registerReceiptWithSale({
         saleId,
         amount,
         date: paymentDate,
         time: paymentTime,
         paymentMethod: pmName,
+        description,
         relatedClientId: currentClient?.id,
         relatedAnimalId: currentAnimal?.id,
       });
