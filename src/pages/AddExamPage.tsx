@@ -18,8 +18,10 @@ import {
 } from "@/constants/examReferences";
 import { useClientWithAnimals } from "@/hooks/useSupabaseClients";
 import { useSystemVets } from "@/hooks/useSystemVets";
+import { useRegistryList } from "@/hooks/useRegistryList";
 
-// Tipos de exame
+// Tipos de exame — base fixa; tipos extras cadastrados em Cadastros > Exames
+// entram junto (ver mockExamTypes.map + examTypesList.filter mais abaixo).
 const mockExamTypes = [
   { id: "1", name: "Hemograma Completo" },
   { id: "2", name: "Exame de Fezes" },
@@ -153,6 +155,7 @@ const AddExamPage = () => {
   const isEditing = !!examId;
 
   const { vets: systemVets } = useSystemVets({ onlyVets: true });
+  const { list: examTypesList } = useRegistryList("exams");
   const { data: currentClient } = useClientWithAnimals(clientId);
   const currentAnimal = currentClient?.animals.find(a => a.id === animalId); // Corrigido para encontrar o animal corretamente
   const animalSpecies = currentAnimal?.species === "Canino" ? "dog" : currentAnimal?.species === "Felino" ? "cat" : undefined;
@@ -660,6 +663,13 @@ const AddExamPage = () => {
                         {type.name}
                       </SelectItem>
                     ))}
+                    {examTypesList
+                      .filter((item) => !mockExamTypes.some((t) => t.name === item.name))
+                      .map((item) => (
+                        <SelectItem key={item.id} value={item.name}>
+                          {item.name}
+                        </SelectItem>
+                      ))}
                   </SelectContent>
                 </Select>
               </div>

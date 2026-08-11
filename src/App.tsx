@@ -21,10 +21,6 @@ import SpeciesPage from "./pages/registrations/SpeciesPage";
 import BreedsPage from "./pages/registrations/BreedsPage";
 import CoatTypesPage from "./pages/registrations/CoatTypesPage";
 import ExamReferencesPage from "./pages/registrations/ExamReferencesPage";
-import PathologiesPage from "./pages/registrations/PathologiesPage";
-import ExamAttributesPage from "./pages/registrations/ExamAttributesPage";
-import ClientOriginsPage from "./pages/registrations/ClientOriginsPage";
-import RecipeModelPage from "./pages/registrations/RecipeModelPage";
 import CompanySettingsPage from "./pages/settings/CompanySettingsPage";
 import UserSettingsPage from "./pages/settings/UserSettingsPage";
 import AppointmentTypesPage from "./pages/registrations/AppointmentTypesPage";
@@ -167,10 +163,6 @@ const App = () => {
                     <Route path="/registrations/breeds" element={<BreedsPage />} />
                     <Route path="/registrations/coat-types" element={<CoatTypesPage />} />
                     <Route path="/registrations/exam-references" element={<ExamReferencesPage />} />
-                    <Route path="/registrations/pathologies" element={<PathologiesPage />} />
-                    <Route path="/registrations/exam-attributes" element={<ExamAttributesPage />} />
-                    <Route path="/registrations/client-origins" element={<ClientOriginsPage />} />
-                    <Route path="/registrations/recipe-model" element={<RecipeModelPage />} />
                     <Route path="/registrations/appointment-types" element={<AppointmentTypesPage />} />
                     <Route path="/registrations/vaccines" element={<VaccinesPage />} />
                     <Route path="/registrations/exams" element={<ExamsPage />} />

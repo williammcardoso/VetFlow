@@ -2,7 +2,7 @@
 
 import React from "react";
 import type { LucideIcon } from "lucide-react";
-import { Folder } from "lucide-react";
+import { Folder, Lock } from "lucide-react";
 import { PageHeader, type VfModule } from "@/components/saas/PageHeader";
 import { PageShell } from "@/components/saas/PageShell";
 import { SectionCard } from "@/components/saas/SectionCard";
@@ -228,10 +228,19 @@ const RegistryManager: React.FC<RegistryManagerProps> = ({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {items.map(item => (
+              {items.map(item => {
+                const isProtected = Boolean(item.protected);
+                return (
                 <TableRow key={item.id}>
                   <TableCell className="font-medium min-w-[220px]">
-                    <Input value={item.name ?? ""} onChange={(e) => handleUpdate(item, "name", e.target.value)} className="h-8 text-sm bg-input" />
+                    {isProtected ? (
+                      <div className="flex items-center gap-2 px-1 text-sm" title="Tipo do sistema — usado em outras partes do app, não pode ser renomeado ou removido.">
+                        <Lock className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                        <span>{item.name}</span>
+                      </div>
+                    ) : (
+                      <Input value={item.name ?? ""} onChange={(e) => handleUpdate(item, "name", e.target.value)} className="h-8 text-sm bg-input" />
+                    )}
                   </TableCell>
                   {columns.map((col) => (
                     <TableCell
@@ -242,17 +251,22 @@ const RegistryManager: React.FC<RegistryManagerProps> = ({
                     </TableCell>
                   ))}
                   <TableCell className="text-right">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-8 border-destructive/35 text-destructive hover:bg-destructive/10"
-                      onClick={() => handleRemove(item.id)}
-                    >
-                      Remover
-                    </Button>
+                    {isProtected ? (
+                      <span className="text-xs italic text-muted-foreground">Protegido</span>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 border-destructive/35 text-destructive hover:bg-destructive/10"
+                        onClick={() => handleRemove(item.id)}
+                      >
+                        Remover
+                      </Button>
+                    )}
                   </TableCell>
                 </TableRow>
-              ))}
+                );
+              })}
             </TableBody>
             </Table>
           </DataTableFrame>
