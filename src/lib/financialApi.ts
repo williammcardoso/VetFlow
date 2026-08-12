@@ -27,6 +27,8 @@ function rowToTransaction(r: Record<string, unknown>): FinancialTransaction {
     surchargeAmount: r.surcharge_amount != null ? Number(r.surcharge_amount) : undefined,
     cancelReason: r.cancel_reason as string | undefined,
     cancelledAt: r.cancelled_at as string | undefined,
+    purchaseGroupId: r.purchase_group_id as string | undefined,
+    installmentLabel: r.installment_label as string | undefined,
   };
 }
 
@@ -75,6 +77,8 @@ export async function addFinancialTransaction(
     financial_fee: newTransaction.financialFee ?? 0,
     discount_amount: newTransaction.discountAmount ?? 0,
     surcharge_amount: newTransaction.surchargeAmount ?? 0,
+    purchase_group_id: newTransaction.purchaseGroupId ?? null,
+    installment_label: newTransaction.installmentLabel ?? null,
   };
   const { data, error } = await supabase.from(TABLE).insert(insertObj).select().single();
   if (error) {

@@ -111,6 +111,14 @@ const styles = StyleSheet.create({
   tdUnit: { width: 75, textAlign: "right", fontSize: 9.5, color: DARK },
   tdSub: { width: 80, textAlign: "right", fontSize: 9.5, color: DARK, fontWeight: 700 },
 
+  installmentsSection: { marginTop: 14 },
+  thInstLabel: { flex: 1, fontSize: 7.5, fontWeight: 700, color: SLATE },
+  thInstDate: { width: 100, textAlign: "center", fontSize: 7.5, fontWeight: 700, color: SLATE },
+  thInstAmount: { width: 90, textAlign: "right", fontSize: 7.5, fontWeight: 700, color: SLATE },
+  tdInstLabel: { flex: 1, fontSize: 9.5, color: DARK },
+  tdInstDate: { width: 100, textAlign: "center", fontSize: 9.5, color: DARK },
+  tdInstAmount: { width: 90, textAlign: "right", fontSize: 9.5, color: DARK, fontWeight: 700 },
+
   fallbackNote: {
     fontSize: 7.5,
     color: AMBER,
@@ -159,6 +167,12 @@ export interface PurchaseReceiptLineItem {
   subtotal?: number;
 }
 
+export interface PurchaseReceiptInstallment {
+  label: string;
+  date: string;
+  amount: number;
+}
+
 export interface PurchaseReceiptPurchase {
   id: string;
   date: string;
@@ -168,6 +182,8 @@ export interface PurchaseReceiptPurchase {
   total: number;
   /** false = compra antiga sem itens estruturados — só nome/qtd, sem custo por item. */
   itemized: boolean;
+  /** presente só quando a compra foi parcelada (mais de 1 vencimento). */
+  installments?: PurchaseReceiptInstallment[];
 }
 
 export default function PurchaseReceiptPdfContent({
@@ -247,6 +263,28 @@ export default function PurchaseReceiptPdfContent({
               Compra registrada antes do detalhamento por item — quantidades acima são aproximadas
               e o custo individual de cada produto não ficou salvo, apenas o total da compra.
             </Text>
+          )}
+
+          {purchase.installments && purchase.installments.length > 1 && (
+            <View style={styles.installmentsSection}>
+              <Text style={styles.sectionLabel}>PARCELAS ({purchase.installments.length}x)</Text>
+              <View style={styles.tableHead}>
+                <Text style={styles.thInstLabel}>Parcela</Text>
+                <Text style={styles.thInstDate}>Vencimento</Text>
+                <Text style={styles.thInstAmount}>Valor</Text>
+              </View>
+              {purchase.installments.map((inst, i) => (
+                <View
+                  key={`${inst.label}-${i}`}
+                  style={[styles.tableRow, i % 2 === 1 ? { backgroundColor: LIGHT_GRAY } : {}]}
+                  wrap={false}
+                >
+                  <Text style={styles.tdInstLabel}>{inst.label}</Text>
+                  <Text style={styles.tdInstDate}>{formatDateBR(inst.date)}</Text>
+                  <Text style={styles.tdInstAmount}>{fmt(inst.amount)}</Text>
+                </View>
+              ))}
+            </View>
           )}
 
           <View style={styles.totalsOuter}>

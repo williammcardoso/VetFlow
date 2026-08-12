@@ -23,6 +23,8 @@ export interface FinancialTransaction {
   surchargeAmount?: number; // valor do acréscimo manual aplicado na venda (sem taxa de operadora)
   cancelReason?: string; // motivo do cancelamento/estorno
   cancelledAt?: string; // data/hora ISO do cancelamento
+  purchaseGroupId?: string; // agrupa as parcelas de uma mesma compra de estoque
+  installmentLabel?: string; // ex.: "Parcela 2/5"
 }
 
 export interface OverallFinancialSummary {
