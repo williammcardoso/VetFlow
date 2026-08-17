@@ -13,6 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import WeightInput from "@/components/inputs/WeightInput";
+import DocumentTimeline from "@/components/DocumentTimeline";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import {
@@ -2154,6 +2155,11 @@ const PatientRecordPage = () => {
                         <FaPlus className="h-4 w-4 mr-2" /> Pedido de exame
                       </Link>
                     </Button>
+                    <Button size="sm" variant="outline" asChild className="rounded-md border-[hsl(var(--vf-clinical)/0.4)] font-semibold text-[hsl(var(--vf-clinical))] hover:bg-[hsl(var(--vf-clinical)/0.08)]">
+                      <Link to={`/clients/${clientId}/animals/${animalId}/emit-document`}>
+                        <FaFileAlt className="h-4 w-4 mr-2" /> Emitir termo/atestado (modelo oficial)
+                      </Link>
+                    </Button>
                   </div>
                 ) : null}
               </CardHeader>
@@ -2314,6 +2320,10 @@ const PatientRecordPage = () => {
                 )}
               </CardContent>
             </Card>
+
+            {clientId && animalId && (
+              <DocumentTimeline pacienteId={animalId} clientId={clientId} animalId={animalId} />
+            )}
           </TabsContent>
 
           <TabsContent value="prescriptions" className="mt-4">

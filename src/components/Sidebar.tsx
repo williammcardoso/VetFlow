@@ -35,6 +35,7 @@ import {
   Scale,
   RotateCcw,
   BarChart3,
+  BookOpen,
 } from "lucide-react";
 
 interface NavItem {
@@ -98,6 +99,7 @@ const navItemsBase: NavItem[] = [
       { title: "Exames", href: "/registrations/exams", icon: ClipboardList },
       { title: "Referências de exames", href: "/registrations/exam-references", icon: ClipboardList },
       { title: "Modelo de documento", href: "/registrations/document-model", icon: FileText },
+      { title: "Biblioteca de Documentos", href: "/registrations/document-library", icon: BookOpen },
     ],
   },
   {

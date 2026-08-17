@@ -14,6 +14,7 @@ import PatientRecordPage from "./pages/PatientRecordPage";
 import AddExamPage from "./pages/AddExamPage";
 import AddPrescriptionPage from "./pages/AddPrescriptionPage";
 import AddDocumentPage from "./pages/AddDocumentPage";
+import EmitDocumentPage from "./pages/EmitDocumentPage";
 import AddExamRequestPage from "./pages/AddExamRequestPage";
 import AddAppointmentPage from "./pages/AddAppointmentPage";
 import AppointmentViewPage from "./pages/AppointmentViewPage";
@@ -27,6 +28,8 @@ import AppointmentTypesPage from "./pages/registrations/AppointmentTypesPage";
 import VaccinesPage from "./pages/registrations/VaccinesPage";
 import ExamsPage from "./pages/registrations/ExamsPage";
 import DocumentModelPage from "./pages/registrations/DocumentModelPage";
+import DocumentLibraryPage from "./pages/registrations/DocumentLibraryPage";
+import DocumentTemplateEditorPage from "./pages/registrations/DocumentTemplateEditorPage";
 import AgendaPage from "./pages/AgendaPage";
 import FinancialPage from "./pages/FinancialPage";
 import NotFound from "./pages/NotFound";
@@ -34,6 +37,8 @@ import HelpPage from "./pages/HelpPage";
 import { ThemeProvider } from "./components/ThemeProvider";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import LoginPage from "./pages/auth/LoginPage";
+import ValidateDocumentPage from "./pages/public/ValidateDocumentPage";
+import SignDocumentPage from "./pages/public/SignDocumentPage";
 import UsersManagementPage from "./pages/settings/UsersManagementPage";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
@@ -109,6 +114,8 @@ const App = () => {
               <AuthProvider>
                 <Routes>
                   <Route path="/login" element={<LoginPage />} />
+                  <Route path="/validar/:hash" element={<ValidateDocumentPage />} />
+                  <Route path="/assinar/:documentId" element={<SignDocumentPage />} />
 
                   <Route element={<ProtectedAppShell />}>
                     <Route path="/" element={<Navigate to="/dashboard" replace />} />
@@ -157,6 +164,14 @@ const App = () => {
                         </ProtectedRoute>
                       }
                     />
+                    <Route
+                      path="/clients/:clientId/animals/:animalId/emit-document"
+                      element={
+                        <ProtectedRoute requireModule="prescriptions" requireAction="edit">
+                          <EmitDocumentPage />
+                        </ProtectedRoute>
+                      }
+                    />
 
                     {/* Cadastros */}
                     <Route path="/registrations/species" element={<SpeciesPage />} />
@@ -167,6 +182,8 @@ const App = () => {
                     <Route path="/registrations/vaccines" element={<VaccinesPage />} />
                     <Route path="/registrations/exams" element={<ExamsPage />} />
                     <Route path="/registrations/document-model" element={<DocumentModelPage />} />
+                    <Route path="/registrations/document-library" element={<DocumentLibraryPage />} />
+                    <Route path="/registrations/document-library/:codigo/edit" element={<DocumentTemplateEditorPage />} />
 
                     {/* Configurações */}
                     <Route
