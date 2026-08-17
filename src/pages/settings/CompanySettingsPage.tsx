@@ -94,18 +94,26 @@ const CompanySettingsPage = () => {
             </CardHeader>
             <CardContent className="grid gap-y-3 pt-0">
               <div className="space-y-2">
-                <Label htmlFor="companyName" className="text-muted-foreground font-medium">Nome da Empresa</Label>
+                <Label htmlFor="companyName" className="text-muted-foreground font-medium">Nome da Empresa (nome fantasia)</Label>
                 <Input id="companyName" value={settings.companyName} onChange={handleChange} className="bg-input rounded-md border-border" />
               </div>
+              <div className="space-y-2">
+                <Label htmlFor="razaoSocial" className="text-muted-foreground font-medium">Razão Social</Label>
+                <Input id="razaoSocial" value={settings.razaoSocial} onChange={handleChange} className="bg-input rounded-md border-border" />
+              </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="cnpj" className="text-muted-foreground font-medium">CNPJ</Label>
+                  <Input id="cnpj" value={settings.cnpj} onChange={handleChange} className="bg-input rounded-md border-border" />
+                </div>
                 <div className="space-y-2">
                   <Label htmlFor="crmv" className="text-muted-foreground font-medium">CRMV</Label>
                   <Input id="crmv" value={settings.crmv} onChange={handleChange} className="bg-input rounded-md border-border" />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="phone" className="text-muted-foreground font-medium">Telefone</Label>
-                  <Input id="phone" value={settings.phone} onChange={handleChange} className="bg-input rounded-md border-border" />
-                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="phone" className="text-muted-foreground font-medium">Telefone</Label>
+                <Input id="phone" value={settings.phone} onChange={handleChange} className="bg-input rounded-md border-border" />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="mapaRegistration" className="text-muted-foreground font-medium">Registro no MAPA</Label>

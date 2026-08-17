@@ -2,6 +2,8 @@ import { CompanySettings, UserSettings } from "@/types/settings";
 
 export let mockCompanySettings: CompanySettings = {
   companyName: "Clínica Moraes Cardoso",
+  razaoSocial: "",
+  cnpj: "",
   crmv: "56895 SP",
   mapaRegistration: "MV0052750203",
   address: "Rua Campos Salles, 175, Centro",

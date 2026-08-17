@@ -1,5 +1,7 @@
 export interface CompanySettings {
   companyName: string;
+  razaoSocial: string;
+  cnpj: string;
   crmv: string;
   mapaRegistration: string;
   address: string;

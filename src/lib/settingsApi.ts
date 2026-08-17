@@ -6,6 +6,8 @@ const TABLE = "settings";
 
 const DEFAULT_COMPANY: CompanySettings = {
   companyName: "",
+  razaoSocial: "",
+  cnpj: "",
   crmv: "",
   mapaRegistration: "",
   address: "",
