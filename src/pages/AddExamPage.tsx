@@ -13,6 +13,7 @@ import { addExam, updateExam, getExamById } from "@/lib/examsApi";
 import {
   fetchHemogramReferences,
   fetchBiochemicalReferences,
+  saveBiochemicalReferenceIfMissing,
   hemogramReferences as defaultHemogramReferencesFallback,
   type BiochemicalReferenceEntry,
 } from "@/constants/examReferences";
@@ -455,7 +456,7 @@ const AddExamPage = () => {
   }, [selectedEnzyme, customEnzyme, animalSpecies, biochemicalReferences]);
 
   // Bioquímico: adicionar/remover/atualizar
-  const handleAddBiochemical = () => {
+  const handleAddBiochemical = async () => {
     const enzymeName = selectedEnzyme === "Outro" ? customEnzyme.trim() : (selectedEnzyme || "").trim();
     if (!enzymeName) {
       toast.error("Selecione ou informe a enzima/analito.");
@@ -489,6 +490,33 @@ const AddExamPage = () => {
     setBioMaxReference(""); // Resetar
     setBioReferenceUnit(""); // Resetar
     toast.success("Analito adicionado.");
+
+    // Se esse analito (pra essa espécie) ainda não tinha referência
+    // cadastrada, o mín/máx/unidade que acabou de ser digitado vira o
+    // cadastro central automaticamente — próxima vez já vem preenchido,
+    // em qualquer aparelho, sem precisar ir em Cadastros separadamente.
+    if (animalSpecies) {
+      const min = parseLeukoNumber(bioMinReference);
+      const max = parseLeukoNumber(bioMaxReference);
+      if (min !== undefined && max !== undefined) {
+        const { saved, blob } = await saveBiochemicalReferenceIfMissing(enzymeName, animalSpecies, {
+          min,
+          max,
+          unit: bioReferenceUnit.trim(),
+        });
+        if (saved && blob?.biochemical) {
+          setBiochemicalReferences((prev) => ({
+            ...prev,
+            [enzymeName]: {
+              unit: blob.biochemical![enzymeName]?.unit || bioReferenceUnit.trim(),
+              dog: { ...prev[enzymeName]?.dog, ...blob.biochemical![enzymeName]?.dog },
+              cat: { ...prev[enzymeName]?.cat, ...blob.biochemical![enzymeName]?.cat },
+            },
+          }));
+          toast.info(`Referência de "${enzymeName}" salva em Cadastros para uso futuro.`);
+        }
+      }
+    }
   };
 
   const handleRemoveBiochemical = (id: string) => {

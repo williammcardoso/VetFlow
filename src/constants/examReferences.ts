@@ -114,9 +114,17 @@ async function fetchExamReferencesBlob(): Promise<ExamReferencesBlob> {
       if (legacyRaw) {
         try {
           const legacy = JSON.parse(legacyRaw) as ExamReferencesBlob;
-          await supabase
+          const { error: upsertError } = await supabase
             .from(SETTINGS_TABLE)
             .upsert({ key: SETTINGS_KEY, value: legacy, updated_at: new Date().toISOString() }, { onConflict: "key" });
+          // Antes esse erro era ignorado silenciosamente — foi exatamente
+          // assim que o bug do CHECK constraint (key só aceitava
+          // 'company'/'user') passou despercebido: a migração "parecia"
+          // funcionar (sempre caía no cache local de qualquer jeito), mas
+          // nunca persistia de verdade no Supabase.
+          if (upsertError) {
+            console.error("[examReferences] falha ao migrar localStorage legado pro Supabase", upsertError);
+          }
           localStorage.setItem(CACHE_STORAGE_KEY, JSON.stringify(legacy));
           return legacy;
         } catch {
@@ -232,4 +240,37 @@ export async function saveExamReferences(blob: ExamReferencesBlob): Promise<bool
   localStorage.setItem(CACHE_STORAGE_KEY, JSON.stringify(blob));
   cachedBlobPromise = Promise.resolve(blob);
   return true;
+}
+
+/**
+ * Chamado ao lançar um exame bioquímico: se o analito (pra essa espécie)
+ * ainda não tinha referência cadastrada, o mín/máx/unidade que o usuário
+ * acabou de digitar na hora vira o cadastro central automaticamente — não
+ * precisa ir em Cadastros > Referências de Exame separadamente. Só grava se
+ * realmente estava faltando; nunca sobrescreve um valor já cadastrado (isso
+ * continua sendo feito só pela tela de Cadastros, de propósito).
+ */
+export async function saveBiochemicalReferenceIfMissing(
+  enzymeName: string,
+  species: "dog" | "cat",
+  values: { min: number; max: number; unit: string }
+): Promise<{ saved: boolean; blob?: ExamReferencesBlob }> {
+  const blob = await fetchExamReferencesRaw();
+  const existing = blob.biochemical?.[enzymeName]?.[species];
+  if (existing && typeof existing.min === "number" && typeof existing.max === "number") {
+    return { saved: false };
+  }
+
+  const current = blob.biochemical?.[enzymeName] || {};
+  const nextBiochemical = {
+    ...(blob.biochemical || {}),
+    [enzymeName]: {
+      unit: current.unit || values.unit,
+      dog: species === "dog" ? { ...current.dog, min: values.min, max: values.max } : current.dog,
+      cat: species === "cat" ? { ...current.cat, min: values.min, max: values.max } : current.cat,
+    },
+  };
+  const nextBlob: ExamReferencesBlob = { ...blob, biochemical: nextBiochemical };
+  const ok = await saveExamReferences(nextBlob);
+  return { saved: ok, blob: ok ? nextBlob : undefined };
 }
