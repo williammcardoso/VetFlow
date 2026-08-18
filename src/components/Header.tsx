@@ -16,6 +16,7 @@ import { Bell, HelpCircle, Moon, Sun, PanelLeft, PanelRight, Settings, LogOut } 
 import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
 import { useSchedulesList } from "@/hooks/useSchedules";
+import { useAppointments } from "@/hooks/useAppointments";
 import { getCatalog } from "@/mockData/catalog";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
@@ -42,6 +43,7 @@ const Header: React.FC<HeaderProps> = ({
 
   const { theme, setTheme } = useTheme();
   const { data: schedules = [] } = useSchedulesList();
+  const { appointments } = useAppointments();
   const [dismissedNotifications, setDismissedNotifications] = React.useState<string[]>(() => {
     try {
       return JSON.parse(localStorage.getItem("vf_notifications_dismissed") || "[]");
@@ -82,6 +84,17 @@ const Header: React.FC<HeaderProps> = ({
       return date >= startOfToday && date < now && (status === "scheduled" || status === "in_progress");
     }).length;
 
+    // "YYYY-MM-DD" puro vira meia-noite UTC se parseado direto; em fuso negativo
+    // (Brasil, UTC-3) isso volta pro dia anterior. Forcar hora local evita o bug.
+    const parseLocalDate = (dateStr: string) => new Date(`${dateStr}T00:00:00`);
+    const in7days = new Date(startOfToday.getTime() + 7 * 86400000);
+    const upcomingFollowUps = appointments.filter((app) => {
+      const days = (app.details as Record<string, unknown>)?.retornoRecomendadoEmDias as number | undefined;
+      if (!days) return false;
+      const dueDate = new Date(parseLocalDate(app.date).getTime() + days * 86400000);
+      return dueDate >= startOfToday && dueDate <= in7days;
+    }).length;
+
     return [
       {
         id: "notif-upcoming-2h",
@@ -98,6 +111,13 @@ const Header: React.FC<HeaderProps> = ({
         visible: unattended > 0,
       },
       {
+        id: "notif-follow-ups-7d",
+        title: "Acompanhamentos próximos",
+        description: `${upcomingFollowUps} acompanhamento(s) previsto(s) nos próximos 7 dias.`,
+        href: "/clinical/returns-forecast",
+        visible: upcomingFollowUps > 0,
+      },
+      {
         id: "notif-low-stock",
         title: "Estoque crítico",
         description: `${lowStockCount} item(ns) com estoque baixo.`,
@@ -105,7 +125,7 @@ const Header: React.FC<HeaderProps> = ({
         visible: lowStockCount > 0,
       },
     ].filter((n) => n.visible);
-  }, [schedules]);
+  }, [schedules, appointments]);
 
   const unreadNotifications = notifications.filter((n) => !dismissedNotifications.includes(n.id));
 

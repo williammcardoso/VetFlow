@@ -72,7 +72,7 @@ export default function ReturnsForecastPage() {
             clientName: info?.clientName ?? "Tutor",
             clientId: info?.clientId,
             dueDate,
-            label: `Retorno (consulta de ${parseLocalDate(app.date).toLocaleDateString("pt-BR")})`,
+            label: `Próximo acompanhamento (${app.type} de ${parseLocalDate(app.date).toLocaleDateString("pt-BR")})`,
             daysUntil,
           });
         }
@@ -171,8 +171,8 @@ export default function ReturnsForecastPage() {
   return (
     <PageShell className="space-y-4 font-sans">
       <PageHeader
-        title="Previsão de Retornos e Vacinas"
-        description="Retornos recomendados e próximas doses registrados nos prontuários."
+        title="Previsão de Acompanhamentos e Vacinas"
+        description="Próximos acompanhamentos recomendados e próximas doses registrados nos prontuários."
         icon={CalendarDays}
         module="clinical"
         breadcrumb={<>Agenda &gt; Previsão</>}
@@ -203,14 +203,14 @@ export default function ReturnsForecastPage() {
         <Card className="rounded-2xl border border-border/65 bg-card p-4 shadow-sm sm:p-5">
           <div className="mb-3 flex items-center justify-between">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-orange-600 dark:text-orange-400">Retornos</p>
-              <h2 className="text-[1.05rem] font-semibold tracking-tight text-foreground">Consultas de retorno</h2>
+              <p className="text-xs font-semibold uppercase tracking-wide text-orange-600 dark:text-orange-400">Acompanhamentos</p>
+              <h2 className="text-[1.05rem] font-semibold tracking-tight text-foreground">Próximos acompanhamentos</h2>
             </div>
             <Badge className="bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300">
               {retornos.length}
             </Badge>
           </div>
-          {renderList(retornos, <RotateCcw className="h-4 w-4" />, `Nenhum retorno previsto nos próximos ${period === "all" ? "registros" : periodLabel[period]}.`)}
+          {renderList(retornos, <RotateCcw className="h-4 w-4" />, `Nenhum acompanhamento previsto nos próximos ${period === "all" ? "registros" : periodLabel[period]}.`)}
         </Card>
 
         <Card className="rounded-2xl border border-border/65 bg-card p-4 shadow-sm sm:p-5">

@@ -305,7 +305,7 @@ const AppointmentsReportPage: React.FC = () => {
           </Card>
           <Card className="rounded-xl border-border/80">
             <CardContent className="p-4">
-              <div className="text-xs text-orange-700 font-medium dark:text-orange-400">Retornos gerados</div>
+              <div className="text-xs text-orange-700 font-medium dark:text-orange-400">Acompanhamentos gerados</div>
               <div className="text-xl font-bold text-orange-800 dark:text-orange-300">{retornosGerados}</div>
             </CardContent>
           </Card>

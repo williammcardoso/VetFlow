@@ -340,7 +340,7 @@ export default function AppointmentPdfContent({
             <TextField label="Exames solicitados" value={d.examesSolicitados} />
             <TextField label="Conduta / tratamento" value={d.condutaTratamento} />
             <StatRow>
-              <StatBox label="Retorno" value={d.retornoRecomendadoEmDias} unit="dias" />
+              <StatBox label="Próximo acompanhamento" value={d.retornoRecomendadoEmDias} unit="dias" />
             </StatRow>
             <TextField label="Próximos passos" value={d.proximosPassos} />
 
@@ -473,6 +473,9 @@ export default function AppointmentPdfContent({
           <TextField label="Motivo" value={d.motivoRetorno} />
           <TextField label="Evolução observada" value={d.evolucaoObservada} />
           <TextField label="Novo diagnóstico / conduta" value={d.novoDiagnosticoConduta} />
+          <StatRow>
+            <StatBox label="Próximo acompanhamento" value={d.retornoRecomendadoEmDias} unit="dias" />
+          </StatRow>
         </SectionCard>
       );
     }

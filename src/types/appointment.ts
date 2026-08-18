@@ -218,6 +218,7 @@ export interface ReturnDetails {
   atendimentoOrigemId?: string; // ID do atendimento anterior
   motivoRetorno?: string;
   evolucaoObservada?: string;
+  retornoRecomendadoEmDias?: number; // Sugestão de próximo acompanhamento (em dias), reaproveita o mesmo campo usado nas outras telas para alimentar a previsão/lembrete
   novoDiagnosticoConduta?: string;
 }
 

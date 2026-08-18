@@ -286,14 +286,14 @@ const Dashboard = () => {
           <div className="mb-3 flex items-start justify-between gap-3">
             <div>
               <h2 className="text-[1.08rem] font-semibold tracking-tight text-foreground">Alertas da semana</h2>
-              <p className="text-xs text-muted-foreground">Retornos e vacinas nos próximos 7 dias.</p>
+              <p className="text-xs text-muted-foreground">Acompanhamentos e vacinas nos próximos 7 dias.</p>
             </div>
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
             {returnsThisWeek.length > 0 && (
               <div>
                 <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-orange-600 dark:text-orange-400">
-                  <RotateCcw className="h-3.5 w-3.5" /> Retornos previstos
+                  <RotateCcw className="h-3.5 w-3.5" /> Acompanhamentos previstos
                 </p>
                 <div className="space-y-2">
                   {returnsThisWeek.map((r, i) => (

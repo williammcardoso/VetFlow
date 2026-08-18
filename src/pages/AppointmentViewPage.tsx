@@ -270,7 +270,7 @@ export default function AppointmentViewPage() {
               {renderField("Diagnósticos diferenciais", d.diagnosticoDiferencial)}
               {renderField("Exames solicitados", d.examesSolicitados)}
               {renderField("Conduta / tratamento", d.condutaTratamento)}
-              {renderField("Retorno (dias)", d.retornoRecomendadoEmDias)}
+              {renderField("Próximo acompanhamento (dias)", d.retornoRecomendadoEmDias)}
               {renderField("Próximos passos", d.proximosPassos)}
 
               {showComplete && (
@@ -438,6 +438,7 @@ export default function AppointmentViewPage() {
             {renderField("Motivo", d.motivoRetorno)}
             {renderField("Evolução", d.evolucaoObservada)}
             {renderField("Novo diagnóstico/conduta", d.novoDiagnosticoConduta)}
+            {renderField("Próximo acompanhamento (dias)", d.retornoRecomendadoEmDias)}
           </CardContent>
         </Card>
       );

@@ -1169,6 +1169,24 @@ export default function AppointmentForm({
               rows={3}
             />
           </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="proximoAcompanhamentoDias">Próximo acompanhamento (dias)</Label>
+            <Input
+              id="proximoAcompanhamentoDias"
+              type="number"
+              min={0}
+              value={r.retornoRecomendadoEmDias || ""}
+              onChange={(e) =>
+                setDetails({ ...r, retornoRecomendadoEmDias: e.target.value ? Number(e.target.value) : undefined })
+              }
+            />
+            {r.retornoRecomendadoEmDias ? (
+              <p className="text-xs text-muted-foreground">
+                Sugestão de data: {isoToBR(addDaysISO(date, r.retornoRecomendadoEmDias))}
+              </p>
+            ) : null}
+          </div>
         </div>
       );
     }

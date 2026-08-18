@@ -1051,7 +1051,7 @@ export default function LegacyConsultationForm({
               </div>
 
               <div className="space-y-2">
-                <Label>Retorno recomendado (em dias)</Label>
+                <Label>Próximo acompanhamento (em dias)</Label>
                 <Input
                   type="number"
                   min={0}

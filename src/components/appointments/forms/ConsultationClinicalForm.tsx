@@ -527,7 +527,7 @@ export default function ConsultationClinicalForm({
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="retornoDias">Retorno recomendado (dias)</Label>
+                <Label htmlFor="retornoDias">Próximo acompanhamento (dias)</Label>
                 <Input
                   id="retornoDias"
                   type="number"
