@@ -1,4 +1,14 @@
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -97,6 +107,7 @@ const ClientFormPage = () => {
   // Extras
   const [notes, setNotes] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [showMissingIdentificationDialog, setShowMissingIdentificationDialog] = useState(false);
   const [loadedClientId, setLoadedClientId] = useState<string | null>(null);
 
   // Carregar dados do cliente se estiver em modo de edição
@@ -255,23 +266,36 @@ const ClientFormPage = () => {
       return;
     }
     const rawIdentification = identificationNumber.replace(/\D/g, "");
-    if (clientType === "physical" && rawIdentification.length !== 11) {
-      toast.error("CPF inválido. Por favor, verifique o número.");
-      return;
-    }
-    if (clientType === "legal" && rawIdentification.length !== 14) {
-      toast.error("CNPJ inválido. Por favor, verifique o número.");
-      return;
-    }
-    if (!mainEmailContact.trim()) {
-      toast.error("O campo 'Email Principal' é obrigatório.");
-      return;
+    // CPF/CNPJ não é mais obrigatório, mas se foi preenchido precisa ter o tamanho correto.
+    if (rawIdentification.length > 0) {
+      if (clientType === "physical" && rawIdentification.length !== 11) {
+        toast.error("CPF inválido. Por favor, verifique o número.");
+        return;
+      }
+      if (clientType === "legal" && rawIdentification.length !== 14) {
+        toast.error("CNPJ inválido. Por favor, verifique o número.");
+        return;
+      }
     }
     if (!mainPhoneContact.replace(/\D/g, "").trim()) { // Validar telefone principal sem máscara
       toast.error("O campo 'Telefone Principal' é obrigatório.");
       return;
     }
 
+    if (rawIdentification.length === 0) {
+      setShowMissingIdentificationDialog(true);
+      return;
+    }
+
+    await saveClient();
+  };
+
+  const handleConfirmSaveWithoutIdentification = () => {
+    setShowMissingIdentificationDialog(false);
+    saveClient();
+  };
+
+  const saveClient = async () => {
     const clientData: Omit<Client, 'id' | 'animals'> = {
       name: fullName.trim(),
       clientType,
@@ -487,7 +511,7 @@ const ClientFormPage = () => {
               <h2 className="text-xl font-semibold mb-4 text-foreground">Contatos</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="mainEmailContact" className="text-muted-foreground font-medium">Email Principal*</Label>
+                  <Label htmlFor="mainEmailContact" className="text-muted-foreground font-medium">Email Principal</Label>
                   <Input id="mainEmailContact" type="email" placeholder="email@exemplo.com" value={mainEmailContact} onChange={(e) => setMainEmailContact(e.target.value)} className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200" />
                 </div>
                 <div className="space-y-2">
@@ -629,6 +653,23 @@ const ClientFormPage = () => {
           </TabsContent>
         </Tabs>
       </div>
+
+      <AlertDialog open={showMissingIdentificationDialog} onOpenChange={setShowMissingIdentificationDialog}>
+        <AlertDialogContent className="shadow-sm border border-border rounded-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-lg font-semibold text-foreground">
+              {clientType === "physical" ? "CPF" : "CNPJ"} não informado
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-sm text-muted-foreground">
+              Está faltando o {clientType === "physical" ? "CPF" : "CNPJ"} do responsável. Deseja continuar mesmo assim?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="bg-card border border-border text-foreground hover:bg-muted rounded-md transition-all duration-200 shadow-sm hover:shadow-md">Voltar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmSaveWithoutIdentification} className="rounded-md bg-[hsl(var(--vf-clinical))] font-semibold text-white transition-all duration-200 shadow-md hover:bg-[hsl(var(--vf-clinical)/0.9)] hover:shadow-lg">Continuar mesmo assim</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </PageShell>
   );
 };
