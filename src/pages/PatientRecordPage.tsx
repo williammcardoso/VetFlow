@@ -63,6 +63,7 @@ import { useFinancialTransactions } from "@/hooks/useFinancialTransactions";
 import { useAppointments } from "@/hooks/useAppointments";
 import { usePrescriptions } from "@/hooks/usePrescriptions";
 import { useExams } from "@/hooks/useExams";
+import ExamTrendCard from "@/components/patient/exams/ExamTrendCard";
 import { useCatalog } from "@/hooks/useCatalog";
 import { useRegistryList } from "@/hooks/useRegistryList";
 import * as financialApi from "@/lib/financialApi";
@@ -1757,7 +1758,8 @@ const PatientRecordPage = () => {
             />
           </TabsContent>
 
-          <TabsContent value="exams" className="mt-4">
+          <TabsContent value="exams" className="mt-4 space-y-4">
+            <ExamTrendCard exams={examsList} species={currentAnimal.species} />
             <Card className="vf-surface-card vf-tone-clinical card-hover rounded-md border border-border/80">
               <CardHeader className="flex flex-row items-center justify-between pb-3">
                 <CardTitle className="flex items-center gap-2 text-lg font-semibold text-foreground">
