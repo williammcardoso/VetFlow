@@ -72,6 +72,32 @@ export function formatAgeLong(birthday?: string | null): string {
   return parts.join(" e ");
 }
 
+/**
+ * Converte um número digitado em formato brasileiro (vírgula decimal, ponto
+ * de milhar) ou americano em `number`. Usado em campos de resultado/
+ * referência de exame, onde o usuário pode digitar em qualquer um dos dois
+ * formatos (ex.: "1.250" como mil duzentos e cinquenta, ou "12,5" como
+ * doze e meio).
+ */
+export function parseBrNumber(raw: string): number | undefined {
+  const trimmed = (raw || "").trim();
+  if (!trimmed) return undefined;
+  let cleaned = trimmed.replace(/[^0-9.,]/g, "");
+  const lastDot = cleaned.lastIndexOf(".");
+  const lastComma = cleaned.lastIndexOf(",");
+  if (lastComma > lastDot) {
+    cleaned = cleaned.replace(/\./g, "").replace(",", ".");
+  } else if (lastDot !== -1) {
+    const dotCount = (cleaned.match(/\./g) || []).length;
+    const decimalsAfterLastDot = cleaned.length - lastDot - 1;
+    if (dotCount > 1 || decimalsAfterLastDot === 3) {
+      cleaned = cleaned.replace(/\./g, "");
+    }
+  }
+  const n = Number(cleaned);
+  return Number.isNaN(n) ? undefined : n;
+}
+
 export const formatDateTime = (dateString: string, timeString?: string) => {
   if (!dateString) return "N/A";
   const [year, month, day] = dateString.split('-');

@@ -20,6 +20,7 @@ import {
 import { useClientWithAnimals } from "@/hooks/useSupabaseClients";
 import { useSystemVets } from "@/hooks/useSystemVets";
 import { useRegistryList } from "@/hooks/useRegistryList";
+import { parseBrNumber } from "@/lib/utils";
 
 // Tipos de exame — base fixa; tipos extras cadastrados em Cadastros > Exames
 // entram junto (ver mockExamTypes.map + examTypesList.filter mais abaixo).
@@ -34,7 +35,9 @@ const mockExamTypes = [
 ];
 
 
-// Analitos/Enzimas comuns em rotina (cães e gatos)
+// Analitos/Enzimas comuns em rotina (cães e gatos) — lista base; analitos
+// lançados como "Outro" entram no cadastro (Cadastros > Referências de
+// Exame) e passam a aparecer aqui também, ver `enzymeOptions` abaixo.
 const biochemicalEnzymeOptions = [
   "ALT (TGP)",
   "AST (TGO)",
@@ -172,6 +175,18 @@ const AddExamPage = () => {
     fetchBiochemicalReferences().then((refs) => { if (!cancelled) setBiochemicalReferences(refs); });
     return () => { cancelled = true; };
   }, []);
+
+  // Lista base + analitos que já entraram pelo "Outro" alguma vez (têm
+  // referência cadastrada em Cadastros > Referências de Exame). Assim, uma
+  // vez lançado como "Outro", o analito vira opção fixa dali em diante —
+  // não precisa digitar de novo.
+  const enzymeOptions = useMemo(() => {
+    const known = biochemicalEnzymeOptions.filter((opt) => opt !== "Outro");
+    const fromRegistry = Object.keys(biochemicalReferences)
+      .filter((name) => !known.includes(name))
+      .sort((a, b) => a.localeCompare(b, "pt-BR"));
+    return [...known, ...fromRegistry, "Outro"];
+  }, [biochemicalReferences]);
 
   // Exame carregado do banco (modo edição). Substitui a busca no array em
   // memória, que não sobrevivia a um reload da página.
@@ -394,27 +409,8 @@ const AddExamPage = () => {
   // o "2" de "250") e já preenchia Relativo com "0" — como "0" não é string
   // vazia, o guard de "não sobrescrever" travava ali, mesmo terminando de
   // digitar o valor certo depois.
-  const parseLeukoNumber = (raw: string): number | undefined => {
-    const trimmed = (raw || "").trim();
-    if (!trimmed) return undefined;
-    let cleaned = trimmed.replace(/[^0-9.,]/g, "");
-    const lastDot = cleaned.lastIndexOf(".");
-    const lastComma = cleaned.lastIndexOf(",");
-    if (lastComma > lastDot) {
-      cleaned = cleaned.replace(/\./g, "").replace(",", ".");
-    } else if (lastDot !== -1) {
-      const dotCount = (cleaned.match(/\./g) || []).length;
-      const decimalsAfterLastDot = cleaned.length - lastDot - 1;
-      if (dotCount > 1 || decimalsAfterLastDot === 3) {
-        cleaned = cleaned.replace(/\./g, "");
-      }
-    }
-    const n = Number(cleaned);
-    return Number.isNaN(n) ? undefined : n;
-  };
-
   const recomputeLeukocyteRelatives = () => {
-    const total = parseLeukoNumber(leucocitosTotais);
+    const total = parseBrNumber(leucocitosTotais);
     if (!total || total <= 0) return;
     const pairs: Array<{ absoluto: string; relativo: string; setRelativo: (v: string) => void }> = [
       { absoluto: mielocitosAbsoluto, relativo: mielocitosRelativo, setRelativo: setMielocitosRelativo },
@@ -428,7 +424,7 @@ const AddExamPage = () => {
     ];
     for (const pair of pairs) {
       if (pair.relativo.trim() !== "") continue;
-      const abs = parseLeukoNumber(pair.absoluto);
+      const abs = parseBrNumber(pair.absoluto);
       if (abs === undefined) continue;
       const pct = Math.round((abs / total) * 1000) / 10;
       pair.setRelativo(String(pct));
@@ -496,8 +492,8 @@ const AddExamPage = () => {
     // cadastro central automaticamente — próxima vez já vem preenchido,
     // em qualquer aparelho, sem precisar ir em Cadastros separadamente.
     if (animalSpecies) {
-      const min = parseLeukoNumber(bioMinReference);
-      const max = parseLeukoNumber(bioMaxReference);
+      const min = parseBrNumber(bioMinReference);
+      const max = parseBrNumber(bioMaxReference);
       if (min !== undefined && max !== undefined) {
         const { saved, blob } = await saveBiochemicalReferenceIfMissing(enzymeName, animalSpecies, {
           min,
@@ -885,7 +881,7 @@ const AddExamPage = () => {
                             <SelectValue placeholder="Selecione um analito" />
                           </SelectTrigger>
                           <SelectContent className="max-h-72">
-                            {biochemicalEnzymeOptions.map(opt => (
+                            {enzymeOptions.map(opt => (
                               <SelectItem key={opt} value={opt}>{opt}</SelectItem>
                             ))}
                           </SelectContent>
