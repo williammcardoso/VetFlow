@@ -25,6 +25,9 @@ const SERVICE_CATEGORY_OPTIONS = [
   { value: "vacina", label: "Vacina" },
 ] as const;
 
+const KNOWN_PRODUCT_CATEGORIES = new Set(["produto", "medicamento", "racao", "acessorio"]);
+const KNOWN_SERVICE_CATEGORIES = new Set(SERVICE_CATEGORY_OPTIONS.map(o => o.value));
+
 const CATEGORY_BADGE: Record<string, { label: string; color: string }> = {
   exame_externo: { label: "Exame Externo", color: "bg-blue-100 text-blue-700" },
   exame_interno: { label: "Exame Interno", color: "bg-cyan-100 text-cyan-700" },
@@ -65,6 +68,7 @@ const ProductsServicesPage: React.FC = () => {
   const [editName, setEditName] = useState("");
   const [editPrice, setEditPrice] = useState<number>(0);
   const [editCategory, setEditCategory] = useState("");
+  const [editCategoryCustom, setEditCategoryCustom] = useState("");
   const [editCost, setEditCost] = useState<number>(0);
   const [editCostProvider, setEditCostProvider] = useState<string>("");
   const [editCostProviderCustom, setEditCostProviderCustom] = useState<string>("");
@@ -81,6 +85,33 @@ const ProductsServicesPage: React.FC = () => {
     const cats = new Set(items.map(i => i.category).filter(Boolean));
     return Array.from(cats) as string[];
   }, [items]);
+
+  // Categorias digitadas via "Outro..." (produto ou serviço) que já foram
+  // usadas em algum item existente — viram opção fixa no combo dali em
+  // diante, ao invés de sempre cair de volta em "Outro..." e precisar
+  // redigitar. Mesmo padrão usado pro analito "Outro" em exames.
+  const customProductCategories = React.useMemo(
+    () =>
+      Array.from(
+        new Set(
+          items
+            .filter(i => i.type === "product" && i.category && !KNOWN_PRODUCT_CATEGORIES.has(i.category))
+            .map(i => i.category as string)
+        )
+      ).sort((a, b) => a.localeCompare(b, "pt-BR")),
+    [items]
+  );
+  const customServiceCategories = React.useMemo(
+    () =>
+      Array.from(
+        new Set(
+          items
+            .filter(i => i.type === "service" && i.category && !KNOWN_SERVICE_CATEGORIES.has(i.category))
+            .map(i => i.category as string)
+        )
+      ).sort((a, b) => a.localeCompare(b, "pt-BR")),
+    [items]
+  );
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -184,6 +215,7 @@ const ProductsServicesPage: React.FC = () => {
     setEditName(item.name);
     setEditPrice(item.price);
     setEditCategory(item.category || "");
+    setEditCategoryCustom("");
     setEditCost(item.cost ?? 0);
     const provider = item.costProvider || "";
     const isPreset = COST_PROVIDER_PRESETS.includes(provider as (typeof COST_PROVIDER_PRESETS)[number]);
@@ -208,7 +240,9 @@ const ProductsServicesPage: React.FC = () => {
       ...editingItem,
       name: editName.trim(),
       price: editPrice,
-      category: editCategory || undefined,
+      category: editCategory === 'outro'
+        ? (editCategoryCustom.trim() || undefined)
+        : (editCategory || undefined),
       cost: editCost > 0 ? editCost : undefined,
       costProvider,
       stockQty: editingItem.type === 'product' ? Number(editStockQty) || 0 : undefined,
@@ -366,6 +400,9 @@ const ProductsServicesPage: React.FC = () => {
                     {SERVICE_CATEGORY_OPTIONS.map((o) => (
                       <option key={o.value} value={o.value}>{o.label}</option>
                     ))}
+                    {customServiceCategories.map((c) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
                     <option value="outro">Outro...</option>
                   </>
                 ) : (
@@ -374,6 +411,9 @@ const ProductsServicesPage: React.FC = () => {
                     <option value="medicamento">Medicamento</option>
                     <option value="racao">Ração</option>
                     <option value="acessorio">Acessório</option>
+                    {customProductCategories.map((c) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
                     <option value="outro">Outro...</option>
                   </>
                 )}
@@ -768,18 +808,37 @@ const ProductsServicesPage: React.FC = () => {
                 >
                   <option value="">Sem categoria</option>
                   {editingItem?.type === 'service' ? (
-                    SERVICE_CATEGORY_OPTIONS.map((o) => (
-                      <option key={o.value} value={o.value}>{o.label}</option>
-                    ))
+                    <>
+                      {SERVICE_CATEGORY_OPTIONS.map((o) => (
+                        <option key={o.value} value={o.value}>{o.label}</option>
+                      ))}
+                      {customServiceCategories.map((c) => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                      <option value="outro">Outro...</option>
+                    </>
                   ) : (
                     <>
                       <option value="produto">Produto geral</option>
                       <option value="medicamento">Medicamento</option>
                       <option value="racao">Ração</option>
                       <option value="acessorio">Acessório</option>
+                      {customProductCategories.map((c) => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                      <option value="outro">Outro...</option>
                     </>
                   )}
                 </select>
+                {editCategory === 'outro' && (
+                  <Input
+                    value={editCategoryCustom}
+                    onChange={(e) => setEditCategoryCustom(e.target.value)}
+                    className="mt-1 h-9 border border-border bg-card text-sm"
+                    placeholder="Digite a categoria..."
+                    autoFocus
+                  />
+                )}
               </div>
             </div>
 
