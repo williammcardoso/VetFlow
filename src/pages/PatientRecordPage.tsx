@@ -2974,7 +2974,7 @@ const PatientRecordPage = () => {
                                     <FaTag className="h-3 w-3 text-amber-500" /> Status financeiro: {finStatus === "paid" ? "Pago" : finStatus === "partial" ? "Parcial" : "Pendente"}
                                   </div>
                                   <div className="flex items-center gap-1">
-                                    <FaStethoscope className="h-3 w-3 text-teal-500" /> Atendimento: {sale.appointmentId}
+                                    <FaStethoscope className="h-3 w-3 text-teal-500" /> {app ? `Atendimento em ${formatDateTime(app.date)}` : "Atendimento não vinculado"}
                                   </div>
                                 </div>
                                 <div className="flex flex-wrap items-center justify-between gap-2 mt-3 pt-3 border-t border-border">
@@ -3045,8 +3045,8 @@ const PatientRecordPage = () => {
 
                   <TabsContent value="financeiro">
                     <div className="bg-[#F5F7FA] p-4 rounded-[12px] space-y-4">
-                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                        <Card className="bg-white rounded-xl shadow-sm border border-[#E2E8F0] transition-all duration-200 hover:shadow-md">
+                      <div className="grid grid-cols-1 lg:grid-cols-[35%_65%] gap-4">
+                        <Card className="min-w-0 bg-white rounded-xl shadow-sm border border-[#E2E8F0] transition-all duration-200 hover:shadow-md">
                           <CardHeader className="pb-2">
                             <CardTitle className="text-base flex items-center gap-2">
                               <FaHandHoldingUsd className="h-4 w-4 text-emerald-600" /> Registrar pagamento
@@ -3140,7 +3140,7 @@ const PatientRecordPage = () => {
                           </AlertDialogContent>
                         </AlertDialog>
 
-                        <Card className="bg-white rounded-xl shadow-sm border border-[#E2E8F0] transition-all duration-200 hover:shadow-md">
+                        <Card className="min-w-0 bg-white rounded-xl shadow-sm border border-[#E2E8F0] transition-all duration-200 hover:shadow-md">
                           <CardHeader className="pb-2">
                             <CardTitle className="text-base flex items-center gap-2">
                               <FaMoneyBillWave className="h-4 w-4 text-emerald-600" /> Pagamentos registrados
@@ -3163,10 +3163,16 @@ const PatientRecordPage = () => {
                                   </TableHeader>
                                   <TableBody>
                                     {animalReceipts.map((r, index) => {
-                                      const app = patientSales.find((s) => s.id === r.saleId)?.appointmentId;
+                                      const sale = patientSales.find((s) => s.id === r.saleId);
+                                      const appointment = sale ? animalAppointments.find((a) => a.id === sale.appointmentId) : undefined;
+                                      const saleLabel = appointment
+                                        ? `${appointment.type} • ${appointment.vet}`
+                                        : sale
+                                          ? `Atendimento ${sale.appointmentId}`
+                                          : r.description || "Venda";
                                       return (
                                         <TableRow key={r.id} className={cn(index % 2 === 1 && "bg-[#F9FAFB]", "transition-colors")}>
-                                          <TableCell className="font-medium">{r.saleId || r.description}{app ? ` • Atend. ${app}` : ""}</TableCell>
+                                          <TableCell className="font-medium max-w-[180px] truncate" title={saleLabel}>{saleLabel}</TableCell>
                                           <TableCell>{formatDateTime(r.date, r.time)}</TableCell>
                                           <TableCell className="text-right font-bold text-emerald-600">{new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(r.amount)}</TableCell>
                                           <TableCell>{r.paymentMethod || "-"}</TableCell>
