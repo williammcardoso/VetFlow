@@ -181,7 +181,7 @@ export default function LegacyConsultationForm({
 
   return (
     <div className="space-y-4">
-      <Card className="border-border">
+      <Card className="vf-surface-card vf-tone-clinical rounded-xl">
         <CardHeader className="pb-3">
           <CardTitle className="text-base">Sinais vitais</CardTitle>
         </CardHeader>
@@ -231,7 +231,7 @@ export default function LegacyConsultationForm({
         </TabsList>
 
         <TabsContent value="anam" className="mt-4 space-y-4">
-          <Card className="border-border">
+          <Card className="vf-surface-card vf-tone-clinical rounded-xl">
             <CardHeader className="pb-3">
               <CardTitle className="text-base">Queixa principal</CardTitle>
             </CardHeader>
@@ -250,7 +250,7 @@ export default function LegacyConsultationForm({
             </CardContent>
           </Card>
 
-          <Card className="border-border">
+          <Card className="vf-surface-card vf-tone-clinical rounded-xl">
             <CardHeader className="pb-3">
               <CardTitle className="text-base">Anamnese</CardTitle>
             </CardHeader>
@@ -433,7 +433,7 @@ export default function LegacyConsultationForm({
         </TabsContent>
 
         <TabsContent value="digest" className="mt-4 space-y-4">
-          <Card className="border-border">
+          <Card className="vf-surface-card vf-tone-clinical rounded-xl">
             <CardHeader className="pb-3">
               <CardTitle className="text-base">Sistema Digestório / Urinário</CardTitle>
             </CardHeader>
@@ -529,7 +529,7 @@ export default function LegacyConsultationForm({
         </TabsContent>
 
         <TabsContent value="resp" className="mt-4 space-y-4">
-          <Card className="border-border">
+          <Card className="vf-surface-card vf-tone-clinical rounded-xl">
             <CardHeader className="pb-3">
               <CardTitle className="text-base">Sistema Respiratório</CardTitle>
             </CardHeader>
@@ -615,7 +615,7 @@ export default function LegacyConsultationForm({
         </TabsContent>
 
         <TabsContent value="exame" className="mt-4 space-y-4">
-          <Card className="border-border">
+          <Card className="vf-surface-card vf-tone-clinical rounded-xl">
             <CardHeader className="pb-3">
               <CardTitle className="text-base">Exame físico</CardTitle>
             </CardHeader>
@@ -978,7 +978,7 @@ export default function LegacyConsultationForm({
             </div>
           )}
 
-          <Card className="border-border">
+          <Card className="vf-surface-card vf-tone-clinical rounded-xl">
             <CardHeader className="pb-3">
               <CardTitle className="text-base">Diagnóstico e tratamento</CardTitle>
             </CardHeader>
@@ -1059,7 +1059,7 @@ export default function LegacyConsultationForm({
                   onChange={(e) => patch({ retornoRecomendadoEmDias: e.target.value ? Number(e.target.value) : undefined })}
                 />
                 {suggestedReturnDate && (
-                  <p className="text-xs text-muted-foreground">Sugestão de data (ISO): {suggestedReturnDate}</p>
+                  <p className="text-xs text-muted-foreground">Sugestão de data: {suggestedReturnDate.split("-").reverse().join("/")}</p>
                 )}
               </div>
 

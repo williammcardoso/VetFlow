@@ -115,9 +115,9 @@ export default function ReturnsForecastPage() {
   };
 
   function urgencyColor(days: number) {
-    if (days <= 3) return "text-red-600 bg-red-50 border-red-200 dark:text-red-400 dark:bg-red-950/20 dark:border-red-700/30";
-    if (days <= 7) return "text-orange-600 bg-orange-50 border-orange-200 dark:text-orange-400 dark:bg-orange-950/20 dark:border-orange-700/30";
-    return "text-slate-600 bg-slate-50 border-slate-200 dark:text-slate-400 dark:bg-slate-900/30 dark:border-slate-700/30";
+    if (days <= 3) return "text-red-600 bg-red-50 border-red-200";
+    if (days <= 7) return "text-orange-600 bg-orange-50 border-orange-200";
+    return "text-slate-600 bg-slate-50 border-slate-200";
   }
 
   function renderList(items: ReturnAlert[], icon: React.ReactNode, emptyMsg: string) {
@@ -176,12 +176,6 @@ export default function ReturnsForecastPage() {
         icon={CalendarDays}
         module="clinical"
         breadcrumb={<>Agenda &gt; Previsão</>}
-        className="mb-0 rounded-2xl border border-border/70 bg-card px-6 py-4 shadow-sm"
-        breadcrumbClassName="mb-1 text-xs text-muted-foreground"
-        titleClassName="text-3xl font-semibold tracking-tight"
-        descriptionClassName="mt-1 text-sm text-muted-foreground"
-        iconWrapperClassName="h-11 w-11 rounded-[14px]"
-        iconClassName="h-5 w-5"
         actions={
           <div className="flex items-center gap-2">
             {(["7", "30", "90", "all"] as PeriodFilter[]).map((p) => (
@@ -200,26 +194,26 @@ export default function ReturnsForecastPage() {
       />
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <Card className="rounded-2xl border border-border/65 bg-card p-4 shadow-sm sm:p-5">
+        <Card className="rounded-2xl vf-surface-card vf-tone-clinical p-4 sm:p-5">
           <div className="mb-3 flex items-center justify-between">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-orange-600 dark:text-orange-400">Acompanhamentos</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-orange-600">Acompanhamentos</p>
               <h2 className="text-[1.05rem] font-semibold tracking-tight text-foreground">Próximos acompanhamentos</h2>
             </div>
-            <Badge className="bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300">
+            <Badge className="bg-orange-100 text-orange-700">
               {retornos.length}
             </Badge>
           </div>
           {renderList(retornos, <RotateCcw className="h-4 w-4" />, `Nenhum acompanhamento previsto nos próximos ${period === "all" ? "registros" : periodLabel[period]}.`)}
         </Card>
 
-        <Card className="rounded-2xl border border-border/65 bg-card p-4 shadow-sm sm:p-5">
+        <Card className="rounded-2xl vf-surface-card vf-tone-clinical p-4 sm:p-5">
           <div className="mb-3 flex items-center justify-between">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-blue-600 dark:text-blue-400">Vacinas</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-blue-600">Vacinas</p>
               <h2 className="text-[1.05rem] font-semibold tracking-tight text-foreground">Próximas doses</h2>
             </div>
-            <Badge className="bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">
+            <Badge className="bg-blue-100 text-blue-700">
               {vacinas.length}
             </Badge>
           </div>

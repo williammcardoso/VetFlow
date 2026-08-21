@@ -12,6 +12,8 @@ import { getCompanySettings, saveCompanySettings } from "@/lib/settingsApi";
 import type { CompanySettings } from "@/types/settings";
 import { PageShell } from "@/components/saas/PageShell";
 import { PageHeader } from "@/components/saas/PageHeader";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Building2, ArrowLeft } from "lucide-react";
 
 const CompanySettingsPage = () => {
@@ -50,19 +52,27 @@ const CompanySettingsPage = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-background">
-        <p className="text-muted-foreground">Carregando configurações...</p>
-      </div>
+      <PageShell>
+        <PageHeader title="Configurações da Empresa" description="Gerencie as informações e credenciais da sua empresa." icon={Building2} module="settings" />
+        <div className="space-y-2">
+          <Skeleton className="h-9 w-full" />
+          <Skeleton className="h-9 w-full" />
+          <Skeleton className="h-9 w-full" />
+        </div>
+      </PageShell>
     );
   }
 
   if (error || !settings) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-background gap-4">
-        <p className="text-destructive font-medium">Erro ao carregar configurações</p>
-        <p className="text-sm text-muted-foreground max-w-md text-center">{error || "Configurações não disponíveis."}</p>
+      <PageShell>
+        <PageHeader title="Configurações da Empresa" icon={Building2} module="settings" />
+        <Alert variant="destructive" className="mb-4">
+          <AlertTitle>Erro ao carregar configurações</AlertTitle>
+          <AlertDescription>{error || "Configurações não disponíveis."}</AlertDescription>
+        </Alert>
         <Button variant="outline" onClick={() => navigate("/")}>Voltar ao início</Button>
-      </div>
+      </PageShell>
     );
   }
 
@@ -159,7 +169,7 @@ const CompanySettingsPage = () => {
             <CardContent className="grid gap-y-3 pt-0">
               <div className="space-y-2">
                 <Label htmlFor="logoUrl" className="text-muted-foreground font-medium">URL do Logo</Label>
-                <Input id="logoUrl" value={settings.logoUrl || ""} onChange={handleChange} placeholder="Ex: /public/logo.png" className="bg-input rounded-md border-border" />
+                <Input id="logoUrl" value={settings.logoUrl || ""} onChange={handleChange} placeholder="Ex: /logo.png" className="bg-input rounded-md border-border" />
               </div>
             </CardContent>
           </Card>

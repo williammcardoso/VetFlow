@@ -45,6 +45,10 @@ const SignDocumentPage: React.FC = () => {
     if (!dataUrl) return;
 
     setSaving(true);
+    // Marca se a assinatura em si já foi gravada antes de tentar os passos
+    // seguintes — se um deles falhar, o tutor não pode ver um erro genérico
+    // e tentar assinar de novo (gravaria uma segunda assinatura em duplicidade).
+    let signatureSaved = false;
     try {
       await saveSignature({
         documentId,
@@ -54,6 +58,7 @@ const SignDocumentPage: React.FC = () => {
         funcao: "Responsável pelo animal",
         dataUrlPng: dataUrl,
       });
+      signatureSaved = true;
       // Só marca como assinado se o veterinário já tiver assinado também
       // (ou não for exigido) — senão o documento fica "emitido" até o vet assinar.
       if (doc.jaTemAssinaturaVeterinario) {
@@ -63,7 +68,12 @@ const SignDocumentPage: React.FC = () => {
       setConcluido(true);
       toast.success("Assinatura registrada.");
     } catch (err: any) {
-      toast.error(err.message || "Falha ao gravar a assinatura.");
+      if (signatureSaved) {
+        setConcluido(true);
+        toast.warning("Sua assinatura foi salva, mas houve um problema ao finalizar o documento. A clínica pode conferir e gerar o PDF novamente se precisar — não é necessário assinar de novo.");
+      } else {
+        toast.error(err.message || "Falha ao gravar a assinatura. Tente novamente.");
+      }
     } finally {
       setSaving(false);
     }
@@ -120,7 +130,7 @@ const SignDocumentPage: React.FC = () => {
                 </p>
               </div>
 
-              <pre className="max-h-64 overflow-y-auto whitespace-pre-wrap rounded-lg border border-border bg-muted/30 p-3 text-xs leading-relaxed">
+              <pre className="max-h-64 overflow-y-auto whitespace-pre-wrap rounded-lg border border-border bg-muted/30 p-3 text-sm leading-relaxed">
                 {doc.corpoRenderizado}
               </pre>
 

@@ -3,6 +3,9 @@
 import React, { useState, useEffect } from "react";
 import { Link, useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { FaArrowLeft, FaPlus, FaTimes, FaEye, FaSave, FaPrint, FaDownload, FaClipboardList } from "@/components/icons/fa";
+import { ClipboardList } from "lucide-react";
+import { PageShell } from "@/components/saas/PageShell";
+import { PageHeader } from "@/components/saas/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
@@ -264,8 +267,15 @@ const AddPrescriptionPage = () => {
           animalName: animal.name,
           animalId: animal.id,
           animalSpecies: animal.species,
+          animalBreed: animal.breed,
+          animalSex: animal.gender,
+          animalBirthday: animal.birthday,
+          animalWeight: animal.weight,
+          animalMicrochip: animal.microchip,
           tutorName: client.name,
           tutorAddress: formatAddress(client),
+          tutorDocument: client.identificationNumber,
+          tutorPhone: client.mainPhoneContact,
           medications: currentPrescriptionMedications, // Passar vazio se for manipulada
           generalObservations: currentPrescriptionGeneralObservations,
           showElectronicSignatureText: false,
@@ -306,8 +316,15 @@ const AddPrescriptionPage = () => {
           animalName: animal.name,
           animalId: animal.id,
           animalSpecies: animal.species,
+          animalBreed: animal.breed,
+          animalSex: animal.gender,
+          animalBirthday: animal.birthday,
+          animalWeight: animal.weight,
+          animalMicrochip: animal.microchip,
           tutorName: client.name,
           tutorAddress: formatAddress(client),
+          tutorDocument: client.identificationNumber,
+          tutorPhone: client.mainPhoneContact,
           medications: currentPrescriptionMedications, // Passar vazio se for manipulada
           generalObservations: currentPrescriptionGeneralObservations,
           showElectronicSignatureText: true,
@@ -367,32 +384,27 @@ const AddPrescriptionPage = () => {
   }
 
   return (
-    <div className="flex flex-col min-h-screen bg-background">
-      {/* Header da Página com Gradiente e Breadcrumb */}
-      <div className="bg-card p-6 pb-4 border-b border-border">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-2 gap-4 sm:gap-2">
-          <div className="flex items-center gap-4">
-            <div>
-              <h1 className="text-2xl font-semibold flex items-center gap-3 text-foreground group">
-                <FaClipboardList className="h-5 w-5 text-vf-clinical" /> {getPrescriptionTitle()}
-              </h1>
-              <p className="text-sm text-muted-foreground mt-1 mb-4">
-                Gerencie os detalhes da receita para {animal.name}.
-              </p>
-            </div>
-          </div>
+    <PageShell>
+      <PageHeader
+        title={getPrescriptionTitle()}
+        description={`Gerencie os detalhes da receita para ${animal.name}.`}
+        icon={ClipboardList}
+        module="clinical"
+        breadcrumb={
+          <>
+            Painel &gt; <Link to="/clients" className="hover:text-primary">Clientes</Link> &gt; <Link to={`/clients/${client.id}`} className="hover:text-primary">{client.name}</Link> &gt; <Link to={`/clients/${clientId}/animals/${animalId}/record`} className="hover:text-primary">{animal.name}</Link> &gt; Receita
+          </>
+        }
+        actions={
           <Link to={`/clients/${clientId}/animals/${animalId}/record`}>
             <Button variant="outline" className="rounded-md border-border text-foreground hover:bg-muted hover:text-foreground transition-colors duration-200">
               <FaArrowLeft className="mr-2 h-4 w-4" /> Voltar para Prontuário
             </Button>
           </Link>
-        </div>
-        <p className="text-sm text-muted-foreground">
-          Painel &gt; <Link to="/clients" className="hover:text-primary">Clientes</Link> &gt; <Link to={`/clients/${client.id}`} className="hover:text-primary">{client.name}</Link> &gt; <Link to={`/clients/${clientId}/animals/${animalId}/record`} className="hover:text-primary">{animal.name}</Link> &gt; Receita
-        </p>
-      </div>
+        }
+      />
 
-      <div className="flex-1 p-6">
+      <div>
         <div className="flex flex-col lg:flex-row gap-1">
           <div className="flex-1 lg:pr-2">
             <div className="grid gap-1 py-1">
@@ -485,7 +497,7 @@ const AddPrescriptionPage = () => {
                         return acc;
                       }, {} as Record<string, typeof currentPrescriptionMedications>)).map(([via, meds]) => (
                         <div key={via} className="mb-3">
-                          <p className="font-semibold text-black mb-2 border-b border-border pb-2">{via.toUpperCase()}</p>
+                          <p className="font-semibold text-foreground mb-2 border-b border-border pb-2">{via.toUpperCase()}</p>
                           <div className="space-y-3 text-sm">
                             {meds.map((med, idx) => (
                               <div key={med.id}>
@@ -534,7 +546,7 @@ const AddPrescriptionPage = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </PageShell>
   );
 };
 

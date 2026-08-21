@@ -254,7 +254,7 @@ const AddDocumentPage: React.FC = () => {
   }
 
   return (
-    <PageShell className="font-exo">
+    <PageShell>
       <div className="mb-6">
         <Button variant="ghost" asChild className="mb-4 -ml-2">
           <Link to={recordLink}>

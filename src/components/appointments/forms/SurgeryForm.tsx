@@ -109,7 +109,7 @@ export default function SurgeryForm({
         </TabsList>
 
         <TabsContent value="basicos" className="mt-4">
-          <Card>
+          <Card className="vf-surface-card vf-tone-clinical rounded-xl">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">
                 <Scissors className="h-4 w-4 text-muted-foreground" /> Dados básicos
@@ -175,7 +175,7 @@ export default function SurgeryForm({
         </TabsContent>
 
         <TabsContent value="preop" className="mt-4">
-          <Card>
+          <Card className="vf-surface-card vf-tone-clinical rounded-xl">
             <CardHeader>
               <CardTitle className="text-base">Avaliação pré-operatória</CardTitle>
             </CardHeader>
@@ -313,7 +313,7 @@ export default function SurgeryForm({
         </TabsContent>
 
         <TabsContent value="procedimento" className="mt-4">
-          <Card>
+          <Card className="vf-surface-card vf-tone-clinical rounded-xl">
             <CardHeader>
               <CardTitle className="text-base">Procedimento cirúrgico</CardTitle>
             </CardHeader>
@@ -415,7 +415,7 @@ export default function SurgeryForm({
         </TabsContent>
 
         <TabsContent value="materiais" className="mt-4">
-          <Card>
+          <Card className="vf-surface-card vf-tone-clinical rounded-xl">
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle className="text-base">Materiais & suturas</CardTitle>
               <Button type="button" variant="outline" size="sm" onClick={addSutura} className="h-8">
@@ -497,7 +497,7 @@ export default function SurgeryForm({
         </TabsContent>
 
         <TabsContent value="posop" className="mt-4">
-          <Card>
+          <Card className="vf-surface-card vf-tone-clinical rounded-xl">
             <CardHeader>
               <CardTitle className="text-base">Pós-operatório e alta</CardTitle>
             </CardHeader>

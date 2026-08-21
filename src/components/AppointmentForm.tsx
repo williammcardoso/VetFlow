@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
-import { generateUUID } from "@/lib/utils";
+import { generateUUID, getTodayLocalISO } from "@/lib/utils";
 import { useSystemVets } from "@/hooks/useSystemVets";
 
 import SaasButton from "@/components/saas/SaasButton";
@@ -219,7 +219,7 @@ export default function AppointmentForm({
     }
   }
 
-  const [date, setDate] = useState(initialData?.date || new Date().toISOString().split("T")[0]);
+  const [date, setDate] = useState(initialData?.date || getTodayLocalISO());
   const [time, setTime] = useState(
     initialData?.time ||
       new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })
@@ -290,7 +290,7 @@ export default function AppointmentForm({
     if (saved) {
       hydratedFromDraftRef.current = true;
 
-      setDate(saved.date || new Date().toISOString().split("T")[0]);
+      setDate(saved.date || getTodayLocalISO());
       setTime(
         saved.time ||
           new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })

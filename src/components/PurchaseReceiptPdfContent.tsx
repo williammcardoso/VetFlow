@@ -12,12 +12,13 @@ Font.register({
 Font.registerHyphenationCallback((word) => [word]);
 
 const TEAL = "#0F766E";
+const INK = "#1F2937";
 const DARK = "#111827";
 const GRAY = "#6B7280";
-const LIGHT_GRAY = "#F9FAFB";
+const LIGHT_GRAY = "#F5F6F7";
 const WHITE = "#FFFFFF";
-const BORDER = "#E5E7EB";
-const SLATE = "#64748B";
+const BORDER = "#D8DDE2";
+const SLATE = "#4B5563";
 const AMBER = "#B45309";
 
 const fmt = (v: number) =>
@@ -136,15 +137,13 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingVertical: 6,
+    paddingVertical: 8,
     paddingHorizontal: 10,
-    backgroundColor: LIGHT_GRAY,
-    borderTopWidth: 1.5,
-    borderTopColor: TEAL,
+    backgroundColor: INK,
     borderRadius: 4,
   },
-  tlLabelHL: { fontSize: 9.5, color: TEAL, fontWeight: 700 },
-  tlValueHL: { fontSize: 12, color: TEAL, fontWeight: 700 },
+  tlLabelHL: { fontSize: 9.5, color: WHITE, fontWeight: 700 },
+  tlValueHL: { fontSize: 12, color: WHITE, fontWeight: 700 },
 
   footer: {
     position: "absolute",

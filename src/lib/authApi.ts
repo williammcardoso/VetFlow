@@ -16,6 +16,10 @@ export type UserProfile = {
   mapa_registration: string;
   signature_text: string;
   signature_url: string;
+  avatar_url: string;
+  avatar_type: string;
+  avatar_icon: string;
+  avatar_initials: string;
   updated_at?: string;
 };
 
@@ -165,6 +169,10 @@ function normalizeRpcProfile(data: unknown): UserProfile | null {
     mapa_registration: String((row as { mapa_registration?: string }).mapa_registration || ""),
     signature_text: String((row as { signature_text?: string }).signature_text || ""),
     signature_url: String((row as { signature_url?: string }).signature_url || ""),
+    avatar_url: String((row as { avatar_url?: string }).avatar_url || ""),
+    avatar_type: String((row as { avatar_type?: string }).avatar_type || "initials"),
+    avatar_icon: String((row as { avatar_icon?: string }).avatar_icon || ""),
+    avatar_initials: String((row as { avatar_initials?: string }).avatar_initials || ""),
     updated_at: (row as { updated_at?: string }).updated_at,
   };
 }
@@ -410,6 +418,10 @@ export async function getMyUserProfile(): Promise<UserProfile> {
       mapa_registration: "",
       signature_text: "",
       signature_url: "",
+      avatar_url: "",
+      avatar_type: "initials",
+      avatar_icon: "",
+      avatar_initials: "",
     };
     cacheUserProfile(fallback);
     return fallback;
@@ -425,6 +437,10 @@ export async function saveMyUserProfile(payload: {
   mapa_registration: string;
   signature_text: string;
   signature_url?: string;
+  avatar_url?: string;
+  avatar_type?: string;
+  avatar_icon?: string;
+  avatar_initials?: string;
 }): Promise<UserProfile> {
   ensureSupabase();
   const session = getSession();
@@ -438,6 +454,10 @@ export async function saveMyUserProfile(payload: {
     p_mapa_registration: payload.mapa_registration,
     p_signature_text: payload.signature_text,
     p_signature_url: payload.signature_url ?? "",
+    p_avatar_url: payload.avatar_url ?? "",
+    p_avatar_type: payload.avatar_type ?? "initials",
+    p_avatar_icon: payload.avatar_icon ?? "",
+    p_avatar_initials: payload.avatar_initials ?? "",
   });
 
   if (error) throw new Error(error.message || "Falha ao salvar perfil do usuário.");

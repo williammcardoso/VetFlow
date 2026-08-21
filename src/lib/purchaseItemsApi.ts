@@ -47,6 +47,16 @@ export async function addPurchaseItems(
   return (data || []).map(rowToItem);
 }
 
+/** Apaga todos os itens de uma compra — usado antes de regravar ao editar. */
+export async function deletePurchaseItemsByTransaction(transactionId: string): Promise<boolean> {
+  const { error } = await supabase.from(TABLE).delete().eq("transaction_id", transactionId);
+  if (error) {
+    console.error("[deletePurchaseItemsByTransaction] error", error);
+    return false;
+  }
+  return true;
+}
+
 /** Busca itens de várias compras de uma vez (ex.: histórico, impressão em lote). */
 export async function getPurchaseItemsByTransactionIds(
   transactionIds: string[]

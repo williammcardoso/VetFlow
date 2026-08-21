@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,13 +12,13 @@ import { getCatalog } from "@/lib/catalogApi";
 import type { CatalogItem } from "@/mockData/catalog";
 import { useClientsList } from "@/hooks/useSupabaseClients";
 import { useRegistryList } from "@/hooks/useRegistryList";
-import { ShoppingCart, Plus, Trash2, CheckCircle, ArrowLeft, Package, Check, ChevronsUpDown } from "lucide-react";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { ShoppingCart, Plus, Trash2, CheckCircle, ArrowLeft, Package } from "lucide-react";
+import ClientCombobox from "@/components/ClientCombobox";
+import SmartComboInput, { type SmartComboInputHandle } from "@/components/SmartComboInput";
 import { PageShell } from "@/components/saas/PageShell";
 import { PageHeader } from "@/components/saas/PageHeader";
 import { groupRepassesByProvider, resolveCostProvider } from "@/lib/costProviders";
-import { formatItemQty } from "@/lib/utils";
+import { formatCurrencyBRL, formatItemQty } from "@/lib/utils";
 import { resolveCartLineCosts } from "@/lib/saleCosting";
 import { fulfillSaleLines } from "@/lib/saleFulfillment";
 
@@ -44,6 +44,7 @@ const POSPage = () => {
   const [catalog, setCatalog] = useState<CatalogItem[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [selectedItemId, setSelectedItemId] = useState<string>("");
+  const itemComboRef = useRef<SmartComboInputHandle>(null);
   const [quantityInput, setQuantityInput] = useState<string>("1");
   const quantity = Number(quantityInput.replace(",", ".")) || 0;
   const [selectedClientId, setSelectedClientId] = useState<string>("");
@@ -56,7 +57,6 @@ const POSPage = () => {
   const [surchargePct, setSurchargePct] = useState<string>("");
   const [surchargeVal, setSurchargeVal] = useState<string>("");
   const [processing, setProcessing] = useState(false);
-  const [clientOpen, setClientOpen] = useState(false);
   /** Custo unitário resolvido (BOM + prestador) por item do catálogo */
   const [resolvedCosts, setResolvedCosts] = useState<
     Map<string, { unitCost: number; unitProductCost: number; unitProviderCost: number; costProvider?: string }>
@@ -127,6 +127,8 @@ const POSPage = () => {
     });
     setSelectedItemId("");
     setQuantityInput("1");
+    itemComboRef.current?.reset();
+    itemComboRef.current?.focus();
     toast.success(`${catalogItem.name} adicionado.`);
   };
 
@@ -268,7 +270,7 @@ const POSPage = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         {/* Coluna esquerda — seleção de itens */}
         <div className="lg:col-span-2 space-y-4">
-          <Card className="rounded-xl border border-border shadow-sm">
+          <Card className="vf-surface-card vf-tone-sales rounded-xl">
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-base font-semibold">
                 <Package className="h-4 w-4 text-[hsl(var(--vf-sales))]" /> Adicionar item
@@ -278,19 +280,17 @@ const POSPage = () => {
               <div className="flex flex-wrap items-end gap-3">
                 <div className="flex-1 min-w-[200px]">
                   <Label className="text-xs text-muted-foreground">Produto / Serviço</Label>
-                  <select
-                    value={selectedItemId}
-                    onChange={(e) => setSelectedItemId(e.target.value)}
-                    className="mt-1 h-10 w-full rounded-md border border-border bg-card px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--vf-sales)/0.3)]"
-                  >
-                    <option value="">Selecione...</option>
-                    {catalog.map(item => (
-                      <option key={item.id} value={item.id}>
-                        {item.name} — {new Intl.NumberFormat("pt-BR", {style:"currency",currency:"BRL"}).format(item.price)}
-                        {item.cost ? ` (custo: ${new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(item.cost)})` : ""}
-                      </option>
-                    ))}
-                  </select>
+                  <SmartComboInput
+                    ref={itemComboRef}
+                    options={catalog.map(item => ({
+                      value: item.id,
+                      label: `${item.name} — ${formatCurrencyBRL(item.price)}${item.cost ? ` (custo: ${formatCurrencyBRL(item.cost)})` : ""}`,
+                    }))}
+                    onSelect={(id) => setSelectedItemId(id)}
+                    placeholder="Digite o nome do produto/serviço..."
+                    emptyLabel="Nenhum item encontrado."
+                    className="mt-1"
+                  />
                 </div>
                 <div className="w-24 shrink-0">
                   <Label className="text-xs text-muted-foreground">Quantidade</Label>
@@ -316,7 +316,7 @@ const POSPage = () => {
 
           {/* Tabela do carrinho */}
           {cart.length > 0 && (
-            <Card className="rounded-xl border border-border shadow-sm">
+            <Card className="vf-surface-card vf-tone-sales rounded-xl">
               <CardContent className="pt-4">
                 <Table>
                   <TableHeader>
@@ -342,15 +342,15 @@ const POSPage = () => {
                         </TableCell>
                         <TableCell className="text-center">{item.quantity}</TableCell>
                         <TableCell className="text-right text-sm">
-                          {new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(item.price)}
+                          {formatCurrencyBRL(item.price)}
                         </TableCell>
                         <TableCell className="text-right text-sm text-muted-foreground">
                           {item.cost > 0
-                            ? new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(item.cost)
+                            ? formatCurrencyBRL(item.cost)
                             : "-"}
                         </TableCell>
                         <TableCell className="text-right font-semibold">
-                          {new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(item.price * item.quantity)}
+                          {formatCurrencyBRL(item.price * item.quantity)}
                         </TableCell>
                         <TableCell>
                           <button
@@ -370,7 +370,7 @@ const POSPage = () => {
                   <div>
                     <span className="text-muted-foreground">Faturamento bruto</span>
                     <div className="font-bold text-base">
-                      {new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(subtotal)}
+                      {formatCurrencyBRL(subtotal)}
                     </div>
                   </div>
                   {totalCost > 0 && (
@@ -378,12 +378,12 @@ const POSPage = () => {
                       <div>
                         <span className="text-muted-foreground">Repasses</span>
                         <div className="font-bold text-base text-amber-600">
-                          − {new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(totalCost)}
+                          − {formatCurrencyBRL(totalCost)}
                         </div>
                         <div className="mt-0.5 space-y-0.5">
                           {groupRepassesByProvider(cart).map((row) => (
                             <div key={row.provider} className="text-[11px] text-amber-700/80">
-                              {row.provider}: {new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(row.amount)}
+                              {row.provider}: {formatCurrencyBRL(row.amount)}
                             </div>
                           ))}
                         </div>
@@ -391,7 +391,7 @@ const POSPage = () => {
                       <div>
                         <span className="text-muted-foreground">Lucro estimado</span>
                         <div className={`font-bold text-base ${lucroEstimado >= 0 ? "text-emerald-600" : "text-red-600"}`}>
-                          {new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(lucroEstimado)}
+                          {formatCurrencyBRL(lucroEstimado)}
                           <span className="text-xs ml-1">
                             ({subtotal > 0 ? Math.round((lucroEstimado/subtotal)*100) : 0}% margem)
                           </span>
@@ -407,7 +407,7 @@ const POSPage = () => {
 
         {/* Coluna direita — checkout */}
         <div>
-          <Card className="rounded-xl border border-border shadow-sm sticky top-4">
+          <Card className="vf-surface-card vf-tone-sales rounded-xl sticky top-4">
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-base font-semibold">
                 <CheckCircle className="h-4 w-4 text-emerald-600" /> Finalizar venda
@@ -416,64 +416,31 @@ const POSPage = () => {
             <CardContent className="space-y-4">
               <div>
                 <Label className="text-xs text-muted-foreground">Cliente *</Label>
-                <Popover open={clientOpen} onOpenChange={setClientOpen}>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      role="combobox"
-                      aria-expanded={clientOpen}
-                      className="mt-1 w-full h-10 justify-between border border-border bg-card font-normal text-sm"
-                    >
-                      {selectedClientId
-                        ? clients.find(c => c.id === selectedClientId)?.name
-                        : "Selecione o cliente..."}
-                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-[280px] p-0" align="start">
-                    <Command>
-                      <CommandInput placeholder="Buscar cliente..." className="h-9" />
-                      <CommandList>
-                        <CommandEmpty>Nenhum cliente encontrado.</CommandEmpty>
-                        <CommandGroup>
-                          {clients.map(c => (
-                            <CommandItem
-                              key={c.id}
-                              value={c.name}
-                              onSelect={() => {
-                                setSelectedClientId(c.id);
-                                setSelectedAnimalId("");
-                                setClientOpen(false);
-                              }}
-                            >
-                              <Check
-                                className={`mr-2 h-4 w-4 ${
-                                  selectedClientId === c.id ? "opacity-100" : "opacity-0"
-                                }`}
-                              />
-                              {c.name}
-                            </CommandItem>
-                          ))}
-                        </CommandGroup>
-                      </CommandList>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
+                <ClientCombobox
+                  clients={clients}
+                  value={selectedClientId || undefined}
+                  onChange={(id) => {
+                    setSelectedClientId(id || "");
+                    setSelectedAnimalId("");
+                  }}
+                  className="mt-1 h-10"
+                />
               </div>
 
               {selectedClientId && filteredAnimals.length > 0 && (
                 <div>
                   <Label className="text-xs text-muted-foreground">Animal (opcional)</Label>
-                  <select
-                    value={selectedAnimalId}
-                    onChange={(e) => setSelectedAnimalId(e.target.value)}
-                    className="mt-1 h-10 w-full rounded-md border border-border bg-card px-3 text-sm focus:outline-none"
-                  >
-                    <option value="">Nenhum</option>
-                    {filteredAnimals.map(a => (
-                      <option key={a.id} value={a.id}>{a.name}</option>
-                    ))}
-                  </select>
+                  <Select value={selectedAnimalId || "__none__"} onValueChange={(v) => setSelectedAnimalId(v === "__none__" ? "" : v)}>
+                    <SelectTrigger className="mt-1 h-10 w-full border border-border bg-card text-sm">
+                      <SelectValue placeholder="Nenhum" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">Nenhum</SelectItem>
+                      {filteredAnimals.map(a => (
+                        <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               )}
 
@@ -481,23 +448,26 @@ const POSPage = () => {
                 <Label className="text-xs text-muted-foreground">
                   Forma de pagamento *
                 </Label>
-                <select
+                <Select
                   value={paymentMethod}
-                  onChange={(e) => {
-                    setPaymentMethod(e.target.value);
-                    if (!e.target.value.toLowerCase().includes("parcel")) {
+                  onValueChange={(v) => {
+                    setPaymentMethod(v);
+                    if (!v.toLowerCase().includes("parcel")) {
                       setInstallments(1);
                     }
                   }}
-                  className="mt-1 h-10 w-full rounded-md border border-border bg-card px-3 text-sm focus:outline-none"
                 >
-                  <option value="">Selecione...</option>
-                  {paymentMethods.map(pm => (
-                    <option key={pm.id} value={pm.name}>
-                      {pm.name}
-                    </option>
-                  ))}
-                </select>
+                  <SelectTrigger className="mt-1 h-10 w-full border border-border bg-card text-sm">
+                    <SelectValue placeholder="Selecione..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {paymentMethods.map(pm => (
+                      <SelectItem key={pm.id} value={pm.name}>
+                        {pm.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               {allowsInstallments && (
@@ -505,23 +475,24 @@ const POSPage = () => {
                   <Label className="text-xs text-muted-foreground">
                     Número de parcelas
                   </Label>
-                  <select
-                    value={installments}
-                    onChange={(e) => setInstallments(Number(e.target.value))}
-                    className="mt-1 h-10 w-full rounded-md border border-border bg-card px-3 text-sm focus:outline-none"
-                  >
-                    {[1,2,3,4,5,6,7,8,9,10,11,12].map(n => {
-                      const rate = installmentRates ? (installmentRates[String(n)] ?? paymentFee) : paymentFee;
-                      const parcelVal = totalFinal / n;
-                      return (
-                        <option key={n} value={n}>
-                          {n === 1
-                            ? `À vista — taxa ${rate}%`
-                            : `${n}x de ${new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(parcelVal)} — taxa ${rate}%`}
-                        </option>
-                      );
-                    })}
-                  </select>
+                  <Select value={String(installments)} onValueChange={(v) => setInstallments(Number(v))}>
+                    <SelectTrigger className="mt-1 h-10 w-full border border-border bg-card text-sm">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {[1,2,3,4,5,6,7,8,9,10,11,12].map(n => {
+                        const rate = installmentRates ? (installmentRates[String(n)] ?? paymentFee) : paymentFee;
+                        const parcelVal = totalFinal / n;
+                        return (
+                          <SelectItem key={n} value={String(n)}>
+                            {n === 1
+                              ? `À vista — taxa ${rate}%`
+                              : `${n}x de ${formatCurrencyBRL(parcelVal)} — taxa ${rate}%`}
+                          </SelectItem>
+                        );
+                      })}
+                    </SelectContent>
+                  </Select>
                 </div>
               )}
 
@@ -597,7 +568,7 @@ const POSPage = () => {
                       <div>
                         <div className="text-xs font-medium text-foreground">Repassar taxa ao cliente</div>
                         <div className="text-xs text-muted-foreground">
-                          Taxa {effectiveFeeRate}% = {new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(taxAmount)}
+                          Taxa {effectiveFeeRate}% = {formatCurrencyBRL(taxAmount)}
                         </div>
                       </div>
                       <button
@@ -620,35 +591,35 @@ const POSPage = () => {
                 <div className="space-y-1.5 text-sm">
                   <div className="flex justify-between text-muted-foreground">
                     <span>Subtotal</span>
-                    <span>{new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(subtotal)}</span>
+                    <span>{formatCurrencyBRL(subtotal)}</span>
                   </div>
                   {discountAmount > 0 && (
                     <div className="flex justify-between text-emerald-600">
                       <span>Desconto ({discountPct}%)</span>
-                      <span>- {new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(discountAmount)}</span>
+                      <span>- {formatCurrencyBRL(discountAmount)}</span>
                     </div>
                   )}
                   {surchargeManual > 0 && (
                     <div className="flex justify-between text-amber-600">
                       <span>Acréscimo</span>
-                      <span>+ {new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(surchargeManual)}</span>
+                      <span>+ {formatCurrencyBRL(surchargeManual)}</span>
                     </div>
                   )}
                   {financialFee > 0 && (
                     <div className="flex justify-between text-amber-600">
                       <span>Taxa operadora ({effectiveFeeRate}%)</span>
-                      <span>+ {new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(financialFee)}</span>
+                      <span>+ {formatCurrencyBRL(financialFee)}</span>
                     </div>
                   )}
                   <div className="flex justify-between font-bold text-base pt-1.5 border-t border-border">
                     <span>Total</span>
                     <span className="text-[hsl(var(--vf-sales))]">
-                      {new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(totalFinal)}
+                      {formatCurrencyBRL(totalFinal)}
                     </span>
                   </div>
                   {allowsInstallments && installments > 1 && (
                     <div className="text-xs text-center text-muted-foreground">
-                      {installments}x de {new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(totalFinal / installments)}
+                      {installments}x de {formatCurrencyBRL(totalFinal / installments)}
                     </div>
                   )}
                 </div>

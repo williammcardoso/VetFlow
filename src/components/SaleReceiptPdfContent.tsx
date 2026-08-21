@@ -15,14 +15,15 @@ Font.register({
 Font.registerHyphenationCallback((word) => [word]);
 
 const TEAL = "#0F766E";
+const INK = "#1F2937";
 const DARK = "#111827";
 const GRAY = "#6B7280";
-const LIGHT_GRAY = "#F9FAFB";
+const LIGHT_GRAY = "#F5F6F7";
 const WHITE = "#FFFFFF";
 const AMBER = "#B45309";
 const EMERALD = "#065F46";
-const BORDER = "#E5E7EB";
-const SLATE = "#64748B";
+const BORDER = "#D8DDE2";
+const SLATE = "#4B5563";
 
 const base = StyleSheet.create({
   page: {
@@ -147,11 +148,11 @@ const base = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingVertical: 4,
-    paddingHorizontal: 0,
-    borderTopWidth: 1.5,
-    borderTopColor: TEAL,
-    marginTop: 3,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    backgroundColor: INK,
+    borderRadius: 4,
+    marginTop: 5,
   },
   tlLabel: { fontSize: 8.5, color: GRAY },
   tlValue: { fontSize: 8.5, color: DARK, fontWeight: 700 },
@@ -159,8 +160,8 @@ const base = StyleSheet.create({
   tlValueAmber: { fontSize: 8.5, color: AMBER, fontWeight: 700 },
   tlLabelGreen: { fontSize: 8.5, color: EMERALD },
   tlValueGreen: { fontSize: 8.5, color: EMERALD, fontWeight: 700 },
-  tlLabelHL: { fontSize: 10, color: TEAL, fontWeight: 700 },
-  tlValueHL: { fontSize: 10, color: TEAL, fontWeight: 700 },
+  tlLabelHL: { fontSize: 10, color: WHITE, fontWeight: 700 },
+  tlValueHL: { fontSize: 10, color: WHITE, fontWeight: 700 },
 
   // Cards financeiros
   finRow: { flexDirection: "row", gap: 8, marginBottom: 20 },
@@ -200,7 +201,7 @@ const base = StyleSheet.create({
     marginTop: 4,
   },
   sigArea: { flex: 1, alignItems: "center" },
-  sigLine: { height: 1, backgroundColor: "#CBD5E1", width: "100%", marginTop: 32, marginBottom: 5 },
+  sigLine: { height: 1, backgroundColor: "#9AA3AE", width: "100%", marginTop: 32, marginBottom: 5 },
   sigName: { fontSize: 9, color: DARK, fontWeight: 700, textAlign: "center" },
   sigSub: { fontSize: 7.5, color: GRAY, textAlign: "center", marginTop: 2 },
 
@@ -491,7 +492,10 @@ const SaleReceiptPdfContent: React.FC<SaleReceiptPdfContentProps> = (props) => {
           <Text style={base.footerText}>
             {isInternal ? "DOCUMENTO INTERNO — NAO COMPARTILHAR" : company.companyName}
           </Text>
-          <Text style={base.footerText}>Emitido em {today}</Text>
+          <Text
+            style={base.footerText}
+            render={({ pageNumber, totalPages }) => `Página ${pageNumber} de ${totalPages} — Emitido em ${today}`}
+          />
         </View>
 
       </Page>

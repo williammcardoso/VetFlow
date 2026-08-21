@@ -4,11 +4,16 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { cn, formatDateTime, parseItemQty } from "@/lib/utils";
+import { cn, formatCurrencyBRL, formatDateTime, parseItemQty } from "@/lib/utils";
 import { useFinancialTransactions } from "@/hooks/useFinancialTransactions";
 import type { FinancialTransaction } from "@/mockData/financial";
 import { getSaleItemsBySaleIds, type SaleItem } from "@/lib/saleItemsApi";
 import { groupRepassesByProvider } from "@/lib/costProviders";
+import { classifyTransaction } from "@/lib/financialTransactionDisplay";
+import { toast } from "sonner";
+import FinancialOverviewPdfContent from "@/components/FinancialOverviewPdfContent";
+import { createPdfBlob, openPdf } from "@/lib/pdfExport";
+import { exportRowsToXlsx } from "@/lib/xlsxExport";
 import {
   DollarSign,
   CheckCircle,
@@ -18,6 +23,7 @@ import {
   Clock,
   PawPrint,
   Wallet,
+  ArrowUpRight,
 } from "lucide-react";
 import { PageHeader } from "@/components/saas/PageHeader";
 import { PageShell } from "@/components/saas/PageShell";
@@ -59,44 +65,6 @@ const PERIOD_SHORTCUTS: { label: string; range: () => { from: string; to: string
   },
 ];
 
-/**
- * Classifica o lançamento para a lista. Um estorno é `type: "income"` com
- * valor NEGATIVO — sem tratar isso, ele aparecia verde como se fosse entrada.
- */
-const classifyTransaction = (t: FinancialTransaction) => {
-  const isRefund = t.amount < 0;
-  if (isRefund) {
-    return {
-      label: "Estorno",
-      badgeClass: "bg-red-100 text-red-700",
-      amountClass: "text-red-600",
-      signal: "− ",
-    };
-  }
-  if (t.type === "expense") {
-    return {
-      label: t.category === "Estoque" ? "Compra" : "Saída",
-      badgeClass: "bg-orange-100 text-orange-700",
-      amountClass: "text-orange-700",
-      signal: "− ",
-    };
-  }
-  if (t.category === "Recebimento") {
-    return {
-      label: "Recebimento",
-      badgeClass: "bg-emerald-100 text-emerald-700",
-      amountClass: "text-emerald-700",
-      signal: "+ ",
-    };
-  }
-  return {
-    label: "Venda",
-    badgeClass: "bg-blue-100 text-blue-700",
-    amountClass: "text-blue-700",
-    signal: "",
-  };
-};
-
 // Descrições de venda vêm como "Venda para X (Y): Item1 x1, Item2 x2" — separa
 // quem comprou dos itens em si, que é o que a pessoa quer identificar rápido.
 const splitSaleDescription = (label: string): { who?: string; items: string } => {
@@ -125,11 +93,12 @@ const sumReceiptsForSale = (list: FinancialTransaction[], saleId: string) => {
 };
 
 const FinancialPage: React.FC = () => {
-  const [dateFrom, setDateFrom] = useState<string>("");
-  const [dateTo, setDateTo] = useState<string>("");
+  const [dateFrom, setDateFrom] = useState<string>(() => PERIOD_SHORTCUTS[0].range().from);
+  const [dateTo, setDateTo] = useState<string>(() => PERIOD_SHORTCUTS[0].range().to);
   const [drilldown, setDrilldown] = useState<"faturado" | "recebido" | "aberto" | "custo" | "compras" | null>(null);
   const { transactions, loading } = useFinancialTransactions();
   const [periodSaleItems, setPeriodSaleItems] = useState<SaleItem[]>([]);
+  const [exportingPdf, setExportingPdf] = useState(false);
 
   // Itens das vendas do período — repasse a prestador de verdade vem daqui
   // (sale_items.cost/costProvider), não do campo supplierCost da transação
@@ -192,8 +161,15 @@ const FinancialPage: React.FC = () => {
     const repassesPorPrestador = groupRepassesByProvider(periodSaleItems);
     const totalRepassesPorItem = repassesPorPrestador.reduce((s, r) => s + r.amount, 0);
     const costItems = sales.filter((s) => (s.supplierCost ?? 0) > 0);
-    const totalRepassesLegado = sales.reduce((s, t) => s + (t.supplierCost ?? 0), 0);
-    const totalRepasses = totalRepassesPorItem > 0 ? totalRepassesPorItem : totalRepassesLegado;
+    // Some vendas com sale_items (custo por item, atual) só com vendas SEM
+    // nenhum sale_item (legado puro) — antes escolhia um total OU outro, e
+    // se o período tivesse os dois tipos misturados, o repasse das vendas
+    // legadas sumia silenciosamente da soma.
+    const saleIdsWithItems = new Set(periodSaleItems.map((i) => i.saleId));
+    const totalRepassesLegado = sales
+      .filter((t) => !saleIdsWithItems.has(t.id))
+      .reduce((s, t) => s + (t.supplierCost ?? 0), 0);
+    const totalRepasses = totalRepassesPorItem + totalRepassesLegado;
     const totalTaxas = sales.reduce((s, t) => s + (t.financialFee ?? 0), 0);
 
     // Compras de estoque do período (Almoxarifado) — desde 2026-08-07 é daqui
@@ -361,57 +337,48 @@ const FinancialPage: React.FC = () => {
     );
   };
 
-  const handleExportPdf = () => {
-    const popup = window.open("", "_blank", "width=1024,height=768");
-    if (!popup) return;
-    const currency = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
-    const rows = data.lastTransactions
-      .map(
-        (t) =>
-          `<tr><td>${formatDateTime(t.date, t.time)}</td><td>${t.description}</td><td>${t.category}</td><td style="text-align:right">${currency(t.amount)}</td><td>${t.type === "income" ? "Entrada" : "Saída"}</td></tr>`
-      )
-      .join("");
-    popup.document.write(`
-      <html><head><title>Visão Geral Financeira</title><style>
-      body{font-family:Arial,sans-serif;padding:24px;color:#0f172a} h1{margin:0 0 8px} h2{margin:22px 0 8px}
-      table{width:100%;border-collapse:collapse;margin-top:8px} th,td{border:1px solid #e2e8f0;padding:8px;font-size:12px} th{background:#f8fafc;text-align:left}
-      .kpi{display:inline-block;margin-right:16px;margin-bottom:8px;padding:10px 12px;border:1px solid #e2e8f0;border-radius:10px;background:#fff}
-      </style></head><body>
-      <h1>Visão Geral Financeira</h1><p>${data.periodLabel}</p>
-      <div class="kpi"><strong>Total faturado:</strong> ${currency(data.totalFaturado)}</div>
-      <div class="kpi"><strong>Total recebido:</strong> ${currency(data.totalRecebido)}</div>
-      <div class="kpi"><strong>Em aberto:</strong> ${currency(data.totalEmAberto)}</div>
-      <div class="kpi"><strong>Ticket médio:</strong> ${currency(data.ticketMedio)}</div>
-      <h2>Últimas transações</h2>
-      <table><thead><tr><th>Data</th><th>Descrição</th><th>Categoria</th><th style="text-align:right">Valor</th><th>Tipo</th></tr></thead><tbody>${rows || "<tr><td colspan='5'>Sem dados</td></tr>"}</tbody></table>
-      </body></html>
-    `);
-    popup.document.close();
-    popup.focus();
-    popup.print();
+  const handleExportPdf = async () => {
+    setExportingPdf(true);
+    try {
+      const blob = await createPdfBlob(
+        <FinancialOverviewPdfContent
+          periodLabel={data.periodLabel}
+          totalFaturado={data.totalFaturado}
+          totalRecebido={data.totalRecebido}
+          totalEmAberto={data.totalEmAberto}
+          ticketMedio={data.ticketMedio}
+          percentRecebido={data.percentRecebido}
+          totalRepasses={data.totalRepasses}
+          totalCompras={data.totalCompras}
+          lucroReal={data.lucroReal}
+          margemReal={data.margemReal}
+          situacao={data.situacao}
+          lastTransactions={data.lastTransactions}
+        />
+      );
+      await openPdf({ blob, fileName: `visao-geral-financeira-${new Date().toISOString().slice(0, 10)}.pdf` });
+    } catch {
+      toast.error("Erro ao gerar PDF da Visão Geral.");
+    } finally {
+      setExportingPdf(false);
+    }
   };
 
   const handleExportExcel = () => {
-    const header = ["Data", "Descrição", "Categoria", "Valor", "Tipo"];
-    const lines = data.lastTransactions.map((t) => [
-      formatDateTime(t.date, t.time),
-      t.description,
-      t.category || "",
-      String(t.amount).replace(".", ","),
-      t.type === "income" ? "Entrada" : "Saída",
+    exportRowsToXlsx(`visao-geral-financeira-${new Date().toISOString().slice(0, 10)}`, [
+      {
+        name: "Últimas transações",
+        headers: ["Data", "Descrição", "Categoria", "Valor", "Tipo"],
+        rows: data.lastTransactions.map((t) => [
+          formatDateTime(t.date, t.time),
+          t.description,
+          t.category || "",
+          t.amount,
+          t.type === "income" ? "Entrada" : "Saída",
+        ]),
+        currencyColumns: [3],
+      },
     ]);
-    const csv = [header, ...lines]
-      .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(";"))
-      .join("\n");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `visao-geral-financeira-${new Date().toISOString().slice(0, 10)}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
   };
 
   return (
@@ -424,8 +391,8 @@ const FinancialPage: React.FC = () => {
         breadcrumb={<>Painel &gt; Financeiro</>}
         actions={
           <div className="flex flex-wrap gap-2">
-            <Button variant="outline" className="rounded-xl border-primary/20 shadow-sm" onClick={handleExportPdf}>
-              Exportar PDF
+            <Button variant="outline" className="rounded-xl border-primary/20 shadow-sm" onClick={() => void handleExportPdf()} disabled={exportingPdf}>
+              {exportingPdf ? "Gerando PDF..." : "Exportar PDF"}
             </Button>
             <Button variant="outline" className="rounded-xl border-primary/20 shadow-sm" onClick={handleExportExcel}>
               Exportar Excel
@@ -440,7 +407,7 @@ const FinancialPage: React.FC = () => {
         icon={Wallet}
         tone="finance"
       >
-        <div className="relative overflow-hidden rounded-xl border border-border bg-muted/30 p-4 dark:bg-muted/20">
+        <div className="relative overflow-hidden rounded-xl border border-border bg-muted/30 p-4">
           <PawPrint className="pointer-events-none absolute -right-2 -top-2 h-24 w-24 text-primary/10" aria-hidden />
           {/* Campos de data com largura fixa (antes cada um ocupava metade da
               tela) + atalhos, que é como o período costuma ser escolhido. */}
@@ -507,11 +474,11 @@ const FinancialPage: React.FC = () => {
               className={cn(
                 "rounded-full px-3 py-1 text-xs font-medium",
                 data.situacao === "Estável" &&
-                  "bg-emerald-500/15 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-300",
+                  "bg-emerald-500/15 text-emerald-800",
                 data.situacao === "Atenção" &&
-                  "bg-amber-500/15 text-amber-900 dark:bg-amber-500/20 dark:text-amber-200",
+                  "bg-amber-500/15 text-amber-900",
                 data.situacao === "Pendências" &&
-                  "bg-red-500/15 text-red-800 dark:bg-red-500/20 dark:text-red-300"
+                  "bg-red-500/15 text-red-800"
               )}
             >
               {data.situacao}
@@ -519,16 +486,16 @@ const FinancialPage: React.FC = () => {
           </CardHeader>
           <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-0">
             <div
-              className="cursor-pointer rounded-xl border border-border bg-muted/40 p-3 transition-colors hover:border-[hsl(var(--vf-finance)/0.35)] dark:bg-muted/25"
+              className="cursor-pointer rounded-xl border border-border bg-muted/40 p-3 transition-colors hover:border-[hsl(var(--vf-finance)/0.35)]"
               onClick={() => setDrilldown("faturado")}
             >
               <div className="text-xs text-muted-foreground">Total faturado</div>
               <div className="text-2xl font-bold text-foreground">
-                {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(data.totalFaturado)}
+                {formatCurrencyBRL(data.totalFaturado)}
               </div>
             </div>
             <div
-              className="cursor-pointer rounded-xl border border-border bg-muted/40 p-3 transition-colors hover:border-[hsl(var(--vf-finance)/0.35)] dark:bg-muted/25"
+              className="cursor-pointer rounded-xl border border-border bg-muted/40 p-3 transition-colors hover:border-[hsl(var(--vf-finance)/0.35)]"
               onClick={() => setDrilldown("recebido")}
             >
               <div className="text-xs text-muted-foreground">% recebido</div>
@@ -536,17 +503,17 @@ const FinancialPage: React.FC = () => {
                 className={cn(
                   "text-2xl font-bold",
                   data.percentRecebido >= 80
-                    ? "text-emerald-600 dark:text-emerald-400"
+                    ? "text-emerald-600"
                     : data.percentRecebido >= 50
                       ? "text-vf-finance"
-                      : "text-red-600 dark:text-red-400"
+                      : "text-red-600"
                 )}
               >
                 {data.percentRecebido}%
               </div>
             </div>
             <div
-              className="cursor-pointer rounded-xl border border-border bg-muted/40 p-3 transition-colors hover:border-[hsl(var(--vf-finance)/0.35)] dark:bg-muted/25"
+              className="cursor-pointer rounded-xl border border-border bg-muted/40 p-3 transition-colors hover:border-[hsl(var(--vf-finance)/0.35)]"
               onClick={() => setDrilldown("aberto")}
             >
               <div className="text-xs text-muted-foreground">Pendências</div>
@@ -565,7 +532,7 @@ const FinancialPage: React.FC = () => {
               <div>
                 <div className="text-xs text-muted-foreground">Total Faturado</div>
                 <div className="text-xl font-bold text-foreground">
-                  {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(data.totalFaturado)}
+                  {formatCurrencyBRL(data.totalFaturado)}
                 </div>
               </div>
               <DollarSign className="h-5 w-5 text-vf-finance" />
@@ -576,7 +543,7 @@ const FinancialPage: React.FC = () => {
               <div>
                 <div className="text-xs text-muted-foreground">Total Recebido</div>
                 <div className="text-xl font-bold text-vf-finance">
-                  {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(data.totalRecebido)}
+                  {formatCurrencyBRL(data.totalRecebido)}
                 </div>
               </div>
               <CheckCircle className="h-5 w-5 text-vf-finance" />
@@ -587,7 +554,7 @@ const FinancialPage: React.FC = () => {
               <div>
                 <div className="text-xs text-muted-foreground">Em Aberto</div>
                 <div className={cn("text-xl font-bold", data.totalEmAberto > 0 ? "text-red-700" : "text-green-700")}>
-                  {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(data.totalEmAberto)}
+                  {formatCurrencyBRL(data.totalEmAberto)}
                 </div>
               </div>
               <AlertCircle className={cn("h-5 w-5", data.totalEmAberto > 0 ? "text-red-700" : "text-green-700")} />
@@ -598,7 +565,7 @@ const FinancialPage: React.FC = () => {
               <div>
                 <div className="text-xs text-muted-foreground">Ticket Médio</div>
                 <div className="text-xl font-bold text-foreground">
-                  {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(data.ticketMedio)}
+                  {formatCurrencyBRL(data.ticketMedio)}
                 </div>
               </div>
               <Tag className="h-5 w-5 text-vf-finance" />
@@ -611,7 +578,7 @@ const FinancialPage: React.FC = () => {
               <div>
                 <div className="text-xs text-muted-foreground">Repasses (prestador)</div>
                 <div className="text-xl font-bold text-amber-700">
-                  {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(data.totalRepasses)}
+                  {formatCurrencyBRL(data.totalRepasses)}
                 </div>
               </div>
               <Tag className="h-5 w-5 text-amber-700" />
@@ -622,7 +589,7 @@ const FinancialPage: React.FC = () => {
               <div>
                 <div className="text-xs text-muted-foreground">Compras (Almoxarifado)</div>
                 <div className="text-xl font-bold text-amber-700">
-                  {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(data.totalCompras)}
+                  {formatCurrencyBRL(data.totalCompras)}
                 </div>
               </div>
               <Tag className="h-5 w-5 text-amber-700" />
@@ -636,7 +603,10 @@ const FinancialPage: React.FC = () => {
                   Lucro real{data.totalFaturado > 0 ? ` · ${data.margemReal}%` : ""}
                 </div>
                 <div className="text-xl font-bold text-emerald-700">
-                  {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(data.lucroReal)}
+                  {formatCurrencyBRL(data.lucroReal)}
+                </div>
+                <div className="text-[10px] text-primary font-medium mt-0.5 flex items-center gap-0.5">
+                  Ver Fechamento 50/50 <ArrowUpRight className="h-2.5 w-2.5" />
                 </div>
               </div>
               <TrendingUp className="h-5 w-5 text-emerald-700" />
@@ -649,10 +619,13 @@ const FinancialPage: React.FC = () => {
               <div>
                 <div className="text-xs text-muted-foreground">Metade 50/50 (cada parte)</div>
                 <div className="text-xl font-bold text-foreground">
-                  {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(data.lucroReal / 2)}
+                  {formatCurrencyBRL(data.lucroReal / 2)}
                 </div>
                 <div className="text-[10px] text-muted-foreground mt-0.5">
                   Clínica / Agropecuária
+                </div>
+                <div className="text-[10px] text-primary font-medium mt-0.5 flex items-center gap-0.5">
+                  Ver Fechamento 50/50 <ArrowUpRight className="h-2.5 w-2.5" />
                 </div>
               </div>
               <Wallet className="h-5 w-5 text-vf-finance" />
@@ -716,7 +689,7 @@ const FinancialPage: React.FC = () => {
                       </div>
                       <div className={cn("shrink-0 text-sm font-bold tabular-nums", kind.amountClass)}>
                         {kind.signal}
-                        {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(
+                        {formatCurrencyBRL(
                           Math.abs(t.amount)
                         )}
                       </div>
@@ -744,7 +717,7 @@ const FinancialPage: React.FC = () => {
                   <div>• Existem pendências financeiras no período.</div>
                   <div>
                     • Vendas pendentes: {data.vendasPendentes} | Em aberto:{" "}
-                    {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(data.totalEmAberto)}
+                    {formatCurrencyBRL(data.totalEmAberto)}
                   </div>
                 </>
               ) : (
@@ -764,7 +737,7 @@ const FinancialPage: React.FC = () => {
               type="button"
               className={cn(
                 "flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-border bg-card text-sm font-medium shadow-sm transition-colors hover:border-primary/30 hover:bg-accent",
-                data.totalEmAberto > 0 && "border-red-400/60 dark:border-red-500/50"
+                data.totalEmAberto > 0 && "border-red-400/60"
               )}
             >
               <AlertCircle className="h-4 w-4" />
@@ -832,7 +805,7 @@ const FinancialPage: React.FC = () => {
                         </div>
                         <div className="flex shrink-0 items-center gap-2">
                           <div className={cn("text-sm font-bold tabular-nums", row.valueClass)}>
-                            {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(row.value)}
+                            {formatCurrencyBRL(row.value)}
                           </div>
                           {drilldown === "aberto" && row.id && (
                             <span className="rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-semibold text-red-700">
@@ -866,7 +839,7 @@ const FinancialPage: React.FC = () => {
               <div className="flex items-center justify-between border-t border-border pt-3 text-sm font-semibold">
                 <span>Total</span>
                 <span>
-                  {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(
+                  {formatCurrencyBRL(
                     drilldownContent[drilldown].rows.reduce((s, r) => s + r.value, 0)
                   )}
                 </span>

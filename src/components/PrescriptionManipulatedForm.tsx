@@ -365,7 +365,7 @@ const PrescriptionManipulatedForm: React.FC<PrescriptionManipulatedFormProps> = 
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
       <div className="col-span-1 lg:col-span-2 space-y-6">
         {/* Composição da Fórmula */}
-        <Card className="shadow-sm border border-border rounded-md">
+        <Card className="vf-surface-card vf-tone-clinical rounded-xl">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg font-semibold text-foreground">
               <FaFlask className="h-5 w-5 text-primary" /> Composição da Fórmula
@@ -389,7 +389,7 @@ const PrescriptionManipulatedForm: React.FC<PrescriptionManipulatedFormProps> = 
         </Card>
 
         {/* Veículo / Excipiente */}
-        <Card className="shadow-sm border border-border rounded-md">
+        <Card className="vf-surface-card vf-tone-clinical rounded-xl">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg font-semibold text-foreground">
               <FaVial className="h-5 w-5 text-primary" /> Veículo / Excipiente
@@ -437,7 +437,7 @@ const PrescriptionManipulatedForm: React.FC<PrescriptionManipulatedFormProps> = 
         </Card>
 
         {/* Posologia */}
-        <Card className="shadow-sm border border-border rounded-md">
+        <Card className="vf-surface-card vf-tone-clinical rounded-xl">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg font-semibold text-foreground">
               <FaPills className="h-5 w-5 text-primary" /> Posologia
@@ -446,8 +446,8 @@ const PrescriptionManipulatedForm: React.FC<PrescriptionManipulatedFormProps> = 
           <CardContent>
             <Tabs defaultValue={posologyType} onValueChange={(value) => setPosologyType(value as 'automatic' | 'freeText')} className="w-full">
               <TabsList className="grid w-full grid-cols-2 bg-muted rounded-md p-1 mb-4">
-                <TabsTrigger value="automatic" className="rounded-sm data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-colors duration-200 text-muted-foreground data-[state=active]:dark:bg-primary">Automática</TabsTrigger>
-                <TabsTrigger value="freeText" className="rounded-sm data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-colors duration-200 text-muted-foreground data-[state=active]:dark:bg-primary">Texto Livre</TabsTrigger>
+                <TabsTrigger value="automatic" className="rounded-sm data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-colors duration-200 text-muted-foreground">Automática</TabsTrigger>
+                <TabsTrigger value="freeText" className="rounded-sm data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-colors duration-200 text-muted-foreground">Texto Livre</TabsTrigger>
               </TabsList>
               <TabsContent value="automatic" className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -618,7 +618,7 @@ const PrescriptionManipulatedForm: React.FC<PrescriptionManipulatedFormProps> = 
         </Card>
 
         {/* Detalhes do Produto (apenas 'Via' agora) */}
-        <Card className="shadow-sm border border-border rounded-md">
+        <Card className="vf-surface-card vf-tone-clinical rounded-xl">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg font-semibold text-foreground">
               <FaFileMedical className="h-5 w-5 text-primary" /> Detalhes do Produto
@@ -657,7 +657,7 @@ const PrescriptionManipulatedForm: React.FC<PrescriptionManipulatedFormProps> = 
         </Card>
 
         {/* Observações Gerais da Receita Manipulada */}
-        <Card className="shadow-sm border border-border rounded-md">
+        <Card className="vf-surface-card vf-tone-clinical rounded-xl">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg font-semibold text-foreground">
               <FaInfoCircle className="h-5 w-5 text-muted-foreground" /> Observações Gerais da Receita
@@ -683,14 +683,14 @@ const PrescriptionManipulatedForm: React.FC<PrescriptionManipulatedFormProps> = 
 
       {/* Prévia da Fórmula (Sidebar) */}
       <div className="col-span-1 lg:col-span-1">
-        <Card className="sticky top-2 shadow-sm border border-border rounded-md">
+        <Card className="sticky top-2 vf-surface-card vf-tone-clinical rounded-xl">
           <CardHeader>
             <CardTitle className="text-sm">Prévia da Fórmula</CardTitle>
           </CardHeader>
           <CardContent className="text-sm text-muted-foreground space-y-2 p-3">
             {displayProductRoute && (
               <div className="pb-2">
-                <p className="font-semibold text-black mb-2 border-b border-border pb-2">VIA {displayProductRoute.toUpperCase()}</p>
+                <p className="font-semibold text-foreground mb-2 border-b border-border pb-2">VIA {displayProductRoute.toUpperCase()}</p>
               </div>
             )}
 

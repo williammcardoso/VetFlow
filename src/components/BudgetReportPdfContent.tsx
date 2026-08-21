@@ -215,7 +215,7 @@ const BudgetReportPdfContent: React.FC<BudgetReportPdfContentProps> = ({
   const hasNegotiation = discountAmount > 0 || surchargeAmount > 0;
   const total = Math.max(0, itemsSubtotal - discountAmount + surchargeAmount);
   const vetName =
-    userProfile?.signature_text?.trim() || userProfile?.full_name?.trim() || "Nao informado";
+    userProfile?.signature_text?.trim() || userProfile?.full_name?.trim() || "Não informado";
   const validityDays = (budget as Budget & { validityDays?: number }).validityDays ?? 15;
   const rawPhone = tutorPhone || budget.clientPhone;
   const phone = rawPhone ? formatPhoneBR(rawPhone) || rawPhone : "";
@@ -249,7 +249,7 @@ const BudgetReportPdfContent: React.FC<BudgetReportPdfContentProps> = ({
         {/* Titulo */}
         <View style={styles.docMeta}>
           <View>
-            <Text style={styles.docTitle}>ORCAMENTO</Text>
+            <Text style={styles.docTitle}>ORÇAMENTO</Text>
             <Text style={styles.docType}>
               Emitido por {vetName}  ·  CRMV {company.crmv}
             </Text>
@@ -264,7 +264,7 @@ const BudgetReportPdfContent: React.FC<BudgetReportPdfContentProps> = ({
         <View style={styles.infoRow}>
           <View style={styles.infoBox}>
             <Text style={styles.infoLabel}>TUTOR / RESPONSAVEL</Text>
-            <Text style={styles.infoValue}>{budget.clientName || "Nao informado"}</Text>
+            <Text style={styles.infoValue}>{budget.clientName || "Não informado"}</Text>
             {phone && (
               <Text style={styles.infoMeta}>
                 <Text style={styles.infoMetaLabel}>Tel: </Text>{phone}
@@ -278,7 +278,7 @@ const BudgetReportPdfContent: React.FC<BudgetReportPdfContentProps> = ({
           </View>
           <View style={styles.infoBox}>
             <Text style={styles.infoLabel}>PACIENTE</Text>
-            <Text style={styles.infoValue}>{budget.animalName || "Nao informado"}</Text>
+            <Text style={styles.infoValue}>{budget.animalName || "Não informado"}</Text>
             {(petSpecies || petBreed) && (
               <Text style={styles.infoMeta}>
                 {[petSpecies, petBreed].filter(Boolean).join(" · ")}
@@ -294,7 +294,7 @@ const BudgetReportPdfContent: React.FC<BudgetReportPdfContentProps> = ({
 
         {/* Itens — sem a coluna Tipo: para o tutor, produto ou servico e irrelevante */}
         <View style={{ marginBottom: 6 }}>
-          <Text style={styles.sectionLabel}>ITENS DO ORCAMENTO</Text>
+          <Text style={styles.sectionLabel}>ITENS DO ORÇAMENTO</Text>
           <View style={styles.tableHead}>
             <Text style={styles.thItem}>Procedimento / Produto</Text>
             <Text style={styles.thQty}>Qtd</Text>
@@ -348,22 +348,22 @@ const BudgetReportPdfContent: React.FC<BudgetReportPdfContentProps> = ({
         {/* Observacoes do orcamento (negociacao, combinados com o tutor) */}
         {budget.notes?.trim() && (
           <View style={styles.obsBox}>
-            <Text style={styles.obsLabel}>OBSERVACOES</Text>
+            <Text style={styles.obsLabel}>OBSERVAÇÕES</Text>
             <Text style={styles.obsText}>{budget.notes.trim()}</Text>
           </View>
         )}
 
-        {/* Condicoes */}
+        {/* Condições */}
         <View style={styles.obsBox}>
-          <Text style={styles.obsLabel}>CONDICOES</Text>
+          <Text style={styles.obsLabel}>CONDIÇÕES</Text>
           <Text style={styles.obsText}>
-            - Validade deste orcamento: {validityDays} dia(s) a partir da data de emissao.
+            - Validade deste orçamento: {validityDays} dia(s) a partir da data de emissão.
           </Text>
           <Text style={styles.obsText}>
-            - Valores sujeitos a alteracao apos o prazo de validade.
+            - Valores sujeitos a alteração após o prazo de validade.
           </Text>
           <Text style={styles.obsText}>
-            - Este documento nao tem validade fiscal. Duvidas: {formatPhoneBR(company.phone) || company.phone} - {company.email}
+            - Este documento não tem validade fiscal. Dúvidas: {formatPhoneBR(company.phone) || company.phone} - {company.email}
           </Text>
         </View>
 
@@ -376,15 +376,18 @@ const BudgetReportPdfContent: React.FC<BudgetReportPdfContentProps> = ({
           </View>
           <View style={styles.sigArea}>
             <View style={styles.sigLine} />
-            <Text style={styles.sigName}>{budget.clientName || "Tutor / Responsavel"}</Text>
-            <Text style={styles.sigSub}>Ciente do orcamento</Text>
+            <Text style={styles.sigName}>{budget.clientName || "Tutor / Responsável"}</Text>
+            <Text style={styles.sigSub}>Ciente do orçamento</Text>
           </View>
         </View>
 
         {/* Footer */}
         <View style={styles.footer} fixed>
           <Text style={styles.footerText}>{company.companyName}</Text>
-          <Text style={styles.footerText}>Emitido em {today}</Text>
+          <Text
+            style={styles.footerText}
+            render={({ pageNumber, totalPages }) => `Página ${pageNumber} de ${totalPages} — Emitido em ${today}`}
+          />
         </View>
       </Page>
     </Document>

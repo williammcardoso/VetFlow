@@ -9,7 +9,39 @@ import { useFinancialTransactions } from "@/hooks/useFinancialTransactions";
 import { PageShell } from "@/components/saas/PageShell";
 import { PageHeader } from "@/components/saas/PageHeader";
 import { SectionCard } from "@/components/saas/SectionCard";
-import { Wallet } from "lucide-react";
+import { Wallet, Crown, Medal } from "lucide-react";
+import { cn, formatCurrencyBRL } from "@/lib/utils";
+
+// Visual do top 3 do ranking — ouro/prata/bronze com ícone e leve realce no
+// card; a partir do 4º lugar é só a bolinha numerada padrão.
+const RANK_TIERS = [
+  {
+    icon: Crown,
+    iconClass: "text-amber-500",
+    avatarClass: "bg-amber-100 text-amber-700 ring-2 ring-amber-300",
+    cardClass: "border-amber-300/70 bg-amber-50/40",
+  },
+  {
+    icon: Medal,
+    iconClass: "text-slate-400",
+    avatarClass: "bg-slate-100 text-slate-600 ring-2 ring-slate-300",
+    cardClass: "border-slate-300/70 bg-slate-50/40",
+  },
+  {
+    icon: Medal,
+    iconClass: "text-orange-700",
+    avatarClass: "bg-orange-100 text-orange-800 ring-2 ring-orange-300",
+    cardClass: "border-orange-300/70 bg-orange-50/40",
+  },
+] as const;
+
+const getInitials = (name: string) =>
+  name
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((p) => p[0]?.toUpperCase() ?? "")
+    .join("") || "?";
 
 const ClientFinancialPage = () => {
   const { data: dbClients } = useClientsList();
@@ -20,7 +52,7 @@ const ClientFinancialPage = () => {
   const ranking = useMemo(() => {
     const totals: Record<string, number> = {};
     mockFinancialTransactions
-      .filter(t => t.type === "income" && t.category === "Venda de Produtos" && t.relatedClientId)
+      .filter(t => t.type === "income" && t.category === "Venda de Produtos" && t.relatedClientId && t.status !== "cancelled")
       .forEach(t => {
         const cid = t.relatedClientId as string;
         totals[cid] = (totals[cid] || 0) + t.amount;
@@ -32,12 +64,15 @@ const ClientFinancialPage = () => {
         amount,
       }))
       .sort((a, b) => b.amount - a.amount);
-  }, [clients]);
+  }, [clients, mockFinancialTransactions]);
 
   const balances = useMemo(() => {
     const totals: Record<string, number> = {};
+    // Mesmo filtro do ranking acima: "Recebimento" é o pagamento de uma venda
+    // já contada em "Venda de Produtos" — contar os dois somava a mesma
+    // venda em dobro no saldo do cliente. Venda cancelada também não conta.
     mockFinancialTransactions
-      .filter(t => t.type === "income" && t.relatedClientId)
+      .filter(t => t.type === "income" && t.category === "Venda de Produtos" && t.relatedClientId && t.status !== "cancelled")
       .forEach(t => {
         const cid = t.relatedClientId as string;
         totals[cid] = (totals[cid] || 0) + t.amount;
@@ -49,10 +84,10 @@ const ClientFinancialPage = () => {
         totalPurchases: totals[c.id] || 0,
       }))
       .sort((a, b) => b.totalPurchases - a.totalPurchases);
-  }, [clients]);
+  }, [clients, mockFinancialTransactions]);
 
   const fmt = (v: number) =>
-    new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
+    formatCurrencyBRL(v);
 
   return (
     <PageShell>
@@ -96,22 +131,64 @@ const ClientFinancialPage = () => {
                 {ranking.length === 0 ? (
                   <p className="text-muted-foreground">Nenhuma venda registrada.</p>
                 ) : (
-                  ranking.map((r, idx) => (
-                    <Card key={r.clientId} className="vf-surface-card vf-tone-sales card-hover p-4 bg-card border border-border/80">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <span className="px-2 py-0.5 text-xs rounded-full bg-muted">#{idx + 1}</span>
-                          <span className="text-sm">{r.name}</span>
+                  ranking.map((r, idx) => {
+                    const tier = RANK_TIERS[idx];
+                    const maxAmount = ranking[0]?.amount || 1;
+                    const barPct = Math.max(4, Math.round((r.amount / maxAmount) * 100));
+                    return (
+                      <Card
+                        key={r.clientId}
+                        className={cn(
+                          "vf-surface-card vf-tone-sales card-hover p-4 bg-card border border-border/80",
+                          tier?.cardClass
+                        )}
+                      >
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="flex min-w-0 items-center gap-3">
+                            <div className="relative shrink-0">
+                              <div
+                                className={cn(
+                                  "flex h-10 w-10 items-center justify-center rounded-full text-xs font-bold",
+                                  tier?.avatarClass ?? "bg-muted text-muted-foreground"
+                                )}
+                              >
+                                {getInitials(r.name)}
+                              </div>
+                              {tier ? (
+                                <tier.icon
+                                  className={cn("absolute -right-1 -top-1 h-4 w-4 rounded-full bg-card p-0.5", tier.iconClass)}
+                                  strokeWidth={2.4}
+                                />
+                              ) : (
+                                <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-muted text-[9px] font-bold text-muted-foreground ring-1 ring-border">
+                                  {idx + 1}
+                                </span>
+                              )}
+                            </div>
+                            <div className="min-w-0">
+                              <span className="block truncate text-sm font-medium">{r.name}</span>
+                              <span className="text-xs text-muted-foreground">{idx + 1}º lugar</span>
+                            </div>
+                          </div>
+                          <span className="shrink-0 text-sm font-semibold text-green-600">{fmt(r.amount)}</span>
                         </div>
-                        <span className="text-sm font-semibold text-green-600">{fmt(r.amount)}</span>
-                      </div>
-                      <div className="mt-2">
-                        <Link to={`/clients/${r.clientId}`}>
-                          <Button variant="outline" size="sm">Ver Cliente</Button>
-                        </Link>
-                      </div>
-                    </Card>
-                  ))
+                        <div className="mt-2.5 h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                          <div
+                            className={cn(
+                              "h-full rounded-full",
+                              idx === 0 ? "bg-amber-400" : idx === 1 ? "bg-slate-400" : idx === 2 ? "bg-orange-500" : "bg-vf-sales"
+                            )}
+                            style={{ width: `${barPct}%` }}
+                          />
+                        </div>
+                        <div className="mt-2.5">
+                          <Link to={`/clients/${r.clientId}`}>
+                            <Button variant="outline" size="sm">Ver Cliente</Button>
+                          </Link>
+                        </div>
+                      </Card>
+                    );
+                  })
                 )}
               </CardContent>
             </Card>
@@ -128,11 +205,16 @@ const ClientFinancialPage = () => {
                 ) : (
                   balances.map(b => (
                     <Card key={b.clientId} className="vf-surface-card vf-tone-sales card-hover p-4 bg-card border border-border/80">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm">{b.name}</span>
-                        <span className="text-sm font-semibold text-green-600">{fmt(b.totalPurchases)}</span>
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex min-w-0 items-center gap-3">
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[hsl(var(--vf-sales)/0.12)] text-xs font-bold text-vf-sales">
+                            {getInitials(b.name)}
+                          </div>
+                          <span className="truncate text-sm font-medium">{b.name}</span>
+                        </div>
+                        <span className="shrink-0 text-sm font-semibold text-green-600">{fmt(b.totalPurchases)}</span>
                       </div>
-                      <div className="mt-2">
+                      <div className="mt-2.5">
                         <Link to={`/clients/${b.clientId}`}>
                           <Button variant="outline" size="sm">Ver Cliente</Button>
                         </Link>

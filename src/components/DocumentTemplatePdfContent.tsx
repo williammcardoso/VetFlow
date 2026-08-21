@@ -15,8 +15,8 @@ Font.registerHyphenationCallback((word) => [word]);
 const TEAL = "#0F766E";
 const DARK = "#111827";
 const GRAY = "#6B7280";
-const SLATE = "#64748B";
-const BORDER = "#E5E7EB";
+const SLATE = "#4B5563";
+const BORDER = "#D8DDE2";
 const LIGHT_GRAY = "#F9FAFB";
 const WHITE = "#FFFFFF";
 const WATERMARK_GRAY = "#9CA3AF";
@@ -120,7 +120,7 @@ const styles = StyleSheet.create({
   sigRow: { flexDirection: "row", justifyContent: "center", gap: 24, marginTop: 16, marginBottom: 4 },
   sigArea: { flex: 1, maxWidth: 220, alignItems: "center" },
   sigImage: { height: 36, maxWidth: 180, marginBottom: 2 },
-  sigLine: { height: 1, backgroundColor: "#CBD5E1", width: "100%", marginBottom: 4 },
+  sigLine: { height: 1, backgroundColor: "#9AA3AE", width: "100%", marginBottom: 4 },
   sigDate: { fontSize: 8, color: SLATE, textAlign: "center", marginBottom: 10 },
   sigName: { fontSize: 8.5, color: DARK, fontWeight: 700, textAlign: "center" },
   sigDoc: { fontSize: 7.5, color: GRAY, textAlign: "center", marginTop: 1 },
@@ -154,7 +154,7 @@ const styles = StyleSheet.create({
   footerLeft: { flexDirection: "column", maxWidth: 380 },
   footerText: { fontSize: 6.5, color: "#9CA3AF" },
   footerHash: { fontSize: 6, color: "#9CA3AF", fontFamily: "Courier" },
-  qrImage: { width: 34, height: 34 },
+  qrImage: { width: 46, height: 46 },
 });
 
 function IdCardView({ card, single }: { card: IdCard; single: boolean }) {

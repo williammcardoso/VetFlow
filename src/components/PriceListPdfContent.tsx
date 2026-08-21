@@ -73,7 +73,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     paddingVertical: 3,
     paddingHorizontal: 8,
-    backgroundColor: "#E5E7EB",
+    backgroundColor: "#D8DDE2",
   },
   tableHeadText: {
     fontSize: 8,
@@ -87,7 +87,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     paddingHorizontal: 8,
     borderBottomWidth: 1,
-    borderBottomColor: "#E5E7EB",
+    borderBottomColor: "#D8DDE2",
   },
   tableRowAlt: { backgroundColor: LIGHT },
   itemName: { flex: 1, fontSize: 9.5, color: DARK },
@@ -113,7 +113,7 @@ const styles = StyleSheet.create({
   obsBox: {
     marginTop: 14,
     borderTopWidth: 1,
-    borderTopColor: "#E5E7EB",
+    borderTopColor: "#D8DDE2",
     paddingTop: 8,
   },
   obsTitle: { fontSize: 8.5, fontWeight: 700, color: GRAY, marginBottom: 4 },
@@ -141,11 +141,11 @@ const CATEGORY_LABELS: Record<string, string> = {
   exame_interno: "Exames Internos",
   especialista: "Especialistas",
   vacina: "Vacinas",
-  servico: "Servicos Gerais",
+  servico: "Serviços Gerais",
   produto: "Produtos",
   medicamento: "Medicamentos",
-  racao: "Racoes",
-  acessorio: "Acessorios",
+  racao: "Rações",
+  acessorio: "Acessórios",
 };
 
 const getCategoryLabel = (cat?: string) =>
@@ -195,7 +195,7 @@ const PriceListPdfContent: React.FC<PriceListPdfContentProps> = ({
       {isInternal && (
         <View style={styles.tableHead}>
           <Text style={[styles.tableHeadText, { flex: 1 }]}>Procedimento</Text>
-          <Text style={[styles.tableHeadText, { width: 72, textAlign: "right" }]}>Preco</Text>
+          <Text style={[styles.tableHeadText, { width: 72, textAlign: "right" }]}>Preço</Text>
           <Text style={[styles.tableHeadText, { width: 72, textAlign: "right" }]}>Repasse</Text>
           <Text style={[styles.tableHeadText, { width: 90, textAlign: "left" }]}>Prestador</Text>
           <Text style={[styles.tableHeadText, { width: 48, textAlign: "right" }]}>Margem</Text>
@@ -237,7 +237,7 @@ const PriceListPdfContent: React.FC<PriceListPdfContentProps> = ({
           <View style={styles.headerLeft}>
             <Text style={styles.doctorName}>{user.userName || company.companyName}</Text>
             <Text style={styles.doctorTitle}>
-              Medico(a) Veterinario(a) - CRMV-SP {company.crmv}
+              Médico(a) Veterinário(a) - CRMV {company.crmv}
             </Text>
             {company.mapaRegistration && (
               <Text style={styles.doctorTitle}>
@@ -257,10 +257,10 @@ const PriceListPdfContent: React.FC<PriceListPdfContentProps> = ({
         <View style={styles.divider} fixed />
 
         <Text style={styles.tableTitle}>
-          {showCosts ? "TABELA DE PRECOS - USO INTERNO" : "TABELA DE PRECOS"}
+          {showCosts ? "TABELA DE PREÇOS - USO INTERNO" : "TABELA DE PREÇOS"}
         </Text>
         <Text style={styles.subTitle}>
-          {user.userName} - CRMV-SP {company.crmv}
+          {user.userName} - CRMV {company.crmv}
         </Text>
 
         {/* Servicos */}
@@ -277,15 +277,15 @@ const PriceListPdfContent: React.FC<PriceListPdfContentProps> = ({
         {/* Observacoes */}
         {!showCosts && (
           <View style={styles.obsBox}>
-            <Text style={styles.obsTitle}>OBSERVACOES</Text>
+            <Text style={styles.obsTitle}>OBSERVAÇÕES</Text>
             <Text style={styles.obsText}>
-              - Valores referem-se exclusivamente ao ato cirurgico/procedimento.
+              - Valores referem-se exclusivamente ao ato cirúrgico/procedimento.
             </Text>
             <Text style={styles.obsText}>
-              - Anestesia, materiais e internacao cobrados a parte quando nao especificado.
+              - Anestesia, materiais e internação cobrados à parte quando não especificado.
             </Text>
             <Text style={styles.obsText}>
-              - Valores sujeitos a reajuste sem aviso previo.
+              - Valores sujeitos a reajuste sem aviso prévio.
             </Text>
           </View>
         )}
@@ -293,12 +293,12 @@ const PriceListPdfContent: React.FC<PriceListPdfContentProps> = ({
         {/* Footer fixo em todas as paginas */}
         <View style={styles.footer} fixed>
           <Text style={styles.footerText}>
-            {showCosts ? "DOCUMENTO INTERNO - NAO COMPARTILHAR" : company.companyName}
+            {showCosts ? "DOCUMENTO INTERNO - NÃO COMPARTILHAR" : company.companyName}
           </Text>
           <Text
             style={styles.footerText}
             render={({ pageNumber, totalPages }) =>
-              `Pagina ${pageNumber} de ${totalPages} - Gerado em ${today}`
+              `Página ${pageNumber} de ${totalPages} - Gerado em ${today}`
             }
           />
         </View>

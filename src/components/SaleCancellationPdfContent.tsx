@@ -14,12 +14,13 @@ Font.register({
 Font.registerHyphenationCallback((word) => [word]);
 
 const RED = "#B91C1C";
+const INK = "#1F2937";
 const DARK = "#111827";
 const GRAY = "#6B7280";
-const LIGHT_GRAY = "#F9FAFB";
+const LIGHT_GRAY = "#F5F6F7";
 const WHITE = "#FFFFFF";
-const BORDER = "#E5E7EB";
-const SLATE = "#64748B";
+const BORDER = "#D8DDE2";
+const SLATE = "#4B5563";
 
 const s = StyleSheet.create({
   page: {
@@ -106,13 +107,16 @@ const s = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingVertical: 5,
-    borderTopWidth: 1.5,
-    borderTopColor: RED,
+    paddingVertical: 7,
+    paddingHorizontal: 10,
+    backgroundColor: INK,
+    borderRadius: 4,
+    borderLeftWidth: 3,
+    borderLeftColor: RED,
     marginTop: 3,
   },
-  tlLabelHL: { fontSize: 11, color: RED, fontWeight: 700 },
-  tlValueHL: { fontSize: 11, color: RED, fontWeight: 700 },
+  tlLabelHL: { fontSize: 11, color: WHITE, fontWeight: 700 },
+  tlValueHL: { fontSize: 11, color: WHITE, fontWeight: 700 },
   reasonBox: {
     borderWidth: 1,
     borderColor: "#FCA5A5",
@@ -125,7 +129,7 @@ const s = StyleSheet.create({
   reasonText: { fontSize: 9, color: DARK },
   sigRow: { flexDirection: "row", justifyContent: "center", marginTop: 24 },
   sigArea: { flex: 1, maxWidth: 260, alignItems: "center" },
-  sigLine: { height: 1, backgroundColor: "#CBD5E1", width: "100%", marginTop: 32, marginBottom: 5 },
+  sigLine: { height: 1, backgroundColor: "#9AA3AE", width: "100%", marginTop: 32, marginBottom: 5 },
   sigName: { fontSize: 9, color: DARK, fontWeight: 700, textAlign: "center" },
   sigSub: { fontSize: 7.5, color: GRAY, textAlign: "center", marginTop: 2 },
   footer: {
@@ -306,7 +310,10 @@ const SaleCancellationPdfContent: React.FC<SaleCancellationPdfContentProps> = ({
 
         <View style={s.footer} fixed>
           <Text style={s.footerText}>{company.companyName}</Text>
-          <Text style={s.footerText}>Emitido em {today}</Text>
+          <Text
+            style={s.footerText}
+            render={({ pageNumber, totalPages }) => `Página ${pageNumber} de ${totalPages} — Emitido em ${today}`}
+          />
         </View>
       </Page>
     </Document>

@@ -16,6 +16,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
+import { getTodayLocalISO } from "@/lib/utils";
 import { ArrowLeft, FlaskConical, Plus, Trash2 } from "lucide-react";
 import { useClientWithAnimals } from "@/hooks/useSupabaseClients";
 import { useCurrentUserProfile } from "@/hooks/useCurrentUserProfile";
@@ -61,7 +62,7 @@ const AddExamRequestPage: React.FC = () => {
 
   const [laboratorio, setLaboratorio] = useState("");
   const [vetSolicitante, setVetSolicitante] = useState("");
-  const [dataColeta, setDataColeta] = useState(() => new Date().toISOString().split("T")[0]);
+  const [dataColeta, setDataColeta] = useState(() => getTodayLocalISO());
   const [horarioColeta, setHorarioColeta] = useState("");
   const [suspeita, setSuspeita] = useState("");
   const [observacoes, setObservacoes] = useState("");
@@ -272,7 +273,7 @@ ${signatureBlock}
       />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <Card className="lg:col-span-1 rounded-2xl border-border/80">
+        <Card className="lg:col-span-1 vf-surface-card vf-tone-clinical rounded-2xl">
           <CardHeader className="pb-3">
             <CardTitle className="text-base">Dados do pedido</CardTitle>
           </CardHeader>
@@ -341,7 +342,7 @@ ${signatureBlock}
           </CardContent>
         </Card>
 
-        <Card className="lg:col-span-2 rounded-2xl border-border/80">
+        <Card className="lg:col-span-2 vf-surface-card vf-tone-clinical rounded-2xl">
           <CardHeader className="pb-3">
             <CardTitle className="text-base">Exames a solicitar</CardTitle>
           </CardHeader>

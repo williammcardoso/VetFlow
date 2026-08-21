@@ -1,4 +1,3 @@
-import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -34,7 +33,6 @@ import AgendaPage from "./pages/AgendaPage";
 import FinancialPage from "./pages/FinancialPage";
 import NotFound from "./pages/NotFound";
 import HelpPage from "./pages/HelpPage";
-import { ThemeProvider } from "./components/ThemeProvider";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import LoginPage from "./pages/auth/LoginPage";
 import ValidateDocumentPage from "./pages/public/ValidateDocumentPage";
@@ -66,7 +64,6 @@ import ProductsServicesPage from "./pages/stock/ProductsServicesPage";
 import PurchasesPage from "./pages/stock/PurchasesPage";
 
 // Settings
-import ExternalAccessPage from "./pages/settings/ExternalAccessPage";
 import AccessProfilePage from "./pages/settings/AccessProfilePage";
 import AppearanceSettingsPage from "./pages/settings/AppearanceSettingsPage";
 import { getCompanySettings } from "./lib/settingsApi";
@@ -106,16 +103,14 @@ const App = () => {
   return (
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
-        <ThemeProvider attribute="class" defaultTheme="light" storageKey="vite-ui-theme">
-          <TooltipProvider>
-            <Toaster />
-            <Sonner />
-            <BrowserRouter>
-              <AuthProvider>
-                <Routes>
-                  <Route path="/login" element={<LoginPage />} />
-                  <Route path="/validar/:hash" element={<ValidateDocumentPage />} />
-                  <Route path="/assinar/:documentId" element={<SignDocumentPage />} />
+        <TooltipProvider>
+          <Sonner />
+          <BrowserRouter>
+            <AuthProvider>
+              <Routes>
+                <Route path="/login" element={<LoginPage />} />
+                <Route path="/validar/:hash" element={<ValidateDocumentPage />} />
+                <Route path="/assinar/:documentId" element={<SignDocumentPage />} />
 
                   <Route element={<ProtectedAppShell />}>
                     <Route path="/" element={<Navigate to="/dashboard" replace />} />
@@ -205,14 +200,6 @@ const App = () => {
                     />
                     <Route path="/settings/appearance" element={<AppearanceSettingsPage />} />
                     <Route
-                      path="/settings/external-access"
-                      element={
-                        <ProtectedRoute requireRole="admin">
-                          <ExternalAccessPage />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
                       path="/settings/access-profile"
                       element={
                         <ProtectedRoute requireRole="admin">
@@ -256,11 +243,10 @@ const App = () => {
                     <Route path="/stock/purchases" element={<PurchasesPage />} />
                     <Route path="*" element={<NotFound />} />
                   </Route>
-                </Routes>
-              </AuthProvider>
-            </BrowserRouter>
-          </TooltipProvider>
-        </ThemeProvider>
+              </Routes>
+            </AuthProvider>
+          </BrowserRouter>
+        </TooltipProvider>
       </QueryClientProvider>
     </ErrorBoundary>
   );

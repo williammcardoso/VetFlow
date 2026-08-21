@@ -23,26 +23,26 @@ export default function DashboardStatusStrip({
       <div className="grid gap-3 md:grid-cols-6 xl:grid-cols-12">
         <Link
           to="/clinical/appointments-report?period=today"
-          className={`${itemBase} border-emerald-200/80 bg-emerald-50/55 md:col-span-3 xl:col-span-3 dark:border-emerald-700/40 dark:bg-emerald-950/20`}
+          className={`${itemBase} border-emerald-200/80 bg-emerald-50/55 md:col-span-3 xl:col-span-3`}
         >
           <div>
             <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Atendidos hoje</p>
-            <p className="mt-1 text-3xl font-semibold leading-none tracking-tight text-emerald-700 dark:text-emerald-300">{attendedToday}</p>
+            <p className="mt-1 text-3xl font-semibold leading-none tracking-tight text-emerald-700">{attendedToday}</p>
           </div>
-          <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700 dark:bg-emerald-900/45 dark:text-emerald-300">
+          <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700">
             <CheckCircle2 className="h-6 w-6" />
           </span>
         </Link>
 
         <Link
           to="/clinical/returns-forecast"
-          className={`${itemBase} border-orange-200/80 bg-orange-50/55 md:col-span-3 xl:col-span-3 dark:border-orange-700/40 dark:bg-orange-950/20`}
+          className={`${itemBase} border-orange-200/80 bg-orange-50/55 md:col-span-3 xl:col-span-3`}
         >
           <div>
             <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Acompanhamentos/vacinas 7d</p>
-            <p className="mt-1 text-3xl font-semibold leading-none tracking-tight text-orange-700 dark:text-orange-300">{weeklyAlerts}</p>
+            <p className="mt-1 text-3xl font-semibold leading-none tracking-tight text-orange-700">{weeklyAlerts}</p>
           </div>
-          <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-orange-100 text-orange-700 dark:bg-orange-900/45 dark:text-orange-300">
+          <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-orange-100 text-orange-700">
             <RotateCcw className="h-6 w-6" />
           </span>
         </Link>
@@ -51,15 +51,15 @@ export default function DashboardStatusStrip({
           to="/stock/products-services"
           className={`${itemBase} md:col-span-3 xl:col-span-3 ${
             hasStockAlert
-              ? "border-amber-300/90 bg-amber-50/70 dark:border-amber-600/50 dark:bg-amber-950/25"
-              : "border-amber-200/70 bg-amber-50/45 dark:border-amber-800/35 dark:bg-amber-950/15"
+              ? "border-amber-300/90 bg-amber-50/70"
+              : "border-amber-200/70 bg-amber-50/45"
           }`}
         >
           <div>
             <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Estoque crítico</p>
             <p
               className={`mt-1 text-3xl font-semibold leading-none tracking-tight ${
-                hasStockAlert ? "text-amber-700 dark:text-amber-300" : "text-amber-700/75 dark:text-amber-300/80"
+                hasStockAlert ? "text-amber-700" : "text-amber-700/75"
               }`}
             >
               {lowStockCount}
@@ -68,8 +68,8 @@ export default function DashboardStatusStrip({
           <span
             className={`flex h-11 w-11 items-center justify-center rounded-xl ${
               hasStockAlert
-                ? "bg-amber-100 text-amber-800 dark:bg-amber-900/45 dark:text-amber-300"
-                : "bg-amber-100/80 text-amber-700 dark:bg-amber-900/35 dark:text-amber-300/85"
+                ? "bg-amber-100 text-amber-800"
+                : "bg-amber-100/80 text-amber-700"
             }`}
           >
             <AlertTriangle className="h-6 w-6" />

@@ -36,6 +36,9 @@ import {
   RotateCcw,
   BarChart3,
   BookOpen,
+  Building2,
+  Palette,
+  KeyRound,
 } from "lucide-react";
 
 interface NavItem {
@@ -98,20 +101,19 @@ const navItemsBase: NavItem[] = [
       { title: "Vacinas", href: "/registrations/vaccines", icon: ClipboardList },
       { title: "Exames", href: "/registrations/exams", icon: ClipboardList },
       { title: "Referências de exames", href: "/registrations/exam-references", icon: ClipboardList },
-      { title: "Modelo de documento", href: "/registrations/document-model", icon: FileText },
-      { title: "Biblioteca de Documentos", href: "/registrations/document-library", icon: BookOpen },
+      { title: "Editor de documento (livre)", href: "/registrations/document-model", icon: FileText },
+      { title: "Biblioteca de Documentos (modelos oficiais)", href: "/registrations/document-library", icon: BookOpen },
     ],
   },
   {
     title: "Configuração",
     icon: Settings,
     subItems: [
-      { title: "Empresa", href: "/settings/company", icon: Settings },
+      { title: "Empresa", href: "/settings/company", icon: Building2 },
       { title: "Usuários", href: "/settings/user", icon: Users },
       { title: "Usuarios do sistema", href: "/settings/users-management", icon: Shield, requireRole: "admin" },
-      { title: "Aparência", href: "/settings/appearance", icon: Settings },
-      { title: "Acesso externo", href: "/settings/external-access", icon: Settings, requireRole: "admin" },
-      { title: "Perfil de Acesso", href: "/settings/access-profile", icon: Settings, requireRole: "admin" },
+      { title: "Aparência", href: "/settings/appearance", icon: Palette },
+      { title: "Perfil de Acesso", href: "/settings/access-profile", icon: KeyRound, requireRole: "admin" },
     ],
   },
 ];
@@ -165,16 +167,34 @@ const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, onCloseMobile, isDeskto
     setOpenCollapsedMenu(null);
   }, [location.pathname, isDesktopOpen]);
 
+  React.useEffect(() => {
+    if (!isMobileOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onCloseMobile();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [isMobileOpen, onCloseMobile]);
+
   return (
     <>
-      {isMobileOpen && <div className="fixed inset-0 z-40 bg-black/40 lg:hidden" onClick={onCloseMobile} />}
+      {isMobileOpen && (
+        <div
+          className="fixed inset-0 z-[45] bg-black/40 md:hidden"
+          onClick={onCloseMobile}
+          aria-hidden="true"
+        />
+      )}
 
       <aside
+        role="dialog"
+        aria-modal={isMobileOpen}
+        aria-label="Menu de navegação"
         className={cn(
           "vf-sidebar-shell h-screen fixed left-0 top-0 overflow-y-auto border-r",
           "px-3 py-4 shadow-sm transition-all duration-300 ease-in-out z-50 hide-scrollbar",
           isMobileOpen ? "translate-x-0 w-64" : "-translate-x-full",
-          isDesktopOpen ? "lg:translate-x-0 lg:w-64" : "lg:translate-x-0 lg:w-[74px]"
+          isDesktopOpen ? "md:translate-x-0 md:w-[var(--vf-sidebar-w)]" : "md:translate-x-0 md:w-[var(--vf-sidebar-w-collapsed)]"
         )}
       >
         <div className={cn("h-12 flex items-center", isDesktopOpen ? "px-2" : "px-0 justify-center")}>

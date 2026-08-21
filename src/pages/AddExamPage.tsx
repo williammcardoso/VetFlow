@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { Link, useParams, useNavigate } from "react-router-dom";
 import { FaArrowLeft, FaTimes, FaSave, FaFlask, FaMicroscope, FaFileMedicalAlt, FaNotesMedical, FaUserMd, FaPlus, FaTrash } from "@/components/icons/fa";
+import { FlaskConical } from "lucide-react";
+import { PageShell } from "@/components/saas/PageShell";
+import { PageHeader } from "@/components/saas/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -624,33 +627,21 @@ const AddExamPage = () => {
   const pageTitle = isEditing ? "Editar Exame" : "Adicionar Exame";
 
   return (
-    <div className="flex flex-col min-h-screen bg-background">
-      {/* Header */}
-      <div className="border-b border-border bg-card p-6 pb-4">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-2 gap-4 sm:gap-2">
-          <div className="flex items-center gap-4">
-            <div>
-              <h1 className="text-2xl font-semibold flex items-center gap-3 text-foreground group">
-                <FaFlask className="h-5 w-5 text-vf-clinical" /> {pageTitle}
-              </h1>
-              <p className="text-sm text-muted-foreground mt-1 mb-4">
-                {isEditing ? "Edite os detalhes do exame para o animal." : "Registre um novo exame para o animal."}
-              </p>
-            </div>
-          </div>
+    <PageShell>
+      <PageHeader
+        title={pageTitle}
+        description={isEditing ? "Edite os detalhes do exame para o animal." : "Registre um novo exame para o animal."}
+        icon={FlaskConical}
+        module="clinical"
+        breadcrumb={<>Painel &gt; Clientes &gt; Animal &gt; Prontuário &gt; {pageTitle}</>}
+        actions={
           <Link to={`/clients/${clientId}/animals/${animalId}/record`}>
             <Button variant="outline" className="rounded-md border-border text-foreground hover:bg-muted hover:text-foreground transition-colors duration-200">
               <FaArrowLeft className="mr-2 h-4 w-4" /> Voltar para Prontuário
             </Button>
           </Link>
-        </div>
-        <p className="text-sm text-muted-foreground">
-          Painel &gt; Clientes &gt; Animal &gt; Prontuário &gt; {pageTitle}
-        </p>
-      </div>
-
-      {/* Conteúdo */}
-      <div className="flex-1 p-6">
+        }
+      />
         <Card className="vf-surface-card vf-tone-clinical card-hover rounded-2xl border border-border/80">
           <CardContent className="grid gap-4 py-4">
             {/* Passo 1: Data, Hora, Tipo, Veterinário - na mesma linha */}
@@ -1195,8 +1186,7 @@ const AddExamPage = () => {
             <FaSave className="mr-2 h-4 w-4" /> {saving ? "Salvando..." : "Salvar Exame"}
           </Button>
         </div>
-      </div>
-    </div>
+    </PageShell>
   );
 };
 

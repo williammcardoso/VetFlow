@@ -10,6 +10,8 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { useClientWithAnimals } from "@/hooks/useSupabaseClients";
 import { PageShell } from "@/components/saas/PageShell";
 import { PageHeader } from "@/components/saas/PageHeader";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Users } from "lucide-react";
 
 const ClientDetailPage = () => {
@@ -21,25 +23,33 @@ const ClientDetailPage = () => {
 
   if (isLoading && !client) {
     return (
-      <div className="p-6 text-center">
-        <h1 className="text-2xl font-semibold mb-2">Carregando...</h1>
-        <p className="text-muted-foreground">Buscando dados do cliente.</p>
-      </div>
+      <PageShell>
+        <PageHeader title="Carregando cliente..." description="Buscando dados do responsável e dos animais vinculados." icon={Users} module="clinical" />
+        <div className="space-y-2">
+          <Skeleton className="h-9 w-full" />
+          <Skeleton className="h-9 w-full" />
+          <Skeleton className="h-9 w-full" />
+        </div>
+      </PageShell>
     );
   }
 
   if (!client) {
     return (
-      <div className="p-6 text-center">
-        <h1 className="text-3xl font-bold mb-4">
-          {isError ? `Erro ao carregar cliente do Supabase: ${error instanceof Error ? error.message : "erro desconhecido"}.` : "Cliente não encontrado."}
-        </h1>
+      <PageShell>
+        <PageHeader title="Cliente não encontrado" icon={Users} module="clinical" />
+        <Alert variant="destructive" className="mb-4">
+          <AlertTitle>{isError ? "Erro ao carregar cliente" : "Cliente não encontrado"}</AlertTitle>
+          <AlertDescription>
+            {isError ? `Falha ao consultar o Supabase: ${error instanceof Error ? error.message : "erro desconhecido"}.` : "Este cliente não existe ou foi removido."}
+          </AlertDescription>
+        </Alert>
         <Button asChild variant="outline" className="bg-card border border-border text-foreground hover:bg-muted rounded-md transition-all duration-200 shadow-sm hover:shadow-md">
           <Link to="/clients">
             <FaArrowLeft className="mr-2 h-4 w-4" /> Voltar para Clientes
           </Link>
         </Button>
-      </div>
+      </PageShell>
     );
   }
 

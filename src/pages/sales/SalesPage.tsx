@@ -1,18 +1,18 @@
 import React from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { FaPlus, FaDollarSign, FaCalendarAlt, FaTag, FaPaw, FaEye } from "@/components/icons/fa";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { cn } from "@/lib/utils";
+import { cn, formatCurrencyBRL } from "@/lib/utils";
 import { useFinancialTransactions } from "@/hooks/useFinancialTransactions";
 import { useClientsList } from "@/hooks/useSupabaseClients";
 import { PageShell } from "@/components/saas/PageShell";
 import { PageHeader } from "@/components/saas/PageHeader";
 import { SectionCard } from "@/components/saas/SectionCard";
 import { ToolbarRow } from "@/components/saas/ToolbarRow";
-import { ShoppingCart, Sparkles, Filter, ArrowLeft } from "lucide-react";
+import { ShoppingCart, Sparkles, Filter, ArrowLeft, User, PawPrint, Calendar, CreditCard, Banknote } from "lucide-react";
 import SaleDetailModal from "@/components/SaleDetailModal";
 import CancelSaleDialog from "@/components/CancelSaleDialog";
 import ClientCombobox from "@/components/ClientCombobox";
@@ -220,13 +220,13 @@ const SalesPage = () => {
                               {statusConfig[transaction.status || 'pending']?.label || 'Pendente'}
                             </span>
                             {getClientName(transaction.relatedClientId) && (
-                              <span className="text-xs font-medium text-muted-foreground">
-                                👤 {getClientName(transaction.relatedClientId)}
+                              <span className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground">
+                                <User className="h-3 w-3" /> {getClientName(transaction.relatedClientId)}
                               </span>
                             )}
                             {transaction.relatedAnimalId && getAnimalName(transaction.relatedClientId, transaction.relatedAnimalId) !== 'N/A' && (
-                              <span className="text-xs text-muted-foreground">
-                                🐾 {getAnimalName(transaction.relatedClientId, transaction.relatedAnimalId)}
+                              <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                                <PawPrint className="h-3 w-3" /> {getAnimalName(transaction.relatedClientId, transaction.relatedAnimalId)}
                               </span>
                             )}
                           </div>
@@ -239,12 +239,12 @@ const SalesPage = () => {
                             </p>
                           </div>
                           <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
-                            <span>📅 {formatDateTime(transaction.date, transaction.time)}</span>
+                            <span className="inline-flex items-center gap-1"><Calendar className="h-3 w-3" /> {formatDateTime(transaction.date, transaction.time)}</span>
                             {transaction.paymentMethod && (
-                              <span>
-                                💳 {transaction.paymentMethod}
+                              <span className="inline-flex items-center gap-1">
+                                <CreditCard className="h-3 w-3" /> {transaction.paymentMethod}
                                 {transaction.paymentInstallments && transaction.paymentInstallments > 1
-                                  ? ` · ${transaction.paymentInstallments}x de ${new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(transaction.amount / transaction.paymentInstallments)}`
+                                  ? ` · ${transaction.paymentInstallments}x de ${formatCurrencyBRL(transaction.amount / transaction.paymentInstallments)}`
                                   : ""}
                               </span>
                             )}
@@ -256,19 +256,19 @@ const SalesPage = () => {
                           <div className="text-right">
                             <div className="text-xs text-muted-foreground">Total</div>
                             <div className="text-base font-bold text-[hsl(var(--vf-sales))]">
-                              {new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(transaction.amount)}
+                              {formatCurrencyBRL(transaction.amount)}
                             </div>
                           </div>
                           <div className="text-right">
                             <div className="text-xs text-muted-foreground">Pago</div>
                             <div className="text-base font-bold text-emerald-600">
-                              {new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(transaction.paidAmount || 0)}
+                              {formatCurrencyBRL(transaction.paidAmount || 0)}
                             </div>
                           </div>
                           <div className="text-right">
                             <div className="text-xs text-muted-foreground">Saldo</div>
                             <div className={`text-base font-bold ${saldo > 0 ? 'text-amber-600' : 'text-gray-400'}`}>
-                              {new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(saldo)}
+                              {formatCurrencyBRL(saldo)}
                             </div>
                           </div>
                         </div>
@@ -288,7 +288,7 @@ const SalesPage = () => {
                          (transaction.status || 'pending') !== 'paid' && (
                           <Link to={`/sales/receipts?saleId=${transaction.id}&amount=${Math.max(0, transaction.amount - (transaction.paidAmount || 0))}`}>
                             <Button size="sm" className="h-8 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 font-semibold">
-                              💰 Dar baixa
+                              <Banknote className="h-4 w-4 mr-1.5" /> Dar baixa
                             </Button>
                           </Link>
                         )}

@@ -13,12 +13,12 @@ import { addFinancialTransaction } from "@/lib/financialApi";
 import { addSaleItems } from "@/lib/saleItemsApi";
 import { fulfillSaleLines } from "@/lib/saleFulfillment";
 import { resolveCartLineCosts } from "@/lib/saleCosting";
-import { getBudgets, addBudget, updateBudgetStatus, removeBudget, setBudgetPaymentMethod } from "@/lib/budgetsApi";
+import { getBudgets, addBudget, updateBudget, updateBudgetStatus, removeBudget, setBudgetPaymentMethod } from "@/lib/budgetsApi";
 import type { Budget } from "@/mockData/budgets";
 import { useRegistryList } from "@/hooks/useRegistryList";
 import AutocompleteSelect from "@/components/AutocompleteSelect";
 import ClientCombobox from "@/components/ClientCombobox";
-import { formatDateTime, formatAgeLong, formatItemQty } from "@/lib/utils";
+import { formatAgeLong, formatCurrencyBRL, formatDateTime, formatItemQty } from "@/lib/utils";
 import BudgetReportPdfContent from "@/components/BudgetReportPdfContent";
 import { useClientsList } from "@/hooks/useSupabaseClients";
 import { Link } from "react-router-dom";
@@ -26,12 +26,12 @@ import { PageShell } from "@/components/saas/PageShell";
 import { PageHeader } from "@/components/saas/PageHeader";
 import { SectionCard } from "@/components/saas/SectionCard";
 import { DataTableFrame } from "@/components/saas/DataTableFrame";
-import { ArrowLeft, FileText, Filter, Sparkles, CheckCircle2, Ban, Trash2, Printer, Plus } from "lucide-react";
+import { ArrowLeft, FileText, Filter, Sparkles, CheckCircle2, Ban, Trash2, Printer, Plus, Pencil } from "lucide-react";
 import { createPdfBlob, openPdf } from "@/lib/pdfExport";
 import { useCurrentUserProfile } from "@/hooks/useCurrentUserProfile";
 
 const fmtBRL = (v: number) =>
-  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
+  formatCurrencyBRL(v);
 
 // Rótulos em PT-BR para os status persistidos em inglês no banco.
 const BUDGET_STATUS: Record<string, { label: string; className: string }> = {
@@ -58,6 +58,7 @@ const BudgetsPage: React.FC = () => {
   const [discountPct, setDiscountPct] = React.useState<string>("");
   const [surchargePct, setSurchargePct] = React.useState<string>("");
   const [notes, setNotes] = React.useState<string>("");
+  const [editingBudgetId, setEditingBudgetId] = React.useState<string | null>(null);
 
   const [budgets, setBudgets] = React.useState<Budget[]>([]);
   const { profile: currentUserProfile } = useCurrentUserProfile();
@@ -148,6 +149,32 @@ const BudgetsPage: React.FC = () => {
     setProductId(""); setQty(1); setUnitPrice(0);
   };
 
+  const resetBudgetForm = () => {
+    setItems([]);
+    setClientId(undefined);
+    setAnimalId(undefined);
+    setDiscount(0);
+    setSurcharge(0);
+    setDiscountPct("");
+    setSurchargePct("");
+    setNotes("");
+    setEditingBudgetId(null);
+  };
+
+  const startEditBudget = (b: Budget) => {
+    setEditingBudgetId(b.id);
+    setClientId(b.clientId);
+    setAnimalId(b.animalId);
+    setItems(b.items.map((it) => ({ ...it })));
+    setNotes(b.notes || "");
+    const itemsSubtotal = b.items.reduce((sum, it) => sum + it.qty * it.price, 0);
+    setDiscount(b.discountAmount || 0);
+    setSurcharge(b.surchargeAmount || 0);
+    setDiscountPct(b.discountAmount && itemsSubtotal > 0 ? ((b.discountAmount / itemsSubtotal) * 100).toFixed(2) : "");
+    setSurchargePct(b.surchargeAmount && itemsSubtotal > 0 ? ((b.surchargeAmount / itemsSubtotal) * 100).toFixed(2) : "");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
   const saveBudget = async () => {
     if (items.length === 0) {
       toast.error("Adicione itens ao orçamento.");
@@ -157,30 +184,48 @@ const BudgetsPage: React.FC = () => {
     const selectedAnimal = animalId ? selectedClient?.animals.find((a) => a.id === animalId) : undefined;
     setSaving(true);
     try {
-      const created = await addBudget({
-        clientId,
-        animalId,
-        clientName: selectedClient?.name,
-        animalName: selectedAnimal?.name,
-        clientPhone: selectedClient?.mainPhoneContact,
-        items,
-        notes: notes.trim() || undefined,
-        discountAmount: discount > 0 ? discount : undefined,
-        surchargeAmount: surcharge > 0 ? surcharge : undefined,
-      });
-      if (!created) {
-        toast.error("Falha ao salvar o orçamento.");
-        return;
+      if (editingBudgetId) {
+        const existing = budgets.find((b) => b.id === editingBudgetId);
+        if (!existing) {
+          toast.error("Orçamento não encontrado.");
+          return;
+        }
+        const ok = await updateBudget({
+          ...existing,
+          clientId,
+          animalId,
+          clientName: selectedClient?.name ?? existing.clientName,
+          animalName: selectedAnimal?.name ?? existing.animalName,
+          clientPhone: selectedClient?.mainPhoneContact ?? existing.clientPhone,
+          items,
+          notes: notes.trim() || undefined,
+          discountAmount: discount > 0 ? discount : undefined,
+          surchargeAmount: surcharge > 0 ? surcharge : undefined,
+        });
+        if (!ok) {
+          toast.error("Falha ao atualizar o orçamento.");
+          return;
+        }
+        toast.success("Orçamento atualizado.");
+      } else {
+        const created = await addBudget({
+          clientId,
+          animalId,
+          clientName: selectedClient?.name,
+          animalName: selectedAnimal?.name,
+          clientPhone: selectedClient?.mainPhoneContact,
+          items,
+          notes: notes.trim() || undefined,
+          discountAmount: discount > 0 ? discount : undefined,
+          surchargeAmount: surcharge > 0 ? surcharge : undefined,
+        });
+        if (!created) {
+          toast.error("Falha ao salvar o orçamento.");
+          return;
+        }
+        toast.success("Orçamento salvo.");
       }
-      toast.success("Orçamento salvo.");
-      setItems([]);
-      setClientId(undefined);
-      setAnimalId(undefined);
-      setDiscount(0);
-      setSurcharge(0);
-      setDiscountPct("");
-      setSurchargePct("");
-      setNotes("");
+      resetBudgetForm();
       await refreshBudgets();
     } finally {
       setSaving(false);
@@ -353,12 +398,24 @@ const BudgetsPage: React.FC = () => {
       />
 
       <SectionCard
-        title="Composição do orçamento"
-        description="Selecione cliente, itens e quantidades para montar a proposta."
+        title={editingBudgetId ? "Editando orçamento" : "Composição do orçamento"}
+        description={
+          editingBudgetId
+            ? "Adicione ou remova itens e salve para atualizar a proposta existente."
+            : "Selecione cliente, itens e quantidades para montar a proposta."
+        }
         icon={Filter}
         tone="sales"
       >
         <div className="space-y-3">
+          {editingBudgetId && (
+            <div className="flex items-center justify-between rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+              <span>Editando orçamento existente — os itens abaixo substituirão os atuais ao salvar.</span>
+              <Button variant="outline" size="sm" className="h-7 shrink-0 rounded-lg border-amber-300 text-xs hover:bg-amber-100" onClick={resetBudgetForm}>
+                Cancelar edição
+              </Button>
+            </div>
+          )}
           {/* Cliente/animal ocupam a largura útil; antes ficavam espremidos
               em 2 de 6 colunas, sobrando um vazio enorme à direita. */}
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
@@ -412,8 +469,11 @@ const BudgetsPage: React.FC = () => {
             <div className="w-20 shrink-0">
               <Label className="text-xs">Qtd</Label>
               <Input
+                type="number"
+                inputMode="numeric"
+                min={1}
                 value={qty}
-                onChange={(e) => setQty(Number(e.target.value) || 0)}
+                onChange={(e) => setQty(Math.max(1, Number(e.target.value) || 0))}
                 className="mt-1 h-9 text-sm bg-input w-full"
               />
             </div>
@@ -457,8 +517,8 @@ const BudgetsPage: React.FC = () => {
                   <TableRow key={`${it.itemId}-${idx}`}>
                     <TableCell className="font-medium">{it.name}</TableCell>
                     <TableCell>{it.qty}</TableCell>
-                    <TableCell>{new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(it.price)}</TableCell>
-                    <TableCell className="text-right">{new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(it.qty * it.price)}</TableCell>
+                    <TableCell>{formatCurrencyBRL(it.price)}</TableCell>
+                    <TableCell className="text-right">{formatCurrencyBRL(it.qty * it.price)}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -551,7 +611,7 @@ const BudgetsPage: React.FC = () => {
                   disabled={saving}
                   className="h-9 px-5 bg-[hsl(var(--vf-sales))] text-white hover:bg-[hsl(var(--vf-sales)/0.9)]"
                 >
-                  {saving ? "Salvando..." : "Salvar orçamento"}
+                  {saving ? "Salvando..." : editingBudgetId ? "Salvar alterações" : "Salvar orçamento"}
                 </Button>
               </div>
             </div>
@@ -618,7 +678,7 @@ const BudgetsPage: React.FC = () => {
                         {BUDGET_STATUS[b.status]?.label ?? b.status}
                       </span>
                     </TableCell>
-                    <TableCell>{new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(total)}</TableCell>
+                    <TableCell>{formatCurrencyBRL(total)}</TableCell>
                     <TableCell>
                       {b.status === "converted" || b.status === "cancelled" ? (
                         // Já fechado: mostra o que foi usado, sem permitir troca
@@ -650,6 +710,15 @@ const BudgetsPage: React.FC = () => {
                           disabled={saving || b.status === "converted" || b.status === "cancelled"}
                         >
                           <CheckCircle2 className="h-3.5 w-3.5" /> Converter
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8 gap-1.5 rounded-lg border-border text-xs hover:bg-muted"
+                          onClick={() => startEditBudget(b)}
+                          disabled={saving || b.status === "converted" || b.status === "cancelled"}
+                        >
+                          <Pencil className="h-3.5 w-3.5" /> Editar
                         </Button>
                         <Button
                           variant="outline"

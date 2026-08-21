@@ -43,7 +43,7 @@ const ManipulatedFormulaComponentForm: React.FC<ManipulatedFormulaComponentFormP
   }, [shouldFocus]);
 
   return (
-    <div className="flex items-end gap-4 border-b border-border pb-4 mb-4 last:border-b-0 last:pb-0 last:mb-0">
+    <div className="flex flex-col sm:flex-row sm:items-end gap-4 border-b border-border pb-4 mb-4 last:border-b-0 last:pb-0 last:mb-0">
       <div className="flex-1 space-y-2">
         <Label htmlFor={`component-name-${component.id}`}>Nome do Componente {index + 1}*</Label>
         <Input
@@ -55,7 +55,7 @@ const ManipulatedFormulaComponentForm: React.FC<ManipulatedFormulaComponentFormP
           className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200"
         />
       </div>
-      <div className="w-32 space-y-2">
+      <div className="w-full sm:w-32 space-y-2">
         <Label htmlFor={`dosage-quantity-${component.id}`}>Dosagem / Quantidade*</Label>
         <Input
           id={`dosage-quantity-${component.id}`}
@@ -65,7 +65,7 @@ const ManipulatedFormulaComponentForm: React.FC<ManipulatedFormulaComponentFormP
           className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200"
         />
       </div>
-      <div className="w-32 space-y-2">
+      <div className="w-full sm:w-32 space-y-2">
         <Label htmlFor={`dosage-unit-${component.id}`}>Unidade*</Label>
         <Select onValueChange={setDosageUnit} value={dosageUnit}>
           <SelectTrigger id={`dosage-unit-${component.id}`} className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200">

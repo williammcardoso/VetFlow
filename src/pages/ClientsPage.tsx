@@ -25,10 +25,12 @@ import { useClientsList } from "@/hooks/useSupabaseClients";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
 
-// Mock data for species (from SpeciesPage.tsx)
+// Mesma lista/nomes gravados de verdade no cadastro do animal (AddAnimalPage.tsx)
+// — "Cachorro"/"Gato" aqui nunca batiam com "Canino"/"Felino" salvo no banco,
+// o filtro de espécie nunca encontrava nada.
 const mockSpecies = [
-  { id: "1", name: "Cachorro" },
-  { id: "2", name: "Gato" },
+  { id: "1", name: "Canino" },
+  { id: "2", name: "Felino" },
   { id: "3", name: "Pássaro" },
   { id: "4", name: "Roedor" },
 ];
@@ -206,7 +208,11 @@ const ClientsPage = () => {
                       <TableCell className="font-medium">
                         {client.name} ({animals.length})
                       </TableCell>
-                      <TableCell>{animals.map((a) => a.name).join(", ") || "-"}</TableCell>
+                      <TableCell className="max-w-[280px]">
+                        <span className="line-clamp-2" title={animals.map((a) => a.name).join(", ") || undefined}>
+                          {animals.map((a) => a.name).join(", ") || "-"}
+                        </span>
+                      </TableCell>
                       <TableCell className="text-right">
                         <Button asChild variant="ghost" size="sm" className="rounded-md transition-colors">
                           <Link to={`/clients/${client.id}`}>

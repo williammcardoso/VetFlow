@@ -1,5 +1,4 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -416,18 +415,21 @@ const ExamReferencesPage: React.FC = () => {
             value={dog.min ?? ""}
             onChange={(e) => onChangeNonLeuko(key, "dog", "min", e.target.value)}
             placeholder="Cão mín."
+            aria-label={`${label} - Cão mín.`}
             className="bg-amber-50/40 h-8 text-sm"
           />
           <Input
             value={dog.max ?? ""}
             onChange={(e) => onChangeNonLeuko(key, "dog", "max", e.target.value)}
             placeholder="Cão máx."
+            aria-label={`${label} - Cão máx.`}
             className="bg-amber-50/40 h-8 text-sm"
           />
           <Input
             value={dogUnit}
             onChange={(e) => onChangeNonLeuko(key, "dog", "unit", e.target.value)}
             placeholder="Unid. cão"
+            aria-label={`${label} - Unidade cão`}
             className="bg-amber-50/40 h-8 text-sm"
           />
 
@@ -436,18 +438,21 @@ const ExamReferencesPage: React.FC = () => {
             value={cat.min ?? ""}
             onChange={(e) => onChangeNonLeuko(key, "cat", "min", e.target.value)}
             placeholder="Gato mín."
+            aria-label={`${label} - Gato mín.`}
             className="bg-sky-50/40 h-8 text-sm"
           />
           <Input
             value={cat.max ?? ""}
             onChange={(e) => onChangeNonLeuko(key, "cat", "max", e.target.value)}
             placeholder="Gato máx."
+            aria-label={`${label} - Gato máx.`}
             className="bg-sky-50/40 h-8 text-sm"
           />
           <Input
             value={catUnit}
             onChange={(e) => onChangeNonLeuko(key, "cat", "unit", e.target.value)}
             placeholder="Unid. gato"
+            aria-label={`${label} - Unidade gato`}
             className="bg-sky-50/40 h-8 text-sm"
           />
         </div>
@@ -483,12 +488,12 @@ const ExamReferencesPage: React.FC = () => {
             <div className="sm:col-span-1">
               <Label className="text-xs font-medium capitalize">{label} (Rel.)</Label>
             </div>
-            <Input value={dogRel.min} onChange={(e) => onChangeLeuko(key, "dog", "relative", "min", e.target.value)} placeholder="Cão mín." className="bg-amber-50/40 h-8 text-sm" />
-            <Input value={dogRel.max} onChange={(e) => onChangeLeuko(key, "dog", "relative", "max", e.target.value)} placeholder="Cão máx." className="bg-amber-50/40 h-8 text-sm" />
-            <Input value={dogRel.unit} onChange={(e) => onChangeLeuko(key, "dog", "relative", "unit", e.target.value)} placeholder="Unid. cão" className="bg-input h-8 text-sm" />
-            <Input value={catRel.min} onChange={(e) => onChangeLeuko(key, "cat", "relative", "min", e.target.value)} placeholder="Gato mín." className="bg-sky-50/40 h-8 text-sm" />
-            <Input value={catRel.max} onChange={(e) => onChangeLeuko(key, "cat", "relative", "max", e.target.value)} placeholder="Gato máx." className="bg-sky-50/40 h-8 text-sm" />
-            <Input value={catRel.unit} onChange={(e) => onChangeLeuko(key, "cat", "relative", "unit", e.target.value)} placeholder="Unid. gato" className="bg-input h-8 text-sm" />
+            <Input value={dogRel.min} onChange={(e) => onChangeLeuko(key, "dog", "relative", "min", e.target.value)} placeholder="Cão mín." aria-label={`${label} (Rel.) - Cão mín.`} className="bg-amber-50/40 h-8 text-sm" />
+            <Input value={dogRel.max} onChange={(e) => onChangeLeuko(key, "dog", "relative", "max", e.target.value)} placeholder="Cão máx." aria-label={`${label} (Rel.) - Cão máx.`} className="bg-amber-50/40 h-8 text-sm" />
+            <Input value={dogRel.unit} onChange={(e) => onChangeLeuko(key, "dog", "relative", "unit", e.target.value)} placeholder="Unid. cão" aria-label={`${label} (Rel.) - Unidade cão`} className="bg-input h-8 text-sm" />
+            <Input value={catRel.min} onChange={(e) => onChangeLeuko(key, "cat", "relative", "min", e.target.value)} placeholder="Gato mín." aria-label={`${label} (Rel.) - Gato mín.`} className="bg-sky-50/40 h-8 text-sm" />
+            <Input value={catRel.max} onChange={(e) => onChangeLeuko(key, "cat", "relative", "max", e.target.value)} placeholder="Gato máx." aria-label={`${label} (Rel.) - Gato máx.`} className="bg-sky-50/40 h-8 text-sm" />
+            <Input value={catRel.unit} onChange={(e) => onChangeLeuko(key, "cat", "relative", "unit", e.target.value)} placeholder="Unid. gato" aria-label={`${label} (Rel.) - Unidade gato`} className="bg-input h-8 text-sm" />
           </div>
 
           {/* Absoluto */}
@@ -496,12 +501,12 @@ const ExamReferencesPage: React.FC = () => {
             <div className="sm:col-span-1">
               <Label className="text-xs font-medium capitalize">{label} (Abs.)</Label>
             </div>
-            <Input value={dogAbs.min} onChange={(e) => onChangeLeuko(key, "dog", "absolute", "min", e.target.value)} placeholder="Cão mín." className="bg-amber-50/40 h-8 text-sm" />
-            <Input value={dogAbs.max} onChange={(e) => onChangeLeuko(key, "dog", "absolute", "max", e.target.value)} placeholder="Cão máx." className="bg-amber-50/40 h-8 text-sm" />
-            <Input value={dogAbs.unit} onChange={(e) => onChangeLeuko(key, "dog", "absolute", "unit", e.target.value)} placeholder="Unid. cão" className="bg-input h-8 text-sm" />
-            <Input value={catAbs.min} onChange={(e) => onChangeLeuko(key, "cat", "absolute", "min", e.target.value)} placeholder="Gato mín." className="bg-sky-50/40 h-8 text-sm" />
-            <Input value={catAbs.max} onChange={(e) => onChangeLeuko(key, "cat", "absolute", "max", e.target.value)} placeholder="Gato máx." className="bg-sky-50/40 h-8 text-sm" />
-            <Input value={catAbs.unit} onChange={(e) => onChangeLeuko(key, "cat", "absolute", "unit", e.target.value)} placeholder="Unid. gato" className="bg-input h-8 text-sm" />
+            <Input value={dogAbs.min} onChange={(e) => onChangeLeuko(key, "dog", "absolute", "min", e.target.value)} placeholder="Cão mín." aria-label={`${label} (Abs.) - Cão mín.`} className="bg-amber-50/40 h-8 text-sm" />
+            <Input value={dogAbs.max} onChange={(e) => onChangeLeuko(key, "dog", "absolute", "max", e.target.value)} placeholder="Cão máx." aria-label={`${label} (Abs.) - Cão máx.`} className="bg-amber-50/40 h-8 text-sm" />
+            <Input value={dogAbs.unit} onChange={(e) => onChangeLeuko(key, "dog", "absolute", "unit", e.target.value)} placeholder="Unid. cão" aria-label={`${label} (Abs.) - Unidade cão`} className="bg-input h-8 text-sm" />
+            <Input value={catAbs.min} onChange={(e) => onChangeLeuko(key, "cat", "absolute", "min", e.target.value)} placeholder="Gato mín." aria-label={`${label} (Abs.) - Gato mín.`} className="bg-sky-50/40 h-8 text-sm" />
+            <Input value={catAbs.max} onChange={(e) => onChangeLeuko(key, "cat", "absolute", "max", e.target.value)} placeholder="Gato máx." aria-label={`${label} (Abs.) - Gato máx.`} className="bg-sky-50/40 h-8 text-sm" />
+            <Input value={catAbs.unit} onChange={(e) => onChangeLeuko(key, "cat", "absolute", "unit", e.target.value)} placeholder="Unid. gato" aria-label={`${label} (Abs.) - Unidade gato`} className="bg-input h-8 text-sm" />
           </div>
         </div>
       );
@@ -521,19 +526,13 @@ const ExamReferencesPage: React.FC = () => {
       />
 
       <SectionCard title="Gerenciar referências" description="Ajuste faixas de hemograma e bioquímica por espécie." icon={FlaskConical} tone="registry">
-      <Card className="vf-surface-card vf-tone-registry card-hover rounded-2xl border border-border/80">
-        <CardHeader className="py-3">
-          <CardTitle className="flex items-center justify-between text-base sm:text-lg">
-            <span>Gerenciar Referências</span>
-            <div className="flex gap-2">
-              <Button onClick={() => void handleSave()} disabled={saving || loading} className="h-8 bg-[hsl(var(--vf-registry))] px-3 text-sm text-white hover:bg-[hsl(var(--vf-registry)/0.9)]">
-                {saving ? "Salvando..." : "Salvar"}
-              </Button>
-            </div>
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3 sm:space-y-4">
-          {loading ? (
+      <div className="space-y-3 sm:space-y-4">
+        <div className="flex items-center justify-end gap-2">
+          <Button onClick={() => void handleSave()} disabled={saving || loading} className="h-8 bg-[hsl(var(--vf-registry))] px-3 text-sm text-white hover:bg-[hsl(var(--vf-registry)/0.9)]">
+            {saving ? "Salvando..." : "Salvar"}
+          </Button>
+        </div>
+        {loading ? (
             <p className="py-6 text-center text-sm text-muted-foreground">Carregando referências...</p>
           ) : (
           <Accordion type="multiple" className="w-full space-y-2">
@@ -624,6 +623,7 @@ const ExamReferencesPage: React.FC = () => {
                           <Input
                             value={name}
                             readOnly
+                            aria-label={`Nome do analito: ${name}`}
                             className="bg-input h-8 text-sm"
                           />
                         </div>
@@ -631,30 +631,35 @@ const ExamReferencesPage: React.FC = () => {
                           value={entry.unit}
                           onChange={(e) => updateBiochemical(name, "unit", "unit", e.target.value)}
                           placeholder="Unidade"
+                          aria-label={`${name} - Unidade`}
                           className="bg-input h-8 text-sm"
                         />
                         <Input
                           value={entry.dog.min ?? ""}
                           onChange={(e) => updateBiochemical(name, "dog", "min", e.target.value)}
                           placeholder="Cão mín."
+                          aria-label={`${name} - Cão mín.`}
                           className="bg-amber-50/40 h-8 text-sm"
                         />
                         <Input
                           value={entry.dog.max ?? ""}
                           onChange={(e) => updateBiochemical(name, "dog", "max", e.target.value)}
                           placeholder="Cão máx."
+                          aria-label={`${name} - Cão máx.`}
                           className="bg-amber-50/40 h-8 text-sm"
                         />
                         <Input
                           value={entry.cat.min ?? ""}
                           onChange={(e) => updateBiochemical(name, "cat", "min", e.target.value)}
                           placeholder="Gato mín."
+                          aria-label={`${name} - Gato mín.`}
                           className="bg-sky-50/40 h-8 text-sm"
                         />
                         <Input
                           value={entry.cat.max ?? ""}
                           onChange={(e) => updateBiochemical(name, "cat", "max", e.target.value)}
                           placeholder="Gato máx."
+                          aria-label={`${name} - Gato máx.`}
                           className="bg-sky-50/40 h-8 text-sm"
                         />
                         <div className="sm:col-span-1 flex gap-2">
@@ -674,8 +679,7 @@ const ExamReferencesPage: React.FC = () => {
             </AccordionItem>
           </Accordion>
           )}
-        </CardContent>
-      </Card>
+      </div>
       </SectionCard>
     </PageShell>
   );

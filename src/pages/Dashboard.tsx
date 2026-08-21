@@ -179,16 +179,10 @@ const Dashboard = () => {
     <PageShell className="space-y-4 font-sans">
       <PageHeader
         title="Painel de Controle"
-        description="Panorama operacional diario da clinica."
+        description="Panorama operacional diário da clínica."
         icon={LayoutDashboard}
         module="clinical"
         breadcrumb={<>Painel &gt; Dashboard</>}
-        className="mb-0 rounded-2xl border border-border/70 bg-card px-6 py-4 shadow-sm"
-        breadcrumbClassName="mb-1 text-xs text-muted-foreground"
-        titleClassName="text-3xl font-semibold tracking-tight"
-        descriptionClassName="mt-1 text-sm text-muted-foreground line-clamp-1"
-        iconWrapperClassName="h-11 w-11 rounded-[14px]"
-        iconClassName="h-5 w-5"
         actions={
           <div className="flex items-center gap-2">
             <Badge className="h-8 rounded-full bg-violet-100 px-3 text-xs font-semibold text-violet-700">
@@ -209,7 +203,7 @@ const Dashboard = () => {
         lowStockCount={lowStockCount}
       />
 
-      <Card className="rounded-2xl border border-border/65 bg-card p-4 shadow-sm sm:p-5">
+      <Card className="rounded-2xl vf-surface-card vf-tone-clinical p-4 sm:p-5">
         <div className="mb-2.5 flex items-start justify-between gap-3">
           <div>
             <h2 className="text-[1.08rem] font-semibold tracking-tight text-foreground">Indicadores principais</h2>
@@ -220,15 +214,15 @@ const Dashboard = () => {
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <Link
             to="/clinical/appointments-report?period=this_month"
-            className="block min-h-[152px] rounded-2xl border border-emerald-200/80 bg-emerald-50/50 p-[18px] transition-all duration-200 hover:-translate-y-1 hover:border-emerald-400/70 hover:shadow-md dark:border-emerald-700/40 dark:bg-emerald-950/20"
+            className="block min-h-[152px] rounded-2xl border border-emerald-200/80 bg-emerald-50/50 p-[18px] transition-all duration-200 hover:-translate-y-1 hover:border-emerald-400/70 hover:shadow-md"
           >
             <div className="flex items-start justify-between gap-3">
-              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Atendimentos no mes</p>
-              <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700 dark:bg-emerald-900/45 dark:text-emerald-300">
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Atendimentos no mês</p>
+              <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700">
                 <Stethoscope className="h-6 w-6" />
               </span>
             </div>
-            <p className="mt-2 text-4xl font-semibold tracking-tight text-emerald-700 dark:text-emerald-300">{appointmentsThisMonth}</p>
+            <p className="mt-2 text-4xl font-semibold tracking-tight text-emerald-700">{appointmentsThisMonth}</p>
             {monthTypeBreakdown.length > 0 ? (
               <p className="mt-1.5 line-clamp-2 text-sm text-muted-foreground">
                 {monthTypeBreakdown.map(([type, count]) => `${count} ${type}`).join(" / ")}
@@ -238,14 +232,14 @@ const Dashboard = () => {
             )}
           </Link>
 
-          <Card className="min-h-[152px] rounded-2xl border border-sky-200/80 bg-sky-50/50 p-[18px] transition-all duration-200 hover:-translate-y-1 hover:border-sky-400/70 hover:shadow-md dark:border-sky-700/40 dark:bg-sky-950/20">
+          <Card className="min-h-[152px] rounded-2xl border border-sky-200/80 bg-sky-50/50 p-[18px] transition-all duration-200 hover:-translate-y-1 hover:border-sky-400/70 hover:shadow-md">
             <div className="flex items-start justify-between gap-3">
               <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Animais ativos</p>
-              <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-sky-100 text-sky-700 dark:bg-sky-900/45 dark:text-sky-300">
+              <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-sky-100 text-sky-700">
                 <PawPrint className="h-6 w-6" />
               </span>
             </div>
-            <p className="mt-2 text-4xl font-semibold tracking-tight text-sky-700 dark:text-sky-300">{totalAnimals}</p>
+            <p className="mt-2 text-4xl font-semibold tracking-tight text-sky-700">{totalAnimals}</p>
             <p className="mt-1.5 line-clamp-2 text-sm text-muted-foreground">
               {isError ? "Falha ao carregar clientes." : "Base assistencial ativa."}
             </p>
@@ -253,36 +247,36 @@ const Dashboard = () => {
 
           <Link
             to="/clinical/appointments-report?period=today"
-            className="block min-h-[152px] rounded-2xl border border-violet-200/80 bg-violet-50/50 p-[18px] transition-all duration-200 hover:-translate-y-1 hover:border-violet-400/70 hover:shadow-md dark:border-violet-700/40 dark:bg-violet-950/20"
+            className="block min-h-[152px] rounded-2xl border border-violet-200/80 bg-violet-50/50 p-[18px] transition-all duration-200 hover:-translate-y-1 hover:border-violet-400/70 hover:shadow-md"
           >
             <div className="flex items-start justify-between gap-3">
               <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Atendimentos 24h</p>
-              <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-violet-100 text-violet-700 dark:bg-violet-900/45 dark:text-violet-300">
+              <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-violet-100 text-violet-700">
                 <Clock3 className="h-6 w-6" />
               </span>
             </div>
-            <p className="mt-2 text-4xl font-semibold tracking-tight text-violet-700 dark:text-violet-300">{last24hAppointments}</p>
-            <p className="mt-1.5 line-clamp-2 text-sm text-muted-foreground">Producao clinica nas ultimas 24h. Ver relatorio.</p>
+            <p className="mt-2 text-4xl font-semibold tracking-tight text-violet-700">{last24hAppointments}</p>
+            <p className="mt-1.5 line-clamp-2 text-sm text-muted-foreground">Produção clínica nas últimas 24h. Ver relatório.</p>
           </Link>
 
           <Link
             to="/stock/products-services"
-            className="block min-h-[152px] rounded-2xl border border-amber-200/80 bg-amber-50/55 p-[18px] transition-all duration-200 hover:-translate-y-1 hover:border-amber-400/70 hover:shadow-md dark:border-amber-700/40 dark:bg-amber-950/20"
+            className="block min-h-[152px] rounded-2xl border border-amber-200/80 bg-amber-50/55 p-[18px] transition-all duration-200 hover:-translate-y-1 hover:border-amber-400/70 hover:shadow-md"
           >
             <div className="flex items-start justify-between gap-3">
-              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Estoque critico</p>
-              <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-100 text-amber-800 dark:bg-amber-900/45 dark:text-amber-300">
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Estoque crítico</p>
+              <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-100 text-amber-800">
                 <AlertTriangle className="h-6 w-6" />
               </span>
             </div>
-            <p className="mt-2 text-4xl font-semibold tracking-tight text-amber-700 dark:text-amber-300">{lowStockCount}</p>
-            <p className="mt-1.5 line-clamp-2 text-sm text-muted-foreground">Itens com reposicao operacional urgente.</p>
+            <p className="mt-2 text-4xl font-semibold tracking-tight text-amber-700">{lowStockCount}</p>
+            <p className="mt-1.5 line-clamp-2 text-sm text-muted-foreground">Itens com reposição operacional urgente.</p>
           </Link>
         </div>
       </Card>
 
       {hasWeekAlerts && (
-        <Card className="rounded-2xl border border-border/65 bg-card p-4 shadow-sm sm:p-5">
+        <Card className="rounded-2xl vf-surface-card vf-tone-clinical p-4 sm:p-5">
           <div className="mb-3 flex items-start justify-between gap-3">
             <div>
               <h2 className="text-[1.08rem] font-semibold tracking-tight text-foreground">Alertas da semana</h2>
@@ -292,12 +286,12 @@ const Dashboard = () => {
           <div className="grid gap-3 sm:grid-cols-2">
             {returnsThisWeek.length > 0 && (
               <div>
-                <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-orange-600 dark:text-orange-400">
+                <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-orange-600">
                   <RotateCcw className="h-3.5 w-3.5" /> Acompanhamentos previstos
                 </p>
                 <div className="space-y-2">
                   {returnsThisWeek.map((r, i) => (
-                    <div key={`ret-${r.animalId}-${i}`} className="flex items-center justify-between rounded-lg border border-orange-200/70 bg-orange-50/50 px-3 py-2 dark:border-orange-700/30 dark:bg-orange-950/20">
+                    <div key={`ret-${r.animalId}-${i}`} className="flex items-center justify-between rounded-lg border border-orange-200/70 bg-orange-50/50 px-3 py-2">
                       <div className="min-w-0">
                         {r.clientId ? (
                           <Link to={`/clients/${r.clientId}/animals/${r.animalId}/record`} className="truncate text-sm font-semibold text-foreground hover:underline">{r.animalName}</Link>
@@ -306,7 +300,7 @@ const Dashboard = () => {
                         )}
                         <p className="truncate text-xs text-muted-foreground">{r.clientName}</p>
                       </div>
-                      <span className="ml-2 shrink-0 text-xs font-medium text-orange-700 dark:text-orange-300">
+                      <span className="ml-2 shrink-0 text-xs font-medium text-orange-700">
                         {r.returnDate.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}
                       </span>
                     </div>
@@ -316,12 +310,12 @@ const Dashboard = () => {
             )}
             {vaccinesThisWeek.length > 0 && (
               <div>
-                <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-blue-600 dark:text-blue-400">
+                <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-blue-600">
                   <Syringe className="h-3.5 w-3.5" /> Vacinas a aplicar
                 </p>
                 <div className="space-y-2">
                   {vaccinesThisWeek.map((v, i) => (
-                    <div key={`vac-${v.animalId}-${i}`} className="flex items-center justify-between rounded-lg border border-blue-200/70 bg-blue-50/50 px-3 py-2 dark:border-blue-700/30 dark:bg-blue-950/20">
+                    <div key={`vac-${v.animalId}-${i}`} className="flex items-center justify-between rounded-lg border border-blue-200/70 bg-blue-50/50 px-3 py-2">
                       <div className="min-w-0">
                         {v.clientId ? (
                           <Link to={`/clients/${v.clientId}/animals/${v.animalId}/record`} className="truncate text-sm font-semibold text-foreground hover:underline">{v.animalName}</Link>
@@ -330,7 +324,7 @@ const Dashboard = () => {
                         )}
                         <p className="truncate text-xs text-muted-foreground">{v.clientName} · {v.vaccine}</p>
                       </div>
-                      <span className="ml-2 shrink-0 text-xs font-medium text-blue-700 dark:text-blue-300">
+                      <span className="ml-2 shrink-0 text-xs font-medium text-blue-700">
                         {v.doseDate.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}
                       </span>
                     </div>
@@ -343,11 +337,11 @@ const Dashboard = () => {
       )}
 
       <div className="grid gap-4 lg:grid-cols-[1.35fr_1fr]">
-        <Card className="min-h-[236px] h-full rounded-2xl border border-border/65 bg-card p-4 shadow-sm sm:p-5">
+        <Card className="min-h-[236px] h-full rounded-2xl vf-surface-card vf-tone-clinical p-4 sm:p-5">
           <div className="mb-3 flex items-start justify-between gap-3">
             <div>
               <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Agenda imediata</p>
-              <h2 className="text-[1.08rem] font-semibold tracking-tight text-foreground">Proximos atendimentos</h2>
+              <h2 className="text-[1.08rem] font-semibold tracking-tight text-foreground">Próximos atendimentos</h2>
             </div>
             <Badge className="h-7 rounded-full bg-[hsl(var(--vf-clinical))]/25 px-2.5 text-xs font-semibold text-vf-clinical shadow-sm">
               {upcomingAll.length} eventos
@@ -407,34 +401,34 @@ const Dashboard = () => {
           )}
         </Card>
 
-        <Card className="h-full rounded-2xl border border-border/65 bg-card p-4 shadow-sm sm:p-5">
+        <Card className="h-full rounded-2xl vf-surface-card vf-tone-clinical p-4 sm:p-5">
           <div className="mb-3">
-            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Acoes rapidas</p>
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Ações rápidas</p>
             <h2 className="text-[1.08rem] font-semibold tracking-tight text-foreground">Atalhos operacionais</h2>
           </div>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Link
               to="/agenda"
-              className="group flex h-full min-h-[104px] rounded-xl border border-blue-300/75 bg-blue-50/65 p-4 transition-all duration-200 hover:-translate-y-1 hover:border-blue-500 hover:shadow-md dark:border-blue-700/45 dark:bg-blue-950/25"
+              className="group flex h-full min-h-[104px] rounded-xl border border-blue-300/75 bg-blue-50/65 p-4 transition-all duration-200 hover:-translate-y-1 hover:border-blue-500 hover:shadow-md"
             >
               <div className="flex w-full items-start gap-2.5">
-                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-100 text-blue-700 dark:bg-blue-900/45 dark:text-blue-300">
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-100 text-blue-700">
                   <CalendarDays className="h-6 w-6" />
                 </span>
                 <div className="min-w-0">
                   <p className="text-base font-semibold leading-tight text-foreground">Organizar agenda</p>
-                  <p className="mt-0.5 line-clamp-2 text-sm leading-snug text-muted-foreground">Ajustar horarios e prioridades.</p>
+                  <p className="mt-0.5 line-clamp-2 text-sm leading-snug text-muted-foreground">Ajustar horários e prioridades.</p>
                 </div>
               </div>
             </Link>
 
             <Link
               to="/animals/add"
-              className="group flex h-full min-h-[104px] rounded-xl border border-emerald-300/75 bg-emerald-50/65 p-4 transition-all duration-200 hover:-translate-y-1 hover:border-emerald-500 hover:shadow-md dark:border-emerald-700/45 dark:bg-emerald-950/25"
+              className="group flex h-full min-h-[104px] rounded-xl border border-emerald-300/75 bg-emerald-50/65 p-4 transition-all duration-200 hover:-translate-y-1 hover:border-emerald-500 hover:shadow-md"
             >
               <div className="flex w-full items-start gap-2.5">
-                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700 dark:bg-emerald-900/45 dark:text-emerald-300">
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700">
                   <PawPrint className="h-6 w-6" />
                 </span>
                 <div className="min-w-0">
@@ -446,30 +440,30 @@ const Dashboard = () => {
 
             <Link
               to="/sales/pos"
-              className="group flex h-full min-h-[104px] rounded-xl border border-violet-300/75 bg-violet-50/65 p-4 transition-all duration-200 hover:-translate-y-1 hover:border-violet-500 hover:shadow-md dark:border-violet-700/45 dark:bg-violet-950/25"
+              className="group flex h-full min-h-[104px] rounded-xl border border-violet-300/75 bg-violet-50/65 p-4 transition-all duration-200 hover:-translate-y-1 hover:border-violet-500 hover:shadow-md"
             >
               <div className="flex w-full items-start gap-2.5">
-                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-violet-100 text-violet-700 dark:bg-violet-900/45 dark:text-violet-300">
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-violet-100 text-violet-700">
                   <ShoppingCart className="h-6 w-6" />
                 </span>
                 <div className="min-w-0">
                   <p className="text-base font-semibold leading-tight text-foreground">Nova venda</p>
-                  <p className="mt-0.5 line-clamp-2 text-sm leading-snug text-muted-foreground">Registrar venda em balcao.</p>
+                  <p className="mt-0.5 line-clamp-2 text-sm leading-snug text-muted-foreground">Registrar venda em balcão.</p>
                 </div>
               </div>
             </Link>
 
             <Link
               to="/stock/products-services"
-              className="group flex h-full min-h-[104px] rounded-xl border border-amber-300/80 bg-amber-50/65 p-4 transition-all duration-200 hover:-translate-y-1 hover:border-amber-500 hover:shadow-md dark:border-amber-700/45 dark:bg-amber-950/25"
+              className="group flex h-full min-h-[104px] rounded-xl border border-amber-300/80 bg-amber-50/65 p-4 transition-all duration-200 hover:-translate-y-1 hover:border-amber-500 hover:shadow-md"
             >
               <div className="flex w-full items-start gap-2.5">
-                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-800 dark:bg-amber-900/45 dark:text-amber-300">
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-800">
                   <Package className="h-6 w-6" />
                 </span>
                 <div className="min-w-0">
                   <p className="text-base font-semibold leading-tight text-foreground">Ver estoque</p>
-                  <p className="mt-0.5 line-clamp-2 text-sm leading-snug text-muted-foreground">Reposicao e itens criticos.</p>
+                  <p className="mt-0.5 line-clamp-2 text-sm leading-snug text-muted-foreground">Reposição e itens críticos.</p>
                 </div>
               </div>
             </Link>

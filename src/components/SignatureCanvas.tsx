@@ -41,6 +41,14 @@ const SignatureCanvas = React.forwardRef<SignatureCanvasHandle, SignatureCanvasP
           ctx.lineJoin = "round";
           ctx.strokeStyle = "#111827";
         }
+        // Trocar canvas.width/height apaga o desenho (é assim que o canvas
+        // funciona) — sem isso, girar o celular no meio da assinatura deixava
+        // o traço sumir mas hasContentRef continuava true, e toDataUrl()
+        // devolvia um PNG em branco como se fosse uma assinatura válida.
+        if (hasContentRef.current) {
+          hasContentRef.current = false;
+          onChange?.(false);
+        }
       };
       resize();
       window.addEventListener("resize", resize);

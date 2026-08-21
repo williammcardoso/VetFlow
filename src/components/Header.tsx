@@ -3,7 +3,6 @@
 import React from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -12,14 +11,15 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Bell, HelpCircle, Moon, Sun, PanelLeft, PanelRight, Settings, LogOut } from "lucide-react";
-import { useTheme } from "next-themes";
+import { Bell, HelpCircle, PanelLeft, PanelRight, Settings, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSchedulesList } from "@/hooks/useSchedules";
 import { useAppointments } from "@/hooks/useAppointments";
 import { getCatalog } from "@/mockData/catalog";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
+import { useCurrentUserProfile } from "@/hooks/useCurrentUserProfile";
+import UserAvatarDisplay from "@/components/UserAvatarDisplay";
 
 interface HeaderProps {
   onToggleMobileSidebar: () => void;
@@ -36,12 +36,8 @@ const Header: React.FC<HeaderProps> = ({
 }) => {
   const navigate = useNavigate();
   const { session, signOut } = useAuth();
-  const userInitials = React.useMemo(() => {
-    const source = session?.username?.trim() || "US";
-    return source.slice(0, 2).toUpperCase();
-  }, [session?.username]);
+  const { profile } = useCurrentUserProfile();
 
-  const { theme, setTheme } = useTheme();
   const { data: schedules = [] } = useSchedulesList();
   const { appointments } = useAppointments();
   const [dismissedNotifications, setDismissedNotifications] = React.useState<string[]>(() => {
@@ -141,7 +137,7 @@ const Header: React.FC<HeaderProps> = ({
         <Button
           variant="ghost"
           size="icon"
-          className="lg:hidden h-8 w-8 text-muted-foreground transition-colors hover:bg-accent hover:text-primary"
+          className="md:hidden h-8 w-8 text-muted-foreground transition-colors hover:bg-accent hover:text-primary"
           onClick={onToggleMobileSidebar}
         >
           <PanelLeft className="h-4 w-4" strokeWidth={1.55} />
@@ -151,7 +147,7 @@ const Header: React.FC<HeaderProps> = ({
         <Button
           variant="ghost"
           size="icon"
-          className="hidden lg:inline-flex h-8 w-8 text-muted-foreground transition-colors hover:bg-accent hover:text-primary"
+          className="hidden md:inline-flex h-8 w-8 text-muted-foreground transition-colors hover:bg-accent hover:text-primary"
           onClick={onToggleDesktopSidebar}
         >
           {isDesktopSidebarOpen ? (
@@ -165,20 +161,6 @@ const Header: React.FC<HeaderProps> = ({
         <div className="flex-1" />
 
         <div className="flex items-center gap-0.5">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-            className="h-8 w-8 text-muted-foreground transition-colors hover:bg-accent hover:text-primary"
-          >
-            {theme === "dark" ? (
-              <Sun className="h-4 w-4" strokeWidth={1.55} />
-            ) : (
-              <Moon className="h-4 w-4" strokeWidth={1.55} />
-            )}
-            <span className="sr-only">Alternar tema</span>
-          </Button>
-
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
@@ -237,11 +219,15 @@ const Header: React.FC<HeaderProps> = ({
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="h-8 w-8 rounded-full p-0 hover:bg-muted">
-                <Avatar className="h-8 w-8 ring-1 ring-border">
-                  <AvatarImage src="/placeholder.svg" alt="User Avatar" />
-                  <AvatarFallback className="bg-muted text-foreground">{userInitials}</AvatarFallback>
-                </Avatar>
+              <Button variant="ghost" className="h-8 w-8 rounded-full p-0 hover:bg-muted" aria-label="Menu do usuário">
+                <UserAvatarDisplay
+                  avatarType={profile?.avatar_type}
+                  avatarUrl={profile?.avatar_url}
+                  avatarIcon={profile?.avatar_icon}
+                  avatarInitials={profile?.avatar_initials}
+                  fallbackName={session?.username}
+                  className="h-8 w-8 ring-1 ring-border"
+                />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent className="w-56" align="end" forceMount>

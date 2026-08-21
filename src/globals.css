@@ -16,12 +16,6 @@ body,
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Compat: telas antigas ainda usam .font-exo */
-.font-exo {
-  font-family: 'Plus Jakarta Sans', Inter, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell,
-    'Helvetica Neue', Arial, 'Noto Sans', sans-serif;
-}
-
 @layer base {
   :root {
     --background: 200 20% 98%;
@@ -75,58 +69,11 @@ body,
     --vf-stock: 32 85% 48%;
     --vf-registry: 277 48% 46%;
     --vf-settings: 215 70% 44%;
-  }
 
-  .dark {
-    --background: 197 25% 10%;
-    --foreground: 197 20% 92%;
-
-    --card: 197 25% 13%;
-    --card-foreground: 197 20% 92%;
-
-    --popover: 197 25% 13%;
-    --popover-foreground: 197 20% 92%;
-
-    --primary: 197 60% 55%;
-    --primary-foreground: 197 25% 8%;
-
-    --secondary: 197 25% 17%;
-    --secondary-foreground: 197 20% 92%;
-
-    --muted: 197 25% 17%;
-    --muted-foreground: 197 15% 62%;
-
-    --sv-accent: 197 60% 55%;
-    --sv-accent-hover: 197 60% 50%;
-    --sv-accent-active: 197 60% 44%;
-    --sv-accent-soft: 197 30% 20%;
-    --sv-accent-ring: 197 50% 55%;
-
-    --accent: var(--sv-accent-soft);
-    --accent-foreground: var(--sv-accent);
-
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-
-    --border: 197 20% 25%;
-    --input: 197 25% 17%;
-    --ring: var(--sv-accent-ring);
-
-    --sidebar-background: 197 25% 11%;
-    --sidebar-foreground: 197 20% 92%;
-    --sidebar-primary: 197 30% 20%;
-    --sidebar-primary-foreground: 197 20% 92%;
-    --sidebar-accent: var(--sv-accent-soft);
-    --sidebar-accent-foreground: var(--sv-accent);
-    --sidebar-border: 197 20% 22%;
-    --sidebar-ring: var(--sv-accent-ring);
-
-    --vf-clinical: 156 50% 58%;
-    --vf-sales: 262 55% 68%;
-    --vf-finance: 197 65% 60%;
-    --vf-stock: 32 85% 58%;
-    --vf-registry: 277 45% 62%;
-    --vf-settings: 215 65% 62%;
+    /* Fonte única da largura da sidebar — Layout.tsx e Sidebar.tsx leem daqui,
+       nunca duplicar o valor em pixels/rem direto num dos dois arquivos. */
+    --vf-sidebar-w: 16rem;
+    --vf-sidebar-w-collapsed: 74px;
   }
 }
 
@@ -202,14 +149,17 @@ body,
     hsl(var(--background));
 }
 
-/* Card premium (fundo branco, borda sólida, sombra suave) */
+/* Card premium (fundo branco, borda sólida, sombra suave) — mesma receita
+   de .vf-surface-card (definida mais abaixo); os dois nomes convivem só
+   por histórico de quando cada um foi escrito, não porque têm visual
+   diferente. Unificados aqui em 2026-08-21 pra fechar a inconsistência
+   documentada na auditoria (3 "sistemas de card" que na prática só tinham
+   valores de sombra levemente diferentes um do outro). */
 .premium-card {
   background-color: hsl(var(--card));
   border: 1px solid hsl(var(--border));
   border-radius: 1rem;
-  box-shadow:
-    0 1px 2px rgba(16, 24, 40, 0.04),
-    0 12px 28px rgba(16, 24, 40, 0.06);
+  box-shadow: 0 1px 2px rgb(15 23 42 / 0.05);
 }
 
 .premium-card--soft {
@@ -361,7 +311,11 @@ body,
   width: 0.7rem;
 }
 
-/* dots pastel por tipo */
+/* dots pastel por tipo — tom "sólido" (300) da mesma família de cor usada
+   em .badge-soft-* logo abaixo (lá em tom "soft" 400 a 16% de opacidade).
+   Não são a mesma declaração por design: dot precisa de cor cheia pra
+   marcar posição na timeline, badge precisa de contraste de texto por cima.
+   Revisado em 2026-08-20 — mantido assim de propósito, não é duplicação a limpar. */
 .timeline-dot-blue {
   background-color: #93c5fd;
 }
@@ -455,12 +409,6 @@ body,
     0 10px 28px rgb(15 23 42 / 0.06);
 }
 
-.dark .vf-page-hero {
-  box-shadow:
-    0 1px 2px rgb(0 0 0 / 0.25),
-    0 12px 32px rgb(0 0 0 / 0.35);
-}
-
 .vf-surface-card {
   border-radius: 1rem;
   border: 1px solid hsl(var(--border));
@@ -476,10 +424,6 @@ body,
   box-shadow:
     0 1px 2px rgb(15 23 42 / 0.04),
     0 8px 22px rgb(15 23 42 / 0.08);
-}
-
-.dark .vf-surface-card:hover {
-  border-color: hsl(var(--primary) / 0.45);
 }
 
 /* Cards tonais por módulo (modo neutro premium: apenas acento sutil) */

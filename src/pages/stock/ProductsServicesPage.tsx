@@ -36,7 +36,12 @@ const CATEGORY_BADGE: Record<string, { label: string; color: string }> = {
   cirurgia: { label: "Cirurgia", color: "bg-red-100 text-red-700" },
   servico: { label: "Serviço", color: "bg-purple-100 text-purple-700" },
   produto: { label: "Produto", color: "bg-orange-100 text-orange-700" },
+  medicamento: { label: "Medicamento", color: "bg-pink-100 text-pink-700" },
+  racao: { label: "Ração", color: "bg-amber-100 text-amber-700" },
+  acessorio: { label: "Acessório", color: "bg-teal-100 text-teal-700" },
 };
+
+const FALLBACK_BADGE_COLOR = "bg-slate-100 text-slate-700";
 
 function defaultProviderForCategory(category: string): string {
   if (category === "exame_externo") return "Laboratório externo";
@@ -327,7 +332,7 @@ const ProductsServicesPage: React.FC = () => {
       />
 
       <SectionCard title="Cadastro rápido" description="Adicione novos itens ao catálogo." icon={PackageSearch} tone="stock">
-        <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
+        <div>
           {/* Seletor compacto de tipo */}
           <div className="mb-5 flex items-center gap-2">
             <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
@@ -486,7 +491,6 @@ const ProductsServicesPage: React.FC = () => {
                     className="mt-1 h-10 border border-border bg-card text-sm"
                     placeholder="0"
                     type="number"
-                    min="0"
                   />
                 </div>
                 <div className="w-28 shrink-0">
@@ -515,8 +519,7 @@ const ProductsServicesPage: React.FC = () => {
       </SectionCard>
 
       <SectionCard title="Catálogo" description="Edite preços, status e estoque dos itens existentes." icon={PackageSearch} tone="stock">
-        <div className="vf-surface-card vf-tone-stock card-hover mt-4 rounded-2xl border-border/80 p-4">
-          <div className="mb-3 text-sm font-semibold text-foreground">Catálogo</div>
+        <div>
           <div className="mb-5 flex items-center gap-2">
             <div className="flex rounded-lg border border-border bg-muted/40 p-0.5 gap-0.5">
               <button
@@ -559,7 +562,15 @@ const ProductsServicesPage: React.FC = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredItems.map(item => (
+                {loading ? (
+                  <TableRow>
+                    <TableCell colSpan={8} className="py-8 text-center text-muted-foreground">Carregando catálogo...</TableCell>
+                  </TableRow>
+                ) : filteredItems.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={8} className="py-8 text-center text-muted-foreground">Nenhum produto cadastrado.</TableCell>
+                  </TableRow>
+                ) : filteredItems.map(item => (
                   <TableRow key={item.id}>
                     <TableCell className="font-medium">{item.name}</TableCell>
                     <TableCell className="font-semibold text-sm">
@@ -589,8 +600,8 @@ const ProductsServicesPage: React.FC = () => {
                     </TableCell>
                     <TableCell>
                       {item.category ? (
-                        <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold bg-orange-100 text-orange-700">
-                          {item.category.charAt(0).toUpperCase() + item.category.slice(1)}
+                        <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${CATEGORY_BADGE[item.category]?.color ?? FALLBACK_BADGE_COLOR}`}>
+                          {CATEGORY_BADGE[item.category]?.label ?? (item.category.charAt(0).toUpperCase() + item.category.slice(1))}
                         </span>
                       ) : <span className="text-muted-foreground text-xs">-</span>}
                     </TableCell>
@@ -666,7 +677,15 @@ const ProductsServicesPage: React.FC = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredItems.map(item => (
+                {loading ? (
+                  <TableRow>
+                    <TableCell colSpan={8} className="py-8 text-center text-muted-foreground">Carregando catálogo...</TableCell>
+                  </TableRow>
+                ) : filteredItems.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={8} className="py-8 text-center text-muted-foreground">Nenhum serviço cadastrado.</TableCell>
+                  </TableRow>
+                ) : filteredItems.map(item => (
                   <TableRow key={item.id}>
                     <TableCell className="font-medium">{item.name}</TableCell>
                     <TableCell className="font-semibold text-sm">
@@ -901,7 +920,6 @@ const ProductsServicesPage: React.FC = () => {
                     onChange={(e) => setEditStockQty(e.target.value)}
                     className="mt-1 h-10 border border-border"
                     type="number"
-                    min="0"
                   />
                 </div>
                 <div>

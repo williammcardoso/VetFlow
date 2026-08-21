@@ -14,11 +14,13 @@ Font.register({
 Font.registerHyphenationCallback((word) => [word]);
 
 const TEAL = "#0F766E";
+const INK = "#1F2937";
 const DARK = "#111827";
 const GRAY = "#6B7280";
+const WHITE = "#FFFFFF";
 const AMBER = "#B45309";
 const EMERALD = "#065F46";
-const BORDER = "#E5E7EB";
+const BORDER = "#D8DDE2";
 
 const s = StyleSheet.create({
   page: { padding: 48, paddingBottom: 56, fontFamily: "Inter", fontSize: 10, color: DARK },
@@ -42,10 +44,10 @@ const s = StyleSheet.create({
   highlight: {
     marginTop: 14,
     padding: 12,
-    backgroundColor: "#ECFDF5",
+    backgroundColor: INK,
     borderRadius: 6,
-    borderWidth: 1,
-    borderColor: "#A7F3D0",
+    borderLeftWidth: 3,
+    borderLeftColor: EMERALD,
   },
   splitRow: {
     flexDirection: "row",
@@ -80,7 +82,7 @@ const MonthlyClosingPdfContent: React.FC<Props> = ({ data }) => {
     <Document>
       <Page size="A4" style={s.page}>
         <View style={s.header}>
-          <Text style={s.company}>{company.name || "VetFlow"}</Text>
+          <Text style={s.company}>{company.companyName}</Text>
           <Text style={s.title}>Fechamento Mensal 50/50</Text>
           <Text style={s.subtitle}>{data.label} · {data.salesCount} venda(s)</Text>
         </View>
@@ -112,15 +114,15 @@ const MonthlyClosingPdfContent: React.FC<Props> = ({ data }) => {
         </View>
 
         <View style={s.highlight}>
-          <View style={s.row}>
-            <Text style={[s.rowLabel, { color: EMERALD, fontWeight: 700 }]}>
+          <View style={[s.row, { borderBottomColor: "#374151" }]}>
+            <Text style={[s.rowLabel, { color: WHITE, fontWeight: 700 }]}>
               Lucro líquido real
             </Text>
-            <Text style={[s.rowValue, s.rowPos, { fontSize: 13 }]}>
+            <Text style={[s.rowValue, { color: WHITE, fontSize: 13 }]}>
               {fmt(data.lucroLiquido)}
             </Text>
           </View>
-          <Text style={{ fontSize: 8, color: GRAY, marginTop: 4 }}>
+          <Text style={{ fontSize: 8, color: "#D1D5DB", marginTop: 4 }}>
             Margem: {data.margemPct}% sobre o faturamento bruto
           </Text>
         </View>
@@ -142,9 +144,13 @@ const MonthlyClosingPdfContent: React.FC<Props> = ({ data }) => {
           cálculo. Documento gerado em {generatedAt}.
         </Text>
 
-        <Text style={s.footer}>
-          VetFlow · Fechamento 50/50 · {data.label}
-        </Text>
+        <Text
+          style={s.footer}
+          render={({ pageNumber, totalPages }) =>
+            `${company.companyName} · Fechamento 50/50 · ${data.label} · Página ${pageNumber} de ${totalPages}`
+          }
+          fixed
+        />
       </Page>
     </Document>
   );

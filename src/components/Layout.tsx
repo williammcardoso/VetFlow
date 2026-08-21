@@ -1,7 +1,6 @@
 import React, { useState } from "react";
 import Sidebar from "./Sidebar";
 import Header from "./Header";
-import { useIsMobile } from "@/hooks/use-mobile";
 import { applyLayoutTheme, loadLayoutTheme } from "@/lib/layoutTheme";
 
 interface LayoutProps {
@@ -9,7 +8,6 @@ interface LayoutProps {
 }
 
 const Layout: React.FC<LayoutProps> = ({ children }) => {
-  const isMobile = useIsMobile();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isDesktopSidebarOpen, setIsDesktopSidebarOpen] = useState(true);
 
@@ -25,11 +23,13 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     setIsDesktopSidebarOpen(!isDesktopSidebarOpen);
   };
 
-  const containerPaddingClass = isDesktopSidebarOpen ? "lg:pl-64" : "lg:pl-16";
+  const containerPaddingClass = isDesktopSidebarOpen
+    ? "md:pl-[var(--vf-sidebar-w)]"
+    : "md:pl-[var(--vf-sidebar-w-collapsed)]";
 
   const contentMaxWidthClass = isDesktopSidebarOpen
-    ? "lg:max-w-[calc(100vw-18rem)]"
-    : "lg:max-w-[calc(100vw-6rem)]";
+    ? "md:max-w-[calc(100vw-var(--vf-sidebar-w)-2rem)]"
+    : "md:max-w-[calc(100vw-var(--vf-sidebar-w-collapsed)-2rem)]";
 
   const containerClassName = `mx-auto w-full ${contentMaxWidthClass} px-4 sm:px-6`;
 

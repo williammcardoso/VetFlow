@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { formatCurrencyBRL } from "@/lib/utils";
 import { Link } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -44,7 +45,7 @@ import { ArrowLeft, Calculator, Lock, Unlock, Printer, Scale, ShoppingBag } from
 import { toast } from "sonner";
 
 const fmt = (v: number) =>
-  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
+  formatCurrencyBRL(v);
 
 const MonthlyClosingPage: React.FC = () => {
   const { transactions } = useFinancialTransactions();
@@ -320,7 +321,7 @@ const MonthlyClosingPage: React.FC = () => {
           </div>
         )}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card className="rounded-xl border-border/80">
+          <Card className="vf-surface-card vf-tone-finance rounded-xl border-border/80">
             <CardContent className="p-4">
               <div className="text-xs text-muted-foreground uppercase tracking-wide">Período</div>
               <div className="text-xl font-bold mt-1">{closing.label}</div>
@@ -342,7 +343,7 @@ const MonthlyClosingPage: React.FC = () => {
               </div>
             </CardContent>
           </Card>
-          <Card className="rounded-xl border-border/80">
+          <Card className="vf-surface-card vf-tone-finance rounded-xl border-border/80">
             <CardContent className="p-4 flex items-start gap-3">
               <Calculator className="h-5 w-5 text-[hsl(var(--vf-finance))] mt-0.5" />
               <div>
@@ -377,8 +378,8 @@ const MonthlyClosingPage: React.FC = () => {
                         : "text-foreground"
                     }`}
                   >
+                    {row.tone === "amber" ? "− " : ""}
                     {fmt(Math.abs(row.value))}
-                    {row.tone === "amber" ? "" : ""}
                   </span>
                 </div>
               ))}

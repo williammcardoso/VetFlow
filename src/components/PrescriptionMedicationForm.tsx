@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -147,7 +148,7 @@ const PrescriptionMedicationForm: React.FC<PrescriptionMedicationFormProps> = ({
       (!useCustomInstructions && (!pharmaceuticalForm || !dosePerAdministration.trim() || !frequency || !period)) ||
       (useCustomInstructions && !customInstructionInput.trim())
     ) {
-      alert("Por favor, preencha todos os campos obrigatórios.");
+      toast.error("Por favor, preencha todos os campos obrigatórios.");
       return;
     }
 

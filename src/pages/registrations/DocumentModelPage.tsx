@@ -2,16 +2,16 @@ import React, { useMemo, useRef, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "sonner";
-import { FaPlus, FaTrashAlt, FaEdit, FaCopy, FaSave, FaMagic, FaLayerGroup } from "@/components/icons/fa";
 import { useRegistryList } from "@/hooks/useRegistryList";
 import { addRegistryItem, removeRegistryItem, updateRegistryItem } from "@/lib/registryApi";
 import { DOCUMENT_TEMPLATES } from "@/constants/documentTemplates";
 import TiptapRichText, { TiptapRichTextHandle } from "@/components/TiptapRichText";
-import { ChevronDown, FileText } from "lucide-react";
+import { ChevronDown, FileText, Plus, Trash2, Pencil, Copy, Save, Sparkles, Layers } from "lucide-react";
 import { PageShell } from "@/components/saas/PageShell";
 import { PageHeader } from "@/components/saas/PageHeader";
 import { SectionCard } from "@/components/saas/SectionCard";
@@ -216,7 +216,7 @@ const DocumentModelPage: React.FC = () => {
           <div className="space-y-6 min-w-0">
             <Card className="vf-surface-card vf-tone-registry card-hover border-primary/20 bg-card">
             <CardHeader>
-              <CardTitle className="text-base flex items-center justify-between">
+              <CardTitle className="text-base flex flex-wrap items-center justify-between gap-2">
                 <span>{mode === "edit" ? "Editar modelo" : "Novo modelo"}</span>
                 <div className="flex items-center gap-2">
                   <Popover open={libraryOpen} onOpenChange={setLibraryOpen}>
@@ -225,7 +225,7 @@ const DocumentModelPage: React.FC = () => {
                         variant="outline"
                         className="border-violet-400/60 bg-violet-100/75 text-violet-700 hover:bg-violet-200/80"
                       >
-                        <FaLayerGroup className="mr-2 h-4 w-4" />
+                        <Layers className="mr-2 h-4 w-4" />
                         Biblioteca de modelos
                         <ChevronDown className="ml-2 h-4 w-4" />
                       </Button>
@@ -238,7 +238,7 @@ const DocumentModelPage: React.FC = () => {
                       <div className="rounded-xl border border-violet-500/70 bg-violet-100/85">
                         <div className="rounded-t-xl bg-violet-100/95 p-3">
                           <p className="mb-2 flex items-center gap-2 text-base font-semibold text-violet-700">
-                            <FaLayerGroup className="h-4 w-4" /> Biblioteca de modelos
+                            <Layers className="h-4 w-4" /> Biblioteca de modelos
                           </p>
                           <Input
                             placeholder="Buscar modelo..."
@@ -280,7 +280,7 @@ const DocumentModelPage: React.FC = () => {
                                             }}
                                             aria-label={`Editar modelo ${item.title}`}
                                           >
-                                            <FaEdit className="h-4 w-4" />
+                                            <Pencil className="h-4 w-4" />
                                           </Button>
                                           <Button
                                             variant="ghost"
@@ -289,7 +289,7 @@ const DocumentModelPage: React.FC = () => {
                                             onClick={() => handleRemove(item.id)}
                                             aria-label={`Excluir modelo ${item.title}`}
                                           >
-                                            <FaTrashAlt className="h-4 w-4" />
+                                            <Trash2 className="h-4 w-4" />
                                           </Button>
                                         </div>
                                       </div>
@@ -317,7 +317,7 @@ const DocumentModelPage: React.FC = () => {
                                         }}
                                         aria-label={`Usar modelo pronto ${item.title} no editor`}
                                       >
-                                        <FaCopy className="h-4 w-4" />
+                                        <Copy className="h-4 w-4" />
                                       </Button>
                                     </div>
                                   </div>
@@ -342,24 +342,29 @@ const DocumentModelPage: React.FC = () => {
                     className="hidden md:inline-flex"
                     disabled={!title.trim() || !template.trim()}
                   >
-                    {mode === "edit" ? <FaSave className="mr-2 h-4 w-4" /> : <FaPlus className="mr-2 h-4 w-4" />}
+                    {mode === "edit" ? <Save className="mr-2 h-4 w-4" /> : <Plus className="mr-2 h-4 w-4" />}
                     {mode === "edit" ? "Atualizar modelo" : "Salvar modelo"}
                   </Button>
                 </div>
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              <Input
-                placeholder="Nome do modelo"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-              />
+              <div>
+                <Label htmlFor="document-model-title" className="text-xs">Nome do modelo</Label>
+                <Input
+                  id="document-model-title"
+                  placeholder="Ex.: Atestado de saúde"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  className="mt-1"
+                />
+              </div>
               <TiptapRichText
                 ref={editorRef}
                 value={template}
                 onChange={setTemplate}
                 placeholder="Escreva o template do documento..."
-                minHeight="520px"
+                minHeight="320px"
               />
               <div className="flex flex-wrap justify-end gap-2 md:hidden">
                 {mode === "edit" && (
@@ -368,7 +373,7 @@ const DocumentModelPage: React.FC = () => {
                   </Button>
                 )}
                 <Button onClick={handleAdd}>
-                  {mode === "edit" ? <FaSave className="mr-2 h-4 w-4" /> : <FaPlus className="mr-2 h-4 w-4" />}
+                  {mode === "edit" ? <Save className="mr-2 h-4 w-4" /> : <Plus className="mr-2 h-4 w-4" />}
                   {mode === "edit" ? "Atualizar modelo" : "Salvar modelo"}
                 </Button>
               </div>
@@ -376,10 +381,10 @@ const DocumentModelPage: React.FC = () => {
             </Card>
           </div>
 
-          <Card className="vf-surface-card no-card-lift border-amber-500/70 bg-amber-100/70 shadow-[0_10px_26px_rgba(245,158,11,0.18)] lg:sticky lg:top-24 lg:self-start">
-            <CardHeader className="rounded-t-xl bg-amber-100/80 pb-3">
-              <CardTitle className="text-base flex items-center gap-2">
-                <FaMagic className="text-amber-600" /> Variáveis disponíveis
+          <Card className="vf-surface-card vf-tone-registry no-card-lift border-[hsl(var(--vf-registry)/0.5)] lg:sticky lg:top-24 lg:self-start">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2 text-[hsl(var(--vf-registry))]">
+                <Sparkles /> Variáveis disponíveis
               </CardTitle>
               <Input
                 placeholder="Buscar variável..."
@@ -387,14 +392,14 @@ const DocumentModelPage: React.FC = () => {
                 onChange={(e) => setVariableSearch(e.target.value)}
               />
             </CardHeader>
-            <CardContent className="bg-amber-100/60">
+            <CardContent>
               <div className="max-h-[430px] xl:max-h-[480px] overflow-auto pr-1 space-y-2">
                 {filteredVariables.map((v) => (
                   <button
                     key={v}
                     type="button"
                     onClick={() => insertVariable(v)}
-                    className="w-full text-left rounded-md border border-amber-400/55 bg-white px-3 py-2 text-sm font-medium hover:bg-amber-100/65 transition-colors"
+                    className="w-full text-left rounded-md border border-[hsl(var(--vf-registry)/0.35)] bg-card px-3 py-2 text-sm font-medium hover:bg-[hsl(var(--vf-registry)/0.08)] transition-colors"
                   >
                     {v}
                   </button>

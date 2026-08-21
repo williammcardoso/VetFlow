@@ -7,8 +7,14 @@ import { Document, Page, View, Text, StyleSheet, Font } from "@react-pdf/rendere
 import { mockCompanySettings } from "@/mockData/settings";
 import { ExamEntry, HemogramReference, HemogramReferenceValue, ExamReportData, BiochemicalEntry } from "@/types/exam";
 
-// Fonte: Helvetica embutida (visual tecnico/minimalista)
-// Usaremos fonte padrão Helvetica para visual mais técnico/minimalista.
+// Fonte Inter, igual ao resto do sistema (era Helvetica embutida antes).
+Font.register({
+  family: "Inter",
+  fonts: [
+    { src: '/fonts/Inter-Regular.ttf', fontWeight: 400, format: 'truetype' },
+    { src: '/fonts/Inter-Bold.ttf', fontWeight: 700, format: 'truetype' },
+  ],
+});
 
 // Helpers (copiados do original para garantir mesma lógica)
 const formatDateToPortuguese = (date: Date) => {
@@ -39,6 +45,10 @@ const normalizeNumber = (raw: string | undefined) => {
   }
   return parseFloat(cleaned);
 };
+
+// Marcador textual junto do valor: cor sozinha (azul/vermelho) some em impressão P&B.
+const statusArrow = (status: 'normal' | 'high' | 'low' | 'invalid') =>
+  status === 'high' ? ' ↑' : status === 'low' ? ' ↓' : '';
 
 const parseLeukocyteReferenceParts = (refString: string | undefined) => {
   if (!refString || refString === 'N/A' || refString.trim() === '') {
@@ -95,7 +105,7 @@ const styles = StyleSheet.create({
   page: {
     // Margens de impressão ajustadas (~1,2 cm)
     padding: 34,
-    fontFamily: "Helvetica",
+    fontFamily: "Inter",
     fontSize: 9,
     color: "#333",
     lineHeight: 1.05,
@@ -129,7 +139,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     textAlign: "center",
     fontWeight: "bold",
-    fontFamily: "Helvetica-Bold",
     lineHeight: 1.28,
     marginTop: 2,
     marginBottom: 12,
@@ -338,7 +347,7 @@ const styles = StyleSheet.create({
   resultNormal: { color: "#000000" },
   resultHigh: { color: "#2563eb" },
   resultLow: { color: "#dc3545" },
-  strongText: { fontWeight: "bold", fontFamily: "Helvetica-Bold" },
+  strongText: { fontWeight: "bold" },
   observationText: { fontSize: 8.8, lineHeight: 1.18, marginBottom: 1 },
   signatureSmall: { fontSize: 7.6, color: "#333", fontStyle: "italic", marginTop: 1, marginBottom: 2 },
   biochemicalEnzymeHeader: { backgroundColor: '#f6f6f6', paddingVertical: 2, marginBottom: 4, marginTop: 10, borderLeftWidth: 2, borderLeftColor: TEAL },
@@ -493,7 +502,7 @@ export const ExamReportPdfContentHemogramaOnePage = ({
         <Text style={[styles.paramName, applyPlaquetogramBorders && { borderRightWidth: 0 }]}>{label}</Text>
         <View style={[styles.paramResultContainer, applyPlaquetogramBorders && { borderRightWidth: 0 }]}>
           <View style={styles.paramResultValueWrapper}>
-            <Text style={[styles.paramResultValue, resultStyle, forceBoldValue && styles.strongText]}>{value}</Text>
+            <Text style={[styles.paramResultValue, resultStyle, forceBoldValue && styles.strongText]}>{value}{statusArrow(valueStatus)}</Text>
           </View>
           <View style={styles.hemogramRefSpacer} />
           <View style={styles.paramResultUnitWrapper}>
@@ -579,9 +588,9 @@ export const ExamReportPdfContentHemogramaOnePage = ({
       <View style={styles.paramRow}>
         <Text style={styles.paramName}>{label}</Text>
         <View style={styles.leukocyteResultContainer}>
-          <View style={styles.leukocyteResultValueCell}><Text style={[styles.leukocyteResultValue, relResultStyle]}>{relativeValue}</Text></View>
+          <View style={styles.leukocyteResultValueCell}><Text style={[styles.leukocyteResultValue, relResultStyle]}>{relativeValue}{statusArrow(relValueStatus)}</Text></View>
           <View style={styles.leukocyteResultUnitCell}><Text style={styles.leukocyteResultUnit}>%</Text></View>
-          <View style={styles.leukocyteResultValueCell}><Text style={[styles.leukocyteResultValue, absResultStyle]}>{absoluteValue}</Text></View>
+          <View style={styles.leukocyteResultValueCell}><Text style={[styles.leukocyteResultValue, absResultStyle]}>{absoluteValue}{statusArrow(absValueStatus)}</Text></View>
           <View style={styles.leukocyteResultUnitCellAbs}><Text style={styles.leukocyteResultUnit}>/µL</Text></View>
         </View>
         <View style={styles.referenceContainer}>
@@ -805,7 +814,7 @@ export const ExamReportPdfContentHemogramaOnePage = ({
                   </View>
                   <View style={styles.biochemicalResultLine}>
                     <Text style={styles.biochemicalResultLabel}>Resultado:</Text>
-                    <Text style={[styles.biochemicalResultValue, resultStyle]}>{b.result}</Text>
+                    <Text style={[styles.biochemicalResultValue, resultStyle]}>{b.result}{statusArrow(valueStatus)}</Text>
                     {b.referenceUnit && <Text style={styles.biochemicalResultUnit}>{b.referenceUnit}</Text>}
                     {b.minReference && b.maxReference && b.referenceUnit && (
                       <>
@@ -848,8 +857,8 @@ export const ExamReportPdfContentHemogramaOnePage = ({
         )}
 
         {exam.liberadoPor && (
-          <View style={{ marginTop: 36, alignItems: 'center' }}>
-            <View style={{ height: 0.7, width: 200, backgroundColor: '#CBD5E1', marginBottom: 5 }} />
+          <View style={{ marginTop: 16, alignItems: 'center' }}>
+            <View style={{ height: 0.7, width: 200, backgroundColor: '#9AA3AE', marginBottom: 5 }} />
             <Text style={[styles.signatureSmall, { fontStyle: 'normal', fontWeight: '700', color: '#111827', fontSize: 9 }]}>{exam.liberadoPor}</Text>
             <Text style={[styles.signatureSmall, { marginTop: 1 }]}>CRMV {mockCompanySettings.crmv} · Liberado em {exam.laboratoryDate ? formatDateToPortuguese(new Date(exam.laboratoryDate)) : formatDateToPortuguese(currentDate)}</Text>
           </View>

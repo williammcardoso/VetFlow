@@ -98,6 +98,26 @@ export function parseBrNumber(raw: string): number | undefined {
   return Number.isNaN(n) ? undefined : n;
 }
 
+// "YYYY-MM-DD" puro vira meia-noite UTC se parseado direto com `new Date(str)`;
+// em fuso negativo (Brasil, UTC-3) isso volta pro dia anterior. Forçar hora
+// local evita o bug — usar em qualquer cálculo que leia data de nascimento,
+// retorno, vacina etc. a partir de uma string "YYYY-MM-DD".
+export const parseLocalDate = (dateStr: string): Date => new Date(`${dateStr}T00:00:00`);
+
+// Data de "hoje" em "YYYY-MM-DD", em hora LOCAL — evitar
+// `new Date().toISOString().split("T")[0]`, que usa UTC e pode voltar pro
+// dia anterior perto da meia-noite no fuso do Brasil.
+export const getTodayLocalISO = (): string => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+const brlFormatter = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
+export const formatCurrencyBRL = (value: number) => brlFormatter.format(value);
+
 export const formatDateTime = (dateString: string, timeString?: string) => {
   if (!dateString) return "N/A";
   const [year, month, day] = dateString.split('-');

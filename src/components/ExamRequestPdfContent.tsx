@@ -16,8 +16,8 @@ const DARK = "#111827";
 const GRAY = "#6B7280";
 const LIGHT_GRAY = "#F9FAFB";
 const WHITE = "#FFFFFF";
-const BORDER = "#E5E7EB";
-const SLATE = "#64748B";
+const BORDER = "#D8DDE2";
+const SLATE = "#4B5563";
 
 const formatDateBR = (iso?: string) => {
   if (!iso) return "-";
@@ -72,17 +72,21 @@ const styles = StyleSheet.create({
 
   // Tutor / Paciente sem caixas — só rótulo pequeno + valor, separados por
   // uma linha fina (evita a sensação de "quadrados empilhados").
-  peopleRow: { flexDirection: "row", gap: 18, marginBottom: 10 },
-  peopleCol: { flex: 1 },
+  peopleRow: { flexDirection: "row", gap: 10, marginBottom: 10 },
+  peopleCol: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: BORDER,
+    borderRadius: 5,
+    padding: 8,
+    backgroundColor: LIGHT_GRAY,
+  },
   peopleTitle: {
     fontSize: 7.5,
     fontWeight: 700,
     color: TEAL,
     letterSpacing: 0.8,
     marginBottom: 4,
-    borderBottomWidth: 1,
-    borderBottomColor: BORDER,
-    paddingBottom: 3,
   },
   peopleName: { fontSize: 10.5, fontWeight: 700, color: DARK, marginBottom: 2 },
   peopleDetail: { fontSize: 8.3, color: SLATE, lineHeight: 1.4 },
@@ -128,7 +132,7 @@ const styles = StyleSheet.create({
   sigRow: { flexDirection: "row", justifyContent: "center", marginTop: 26 },
   sigArea: { flex: 1, maxWidth: 240, alignItems: "center" },
   sigImage: { height: 42, marginBottom: 4, objectFit: "contain" },
-  sigLine: { height: 1, backgroundColor: "#CBD5E1", width: "100%", marginTop: 22, marginBottom: 4 },
+  sigLine: { height: 1, backgroundColor: "#9AA3AE", width: "100%", marginTop: 22, marginBottom: 4 },
   sigName: { fontSize: 8.5, color: DARK, fontWeight: 700, textAlign: "center" },
   sigSub: { fontSize: 7, color: GRAY, textAlign: "center", marginTop: 1 },
 

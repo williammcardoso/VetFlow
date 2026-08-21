@@ -23,6 +23,24 @@ const formatDateToPortuguese = (date: Date) => {
   return formattedDate.toUpperCase();
 };
 
+// Idade a partir da data de nascimento ("YYYY-MM-DD"). Usa T00:00:00 pra
+// evitar o bug de fuso (new Date("YYYY-MM-DD") parseia como UTC meia-noite,
+// que no Brasil, UTC-3, vira o dia anterior).
+const formatAgeFromBirthday = (birthday?: string): string => {
+  if (!birthday) return "Não informada";
+  const birth = new Date(`${birthday}T00:00:00`);
+  if (Number.isNaN(birth.getTime())) return "Não informada";
+  const now = new Date();
+  let years = now.getFullYear() - birth.getFullYear();
+  let months = now.getMonth() - birth.getMonth();
+  if (now.getDate() < birth.getDate()) months -= 1;
+  if (months < 0) { years -= 1; months += 12; }
+  if (years < 0) return "Não informada";
+  if (years === 0) return `${months} ${months === 1 ? "mês" : "meses"}`;
+  if (months === 0) return `${years} ${years === 1 ? "ano" : "anos"}`;
+  return `${years} ${years === 1 ? "ano" : "anos"} e ${months} ${months === 1 ? "mês" : "meses"}`;
+};
+
 // Helper para formatar unidades para o PDF (formato abreviado)
 const getLongUnitAbbreviation = (unit: string): string => {
   switch (unit) {
@@ -45,8 +63,15 @@ interface PrescriptionPdfContentProps {
   /** ID de exibição em 4 dígitos (ex.: 0001). Se não informado, usa animalId. */
   displayId?: string;
   animalSpecies: string;
+  animalBreed?: string;
+  animalSex?: string;
+  animalBirthday?: string;
+  animalWeight?: number;
+  animalMicrochip?: string;
   tutorName: string;
   tutorAddress: string;
+  tutorDocument?: string;
+  tutorPhone?: string;
   medications: MedicationData[]; // Para receitas simples/controladas
   generalObservations: string;
   showElectronicSignatureText: boolean;
@@ -108,6 +133,7 @@ const getDynamicStyles = (isCompactSimplePrescription: boolean, prescriptionType
     textAlign: 'right',
     fontSize: 9,
     color: '#333',
+    marginBottom: 10,
   },
   infoSectionContainer: {
     flexDirection: "row",
@@ -290,31 +316,7 @@ const getDynamicStyles = (isCompactSimplePrescription: boolean, prescriptionType
     fontFamily: "Inter",
     fontWeight: "bold",
     color: "#333",
-    marginBottom: 15,
-  },
-  controlledHeaderDetails: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: -7,
-  },
-  issuerVetCard: {
-    borderWidth: 1,
-    borderColor: "#ddd",
-    borderRadius: 5,
-    padding: 10,
-    width: '48%',
-  },
-  issuerVetTitle: {
-    fontSize: 11,
-    fontWeight: "bold",
-    marginBottom: 5,
-    color: "#333",
-  },
-  issuerVetText: {
-    fontSize: 10,
-    marginBottom: 2,
-    color: "#333",
+    marginBottom: 6,
   },
   identificationCardContainer: {
     flexDirection: 'row',
@@ -510,7 +512,9 @@ const getDynamicStyles = (isCompactSimplePrescription: boolean, prescriptionType
 
 
 export const PrescriptionPdfContent = ({
-  animalName, animalId, displayId, animalSpecies, tutorName, tutorAddress,
+  animalName, animalId, displayId, animalSpecies, animalBreed, animalSex,
+  animalBirthday, animalWeight, animalMicrochip, tutorName, tutorAddress,
+  tutorDocument, tutorPhone,
   medications, generalObservations, showElectronicSignatureText,
   prescriptionType, pharmacistName, pharmacistCpf, pharmacistCfr,
   pharmacistAddress, pharmacistPhone, manipulatedPrescription,
@@ -562,17 +566,9 @@ export const PrescriptionPdfContent = ({
         {prescriptionType === 'controlled' ? (
           <View style={styles.controlledPrescriptionHeader}>
             <Text style={styles.controlledPrescriptionTitle}>RECEITUÁRIO DE CONTROLE ESPECIAL</Text>
-            <View style={styles.controlledHeaderDetails}>
-              <View style={styles.issuerVetCard}>
-                <Text style={styles.issuerVetTitle}>Emitente (Veterinário)</Text>
-                <Text style={styles.issuerVetText}>Nome: {vetName}</Text>
-                <Text style={styles.issuerVetText}>CRMV: {vetCrmv}</Text>
-                <Text style={styles.issuerVetText}>Registro MAPA: {vetMapa}</Text>
-              </View>
-              <View style={styles.viaTextContainer}>
-                <Text>1.ª VIA - FARMÁCIA</Text>
-                <Text>2.ª VIA - PACIENTE</Text>
-              </View>
+            <View style={styles.viaTextContainer}>
+              <Text>1.ª VIA - FARMÁCIA</Text>
+              <Text>2.ª VIA - PACIENTE</Text>
             </View>
           </View>
         ) : (
@@ -581,13 +577,35 @@ export const PrescriptionPdfContent = ({
           </Text>
         )}
 
-        {/* Informações do Paciente/Proprietário */}
+        {/* Informações do Emitente/Paciente/Proprietário (controlada, 3 colunas)
+            ou Animal/Tutor (simples/manipulada, 2 colunas) — campos sem valor
+            (sexo, idade, peso, microchip, CPF, telefone, endereço) somem em
+            vez de imprimir "Não informado", pra não alongar o documento. */}
         {prescriptionType === 'controlled' ? (
-          <View style={styles.patientInfoControlled}>
-            <Text style={styles.patientInfoControlledTitle}>Informações do Paciente/Proprietário</Text>
-            <Text style={styles.patientInfoControlledText}>Paciente: {animalName}</Text>
-            <Text style={styles.patientInfoControlledText}>Proprietário: {tutorName}</Text>
-            <Text style={styles.patientInfoControlledText}>Endereço: {tutorAddress || "Não informado"}</Text>
+          <View style={styles.infoSectionContainer}>
+            <View style={styles.infoCard}>
+              <Text style={styles.infoTitle}>Emitente (Veterinário)</Text>
+              <Text style={styles.infoText}>Nome: {vetName}</Text>
+              <Text style={styles.infoText}>CRMV: {vetCrmv}</Text>
+              <Text style={styles.infoText}>Registro MAPA: {vetMapa}</Text>
+            </View>
+            <View style={styles.infoCard}>
+              <Text style={styles.infoTitle}>Paciente</Text>
+              <Text style={styles.infoText}>ID: {patientId}</Text>
+              <Text style={styles.infoText}>Nome: {animalName}</Text>
+              <Text style={styles.infoText}>Espécie: {animalSpecies}{animalBreed ? ` — ${animalBreed}` : ""}</Text>
+              {animalSex ? <Text style={styles.infoText}>Sexo: {animalSex}</Text> : null}
+              {animalBirthday ? <Text style={styles.infoText}>Idade: {formatAgeFromBirthday(animalBirthday)}</Text> : null}
+              {animalWeight ? <Text style={styles.infoText}>Peso: {animalWeight} kg</Text> : null}
+              {animalMicrochip ? <Text style={styles.infoText}>Microchip: {animalMicrochip}</Text> : null}
+            </View>
+            <View style={styles.infoCard}>
+              <Text style={styles.infoTitle}>Proprietário</Text>
+              <Text style={styles.infoText}>Nome: {tutorName}</Text>
+              {tutorDocument ? <Text style={styles.infoText}>CPF/CNPJ: {tutorDocument}</Text> : null}
+              {tutorPhone ? <Text style={styles.infoText}>Telefone: {tutorPhone}</Text> : null}
+              {tutorAddress ? <Text style={styles.infoText}>Endereço: {tutorAddress}</Text> : null}
+            </View>
           </View>
         ) : (
           // Informações do Animal e Tutor para receita simples/manipulada
@@ -596,12 +614,18 @@ export const PrescriptionPdfContent = ({
               <Text style={styles.infoTitle}>Animal</Text>
               <Text style={styles.infoText}>ID: {patientId}</Text>
               <Text style={styles.infoText}>Nome: {animalName}</Text>
-              <Text style={styles.infoText}>Espécie: {animalSpecies}</Text>
+              <Text style={styles.infoText}>Espécie: {animalSpecies}{animalBreed ? ` — ${animalBreed}` : ""}</Text>
+              {animalSex ? <Text style={styles.infoText}>Sexo: {animalSex}</Text> : null}
+              {animalBirthday ? <Text style={styles.infoText}>Idade: {formatAgeFromBirthday(animalBirthday)}</Text> : null}
+              {animalWeight ? <Text style={styles.infoText}>Peso: {animalWeight} kg</Text> : null}
+              {animalMicrochip ? <Text style={styles.infoText}>Microchip: {animalMicrochip}</Text> : null}
             </View>
             <View style={styles.infoCard}>
               <Text style={styles.infoTitle}>Tutor</Text>
               <Text style={styles.infoText}>Nome: {tutorName}</Text>
-              <Text style={styles.infoText}>Endereço: {tutorAddress || "Não informado"}</Text>
+              {tutorDocument ? <Text style={styles.infoText}>CPF/CNPJ: {tutorDocument}</Text> : null}
+              {tutorPhone ? <Text style={styles.infoText}>Telefone: {tutorPhone}</Text> : null}
+              {tutorAddress ? <Text style={styles.infoText}>Endereço: {tutorAddress}</Text> : null}
             </View>
           </View>
         )}

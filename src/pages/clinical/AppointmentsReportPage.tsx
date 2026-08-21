@@ -291,33 +291,33 @@ const AppointmentsReportPage: React.FC = () => {
 
       <div className="space-y-5">
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          <Card className="rounded-xl border-border/80">
+          <Card className="vf-surface-card vf-tone-clinical rounded-xl">
             <CardContent className="p-4">
-              <div className="text-xs text-emerald-700 font-medium dark:text-emerald-400">Total no período</div>
-              <div className="text-xl font-bold text-emerald-800 dark:text-emerald-300">{total}</div>
+              <div className="text-xs text-emerald-700 font-medium">Total no período</div>
+              <div className="text-xl font-bold text-emerald-800">{total}</div>
             </CardContent>
           </Card>
-          <Card className="rounded-xl border-border/80">
+          <Card className="vf-surface-card vf-tone-clinical rounded-xl">
             <CardContent className="p-4">
-              <div className="text-xs text-sky-700 font-medium dark:text-sky-400">Pacientes distintos</div>
-              <div className="text-xl font-bold text-sky-800 dark:text-sky-300">{distinctPatients}</div>
+              <div className="text-xs text-sky-700 font-medium">Pacientes distintos</div>
+              <div className="text-xl font-bold text-sky-800">{distinctPatients}</div>
             </CardContent>
           </Card>
-          <Card className="rounded-xl border-border/80">
+          <Card className="vf-surface-card vf-tone-clinical rounded-xl">
             <CardContent className="p-4">
-              <div className="text-xs text-orange-700 font-medium dark:text-orange-400">Acompanhamentos gerados</div>
-              <div className="text-xl font-bold text-orange-800 dark:text-orange-300">{retornosGerados}</div>
+              <div className="text-xs text-orange-700 font-medium">Acompanhamentos gerados</div>
+              <div className="text-xl font-bold text-orange-800">{retornosGerados}</div>
             </CardContent>
           </Card>
-          <Card className="rounded-xl border-border/80">
+          <Card className="vf-surface-card vf-tone-clinical rounded-xl">
             <CardContent className="p-4">
-              <div className="text-xs text-blue-700 font-medium dark:text-blue-400">Vacinas aplicadas</div>
-              <div className="text-xl font-bold text-blue-800 dark:text-blue-300">{vacinasAplicadas}</div>
+              <div className="text-xs text-blue-700 font-medium">Vacinas aplicadas</div>
+              <div className="text-xl font-bold text-blue-800">{vacinasAplicadas}</div>
             </CardContent>
           </Card>
         </div>
 
-        <Card className="rounded-xl border-border/80 print:break-inside-avoid">
+        <Card className="vf-surface-card vf-tone-clinical rounded-xl print:break-inside-avoid">
           <CardHeader className="pb-2">
             <CardTitle className="text-base flex items-center gap-2">
               <BarChart3 className="h-4 w-4 text-primary" /> Atendimentos por dia
@@ -341,7 +341,7 @@ const AppointmentsReportPage: React.FC = () => {
         </Card>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-          <Card className="rounded-xl border-border/80 print:break-inside-avoid">
+          <Card className="vf-surface-card vf-tone-clinical rounded-xl print:break-inside-avoid">
             <CardHeader className="pb-2">
               <CardTitle className="text-base flex items-center gap-2">
                 <CalendarDays className="h-4 w-4 text-primary" /> Atendimentos por tipo
@@ -366,7 +366,7 @@ const AppointmentsReportPage: React.FC = () => {
             </CardContent>
           </Card>
 
-          <Card className="rounded-xl border-border/80 print:break-inside-avoid">
+          <Card className="vf-surface-card vf-tone-clinical rounded-xl print:break-inside-avoid">
             <CardHeader className="pb-2">
               <CardTitle className="text-base flex items-center gap-2">
                 <Stethoscope className="h-4 w-4 text-primary" /> Atendimentos por veterinário
@@ -389,7 +389,7 @@ const AppointmentsReportPage: React.FC = () => {
           </Card>
         </div>
 
-        <Card className="rounded-xl border-border/80 print:break-inside-avoid">
+        <Card className="vf-surface-card vf-tone-clinical rounded-xl print:break-inside-avoid">
           <CardHeader className="pb-2">
             <CardTitle className="text-base flex items-center gap-2">
               <PawPrint className="h-4 w-4 text-primary" /> Lista de atendimentos

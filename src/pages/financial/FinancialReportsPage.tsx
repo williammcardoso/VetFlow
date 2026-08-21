@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   Select,
   SelectContent,
@@ -10,11 +11,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { formatDateTime, formatItemQty } from "@/lib/utils";
+import { cn, formatCurrencyBRL, formatDateTime, formatItemQty } from "@/lib/utils";
+import { getPeriodLabel } from "@/lib/printReport";
+import { toast } from "sonner";
+import FinancialReportPdfContent from "@/components/FinancialReportPdfContent";
+import { createPdfBlob, openPdf } from "@/lib/pdfExport";
 import type { FinancialTransaction } from "@/mockData/financial";
 import { useFinancialTransactions } from "@/hooks/useFinancialTransactions";
 import { getSaleItemsBySaleIds, type SaleItem } from "@/lib/saleItemsApi";
 import { groupRepassesByProvider, resolveCostProvider } from "@/lib/costProviders";
+import { classifyTransaction } from "@/lib/financialTransactionDisplay";
 import { useClientsList } from "@/hooks/useSupabaseClients";
 import {
   ChartContainer,
@@ -104,6 +110,7 @@ const FinancialReportsPage: React.FC = () => {
   const [dateTo, setDateTo] = useState<string>(defaultPeriod.to);
   const [periodSaleItems, setPeriodSaleItems] = useState<SaleItem[]>([]);
   const [providerFilter, setProviderFilter] = useState<string>("all");
+  const [exportingPdf, setExportingPdf] = useState(false);
 
   useEffect(() => {
     const now = new Date();
@@ -213,7 +220,7 @@ const FinancialReportsPage: React.FC = () => {
     return repassesDetalhados.filter((r) => r.provider === providerFilter);
   }, [repassesDetalhados, providerFilter]);
 
-  const { entradas, faturamento, recebido, saidas, saldo, movimentos, totalEmAberto, chartByDay, receitasPorCategoria, despesasPorCategoria, totalRepasses, lucroReal, margemReal, totalTaxas, liquidoReal, margemLiquida, repassesPorPrestador } =
+  const { faturamento, recebido, saidas, movimentos, totalEmAberto, chartByDay, receitasPorCategoria, despesasPorCategoria, totalRepasses, lucroReal, margemReal, totalTaxas, liquidoReal, margemLiquida, repassesPorPrestador } =
     useMemo(() => {
       const allInPeriod = mockFinancialTransactions.filter((t) =>
         withinRange(t.date, dateFrom, dateTo)
@@ -235,12 +242,6 @@ const FinancialReportsPage: React.FC = () => {
       const saidas = allInPeriod
         .filter((t) => t.type === "expense")
         .reduce((s, t) => s + t.amount, 0);
-
-      // Saldo = recebido - saídas (base caixa)
-      const saldo = recebido - saidas;
-
-      // Entradas para gráficos = recebido (não duplicar)
-      const entradas = recebido;
 
       const movimentos = [...allInPeriod].sort((a, b) => {
         const A = new Date(`${a.date}T${a.time || "00:00"}`).getTime();
@@ -274,8 +275,14 @@ const FinancialReportsPage: React.FC = () => {
           desCat[cat] = (desCat[cat] || 0) + t.amount;
         }
       });
-      const receitasPorCategoria = Object.entries(recCat).map(([name, value]) => ({ name, value: Math.round(value * 100) / 100 }));
-      const despesasPorCategoria = Object.entries(desCat).map(([name, value]) => ({ name, value: Math.round(value * 100) / 100 }));
+      // Filtra categoria com total <= 0 (ex.: mais estorno que venda nova no
+      // período) — um gráfico de pizza não tem como desenhar fatia negativa.
+      const receitasPorCategoria = Object.entries(recCat)
+        .filter(([, value]) => value > 0)
+        .map(([name, value]) => ({ name, value: Math.round(value * 100) / 100 }));
+      const despesasPorCategoria = Object.entries(desCat)
+        .filter(([, value]) => value > 0)
+        .map(([name, value]) => ({ name, value: Math.round(value * 100) / 100 }));
 
       // A receber geral (todas as vendas não quitadas, todos os períodos)
       const salesAll = mockFinancialTransactions.filter(
@@ -288,32 +295,33 @@ const FinancialReportsPage: React.FC = () => {
         return s + Math.max(0, sale.amount - paid);
       }, 0);
 
-      const totalRepassesVendas = allInPeriod
-        .filter(t => t.type === 'income' && t.category === 'Venda de Produtos' && (t.status || 'pending') !== 'cancelled')
-        .reduce((s, t) => s + (t.supplierCost ?? 0), 0);
+      const vendasDoPeriodo = allInPeriod.filter(
+        t => t.type === 'income' && t.category === 'Venda de Produtos' && (t.status || 'pending') !== 'cancelled'
+      );
 
       // Taxas de operadora repassadas ao cliente
-      const totalTaxas = allInPeriod
-        .filter(t => t.type === 'income' && t.category === 'Venda de Produtos' && (t.status || 'pending') !== 'cancelled')
-        .reduce((s, t) => s + (t.financialFee ?? 0), 0);
+      const totalTaxas = vendasDoPeriodo.reduce((s, t) => s + (t.financialFee ?? 0), 0);
 
       const repassesPorPrestador = groupRepassesByProvider(periodSaleItems);
-      // Itens detalhados são a fonte da verdade; vendas antigas sem itens usam o agregado.
-      const totalRepasses =
-        periodSaleItems.length > 0
-          ? repassesPorPrestador.reduce((s, r) => s + r.amount, 0)
-          : totalRepassesVendas;
+      const totalRepassesPorItem = repassesPorPrestador.reduce((s, r) => s + r.amount, 0);
+      // Soma vendas com sale_items (custo por item, atual) só com vendas SEM
+      // nenhum sale_item (legado puro) — antes escolhia um total OU outro
+      // pra todo o período, e se houvesse os dois tipos misturados, o
+      // repasse das vendas legadas sumia silenciosamente da soma.
+      const saleIdsWithItems = new Set(periodSaleItems.map((i) => i.saleId));
+      const totalRepassesLegado = vendasDoPeriodo
+        .filter((t) => !saleIdsWithItems.has(t.id))
+        .reduce((s, t) => s + (t.supplierCost ?? 0), 0);
+      const totalRepasses = totalRepassesPorItem + totalRepassesLegado;
       const lucroReal = faturamento - totalRepasses;
       const liquidoReal = faturamento - totalRepasses - totalTaxas;
       const margemReal = faturamento > 0 ? Math.round((lucroReal / faturamento) * 100) : 0;
       const margemLiquida = faturamento > 0 ? Math.round((liquidoReal / faturamento) * 100) : 0;
 
       return {
-        entradas,
         faturamento,
         recebido,
         saidas,
-        saldo,
         movimentos,
         totalEmAberto,
         chartByDay,
@@ -329,58 +337,36 @@ const FinancialReportsPage: React.FC = () => {
       };
     }, [mockFinancialTransactions, dateFrom, dateTo, periodSaleItems]);
 
-  const periodLabel =
-    periodPreset === "this_month"
-      ? "Este mês"
-      : periodPreset === "last_month"
-        ? "Mês passado"
-        : periodPreset === "last_3"
-          ? "Últimos 3 meses"
-          : `${formatDateTime(dateFrom)} a ${formatDateTime(dateTo)}`;
+  const periodLabel = getPeriodLabel(periodPreset, dateFrom, dateTo);
 
-  const handlePrintDetailedReport = () => {
-    const popup = window.open("", "_blank", "width=1024,height=768");
-    if (!popup) return;
-    const currency = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
-    const movementsRows = movimentos
-      .map((m) => `<tr><td>${formatDateTime(m.date, m.time)}</td><td>${m.description}</td><td>${m.category}</td><td>${m.paymentMethod || "-"}</td><td style="text-align:right">${m.type === "income" ? "+" : "-"}${currency(m.amount)}</td></tr>`)
-      .join("");
-    popup.document.write(`
-      <html><head><title>Relatório Financeiro</title><style>
-      body{font-family:Arial,sans-serif;padding:24px;color:#0f172a} h1{margin:0 0 8px} h2{margin:22px 0 8px}
-      table{width:100%;border-collapse:collapse;margin-top:8px} th,td{border:1px solid #e2e8f0;padding:8px;font-size:12px} th{background:#f8fafc;text-align:left}
-      .kpi{display:inline-block;margin-right:16px;padding:10px 12px;border:1px solid #e2e8f0;border-radius:10px;background:#fff}
-      </style></head><body>
-      <h1>Relatório Financeiro</h1><p>Período: ${periodLabel}</p>
-      <div class="kpi"><strong>Faturamento:</strong> ${currency(faturamento)}</div>
-      <div class="kpi"><strong>Recebido:</strong> ${currency(recebido)}</div>
-      <div class="kpi"><strong>Repasses:</strong> ${currency(totalRepasses)}</div>
-      <div class="kpi"><strong>Taxas Operadora:</strong> ${currency(totalTaxas)}</div>
-      <div class="kpi" style="background:#f0fdf4"><strong>Lucro Líquido Real:</strong> ${currency(liquidoReal)} (${margemLiquida}%)</div>
-      <div class="kpi" style="background:#f0fdf4"><strong>Lucro Real:</strong> ${currency(lucroReal)} (${margemReal}%)</div>
-      <div class="kpi"><strong>Saídas:</strong> ${currency(saidas)}</div>
-      <div class="kpi"><strong>A receber:</strong> ${currency(totalEmAberto)}</div>
-      <h2>Repasses por prestador</h2>
-      <table><thead><tr><th>Prestador</th><th style="text-align:right">Valor</th></tr></thead><tbody>${
-        repassesPorPrestador.length
-          ? repassesPorPrestador.map((r) => `<tr><td>${r.provider}</td><td style="text-align:right">${currency(r.amount)}</td></tr>`).join("")
-          : "<tr><td colspan='2'>Nenhum repasse no período</td></tr>"
-      }</tbody></table>
-      <h2>Detalhamento por paciente</h2>
-      <table><thead><tr><th>Data</th><th>Paciente</th><th>Tutor</th><th>Serviço</th><th>Prestador</th><th style="text-align:right">Repasse</th></tr></thead><tbody>${
-        filteredRepassesDetalhados.length
-          ? filteredRepassesDetalhados.map((r) =>
-              `<tr><td>${formatDateTime(r.date, r.time)}</td><td>${r.animalName}${r.patientCode != null ? ` (#${r.patientCode})` : ""}</td><td>${r.clientName}</td><td>${formatItemQty(r.serviceName, r.quantity)}</td><td>${r.provider}</td><td style="text-align:right">${currency(r.amount)}</td></tr>`
-            ).join("")
-          : "<tr><td colspan='6'>Nenhum repasse no período</td></tr>"
-      }</tbody></table>
-      <h2>Movimentos do período</h2>
-      <table><thead><tr><th>Data</th><th>Descrição</th><th>Categoria</th><th>Pagamento</th><th style="text-align:right">Valor</th></tr></thead><tbody>${movementsRows || "<tr><td colspan='5'>Sem dados</td></tr>"}</tbody></table>
-      </body></html>
-    `);
-    popup.document.close();
-    popup.focus();
-    popup.print();
+  const handlePrintDetailedReport = async () => {
+    setExportingPdf(true);
+    try {
+      const blob = await createPdfBlob(
+        <FinancialReportPdfContent
+          periodLabel={periodLabel}
+          faturamento={faturamento}
+          recebido={recebido}
+          totalRepasses={totalRepasses}
+          totalTaxas={totalTaxas}
+          lucroReal={lucroReal}
+          margemReal={margemReal}
+          liquidoReal={liquidoReal}
+          margemLiquida={margemLiquida}
+          saidas={saidas}
+          totalEmAberto={totalEmAberto}
+          providerFilterLabel={providerFilter !== "all" ? providerFilter : undefined}
+          repassesPorPrestador={repassesPorPrestador}
+          repassesDetalhados={filteredRepassesDetalhados}
+          movimentos={movimentos}
+        />
+      );
+      await openPdf({ blob, fileName: `relatorio-financeiro-${new Date().toISOString().slice(0, 10)}.pdf` });
+    } catch {
+      toast.error("Erro ao gerar PDF do relatório.");
+    } finally {
+      setExportingPdf(false);
+    }
   };
 
   const barChartConfig = {
@@ -432,8 +418,8 @@ const FinancialReportsPage: React.FC = () => {
                 />
               </>
             )}
-            <Button variant="outline" onClick={handlePrintDetailedReport} className="gap-2">
-              <Printer className="h-4 w-4" /> Imprimir PDF
+            <Button variant="outline" onClick={() => void handlePrintDetailedReport()} disabled={exportingPdf} className="gap-2">
+              <Printer className="h-4 w-4" /> {exportingPdf ? "Gerando PDF..." : "Imprimir PDF"}
             </Button>
             <Link to="/financial">
               <Button variant="ghost" className="gap-2 text-muted-foreground">
@@ -454,7 +440,7 @@ const FinancialReportsPage: React.FC = () => {
                 Faturamento Bruto
               </div>
               <div className="text-2xl font-bold text-emerald-800 mt-1">
-                {new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(faturamento)}
+                {formatCurrencyBRL(faturamento)}
               </div>
               <div className="text-xs text-muted-foreground mt-1">Total vendido no período</div>
             </CardContent>
@@ -467,7 +453,7 @@ const FinancialReportsPage: React.FC = () => {
                 Recebido no Caixa
               </div>
               <div className="text-2xl font-bold text-teal-700 mt-1">
-                {new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(recebido)}
+                {formatCurrencyBRL(recebido)}
               </div>
               <div className="text-xs text-muted-foreground mt-1">
                 Pagamentos confirmados
@@ -482,7 +468,7 @@ const FinancialReportsPage: React.FC = () => {
                 Repasses a Prestadores
               </div>
               <div className="text-2xl font-bold text-amber-700 mt-1">
-                − {new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(totalRepasses)}
+                − {formatCurrencyBRL(totalRepasses)}
               </div>
               <div className="text-xs text-muted-foreground mt-1">
                 Labs, especialistas e fornecedores
@@ -497,7 +483,7 @@ const FinancialReportsPage: React.FC = () => {
                 Taxas de Operadora
               </div>
               <div className="text-2xl font-bold text-orange-700 mt-1">
-                − {new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(totalTaxas)}
+                − {formatCurrencyBRL(totalTaxas)}
               </div>
               <div className="text-xs text-muted-foreground mt-1">
                 Taxas repassadas ao cliente
@@ -512,7 +498,7 @@ const FinancialReportsPage: React.FC = () => {
                 Lucro Líquido Real
               </div>
               <div className={`text-2xl font-bold mt-1 ${liquidoReal >= 0 ? "text-emerald-700" : "text-red-700"}`}>
-                {new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(liquidoReal)}
+                {formatCurrencyBRL(liquidoReal)}
               </div>
               <div className="text-xs text-muted-foreground mt-1">
                 Margem líquida: {margemLiquida}%
@@ -527,7 +513,7 @@ const FinancialReportsPage: React.FC = () => {
                 Lucro Real Estimado
               </div>
               <div className={`text-2xl font-bold mt-1 ${lucroReal >= 0 ? "text-teal-700" : "text-red-700"}`}>
-                {new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(lucroReal)}
+                {formatCurrencyBRL(lucroReal)}
               </div>
               <div className="text-xs text-muted-foreground mt-1">
                 Margem: {margemReal}% sobre faturamento
@@ -540,7 +526,7 @@ const FinancialReportsPage: React.FC = () => {
             <CardContent className="p-4">
               <div className="text-xs text-red-700 font-medium uppercase tracking-wide">Saídas Operacionais</div>
               <div className="text-2xl font-bold text-red-800 mt-1">
-                {new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(saidas)}
+                {formatCurrencyBRL(saidas)}
               </div>
               <div className="text-xs text-muted-foreground mt-1">Despesas do período</div>
             </CardContent>
@@ -551,7 +537,7 @@ const FinancialReportsPage: React.FC = () => {
             <CardContent className="p-4">
               <div className="text-xs text-amber-700 font-medium uppercase tracking-wide">A Receber</div>
               <div className="text-2xl font-bold text-amber-800 mt-1">
-                {new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(totalEmAberto)}
+                {formatCurrencyBRL(totalEmAberto)}
               </div>
               <div className="text-xs text-muted-foreground mt-1">Vendas em aberto</div>
             </CardContent>
@@ -576,35 +562,35 @@ const FinancialReportsPage: React.FC = () => {
             ) : (
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b border-border">
-                        <th className="text-left py-2 font-medium text-muted-foreground">Prestador</th>
-                        <th className="text-right py-2 font-medium text-muted-foreground">Valor</th>
-                        <th className="text-right py-2 font-medium text-muted-foreground">%</th>
-                      </tr>
-                    </thead>
-                    <tbody>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="py-2 h-auto">Prestador</TableHead>
+                        <TableHead className="py-2 h-auto text-right">Valor</TableHead>
+                        <TableHead className="py-2 h-auto text-right">%</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
                       {repassesPorPrestador.map((row) => (
-                        <tr key={row.provider} className="border-b border-border/50">
-                          <td className="py-2 font-medium text-amber-800">{row.provider}</td>
-                          <td className="py-2 text-right font-semibold text-amber-700">
-                            {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(row.amount)}
-                          </td>
-                          <td className="py-2 text-right text-muted-foreground">
+                        <TableRow key={row.provider}>
+                          <TableCell className="py-2 font-medium text-amber-800">{row.provider}</TableCell>
+                          <TableCell className="py-2 text-right font-semibold text-amber-700">
+                            {formatCurrencyBRL(row.amount)}
+                          </TableCell>
+                          <TableCell className="py-2 text-right text-muted-foreground">
                             {totalRepasses > 0 ? Math.round((row.amount / totalRepasses) * 100) : 0}%
-                          </td>
-                        </tr>
+                          </TableCell>
+                        </TableRow>
                       ))}
-                      <tr className="border-t border-border bg-muted/30">
-                        <td className="py-2 font-semibold">Total</td>
-                        <td className="py-2 text-right font-bold text-amber-700">
-                          {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(totalRepasses)}
-                        </td>
-                        <td className="py-2 text-right text-muted-foreground">100%</td>
-                      </tr>
-                    </tbody>
-                  </table>
+                      <TableRow className="border-t border-b-0 bg-muted/30 hover:bg-muted/30">
+                        <TableCell className="py-2 font-semibold">Total</TableCell>
+                        <TableCell className="py-2 text-right font-bold text-amber-700">
+                          {formatCurrencyBRL(totalRepasses)}
+                        </TableCell>
+                        <TableCell className="py-2 text-right text-muted-foreground">100%</TableCell>
+                      </TableRow>
+                    </TableBody>
+                  </Table>
                 </div>
                 <ChartContainer
                   config={repassesPorPrestador.reduce(
@@ -627,7 +613,7 @@ const FinancialReportsPage: React.FC = () => {
                         <Cell key={i} fill={CHART_COLORS.pie[i % CHART_COLORS.pie.length]} />
                       ))}
                     </Pie>
-                    <ChartTooltip formatter={(v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v)} />
+                    <ChartTooltip formatter={(v: number) => formatCurrencyBRL(v)} />
                   </PieChart>
                 </ChartContainer>
               </div>
@@ -672,24 +658,24 @@ const FinancialReportsPage: React.FC = () => {
               </p>
             ) : (
               <div className="overflow-x-auto max-h-[420px] overflow-y-auto">
-                <table className="w-full text-sm">
-                  <thead className="sticky top-0 bg-card z-10">
-                    <tr className="border-b border-border">
-                      <th className="text-left py-2 font-medium text-muted-foreground">Data</th>
-                      <th className="text-left py-2 font-medium text-muted-foreground">Paciente</th>
-                      <th className="text-left py-2 font-medium text-muted-foreground">Tutor</th>
-                      <th className="text-left py-2 font-medium text-muted-foreground">Serviço</th>
-                      <th className="text-left py-2 font-medium text-muted-foreground">Prestador</th>
-                      <th className="text-right py-2 font-medium text-muted-foreground">Repasse</th>
-                    </tr>
-                  </thead>
-                  <tbody>
+                <Table>
+                  <TableHeader className="sticky top-0 bg-card z-10">
+                    <TableRow>
+                      <TableHead className="py-2 h-auto">Data</TableHead>
+                      <TableHead className="py-2 h-auto">Paciente</TableHead>
+                      <TableHead className="py-2 h-auto">Tutor</TableHead>
+                      <TableHead className="py-2 h-auto">Serviço</TableHead>
+                      <TableHead className="py-2 h-auto">Prestador</TableHead>
+                      <TableHead className="py-2 h-auto text-right">Repasse</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
                     {filteredRepassesDetalhados.map((row) => (
-                      <tr key={row.id} className="border-b border-border/50">
-                        <td className="py-2 whitespace-nowrap text-muted-foreground">
+                      <TableRow key={row.id}>
+                        <TableCell className="py-2 whitespace-nowrap text-muted-foreground">
                           {formatDateTime(row.date, row.time)}
-                        </td>
-                        <td className="py-2">
+                        </TableCell>
+                        <TableCell className="py-2">
                           {row.clientId && row.animalId ? (
                             <Link
                               to={`/clients/${row.clientId}/animals/${row.animalId}/record`}
@@ -703,43 +689,43 @@ const FinancialReportsPage: React.FC = () => {
                           ) : (
                             <span className="font-medium">{row.animalName}</span>
                           )}
-                        </td>
-                        <td className="py-2 text-muted-foreground">{row.clientName}</td>
-                        <td className="py-2">
+                        </TableCell>
+                        <TableCell className="py-2 text-muted-foreground">{row.clientName}</TableCell>
+                        <TableCell className="py-2">
                           {row.serviceName}
                           {row.quantity > 1 && (
                             <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-100 px-1 text-[10px] font-bold leading-none text-amber-800">
                               {row.quantity}
                             </span>
                           )}
-                        </td>
-                        <td className="py-2">
+                        </TableCell>
+                        <TableCell className="py-2">
                           <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200">
                             {row.provider}
                           </span>
-                        </td>
-                        <td className="py-2 text-right font-semibold text-amber-700 whitespace-nowrap">
-                          {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(row.amount)}
-                        </td>
-                      </tr>
+                        </TableCell>
+                        <TableCell className="py-2 text-right font-semibold text-amber-700 whitespace-nowrap">
+                          {formatCurrencyBRL(row.amount)}
+                        </TableCell>
+                      </TableRow>
                     ))}
-                  </tbody>
-                  <tfoot>
-                    <tr className="border-t border-border bg-muted/30">
-                      <td colSpan={5} className="py-2 font-semibold">
+                  </TableBody>
+                  <TableFooter>
+                    <TableRow className="bg-muted/30 hover:bg-muted/30">
+                      <TableCell colSpan={5} className="py-2 font-semibold">
                         Total{providerFilter !== "all" ? ` · ${providerFilter}` : ""}
                         <span className="ml-2 text-xs font-normal text-muted-foreground">
                           ({filteredRepassesDetalhados.length} {filteredRepassesDetalhados.length === 1 ? "item" : "itens"})
                         </span>
-                      </td>
-                      <td className="py-2 text-right font-bold text-amber-700">
-                        {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(
+                      </TableCell>
+                      <TableCell className="py-2 text-right font-bold text-amber-700">
+                        {formatCurrencyBRL(
                           filteredRepassesDetalhados.reduce((s, r) => s + r.amount, 0)
                         )}
-                      </td>
-                    </tr>
-                  </tfoot>
-                </table>
+                      </TableCell>
+                    </TableRow>
+                  </TableFooter>
+                </Table>
               </div>
             )}
           </CardContent>
@@ -766,7 +752,7 @@ const FinancialReportsPage: React.FC = () => {
                   <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                   <XAxis dataKey="date" tick={{ fontSize: 11 }} />
                   <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `R$ ${(v / 1000).toFixed(0)}k`} />
-                  <ChartTooltip content={<ChartTooltipContent formatter={(v) => [new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(v)), undefined]} />} />
+                  <ChartTooltip content={<ChartTooltipContent formatter={(v) => [formatCurrencyBRL(Number(v)), undefined]} />} />
                   <Legend />
                   <Bar dataKey="entradas" fill={CHART_COLORS.entradas} radius={[4, 4, 0, 0]} name="Entradas" />
                   <Bar dataKey="saidas" fill={CHART_COLORS.saidas} radius={[4, 4, 0, 0]} name="Saídas" />
@@ -799,7 +785,7 @@ const FinancialReportsPage: React.FC = () => {
                     <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                     <XAxis dataKey="date" tick={{ fontSize: 11 }} />
                     <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `R$ ${(v / 1000).toFixed(0)}k`} />
-                    <ChartTooltip content={<ChartTooltipContent formatter={(v) => [new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(v)), undefined]} />} />
+                    <ChartTooltip content={<ChartTooltipContent formatter={(v) => [formatCurrencyBRL(Number(v)), undefined]} />} />
                     <Legend />
                     <Line type="monotone" dataKey="entradas" stroke={CHART_COLORS.entradas} strokeWidth={2} dot={{ r: 3 }} name="Entradas" />
                     <Line type="monotone" dataKey="saidas" stroke={CHART_COLORS.saidas} strokeWidth={2} dot={{ r: 3 }} name="Saídas" />
@@ -844,7 +830,7 @@ const FinancialReportsPage: React.FC = () => {
                         <Cell key={i} fill={CHART_COLORS.pie[i % CHART_COLORS.pie.length]} />
                       ))}
                     </Pie>
-                    <ChartTooltip formatter={(v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v)} />
+                    <ChartTooltip formatter={(v: number) => formatCurrencyBRL(v)} />
                   </PieChart>
                 </ChartContainer>
               )}
@@ -886,7 +872,7 @@ const FinancialReportsPage: React.FC = () => {
                       <Cell key={i} fill={CHART_COLORS.pie[i % CHART_COLORS.pie.length]} />
                     ))}
                   </Pie>
-                  <ChartTooltip formatter={(v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v)} />
+                  <ChartTooltip formatter={(v: number) => formatCurrencyBRL(v)} />
                 </PieChart>
               </ChartContainer>
             )}
@@ -906,33 +892,36 @@ const FinancialReportsPage: React.FC = () => {
               <p className="text-sm text-muted-foreground py-6 text-center">Nenhum movimento no período.</p>
             ) : (
               <div className="overflow-x-auto max-h-[400px] overflow-y-auto">
-                <table className="w-full text-sm">
-                  <thead className="sticky top-0 bg-card">
-                    <tr className="border-b border-border">
-                      <th className="text-left py-2 font-medium text-muted-foreground">Data</th>
-                      <th className="text-left py-2 font-medium text-muted-foreground">Descrição</th>
-                      <th className="text-left py-2 font-medium text-muted-foreground">Categoria</th>
-                      <th className="text-right py-2 font-medium text-muted-foreground">Valor</th>
-                      <th className="text-left py-2 font-medium text-muted-foreground">Tipo</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {movimentos.map((t) => (
-                      <tr key={t.id} className="border-b border-border/50">
-                        <td className="py-2">{formatDateTime(t.date, t.time)}</td>
-                        <td className="py-2">{t.description}</td>
-                        <td className="py-2 text-muted-foreground">{t.category}</td>
-                        <td className="text-right py-2 font-medium">
-                          <span className={t.type === "income" ? "text-emerald-700" : "text-red-700"}>
-                            {t.type === "income" ? "+" : "-"}
-                            {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(t.amount)}
-                          </span>
-                        </td>
-                        <td className="py-2">{t.type === "income" ? "Entrada" : "Saída"}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                <Table>
+                  <TableHeader className="sticky top-0 bg-card">
+                    <TableRow>
+                      <TableHead className="py-2 h-auto">Data</TableHead>
+                      <TableHead className="py-2 h-auto">Descrição</TableHead>
+                      <TableHead className="py-2 h-auto">Categoria</TableHead>
+                      <TableHead className="py-2 h-auto text-right">Valor</TableHead>
+                      <TableHead className="py-2 h-auto">Tipo</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {movimentos.map((t) => {
+                      const kind = classifyTransaction(t);
+                      return (
+                        <TableRow key={t.id}>
+                          <TableCell className="py-2">{formatDateTime(t.date, t.time)}</TableCell>
+                          <TableCell className="py-2">{t.description}</TableCell>
+                          <TableCell className="py-2 text-muted-foreground">{t.category}</TableCell>
+                          <TableCell className="text-right py-2 font-medium">
+                            <span className={cn("tabular-nums", kind.amountClass)}>
+                              {kind.signal}
+                              {formatCurrencyBRL(Math.abs(t.amount))}
+                            </span>
+                          </TableCell>
+                          <TableCell className="py-2">{kind.label}</TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
               </div>
             )}
           </CardContent>

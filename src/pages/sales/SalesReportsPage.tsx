@@ -10,7 +10,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { formatDateTime } from "@/lib/utils";
+import { formatCurrencyBRL, formatDateTime } from "@/lib/utils";
+import { getPeriodLabel, openPrintReport } from "@/lib/printReport";
 import type { FinancialTransaction } from "@/mockData/financial";
 import { useFinancialTransactions } from "@/hooks/useFinancialTransactions";
 import {
@@ -130,45 +131,37 @@ const SalesReportsPage: React.FC = () => {
       const pm = t.paymentMethod || "Não informado";
       byPm[pm] = (byPm[pm] || 0) + t.amount;
     });
-    const porFormaPagamento = Object.entries(byPm).map(([name, value]) => ({ name, value: Math.round(value * 100) / 100 }));
+    // Filtra total <= 0 — um gráfico de pizza não desenha fatia negativa
+    // (pode acontecer se o período tiver mais estorno que venda numa categoria).
+    const porFormaPagamento = Object.entries(byPm)
+      .filter(([, value]) => value > 0)
+      .map(([name, value]) => ({ name, value: Math.round(value * 100) / 100 }));
 
     const byCat: Record<string, number> = {};
     salesInPeriod.forEach((t) => {
       const cat = t.category || "Outros";
       byCat[cat] = (byCat[cat] || 0) + t.amount;
     });
-    const porCategoria = Object.entries(byCat).map(([name, value]) => ({ name, value: Math.round(value * 100) / 100 }));
+    const porCategoria = Object.entries(byCat)
+      .filter(([, value]) => value > 0)
+      .map(([name, value]) => ({ name, value: Math.round(value * 100) / 100 }));
 
     return { totalVendas, totalRecebido, emAberto, chartByDay, porFormaPagamento, porCategoria, salesInPeriod, receiptsInPeriod };
   }, [mockFinancialTransactions, dateFrom, dateTo]);
 
-  const periodLabel =
-    periodPreset === "this_month"
-      ? "Este mês"
-      : periodPreset === "last_month"
-        ? "Mês passado"
-        : periodPreset === "last_3"
-          ? "Últimos 3 meses"
-          : `${formatDateTime(dateFrom)} a ${formatDateTime(dateTo)}`;
+  const periodLabel = getPeriodLabel(periodPreset, dateFrom, dateTo);
 
   const barChartConfig = { vendas: { label: "Vendas", color: "#059669" } };
 
   const handlePrintDetailedReport = () => {
-    const popup = window.open("", "_blank", "width=1024,height=768");
-    if (!popup) return;
-    const currency = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
+    const currency = (v: number) => formatCurrencyBRL(v);
     const salesRows = salesInPeriod
       .map((s) => `<tr><td>${formatDateTime(s.date, s.time)}</td><td>${s.description}</td><td>${s.paymentMethod || "-"}</td><td style="text-align:right">${currency(s.amount)}</td></tr>`)
       .join("");
     const receiptsRows = receiptsInPeriod
       .map((r) => `<tr><td>${formatDateTime(r.date, r.time)}</td><td>${r.description}</td><td>${r.paymentMethod || "-"}</td><td style="text-align:right">${currency(r.amount)}</td></tr>`)
       .join("");
-    popup.document.write(`
-      <html><head><title>Relatório de Vendas</title><style>
-      body{font-family:Arial,sans-serif;padding:24px;color:#0f172a} h1{margin:0 0 8px} h2{margin:22px 0 8px}
-      table{width:100%;border-collapse:collapse;margin-top:8px} th,td{border:1px solid #e2e8f0;padding:8px;font-size:12px} th{background:#f8fafc;text-align:left}
-      .kpi{display:inline-block;margin-right:16px;padding:10px 12px;border:1px solid #e2e8f0;border-radius:10px;background:#fff}
-      </style></head><body>
+    openPrintReport("Relatório de Vendas", `
       <h1>Relatório de Vendas</h1><p>Período: ${periodLabel}</p>
       <div class="kpi"><strong>Faturado:</strong> ${currency(totalVendas)}</div>
       <div class="kpi"><strong>Recebido:</strong> ${currency(totalRecebido)}</div>
@@ -177,11 +170,7 @@ const SalesReportsPage: React.FC = () => {
       <table><thead><tr><th>Data</th><th>Descrição</th><th>Pagamento</th><th style="text-align:right">Valor</th></tr></thead><tbody>${salesRows || "<tr><td colspan='4'>Sem dados</td></tr>"}</tbody></table>
       <h2>Recebimentos do período</h2>
       <table><thead><tr><th>Data</th><th>Descrição</th><th>Pagamento</th><th style="text-align:right">Valor</th></tr></thead><tbody>${receiptsRows || "<tr><td colspan='4'>Sem dados</td></tr>"}</tbody></table>
-      </body></html>
     `);
-    popup.document.close();
-    popup.focus();
-    popup.print();
   };
 
   return (
@@ -230,7 +219,7 @@ const SalesReportsPage: React.FC = () => {
             <CardContent className="p-4">
               <div className="text-xs text-emerald-700 font-medium">Faturado no período</div>
               <div className="text-xl font-bold text-emerald-800">
-                {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(totalVendas)}
+                {formatCurrencyBRL(totalVendas)}
               </div>
             </CardContent>
           </Card>
@@ -238,7 +227,7 @@ const SalesReportsPage: React.FC = () => {
             <CardContent className="p-4">
               <div className="text-xs text-teal-700 font-medium">Recebido no período</div>
               <div className="text-xl font-bold text-teal-800">
-                {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(totalRecebido)}
+                {formatCurrencyBRL(totalRecebido)}
               </div>
             </CardContent>
           </Card>
@@ -246,7 +235,7 @@ const SalesReportsPage: React.FC = () => {
             <CardContent className="p-4">
               <div className="text-xs text-amber-700 font-medium">A receber (geral)</div>
               <div className="text-xl font-bold text-amber-800">
-                {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(emAberto)}
+                {formatCurrencyBRL(emAberto)}
               </div>
             </CardContent>
           </Card>
@@ -255,7 +244,7 @@ const SalesReportsPage: React.FC = () => {
               <div className="text-xs text-slate-600 font-medium">Ticket médio</div>
               <div className="text-xl font-bold text-slate-800">
                 {chartByDay.length > 0
-                  ? new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(totalVendas / chartByDay.length)
+                  ? formatCurrencyBRL(totalVendas / chartByDay.length)
                   : "R$ 0,00"}
               </div>
             </CardContent>
@@ -278,7 +267,7 @@ const SalesReportsPage: React.FC = () => {
                   <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                   <XAxis dataKey="date" tick={{ fontSize: 11 }} />
                   <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `R$ ${(v / 1000).toFixed(0)}k`} />
-                  <ChartTooltip content={<ChartTooltipContent formatter={(v) => [new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(v)), undefined]} />} />
+                  <ChartTooltip content={<ChartTooltipContent formatter={(v) => [formatCurrencyBRL(Number(v)), undefined]} />} />
                   <Bar dataKey="vendas" fill="#059669" radius={[4, 4, 0, 0]} name="Vendas" />
                 </BarChart>
               </ChartContainer>
@@ -312,7 +301,7 @@ const SalesReportsPage: React.FC = () => {
                         <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
                       ))}
                     </Pie>
-                    <ChartTooltip formatter={(v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v)} />
+                    <ChartTooltip formatter={(v: number) => formatCurrencyBRL(v)} />
                   </PieChart>
                 </ChartContainer>
               )}
@@ -343,7 +332,7 @@ const SalesReportsPage: React.FC = () => {
                         <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
                       ))}
                     </Pie>
-                    <ChartTooltip formatter={(v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v)} />
+                    <ChartTooltip formatter={(v: number) => formatCurrencyBRL(v)} />
                   </PieChart>
                 </ChartContainer>
               )}

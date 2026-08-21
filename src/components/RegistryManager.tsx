@@ -34,7 +34,7 @@ interface RegistryManagerProps {
   icon?: LucideIcon;
   module?: VfModule;
   breadcrumb?: React.ReactNode;
-  layoutVariant?: "A" | "B" | "C";
+  layoutVariant?: "A" | "C";
 }
 
 const RegistryManager: React.FC<RegistryManagerProps> = ({
@@ -184,12 +184,8 @@ const RegistryManager: React.FC<RegistryManagerProps> = ({
       </SectionCard>
 
       <SectionCard
-        title={layoutVariant === "B" ? "Lista agrupada" : "Itens cadastrados"}
-        description={
-          layoutVariant === "B"
-            ? "Leitura densa com foco em manutenção rápida."
-            : "Edite em linha e mantenha consistência de dados."
-        }
+        title="Itens cadastrados"
+        description="Edite em linha e mantenha consistência de dados."
         icon={Folder}
         tone={tone}
         className="no-card-lift"

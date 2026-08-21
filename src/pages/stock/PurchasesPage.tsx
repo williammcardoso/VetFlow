@@ -16,14 +16,20 @@ import { toast } from "sonner";
 import { getCatalogByType, findCatalogItem, adjustStock, updateCatalogItem } from "@/lib/catalogApi";
 import type { CatalogItem } from "@/mockData/catalog";
 import type { FinancialTransaction } from "@/mockData/financial";
-import { addFinancialTransaction } from "@/lib/financialApi";
+import { addFinancialTransaction, updateFinancialTransaction } from "@/lib/financialApi";
 import { useFinancialTransactions } from "@/hooks/useFinancialTransactions";
-import { addPurchaseItems, getPurchaseItemsByTransactionIds, type PurchaseItem as StoredPurchaseItem } from "@/lib/purchaseItemsApi";
+import {
+  addPurchaseItems,
+  deletePurchaseItemsByTransaction,
+  getPurchaseItemsByTransactionIds,
+  type PurchaseItem as StoredPurchaseItem,
+} from "@/lib/purchaseItemsApi";
 import { createPdfBlob, openPdf } from "@/lib/pdfExport";
 import PurchaseReceiptPdfContent, { type PurchaseReceiptPurchase } from "@/components/PurchaseReceiptPdfContent";
 import { formatItemQty, parseItemQty, formatDateTime, generateUUID, cn } from "@/lib/utils";
 import CurrencyInput from "@/components/CurrencyInput";
-import { ShoppingBag, Plus, Trash2, Printer, PackageCheck, ChevronDown, ChevronRight, CalendarClock } from "lucide-react";
+import SmartComboInput, { type SmartComboInputHandle } from "@/components/SmartComboInput";
+import { ShoppingBag, Plus, Trash2, Printer, PackageCheck, ChevronDown, ChevronRight, CalendarClock, Pencil, X } from "lucide-react";
 import { PageShell } from "@/components/saas/PageShell";
 import { PageHeader } from "@/components/saas/PageHeader";
 import { SectionCard } from "@/components/saas/SectionCard";
@@ -50,6 +56,8 @@ interface HistoryInstallment {
 
 interface HistoryRow {
   id: string;
+  /** Id(s) de financial_transactions desta compra — mais de um se for parcelada, sempre em ordem de data. */
+  transactionIds: string[];
   date: string;
   time?: string;
   supplier?: string;
@@ -140,6 +148,15 @@ const PurchasesPage: React.FC = () => {
   const [supplier, setSupplier] = useState<string>("");
   const [saving, setSaving] = useState(false);
   const [items, setItems] = useState<CartItem[]>([]);
+  const productComboRef = React.useRef<SmartComboInputHandle>(null);
+
+  // Edição de compra já salva: guarda o(s) id(s) de transação originais (mais
+  // de um se for parcelada) e uma cópia dos itens como estavam antes, pra
+  // conseguir calcular a diferença de estoque na hora de salvar.
+  const [editingTransactionId, setEditingTransactionId] = useState<string | null>(null);
+  const [editingTransactionIds, setEditingTransactionIds] = useState<string[]>([]);
+  const [editingOriginalItems, setEditingOriginalItems] = useState<CartItem[]>([]);
+  const [editingDateLabel, setEditingDateLabel] = useState<string>("");
 
   // Parcelamento — compra grande paga em N boletos: cada parcela vira uma
   // despesa "Estoque" datada no próprio vencimento, pra cada fechamento
@@ -206,10 +223,50 @@ const PurchasesPage: React.FC = () => {
       return [...prev, { itemId: found.id, name: found.name, quantity: q, unitCost: c }];
     });
     setSelectedItemId(""); setQuantity("1"); setUnitCost(0);
+    // Foca de novo no campo pra continuar digitando o próximo item, mas sem
+    // abrir a lista sozinho — só abre quando o usuário digitar ou clicar na seta.
+    productComboRef.current?.reset();
+    productComboRef.current?.focus();
   };
 
   const handleRemoveItem = (itemId: string) => {
     setItems(prev => prev.filter(i => i.itemId !== itemId));
+  };
+
+  const handleCancelEdit = () => {
+    setEditingTransactionId(null);
+    setEditingTransactionIds([]);
+    setEditingOriginalItems([]);
+    setEditingDateLabel("");
+    setItems([]);
+    setSupplier("");
+    setSelectedItemId(""); setQuantity("1"); setUnitCost(0);
+    productComboRef.current?.reset();
+  };
+
+  const handleStartEdit = (row: HistoryRow) => {
+    if (!row.itemized) {
+      toast.error("Essa compra é antiga e não tem os itens detalhados — não dá pra editar. Cancele e lance de novo se precisar corrigir.");
+      return;
+    }
+    const firstTxnId = row.transactionIds[0];
+    const stored = itemsByTransaction.get(firstTxnId) || [];
+    const mapped: CartItem[] = stored.map((i) => ({
+      itemId: i.productId || i.id,
+      name: i.productName,
+      quantity: i.quantity,
+      unitCost: i.unitCost,
+    }));
+    setItems(mapped);
+    setEditingOriginalItems(mapped);
+    setSupplier(row.supplier || "");
+    setEditingTransactionId(firstTxnId);
+    setEditingTransactionIds(row.transactionIds);
+    setEditingDateLabel(formatDateTime(row.date, row.time));
+    setInstallmentsEnabled(false);
+    setSelectedItemId(""); setQuantity("1"); setUnitCost(0);
+    productComboRef.current?.reset();
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const handleSavePurchase = async () => {
@@ -217,10 +274,89 @@ const PurchasesPage: React.FC = () => {
       toast.error("Adicione ao menos um item à compra.");
       return;
     }
-    if (installmentsEnabled && installmentDates.some((d) => !d)) {
+    if (!supplier.trim()) {
+      toast.error("Informe o fornecedor.");
+      return;
+    }
+    if (!editingTransactionId && installmentsEnabled && installmentDates.some((d) => !d)) {
       toast.error("Preencha todas as datas de vencimento das parcelas.");
       return;
     }
+    if (editingTransactionId) {
+      await handleUpdatePurchase();
+    } else {
+      await handleCreatePurchase();
+    }
+  };
+
+  const handleUpdatePurchase = async () => {
+    if (!editingTransactionId) return;
+    setSaving(true);
+    try {
+      // Reconcilia estoque: soma quantidade por produto antes/depois da
+      // edição e ajusta só a diferença — nunca zera e refaz do zero, senão
+      // duas edições em rápida sucessão poderiam se atropelar.
+      const oldQtyByProduct = new Map<string, number>();
+      for (const it of editingOriginalItems) {
+        oldQtyByProduct.set(it.itemId, (oldQtyByProduct.get(it.itemId) || 0) + it.quantity);
+      }
+      const newQtyByProduct = new Map<string, number>();
+      for (const it of items) {
+        newQtyByProduct.set(it.itemId, (newQtyByProduct.get(it.itemId) || 0) + it.quantity);
+      }
+      const productIds = new Set<string>([...oldQtyByProduct.keys(), ...newQtyByProduct.keys()]);
+      for (const pid of productIds) {
+        const delta = (newQtyByProduct.get(pid) || 0) - (oldQtyByProduct.get(pid) || 0);
+        if (delta !== 0) await adjustStock(pid, delta);
+        const newItem = items.find((i) => i.itemId === pid);
+        if (newItem && newItem.unitCost > 0) {
+          const catItem = await findCatalogItem(pid);
+          if (catItem && catItem.cost !== newItem.unitCost) {
+            await updateCatalogItem({ ...catItem, cost: newItem.unitCost });
+          }
+        }
+      }
+
+      const baseDescription = `Compra de estoque${supplier ? ` - Fornecedor: ${supplier}` : ""}: ${items.map(i => formatItemQty(i.name, i.quantity)).join(', ')}`;
+
+      // Redistribui o novo total pelas mesmas parcelas que já existiam —
+      // editar itens não muda quantas parcelas a compra tem, só o valor.
+      const amounts = splitAmount(subtotal, editingTransactionIds.length || 1);
+      for (let i = 0; i < editingTransactionIds.length; i++) {
+        const txId = editingTransactionIds[i];
+        const original = transactions.find((t) => t.id === txId);
+        const label = original?.installmentLabel;
+        const desc = label ? `${baseDescription} (${label})` : baseDescription;
+        const ok = await updateFinancialTransaction(txId, { amount: amounts[i], description: desc });
+        if (!ok) {
+          toast.error("Estoque ajustado, mas falhou ao atualizar um dos lançamentos financeiros.");
+          setSaving(false);
+          return;
+        }
+      }
+
+      await deletePurchaseItemsByTransaction(editingTransactionId);
+      await addPurchaseItems(
+        editingTransactionId,
+        items.map((it) => ({
+          productId: it.itemId,
+          productName: it.name,
+          quantity: it.quantity,
+          unitCost: it.unitCost,
+          subtotal: it.quantity * it.unitCost,
+        }))
+      );
+
+      toast.success("Compra atualizada. Estoque e custo ajustados.");
+      setProducts(await getCatalogByType("product"));
+      handleCancelEdit();
+      await refetchTransactions();
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleCreatePurchase = async () => {
     setSaving(true);
     try {
       // Estoque + custo de referência do item (útil pra comparar preço entre
@@ -361,6 +497,7 @@ const PurchasesPage: React.FC = () => {
       if (structured && structured.length > 0) {
         return {
           id: t.id,
+          transactionIds: [t.id],
           date: t.date,
           time: t.time,
           supplier: legacy.supplier,
@@ -376,6 +513,7 @@ const PurchasesPage: React.FC = () => {
       }
       return {
         id: t.id,
+        transactionIds: [t.id],
         date: t.date,
         time: t.time,
         supplier: legacy.supplier,
@@ -394,6 +532,7 @@ const PurchasesPage: React.FC = () => {
       rows.push({
         ...base,
         id: groupId,
+        transactionIds: sorted.map((t) => t.id),
         amount: sorted.reduce((s, t) => s + t.amount, 0),
         installments: sorted.map((t) => ({
           label: t.installmentLabel || "Parcela",
@@ -474,7 +613,7 @@ const PurchasesPage: React.FC = () => {
       />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <Card>
+        <Card className="vf-surface-card vf-tone-stock">
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-base">
               <Plus className="h-4 w-4 text-[hsl(var(--vf-stock))]" />
@@ -484,16 +623,13 @@ const PurchasesPage: React.FC = () => {
           <CardContent className="space-y-4">
             <div className="space-y-1.5">
               <Label className="text-xs font-medium text-muted-foreground">Produto</Label>
-              <Select value={selectedItemId} onValueChange={setSelectedItemId}>
-                <SelectTrigger className="h-10 bg-card">
-                  <SelectValue placeholder="Selecione um produto..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {products.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SmartComboInput
+                ref={productComboRef}
+                options={products.map((p) => ({ value: p.id, label: p.name }))}
+                onSelect={(id) => setSelectedItemId(id)}
+                placeholder="Digite o nome do produto..."
+                emptyLabel="Nenhum produto encontrado."
+              />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
@@ -511,16 +647,23 @@ const PurchasesPage: React.FC = () => {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className={cn("vf-surface-card vf-tone-stock", editingTransactionId && "border-[hsl(var(--vf-stock))] ring-1 ring-[hsl(var(--vf-stock)/0.4)]")}>
           <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <PackageCheck className="h-4 w-4 text-[hsl(var(--vf-stock))]" />
-              Itens desta compra
+            <CardTitle className="flex items-center justify-between gap-2 text-base">
+              <span className="flex items-center gap-2">
+                <PackageCheck className="h-4 w-4 text-[hsl(var(--vf-stock))]" />
+                {editingTransactionId ? `Editando compra de ${editingDateLabel}` : "Itens desta compra"}
+              </span>
+              {editingTransactionId && (
+                <Button variant="ghost" size="sm" onClick={handleCancelEdit} className="h-7 gap-1 text-xs text-muted-foreground">
+                  <X className="h-3.5 w-3.5" /> Cancelar edição
+                </Button>
+              )}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-1.5">
-              <Label className="text-xs font-medium text-muted-foreground">Fornecedor (opcional)</Label>
+              <Label className="text-xs font-medium text-muted-foreground">Fornecedor</Label>
               <Input value={supplier} onChange={(e) => setSupplier(e.target.value)} className="h-10 bg-card" placeholder="Nome do fornecedor / almoxarifado" />
             </div>
 
@@ -562,6 +705,14 @@ const PurchasesPage: React.FC = () => {
               </span>
             </div>
 
+            {editingTransactionId ? (
+              editingTransactionIds.length > 1 && (
+                <div className="flex items-center gap-2 rounded-lg border border-[hsl(var(--vf-stock)/0.35)] bg-[hsl(var(--vf-stock)/0.08)] p-3 text-xs text-[hsl(var(--vf-stock))]">
+                  <CalendarClock className="h-4 w-4 shrink-0" />
+                  Esta compra tem {editingTransactionIds.length} parcelas — o novo valor total será redistribuído entre elas automaticamente, sem mudar as datas de vencimento.
+                </div>
+              )
+            ) : (
             <div className="rounded-lg border border-border/70 bg-muted/10 p-3">
               <label className="flex cursor-pointer items-center gap-2 text-sm font-medium">
                 <Checkbox checked={installmentsEnabled} onCheckedChange={(v) => setInstallmentsEnabled(v === true)} />
@@ -630,13 +781,14 @@ const PurchasesPage: React.FC = () => {
                 </div>
               )}
             </div>
+            )}
 
             <Button
               onClick={() => void handleSavePurchase()}
-              disabled={items.length === 0 || saving}
+              disabled={items.length === 0 || saving || !supplier.trim()}
               className="h-10 w-full bg-[hsl(var(--vf-stock))] text-white hover:bg-[hsl(var(--vf-stock)/0.9)]"
             >
-              {saving ? "Salvando..." : "Salvar Compra"}
+              {saving ? "Salvando..." : editingTransactionId ? "Salvar alterações" : "Salvar Compra"}
             </Button>
           </CardContent>
         </Card>
@@ -693,6 +845,7 @@ const PurchasesPage: React.FC = () => {
                     <TableHead>Fornecedor</TableHead>
                     <TableHead>Itens</TableHead>
                     <TableHead className="text-right">Valor</TableHead>
+                    <TableHead className="w-9" />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -724,19 +877,31 @@ const PurchasesPage: React.FC = () => {
                           <TableCell className="text-right font-semibold text-amber-700">
                             {currency(row.amount)}
                           </TableCell>
+                          <TableCell onClick={(e) => e.stopPropagation()} className="w-9">
+                            {row.itemized && (
+                              <button
+                                type="button"
+                                onClick={() => handleStartEdit(row)}
+                                title="Editar esta compra"
+                                className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-[hsl(var(--vf-stock)/0.12)] hover:text-[hsl(var(--vf-stock))]"
+                              >
+                                <Pencil className="h-3.5 w-3.5" />
+                              </button>
+                            )}
+                          </TableCell>
                         </TableRow>
                         {expanded && (
                           <TableRow>
-                            <TableCell colSpan={5} className="bg-muted/20 p-0">
+                            <TableCell colSpan={6} className="bg-muted/20 p-0">
                               <div className="space-y-3 p-3">
                                 <div className="space-y-1.5">
                                   {row.items.map((it, i) => (
-                                    <div key={i} className="flex items-center justify-between gap-2 rounded-lg border border-border/70 bg-card px-3 py-2 text-sm">
+                                    <div key={i} className="grid grid-cols-[1fr_130px_110px] items-center gap-2 rounded-lg border border-border/70 bg-card px-3 py-2 text-sm">
                                       <span className="min-w-0 truncate">{it.name}</span>
-                                      <span className="shrink-0 text-xs text-muted-foreground">
-                                        {it.quantity != null ? `${it.quantity}×${it.unitCost != null ? ` ${currency(it.unitCost)}` : ""}` : ""}
+                                      <span className="text-right text-xs tabular-nums text-muted-foreground">
+                                        {it.quantity != null ? `${it.quantity}× ${it.unitCost != null ? currency(it.unitCost) : ""}` : ""}
                                       </span>
-                                      <span className="shrink-0 font-semibold">
+                                      <span className="text-right font-semibold tabular-nums">
                                         {row.itemized && it.subtotal != null ? currency(it.subtotal) : "—"}
                                       </span>
                                     </div>

@@ -1,8 +1,10 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { formatCurrencyBRL } from "@/lib/utils";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { getCatalog } from "@/lib/catalogApi";
 import type { CatalogItem, CatalogItemType } from "@/mockData/catalog";
@@ -26,7 +28,7 @@ const CATEGORY_LABELS: Record<string, string> = {
 };
 
 const fmt = (v: number) =>
-  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
+  formatCurrencyBRL(v);
 
 const PriceListPage: React.FC = () => {
   const [items, setItems] = useState<CatalogItem[]>([]);
@@ -117,28 +119,30 @@ const PriceListPage: React.FC = () => {
           </div>
           <div className="w-44 shrink-0">
             <label className="text-xs font-medium text-muted-foreground">Tipo</label>
-            <select
-              value={typeFilter}
-              onChange={(e) => setTypeFilter(e.target.value as CatalogItemType | "all")}
-              className="mt-1 h-10 w-full rounded-md border border-border bg-card px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--vf-sales)/0.3)]"
-            >
-              <option value="all">Todos os tipos</option>
-              <option value="product">Produtos</option>
-              <option value="service">Serviços</option>
-            </select>
+            <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v as CatalogItemType | "all")}>
+              <SelectTrigger className="mt-1 h-10 bg-card">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os tipos</SelectItem>
+                <SelectItem value="product">Produtos</SelectItem>
+                <SelectItem value="service">Serviços</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           <div className="w-52 shrink-0">
             <label className="text-xs font-medium text-muted-foreground">Categoria</label>
-            <select
-              value={categoryFilter}
-              onChange={(e) => setCategoryFilter(e.target.value)}
-              className="mt-1 h-10 w-full rounded-md border border-border bg-card px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--vf-sales)/0.3)]"
-            >
-              <option value="all">Todas as categorias</option>
-              {availableCategories.map((c) => (
-                <option key={c} value={c}>{CATEGORY_LABELS[c] || c}</option>
-              ))}
-            </select>
+            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+              <SelectTrigger className="mt-1 h-10 bg-card">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas as categorias</SelectItem>
+                {availableCategories.map((c) => (
+                  <SelectItem key={c} value={c}>{CATEGORY_LABELS[c] || c}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </div>
       </SectionCard>

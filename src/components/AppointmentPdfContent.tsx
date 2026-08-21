@@ -24,8 +24,8 @@ const GRAY = "#6B7280";
 const LIGHT_GRAY = "#F9FAFB";
 const WHITE = "#FFFFFF";
 const AMBER = "#B45309";
-const BORDER = "#E5E7EB";
-const SLATE = "#64748B";
+const BORDER = "#D8DDE2";
+const SLATE = "#4B5563";
 
 const formatDateBR = (iso?: string) => {
   if (!iso) return "-";
@@ -107,9 +107,11 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     paddingHorizontal: 7,
     borderRadius: 8,
-    backgroundColor: TEAL,
+    backgroundColor: "#ECFDF5",
+    borderWidth: 1,
+    borderColor: TEAL,
   },
-  statusBadgeText: { fontSize: 7.5, fontWeight: 700, color: WHITE },
+  statusBadgeText: { fontSize: 7.5, fontWeight: 700, color: TEAL },
   statusSep: { width: 1, height: 10, backgroundColor: BORDER, marginHorizontal: 1 },
   statusInfo: { fontSize: 7.5, color: SLATE },
 
@@ -188,7 +190,7 @@ const styles = StyleSheet.create({
 
   sigRow: { flexDirection: "row", justifyContent: "center", marginTop: 14 },
   sigArea: { flex: 1, maxWidth: 240, alignItems: "center" },
-  sigLine: { height: 1, backgroundColor: "#CBD5E1", width: "100%", marginTop: 22, marginBottom: 4 },
+  sigLine: { height: 1, backgroundColor: "#9AA3AE", width: "100%", marginTop: 22, marginBottom: 4 },
   sigName: { fontSize: 8.5, color: DARK, fontWeight: 700, textAlign: "center" },
   sigSub: { fontSize: 7, color: GRAY, textAlign: "center", marginTop: 1 },
 
@@ -533,12 +535,12 @@ export default function AppointmentPdfContent({
         {/* Info tutor e paciente */}
         <View style={styles.infoRow}>
           <View style={styles.infoBox}>
-            <Text style={styles.infoLabel}>TUTOR / RESPONSAVEL</Text>
-            <Text style={styles.infoValue}>{clientName || "Nao informado"}</Text>
+            <Text style={styles.infoLabel}>TUTOR / RESPONSÁVEL</Text>
+            <Text style={styles.infoValue}>{clientName || "Não informado"}</Text>
           </View>
           <View style={styles.infoBox}>
             <Text style={styles.infoLabel}>PACIENTE</Text>
-            <Text style={styles.infoValue}>{animalName || "Nao informado"}</Text>
+            <Text style={styles.infoValue}>{animalName || "Não informado"}</Text>
             {animalSpecies && <Text style={styles.infoSub}>{animalSpecies}</Text>}
           </View>
         </View>

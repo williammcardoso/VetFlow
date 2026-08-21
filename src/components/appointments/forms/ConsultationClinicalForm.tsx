@@ -377,7 +377,7 @@ export default function ConsultationClinicalForm({
 
               {mode === "completo" && (
                 <div className="md:col-span-3 pt-2">
-                  <Card className="border-border">
+                  <Card className="vf-surface-card vf-tone-clinical rounded-xl">
                     <CardHeader className="pb-2">
                       <CardTitle className="text-sm">Exame clínico completo (colapsável)</CardTitle>
                     </CardHeader>

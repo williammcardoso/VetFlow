@@ -11,7 +11,7 @@ export let mockCompanySettings: CompanySettings = {
   zipCode: "13970-170",
   phone: "(19) 99363-1981",
   email: "contato@clinicamoraescardoso.com.br",
-  logoUrl: "/public/placeholder.svg", // Placeholder para o logo
+  logoUrl: "/placeholder.svg", // Placeholder para o logo
 };
 
 export let mockUserSettings: UserSettings = {

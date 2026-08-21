@@ -1,7 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { PawPrint, Plus, Trash2, Bird, Fish, Rabbit, Cat, Dog, Turtle } from "lucide-react";
@@ -77,11 +76,7 @@ const SpeciesPage: React.FC = () => {
         icon={PawPrint}
         tone="registry"
       >
-        <Card className="vf-surface-card card-hover border-border/80">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base text-foreground">Cadastro rápido</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
+        <div className="space-y-4">
             <div className="flex flex-wrap items-center gap-2">
               <Input
                 placeholder="Ex.: Canino"
@@ -141,8 +136,7 @@ const SpeciesPage: React.FC = () => {
                 })}
               </div>
             )}
-          </CardContent>
-        </Card>
+        </div>
       </SectionCard>
     </PageShell>
   );

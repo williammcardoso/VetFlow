@@ -4,6 +4,8 @@ import React, { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import SaasButton from "@/components/saas/SaasButton";
+import { PageShell } from "@/components/saas/PageShell";
+import { PageHeader } from "@/components/saas/PageHeader";
 import AppointmentPdfContent from "@/components/AppointmentPdfContent";
 import { createPdfBlob, openPdf } from "@/lib/pdfExport";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -448,18 +450,33 @@ export default function AppointmentViewPage() {
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-background">
-      <div className="p-6 pb-4 border-b border-border">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-          <div>
-            <h1 className="text-2xl font-semibold flex items-center gap-2">
-              <Clipboard className="h-5 w-5 text-vf-clinical" /> Detalhes do Atendimento
-            </h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              {animal.name} • {typeLabel(appointment.type)}
-            </p>
-          </div>
-
+    <PageShell>
+      <PageHeader
+        title="Detalhes do Atendimento"
+        description={`${animal.name} • ${typeLabel(appointment.type)}`}
+        icon={Clipboard}
+        module="clinical"
+        breadcrumb={
+          <>
+            Painel &gt;{" "}
+            <Link to="/clients" className="hover:text-primary">
+              Clientes
+            </Link>{" "}
+            &gt;{" "}
+            <Link to={`/clients/${client.id}`} className="hover:text-primary">
+              {client.name}
+            </Link>{" "}
+            &gt;{" "}
+            <Link
+              to={`/clients/${clientId}/animals/${animalId}/record`}
+              className="hover:text-primary"
+            >
+              {animal.name}
+            </Link>{" "}
+            &gt; Detalhes do Atendimento
+          </>
+        }
+        actions={
           <div className="flex flex-wrap gap-2">
             <SaasButton
               saasVariant="outline"
@@ -483,29 +500,10 @@ export default function AppointmentViewPage() {
               </SaasButton>
             </Link>
           </div>
-        </div>
+        }
+      />
 
-        <p className="text-sm text-muted-foreground mt-3">
-          Painel &gt;{" "}
-          <Link to="/clients" className="hover:text-primary">
-            Clientes
-          </Link>{" "}
-          &gt;{" "}
-          <Link to={`/clients/${client.id}`} className="hover:text-primary">
-            {client.name}
-          </Link>{" "}
-          &gt;{" "}
-          <Link
-            to={`/clients/${clientId}/animals/${animalId}/record`}
-            className="hover:text-primary"
-          >
-            {animal.name}
-          </Link>{" "}
-          &gt; Detalhes do Atendimento
-        </p>
-      </div>
-
-      <div className="flex-1 p-6">
+      <div>
         <Card className="vf-surface-card vf-tone-clinical card-hover rounded-xl border-border/80">
           <CardHeader className="pb-3">
             <CardTitle className="text-base">Informações administrativas</CardTitle>
@@ -522,6 +520,6 @@ export default function AppointmentViewPage() {
 
         <div className="mt-4">{renderTypeDetails()}</div>
       </div>
-    </div>
+    </PageShell>
   );
 }

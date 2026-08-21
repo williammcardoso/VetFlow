@@ -6,9 +6,18 @@
    hemograma — não compartilha módulo com o laudo genérico.
 */
 import React from "react";
-import { Document, Page, View, Text, StyleSheet } from "@react-pdf/renderer";
+import { Document, Page, View, Text, StyleSheet, Font } from "@react-pdf/renderer";
 import { mockCompanySettings } from "@/mockData/settings";
 import { ExamEntry, BiochemicalEntry } from "@/types/exam";
+
+// Fonte Inter, igual ao resto do sistema (era Helvetica embutida antes).
+Font.register({
+  family: "Inter",
+  fonts: [
+    { src: '/fonts/Inter-Regular.ttf', fontWeight: 400, format: 'truetype' },
+    { src: '/fonts/Inter-Bold.ttf', fontWeight: 700, format: 'truetype' },
+  ],
+});
 
 const formatDateToPortuguese = (date: Date) => {
   const options: Intl.DateTimeFormatOptions = { day: '2-digit', month: 'long', year: 'numeric' };
@@ -38,13 +47,17 @@ const normalizeNumber = (raw: string | undefined) => {
   return parseFloat(cleaned);
 };
 
+// Marcador textual junto do valor: cor sozinha (azul/vermelho) some em impressão P&B.
+const statusArrow = (status: 'normal' | 'high' | 'low' | 'invalid') =>
+  status === 'high' ? ' ↑' : status === 'low' ? ' ↓' : '';
+
 const INDICATOR_WIDTH = 0.6;
 const TEAL = "#0F766E";
 
 const styles = StyleSheet.create({
   page: {
-    padding: 34,
-    fontFamily: "Helvetica",
+    padding: 30,
+    fontFamily: "Inter",
     fontSize: 9,
     color: "#333",
     lineHeight: 1.05,
@@ -64,14 +77,13 @@ const styles = StyleSheet.create({
     fontSize: 13,
     textAlign: "center",
     fontWeight: "bold",
-    fontFamily: "Helvetica-Bold",
     lineHeight: 1.28,
     marginTop: 2,
     marginBottom: 12,
     color: TEAL,
     letterSpacing: 0.5,
   },
-  topBlocksRow: { flexDirection: "row", justifyContent: "space-between", gap: 8, marginBottom: 12 },
+  topBlocksRow: { flexDirection: "row", justifyContent: "space-between", gap: 8, marginBottom: 8 },
   topBlock: {
     width: "49%",
     backgroundColor: "#f7f9fc",
@@ -122,20 +134,19 @@ const styles = StyleSheet.create({
     borderBottomWidth: 0.6,
     borderBottomColor: "#eef0f3",
     paddingTop: 1,
-    paddingBottom: 4,
-    marginBottom: 3,
+    paddingBottom: 2,
+    marginBottom: 1,
   },
   bioRow: {
     flexDirection: "row",
     alignItems: "center",
-    minHeight: 16,
+    minHeight: 15,
   },
   bioNameWrap: { width: 150, paddingLeft: 4, alignItems: "flex-start" },
   bioName: {
     fontSize: 9,
     color: "#0F172A",
     fontWeight: 700,
-    fontFamily: "Helvetica-Bold",
     backgroundColor: "#EEF2F6",
     borderRadius: 3,
     paddingHorizontal: 5,
@@ -146,7 +157,7 @@ const styles = StyleSheet.create({
   bioResultUnit: { fontSize: 7.6, color: "#666", marginLeft: 3 },
   bioRefWrap: { width: 165, alignItems: "center" },
   bioRefText: { fontSize: 8.2, color: "#666", textAlign: "center" },
-  bioDetailRow: { flexDirection: "row", paddingLeft: 4, paddingTop: 1.5 },
+  bioDetailRow: { flexDirection: "row", paddingLeft: 4, paddingTop: 0.5 },
   bioDetailText: { fontSize: 7.3, color: "#6b7280" },
   indicatorColumn: { width: 86, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', flexGrow: 1 },
   modernIndicatorContainer: { width: 78, height: 14.2, position: 'relative' },
@@ -160,11 +171,11 @@ const styles = StyleSheet.create({
   resultNormal: { color: "#000000" },
   resultHigh: { color: "#2563eb" },
   resultLow: { color: "#dc3545" },
-  strongText: { fontWeight: "bold", fontFamily: "Helvetica-Bold" },
+  strongText: { fontWeight: "bold" },
   observationText: { fontSize: 8.8, lineHeight: 1.18, marginBottom: 1 },
   signatureSmall: { fontSize: 7.6, color: "#333", fontStyle: "italic", marginTop: 1, marginBottom: 2 },
   observationBlock: {
-    marginTop: 8,
+    marginTop: 5,
     backgroundColor: "#f5f7fb",
     borderWidth: 1,
     borderColor: "#e2e7f0",
@@ -279,7 +290,7 @@ export const ExamReportPdfContentBioquimicoOnePage = ({
             <Text style={styles.bioName}>{entry.enzyme}</Text>
           </View>
           <View style={styles.bioResultWrap}>
-            <Text style={[styles.bioResultValue, resultStyle]}>{entry.result}</Text>
+            <Text style={[styles.bioResultValue, resultStyle]}>{entry.result}{statusArrow(valueStatus)}</Text>
             {entry.referenceUnit ? <Text style={styles.bioResultUnit}>{entry.referenceUnit}</Text> : null}
           </View>
           <View style={styles.bioRefWrap}>
@@ -399,8 +410,8 @@ export const ExamReportPdfContentBioquimicoOnePage = ({
         )}
 
         {exam.liberadoPor && (
-          <View style={{ marginTop: 36, alignItems: 'center' }}>
-            <View style={{ height: 0.7, width: 200, backgroundColor: '#CBD5E1', marginBottom: 5 }} />
+          <View style={{ marginTop: 6, alignItems: 'center' }}>
+            <View style={{ height: 0.7, width: 200, backgroundColor: '#9AA3AE', marginBottom: 3 }} />
             <Text style={[styles.signatureSmall, { fontStyle: 'normal', fontWeight: '700', color: '#111827', fontSize: 9 }]}>{exam.liberadoPor}</Text>
             <Text style={[styles.signatureSmall, { marginTop: 1 }]}>CRMV {mockCompanySettings.crmv} · Liberado em {exam.laboratoryDate ? formatDateToPortuguese(new Date(exam.laboratoryDate)) : formatDateToPortuguese(currentDate)}</Text>
           </View>

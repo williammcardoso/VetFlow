@@ -56,6 +56,10 @@ const normalizeNumber = (raw: string | undefined) => {
   return parseFloat(cleaned);
 };
 
+// Marcador textual junto do valor: cor sozinha (azul/vermelho) some em impressão P&B.
+const statusArrow = (status: 'normal' | 'high' | 'low' | 'invalid') =>
+  status === 'high' ? ' ↑' : status === 'low' ? ' ↓' : '';
+
 // Nova função para formatar números para exibição (com separador de milhar e decimal correto)
 const formatNumberForDisplay = (num: number) => {
   if (isNaN(num)) return 'N/A';
@@ -86,8 +90,8 @@ const DARK = "#111827";
 const GRAY = "#6B7280";
 const LIGHT_GRAY = "#F9FAFB";
 const WHITE = "#FFFFFF";
-const BORDER = "#E5E7EB";
-const SLATE = "#64748B";
+const BORDER = "#D8DDE2";
+const SLATE = "#4B5563";
 const ROW_BORDER = "#F1F5F9";
 
 const PLAQUETOGRAM_BORDER_COLOR = '#A0D9FF'; // Light blue for main table lines
@@ -544,7 +548,7 @@ const styles = StyleSheet.create({
     color: "#000000", // Black for normal
   },
   resultHigh: {
-    color: "#FFC107", // Strong yellow for high
+    color: "#2563eb", // Azul — mesma cor de "alto" usada nas variantes OnePage
   },
   resultLow: {
     color: "#dc3545", // Red for low
@@ -557,7 +561,7 @@ const styles = StyleSheet.create({
   },
   sigRow: { flexDirection: "row", justifyContent: "center", marginTop: 20 },
   sigArea: { flex: 1, maxWidth: 240, alignItems: "center" },
-  sigLine: { height: 1, backgroundColor: "#CBD5E1", width: "100%", marginTop: 22, marginBottom: 4 },
+  sigLine: { height: 1, backgroundColor: "#9AA3AE", width: "100%", marginTop: 22, marginBottom: 4 },
   sigName: { fontSize: 8.5, color: DARK, fontWeight: 700, textAlign: "center" },
   sigSub: { fontSize: 7, color: GRAY, textAlign: "center", marginTop: 1 },
   signatureSmall: {
@@ -876,7 +880,7 @@ export const ExamReportPdfContent = ({
           applyPlaquetogramBorders && { borderRightWidth: 0 } // Removido borderRightWidth
         ]}>
           <View style={styles.paramResultValueWrapper}>
-            <Text style={[styles.paramResultValue, resultStyle]}>{value}</Text>
+            <Text style={[styles.paramResultValue, resultStyle]}>{value}{statusArrow(valueStatus)}</Text>
           </View>
           <View style={styles.hemogramRefSpacer} /> {/* NEW: Spacer after value */}
           <View style={styles.paramResultUnitWrapper}>
@@ -998,14 +1002,14 @@ export const ExamReportPdfContent = ({
         <View style={styles.leukocyteResultContainer}>
           {/* Relative Result */}
           <View style={styles.leukocyteResultValueCell}>
-            <Text style={[styles.leukocyteResultValue, relResultStyle]}>{relativeValue}</Text>
+            <Text style={[styles.leukocyteResultValue, relResultStyle]}>{relativeValue}{statusArrow(relValueStatus)}</Text>
           </View>
           <View style={styles.leukocyteResultUnitCell}>
             <Text style={styles.leukocyteResultUnit}>%</Text>
           </View>
           {/* Absolute Result */}
           <View style={styles.leukocyteResultValueCell}>
-            <Text style={[styles.leukocyteResultValue, absResultStyle]}>{absoluteValue}</Text>
+            <Text style={[styles.leukocyteResultValue, absResultStyle]}>{absoluteValue}{statusArrow(absValueStatus)}</Text>
           </View>
           <View style={styles.leukocyteResultUnitCellAbs}>
             <Text style={styles.leukocyteResultUnit}>/µL</Text>
@@ -1230,7 +1234,7 @@ export const ExamReportPdfContent = ({
                   </View>
                   <View style={styles.biochemicalResultLine}>
                     <Text style={styles.biochemicalResultLabel}>Resultado:</Text>
-                    <Text style={[styles.biochemicalResultValue, resultStyle]}>{b.result}</Text>
+                    <Text style={[styles.biochemicalResultValue, resultStyle]}>{b.result}{statusArrow(valueStatus)}</Text>
                     {b.referenceUnit && <Text style={styles.biochemicalResultUnit}>{b.referenceUnit}</Text>}
                     {b.minReference && b.maxReference && b.referenceUnit && (
                       <>

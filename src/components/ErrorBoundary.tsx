@@ -25,41 +25,19 @@ export class ErrorBoundary extends React.Component<
   render() {
     if (this.state.hasError) {
       return (
-        <div style={{ padding: 40, fontFamily: "system-ui, sans-serif", maxWidth: 600, margin: "80px auto" }}>
-          <h1 style={{ fontSize: 24, marginBottom: 12, color: "#b91c1c" }}>
+        <div className="max-w-[600px] mx-auto my-20 p-10 bg-background text-foreground">
+          <h1 className="text-2xl font-semibold mb-3 text-destructive">
             Ocorreu um erro inesperado
           </h1>
-          <p style={{ color: "#374151", marginBottom: 16, lineHeight: 1.6 }}>
+          <p className="text-muted-foreground mb-4 leading-relaxed">
             A aplicação encontrou um problema e não pôde renderizar esta página.
           </p>
-          <pre
-            style={{
-              background: "#fef2f2",
-              border: "1px solid #fca5a5",
-              borderRadius: 8,
-              padding: 16,
-              fontSize: 13,
-              overflow: "auto",
-              whiteSpace: "pre-wrap",
-              wordBreak: "break-word",
-              color: "#991b1b",
-            }}
-          >
+          <pre className="bg-destructive/10 border border-destructive/40 rounded-lg p-4 text-[13px] overflow-auto whitespace-pre-wrap break-words text-destructive">
             {this.state.error?.message}
           </pre>
           <button
             onClick={() => window.location.reload()}
-            style={{
-              marginTop: 20,
-              padding: "10px 20px",
-              background: "#2563eb",
-              color: "#fff",
-              border: "none",
-              borderRadius: 8,
-              cursor: "pointer",
-              fontSize: 14,
-              fontWeight: 600,
-            }}
+            className="mt-5 px-5 py-2.5 bg-primary text-primary-foreground border-none rounded-lg cursor-pointer text-sm font-semibold hover:opacity-90 transition-opacity"
           >
             Recarregar página
           </button>

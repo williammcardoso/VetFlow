@@ -79,14 +79,14 @@ const BreedsPage: React.FC = () => {
   const speciesPalette = useMemo<Record<string, string>>(
     () => ({
       Canino:
-        "border-l-emerald-500 bg-card dark:border-l-emerald-400 vf-surface-card",
+        "border-l-emerald-500 bg-card vf-surface-card",
       Felino:
-        "border-l-[hsl(var(--vf-registry))] bg-card dark:border-l-[hsl(var(--vf-registry))] vf-surface-card",
-      Pássaro: "border-l-teal-500 bg-card dark:border-l-teal-400 vf-surface-card",
+        "border-l-[hsl(var(--vf-registry))] bg-card vf-surface-card",
+      Pássaro: "border-l-teal-500 bg-card vf-surface-card",
       Roedor:
-        "border-l-amber-500 bg-card dark:border-l-amber-400 vf-surface-card",
+        "border-l-amber-500 bg-card vf-surface-card",
       "Sem espécie":
-        "border-l-slate-400 bg-card dark:border-l-slate-500 vf-surface-card",
+        "border-l-slate-400 bg-card vf-surface-card",
     }),
     []
   );
@@ -164,14 +164,7 @@ const BreedsPage: React.FC = () => {
         icon={PawPrint}
         tone="registry"
       >
-      <VfCard className="border-primary/20">
-        <CardHeader>
-          <CardTitle className="flex items-center justify-between text-base text-foreground">
-            <span>Nova raça e filtros</span>
-            <Badge className="bg-[hsl(var(--vf-registry))]/15 text-vf-registry">{rows.length} raça(s)</Badge>
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
+        <div className="space-y-3">
           <div className="grid grid-cols-1 gap-2 md:grid-cols-[1fr_260px_auto]">
             <Input placeholder="Ex.: Labrador Retriever" value={newName} onChange={(e) => setNewName(e.target.value)} />
             <Select value={species} onValueChange={setSpecies}>
@@ -223,8 +216,7 @@ const BreedsPage: React.FC = () => {
               Limpar
             </Button>
           </div>
-        </CardContent>
-      </VfCard>
+        </div>
       </SectionCard>
 
       <SectionCard

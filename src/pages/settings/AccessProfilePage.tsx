@@ -312,10 +312,11 @@ const AccessProfilePage: React.FC = () => {
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-2">
                 <Switch
+                  id="profile-active"
                   checked={profileForm.active}
                   onCheckedChange={(checked) => setProfileForm((prev) => ({ ...prev, active: checked }))}
                 />
-                <span className="text-sm text-muted-foreground">Perfil ativo</span>
+                <Label htmlFor="profile-active" className="cursor-pointer text-sm text-muted-foreground">Perfil ativo</Label>
               </div>
               <div className="flex gap-2">
                 <Button variant="outline" onClick={() => void handleCreateProfile()} disabled={creatingProfile}>
@@ -405,6 +406,7 @@ const AccessProfilePage: React.FC = () => {
                         <TableCell className="font-medium">{permission.module_label}</TableCell>
                         <TableCell>
                           <Switch
+                            aria-label={`${permission.module_label} - Visualizar`}
                             checked={permission.can_view}
                             disabled={bulkUpdatingPermissions || savingPermissionKey?.startsWith(permission.module_key)}
                             onCheckedChange={(checked) => void updatePermission(permission, "can_view", checked)}
@@ -412,6 +414,7 @@ const AccessProfilePage: React.FC = () => {
                         </TableCell>
                         <TableCell>
                           <Switch
+                            aria-label={`${permission.module_label} - Editar`}
                             checked={permission.can_edit}
                             disabled={bulkUpdatingPermissions || savingPermissionKey?.startsWith(permission.module_key)}
                             onCheckedChange={(checked) => void updatePermission(permission, "can_edit", checked)}
@@ -419,6 +422,7 @@ const AccessProfilePage: React.FC = () => {
                         </TableCell>
                         <TableCell>
                           <Switch
+                            aria-label={`${permission.module_label} - Gerenciar`}
                             checked={permission.can_manage}
                             disabled={bulkUpdatingPermissions || savingPermissionKey?.startsWith(permission.module_key)}
                             onCheckedChange={(checked) => void updatePermission(permission, "can_manage", checked)}

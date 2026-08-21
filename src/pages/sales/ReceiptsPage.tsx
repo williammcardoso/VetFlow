@@ -1,11 +1,11 @@
 import React, { useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useClientsList } from "@/hooks/useSupabaseClients";
-import { ArrowLeft, Banknote, Calendar, Tag } from "lucide-react";
+import { ArrowLeft, Banknote, Calendar, ClipboardList, CreditCard, PawPrint, Tag, User } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PageHeader } from "@/components/saas/PageHeader";
 import { addReceipt } from "@/lib/financialApi";
-import { formatDateTime } from "@/lib/utils";
+import { formatCurrencyBRL, formatDateTime } from "@/lib/utils";
 import { useRegistryList } from "@/hooks/useRegistryList";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -143,13 +143,13 @@ const ReceiptsPage = () => {
                         {clientName ? `${clientName} — ` : ""}{sale.description}
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        Total: {new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(sale.amount)}
-                        {" · "}Pago: {new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(sale.paidAmount || 0)}
+                        Total: {formatCurrencyBRL(sale.amount)}
+                        {" · "}Pago: {formatCurrencyBRL(sale.paidAmount || 0)}
                       </p>
                     </div>
                     <div className="flex items-center gap-3 shrink-0">
                       <span className="text-sm font-bold text-amber-700">
-                        {new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(saldo)} a receber
+                        {formatCurrencyBRL(saldo)} a receber
                       </span>
                       <Button
                         size="sm"
@@ -212,11 +212,11 @@ const ReceiptsPage = () => {
                     const saldo = s.amount - (s.paidAmount || 0);
                     return (
                       <SelectItem key={s.id} value={s.id}>
-                        {new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(s.amount)}
+                        {formatCurrencyBRL(s.amount)}
                         {saldo > 0
-                          ? ` — saldo ${new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(saldo)}`
+                          ? ` — saldo ${formatCurrencyBRL(saldo)}`
                           : ' ✓'}
-                        {" · "}{s.description.slice(0, 40)}
+                        {" · "}{s.description.length > 40 ? `${s.description.slice(0, s.description.lastIndexOf(" ", 40) > 0 ? s.description.lastIndexOf(" ", 40) : 40)}…` : s.description}
                       </SelectItem>
                     );
                   })}
@@ -273,8 +273,8 @@ const ReceiptsPage = () => {
           {saleInstallments > 1 && selectedSaleId !== "none" && (
             <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 mt-3">
               <div className="text-xs font-semibold text-blue-800 mb-2 flex items-center gap-2">
-                💳 Cartão parcelado — {saleInstallments}x de{" "}
-                {new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(installmentValue)}
+                <CreditCard className="h-3.5 w-3.5" /> Cartão parcelado — {saleInstallments}x de{" "}
+                {formatCurrencyBRL(installmentValue)}
               </div>
               <div className="text-xs text-blue-700">
                 O valor acima corresponde ao total da venda. O parcelamento
@@ -314,7 +314,7 @@ const ReceiptsPage = () => {
           <div className="flex items-center gap-2 rounded-lg bg-emerald-50 border border-emerald-200 px-3 py-1.5">
             <span className="text-xs text-emerald-700 font-medium">Total recebido:</span>
             <span className="text-sm font-bold text-emerald-700">
-              {new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(totals)}
+              {formatCurrencyBRL(totals)}
             </span>
           </div>
         </div>
@@ -341,10 +341,10 @@ const ReceiptsPage = () => {
                     {(getClientName(rec.relatedClientId) || getAnimalName(rec.relatedClientId, rec.relatedAnimalId)) && (
                       <div className="flex items-center gap-2 mt-0.5 text-xs text-muted-foreground">
                         {getClientName(rec.relatedClientId) && (
-                          <span>👤 {getClientName(rec.relatedClientId)}</span>
+                          <span className="inline-flex items-center gap-1"><User className="h-3 w-3" /> {getClientName(rec.relatedClientId)}</span>
                         )}
                         {getAnimalName(rec.relatedClientId, rec.relatedAnimalId) && (
-                          <span>🐾 {getAnimalName(rec.relatedClientId, rec.relatedAnimalId)}</span>
+                          <span className="inline-flex items-center gap-1"><PawPrint className="h-3 w-3" /> {getAnimalName(rec.relatedClientId, rec.relatedAnimalId)}</span>
                         )}
                       </div>
                     )}
@@ -363,7 +363,7 @@ const ReceiptsPage = () => {
                 </div>
                 <div className="flex items-center gap-3 shrink-0">
                   <span className={`text-base font-bold ${isReversal ? "text-red-600" : "text-emerald-600"}`}>
-                    {new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(rec.amount)}
+                    {formatCurrencyBRL(rec.amount)}
                   </span>
                   {rec.relatedClientId && rec.relatedAnimalId && (
                     <Link to={`/clients/${rec.relatedClientId}/animals/${rec.relatedAnimalId}/record`}>
@@ -372,7 +372,7 @@ const ReceiptsPage = () => {
                         size="sm"
                         className="h-7 rounded-lg border-border text-xs font-medium hover:bg-muted"
                       >
-                        📋 Prontuário
+                        <ClipboardList className="h-3.5 w-3.5 mr-1" /> Prontuário
                       </Button>
                     </Link>
                   )}

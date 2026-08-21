@@ -75,7 +75,7 @@ const AppointmentList: React.FC<AppointmentListProps> = ({
             return (
               <div
                 key={app.id}
-                className="premium-card premium-card--soft card-hover rounded-xl p-4"
+                className="rounded-xl border border-border/60 bg-muted/25 p-4 transition-colors hover:bg-muted/45"
               >
                 <div className="flex items-center gap-3">
                   <Avatar className="h-10 w-10 bg-white ring-1 ring-border">

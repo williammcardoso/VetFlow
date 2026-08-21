@@ -45,7 +45,7 @@ export default function EmergencyForm({
 
   return (
     <div className="space-y-4">
-      <Card className="border-border">
+      <Card className="vf-surface-card vf-tone-clinical rounded-xl">
         <CardHeader className="pb-3">
           <CardTitle className="text-base">Sinais vitais / medidas</CardTitle>
         </CardHeader>
@@ -97,7 +97,7 @@ export default function EmergencyForm({
         </CardContent>
       </Card>
 
-      <Card className="border-border">
+      <Card className="vf-surface-card vf-tone-clinical rounded-xl">
         <CardHeader className="pb-3">
           <CardTitle className="text-base">Triagem</CardTitle>
         </CardHeader>
@@ -125,17 +125,17 @@ export default function EmergencyForm({
               </SelectTrigger>
               <SelectContent>
                 {[
-                  "alerta",
-                  "deprimido",
-                  "inconsciente",
-                  "choque",
-                  "dispneia",
-                  "sangramento",
-                  "convulsao",
-                  "outros",
+                  { value: "alerta", label: "Alerta" },
+                  { value: "deprimido", label: "Deprimido" },
+                  { value: "inconsciente", label: "Inconsciente" },
+                  { value: "choque", label: "Choque" },
+                  { value: "dispneia", label: "Dispneia" },
+                  { value: "sangramento", label: "Sangramento" },
+                  { value: "convulsao", label: "Convulsão" },
+                  { value: "outros", label: "Outros" },
                 ].map((x) => (
-                  <SelectItem key={x} value={x}>
-                    {x}
+                  <SelectItem key={x.value} value={x.value}>
+                    {x.label}
                   </SelectItem>
                 ))}
               </SelectContent>

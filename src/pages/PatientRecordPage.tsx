@@ -38,7 +38,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
 import { PrescriptionEntry } from "@/types/medication";
-import { cn, formatDateTime, formatItemQty } from "@/lib/utils";
+import { cn, formatDateTime, formatItemQty, parseLocalDate } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -90,7 +90,9 @@ import {
   CheckCircle2,
   AlertCircle,
   BadgeDollarSign,
-  UserRound
+  UserRound,
+  CreditCard,
+  User,
 } from "lucide-react";
 import { Calendar } from "lucide-react";
 import SaleDetailModal from "@/components/SaleDetailModal";
@@ -111,10 +113,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useObservations } from "@/hooks/useObservations";
 import * as observationsApi from "@/lib/observationsApi";
 import type { ObservationEntry } from "@/lib/observationsApi";
-
-// Helpers de storage ausentes
-const salesStorageKey = (aid?: string) => `patient:sales:${aid || "unknown"}`;
-const paymentsStorageKey = (aid?: string) => `patient:payments:${aid || "unknown"}`;
+import * as budgetsApi from "@/lib/budgetsApi";
+import type { Budget } from "@/mockData/budgets";
 
 // Interface para eventos da linha do tempo
 interface TimelineEvent {
@@ -133,7 +133,7 @@ interface TimelineEvent {
 
 // Helper function to calculate age
 const calculateAge = (birthday: string) => {
-  const birthDate = new Date(birthday);
+  const birthDate = parseLocalDate(birthday);
   const today = new Date();
   let age = today.getFullYear() - birthDate.getFullYear();
   const m = today.getMonth() - birthDate.getMonth();
@@ -143,77 +143,25 @@ const calculateAge = (birthday: string) => {
   return age > 0 ? `${age} ano(s)` : 'Menos de 1 ano';
 };
 
-// Tipagens locais e storage para vendas e pagamentos
-type SaleStatusLocal = "open" | "finalized" | "cancelled";
+// Item em edição nos formulários de venda/orçamento (carrinho antes de salvar).
 type SaleItemMeta = { itemId: string; name: string; type: "product" | "service"; qty: number; unitPrice: number };
-type PatientSaleMeta = {
-  id: string;
-  date: string;
-  appointmentId: string;
-  items: SaleItemMeta[];
-  total: number;
-  saleStatus: SaleStatusLocal;
-  origin?: "manual" | "orcamento";
-  responsible?: string;
-  observations?: string;
-};
-type PatientPaymentMeta = {
-  id: string;
-  saleId: string;
-  date: string;
-  time: string;
-  amount: number;
-  paymentMethod?: string;
-  observations?: string;
-};
 
-// Orçamentos locais
-type BudgetStatusLocal = "aberto" | "aprovado" | "convertido" | "expirado" | "cancelado";
-type PatientBudgetMeta = {
-  id: string;
-  date: string;
-  appointmentId?: string;
-  items: SaleItemMeta[];
-  total: number;
-  validityDays: number;
-  status: BudgetStatusLocal;
-  observations?: string;
+// A venda manual do prontuário grava financial_transactions/sale_items de
+// verdade (nunca foi local) — só o vínculo com o atendimento não tinha coluna
+// própria. Guardamos como uma tag no início de `observations` (campo que já
+// existe na tabela e não era exibido em nenhum outro lugar do sistema).
+const APPOINTMENT_TAG_RE = /^@apt:(\S+)\n?/;
+const buildSaleObservations = (appointmentId: string | undefined, text: string): string | undefined => {
+  const tag = appointmentId ? `@apt:${appointmentId}` : "";
+  const combined = [tag, text.trim()].filter(Boolean).join("\n");
+  return combined || undefined;
 };
-
-const budgetsStorageKey = (aid?: string) => `patient:budgets:${aid || "unknown"}`;
-const readPatientBudgets = (aid?: string): PatientBudgetMeta[] => {
-  try {
-    const raw = localStorage.getItem(budgetsStorageKey(aid));
-    return raw ? (JSON.parse(raw) as PatientBudgetMeta[]) : [];
-  } catch {
-    return [];
-  }
-};
-const writePatientBudgets = (aid: string | undefined, list: PatientBudgetMeta[]) => {
-  localStorage.setItem(budgetsStorageKey(aid), JSON.stringify(list));
-};
-
-const readPatientSales = (aid?: string): PatientSaleMeta[] => {
-  try {
-    const raw = localStorage.getItem(salesStorageKey(aid));
-    return raw ? (JSON.parse(raw) as PatientSaleMeta[]) : [];
-  } catch {
-    return [];
-  }
-};
-const writePatientSales = (aid: string | undefined, list: PatientSaleMeta[]) => {
-  localStorage.setItem(salesStorageKey(aid), JSON.stringify(list));
-};
-const readPatientPayments = (aid?: string): PatientPaymentMeta[] => {
-  try {
-    const raw = localStorage.getItem(paymentsStorageKey(aid));
-    return raw ? (JSON.parse(raw) as PatientPaymentMeta[]) : [];
-  } catch {
-    return [];
-  }
-};
-const writePatientPayments = (aid: string | undefined, list: PatientPaymentMeta[]) => {
-  localStorage.setItem(paymentsStorageKey(aid), JSON.stringify(list));
+const parseSaleObservations = (raw: string | undefined): { appointmentId?: string; text?: string } => {
+  if (!raw) return {};
+  const m = raw.match(APPOINTMENT_TAG_RE);
+  if (!m) return { text: raw };
+  const rest = raw.slice(m[0].length);
+  return { appointmentId: m[1], text: rest || undefined };
 };
 
 // Helper para identidade visual por tipo de evento
@@ -422,19 +370,6 @@ const PatientRecordPage = () => {
   const [financeModalOpen, setFinanceModalOpen] = useState(false);
   const [financeForm, setFinanceForm] = useState({ description: "", amount: "", type: "income" as "income" | "expense", category: "", paymentMethod: "" });
 
-  const [patientSales, setPatientSales] = useState<PatientSaleMeta[]>(readPatientSales(animalId));
-  useEffect(() => { setPatientSales(readPatientSales(animalId)); }, [animalId]);
-
-  // Vendas do PDV vinculadas a este animal que não estão no
-  // localStorage do prontuário (evita duplicatas)
-  const pdvSalesForAnimal = useMemo(() => {
-    const localIds = new Set(patientSales.map(s => s.id));
-    return animalSalesTransactions.filter(t => !localIds.has(t.id));
-  }, [animalSalesTransactions, patientSales]);
-
-  const [patientPayments, setPatientPayments] = useState<PatientPaymentMeta[]>(readPatientPayments(animalId));
-  useEffect(() => { setPatientPayments(readPatientPayments(animalId)); }, [animalId]);
-
   const animalReceipts = useMemo(() => {
     return mockFinancialTransactions
       .filter((t) => t.relatedAnimalId === animalId && t.type === "income" && t.category === "Recebimento")
@@ -444,8 +379,18 @@ const PatientRecordPage = () => {
   const [confirmOverpayProntuario, setConfirmOverpayProntuario] = useState<{ saleId: string; remaining: number; payAmount: number } | null>(null);
   const [receiptIdToRefund, setReceiptIdToRefund] = useState<string | null>(null);
 
-  const [patientBudgets, setPatientBudgets] = useState<PatientBudgetMeta[]>(readPatientBudgets(animalId));
-  useEffect(() => { setPatientBudgets(readPatientBudgets(animalId)); }, [animalId]);
+  // Orçamentos deste paciente — mesma tabela/API real usada em /sales/budgets
+  // (antes o prontuário tinha um sistema paralelo em localStorage,
+  // desconectado: um orçamento feito aqui nunca aparecia lá, e vice-versa).
+  const [allBudgets, setAllBudgets] = useState<Budget[]>([]);
+  const refetchBudgets = useCallback(async () => {
+    setAllBudgets(await budgetsApi.getBudgets());
+  }, []);
+  useEffect(() => { void refetchBudgets(); }, [refetchBudgets]);
+  const patientBudgets = useMemo(
+    () => allBudgets.filter((b) => b.animalId === animalId),
+    [allBudgets, animalId]
+  );
 
   const catalogItems = catalogItemsFromHook.filter(i => i.active);
 
@@ -457,7 +402,6 @@ const PatientRecordPage = () => {
   const [saleAppointmentId, setSaleAppointmentId] = useState<string>("");
   const [saleResponsible, setSaleResponsible] = useState<string>("");
   const [saleObservations, setSaleObservations] = useState<string>("");
-  const [saleStatusLocal, setSaleStatusLocal] = useState<SaleStatusLocal>("open");
 
   const [saleSelectedItemId, setSaleSelectedItemId] = useState<string>("");
   const [saleQty, setSaleQty] = useState<number>(1);
@@ -498,6 +442,8 @@ const PatientRecordPage = () => {
     // mais no texto que o Financeiro exibe pro usuário.
     const description = `Venda: ${currentClient.name} (${currentAnimal.name}) — ${saleItems.map(i => formatItemQty(i.name, i.qty)).join(", ")}`;
 
+    const responsible = saleResponsible || (saleAppointmentId ? animalAppointments.find(a => a.id === saleAppointmentId)?.vet : undefined) || undefined;
+
     const tx = await financialApi.addFinancialTransaction({
       date: saleDate,
       time: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
@@ -508,6 +454,8 @@ const PatientRecordPage = () => {
       relatedAnimalId: currentAnimal.id,
       relatedClientId: currentClient.id,
       status: "pending",
+      responsible,
+      observations: buildSaleObservations(saleAppointmentId || undefined, saleObservations),
     });
     const nextId = tx?.id;
     if (!nextId) { toast.error("Erro ao registrar venda."); return; }
@@ -530,38 +478,15 @@ const PatientRecordPage = () => {
     await refetchCatalog();
     await refetchFinancial();
 
-    const newSaleMeta: PatientSaleMeta = {
-      id: nextId,
-      date: saleDate,
-      appointmentId: saleAppointmentId || undefined,
-      items: saleItems,
-      total: saleTotal,
-      saleStatus: saleStatusLocal,
-      origin: "manual",
-      responsible: saleResponsible || (saleAppointmentId ? animalAppointments.find(a => a.id === saleAppointmentId)?.vet : undefined) || undefined,
-      observations: saleObservations || undefined,
-    };
-    const updated = [...patientSales, newSaleMeta];
-    setPatientSales(updated); writePatientSales(animalId, updated);
-
     setSaleModalOpen(false);
     setSaleDate(new Date().toISOString().split("T")[0]);
-    setSaleAppointmentId(""); setSaleResponsible(""); setSaleObservations(""); setSaleStatusLocal("open"); setSaleItems([]);
+    setSaleAppointmentId(""); setSaleResponsible(""); setSaleObservations(""); setSaleItems([]);
     toast.success("Venda registrada com sucesso!");
     } finally {
       setSavingSale(false);
     }
   };
 
-  const updateSaleStatus = async (saleId: string, status: SaleStatusLocal) => {
-    const updated = patientSales.map(s => (s.id === saleId ? { ...s, saleStatus: status } : s));
-    setPatientSales(updated);
-    writePatientSales(animalId, updated);
-    if (status === "cancelled") {
-      await financialApi.updateFinancialTransaction(saleId, { status: "cancelled" });
-      await refetchFinancial();
-    }
-  };
 
   const getPaidForSale = (saleId: string): number => sumReceiptsForSaleLocal(mockFinancialTransactions, saleId);
   const getFinancialStatusForSale = (saleId: string, saleAmount: number): "paid" | "partial" | "pending" => {
@@ -579,21 +504,21 @@ const PatientRecordPage = () => {
   const [paymentObservations, setPaymentObservations] = useState<string>("");
 
   const canRegisterPayment = (saleId: string): boolean => {
-    const sale = patientSales.find(s => s.id === saleId);
+    const sale = animalSalesTransactions.find(s => s.id === saleId);
     if (!sale) return false;
-    if (sale.saleStatus === "cancelled") return false;
-    return getFinancialStatusForSale(saleId, sale.total) !== "paid";
+    if (sale.status === "cancelled") return false;
+    return getFinancialStatusForSale(saleId, sale.amount) !== "paid";
   };
 
   // Preencher valor com saldo ao selecionar a venda
   useEffect(() => {
     if (!paymentSaleId) return;
-    const sale = patientSales.find((s) => s.id === paymentSaleId);
+    const sale = animalSalesTransactions.find((s) => s.id === paymentSaleId);
     if (sale) {
       const paid = getPaidForSale(sale.id);
-      setPaymentAmount(Math.max(0, sale.total - paid));
+      setPaymentAmount(Math.max(0, sale.amount - paid));
     }
-  }, [paymentSaleId, patientSales, mockFinancialTransactions]);
+  }, [paymentSaleId, animalSalesTransactions, mockFinancialTransactions]);
 
   const [savingPayment, setSavingPayment] = useState(false);
   const doRegisterPaymentProntuario = async (saleId: string, amount: number) => {
@@ -632,7 +557,7 @@ const PatientRecordPage = () => {
       toast.error("Selecione a venda vinculada.");
       return;
     }
-    const saleMeta = patientSales.find((s) => s.id === paymentSaleId);
+    const saleMeta = animalSalesTransactions.find((s) => s.id === paymentSaleId);
     if (!saleMeta) {
       toast.error("Venda não encontrada.");
       return;
@@ -656,7 +581,7 @@ const PatientRecordPage = () => {
     }
 
     const paid = getPaidForSale(paymentSaleId);
-    const remaining = Math.max(0, saleMeta.total - paid);
+    const remaining = Math.max(0, saleMeta.amount - paid);
     if (paymentAmount > remaining) {
       setConfirmOverpayProntuario({ saleId: paymentSaleId, remaining, payAmount: paymentAmount });
       return;
@@ -683,8 +608,11 @@ const PatientRecordPage = () => {
     setReceiptIdToRefund(null);
   };
 
-  const [expandedSales, setExpandedSales] = useState<Record<string, boolean>>({});
-  const toggleExpanded = (saleId: string) => setExpandedSales(prev => ({ ...prev, [saleId]: !prev[saleId] }));
+  // Validade fixa (dias) — o sistema real de orçamentos (sales/BudgetsPage.tsx,
+  // tabela `budgets`) não tem coluna de validade; o prontuário tinha essa
+  // customização só localmente. Unificado nesse valor fixo por enquanto —
+  // dá pra virar campo de verdade depois, se precisar.
+  const BUDGET_VALIDITY_DAYS = 15;
 
   const [budgetModalOpen, setBudgetModalOpen] = useState(false);
   const [budgetDate, setBudgetDate] = useState<string>(new Date().toISOString().split("T")[0]);
@@ -692,8 +620,9 @@ const PatientRecordPage = () => {
   const [budgetQty, setBudgetQty] = useState<number>(1);
   const [budgetUnitPrice, setBudgetUnitPrice] = useState<number>(0);
   const [budgetItems, setBudgetItems] = useState<SaleItemMeta[]>([]);
-  const [budgetValidityDays, setBudgetValidityDays] = useState<number>(15);
   const [budgetObservations, setBudgetObservations] = useState<string>("");
+  const [savingBudget, setSavingBudget] = useState(false);
+  const [editingBudgetId, setEditingBudgetId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!budgetSelectedItemId) { setBudgetUnitPrice(0); return; }
@@ -714,61 +643,83 @@ const PatientRecordPage = () => {
   const removeBudgetItem = (itemId: string, index: number) => {
     setBudgetItems(prev => prev.filter((_, i) => !(i === index && _.itemId === itemId)));
   };
-  const isBudgetExpired = (b: PatientBudgetMeta) => {
+  const isBudgetExpired = (b: Budget) => {
     const exp = new Date(b.date);
-    exp.setDate(exp.getDate() + b.validityDays);
+    exp.setDate(exp.getDate() + BUDGET_VALIDITY_DAYS);
     const today = new Date();
-    return today > exp && b.status !== "convertido" && b.status !== "cancelado";
+    return today > exp && b.status !== "converted" && b.status !== "cancelled";
   };
-  const saveBudget = () => {
-    if (budgetItems.length === 0) { toast.error("Adicione itens ao orçamento."); return; }
-    if (!currentClient || !currentAnimal) { toast.error("Cliente/animal não encontrados."); return; }
-    const newBudget: PatientBudgetMeta = {
-      id: `bud-${Date.now()}`,
-      date: budgetDate,
-      items: budgetItems,
-      total: budgetTotal,
-      validityDays: budgetValidityDays,
-      status: "aberto",
-      observations: budgetObservations || undefined,
-    };
-    const next = [...patientBudgets, newBudget];
-    setPatientBudgets(next); writePatientBudgets(animalId, next);
+  const resetBudgetForm = () => {
     setBudgetDate(new Date().toISOString().split("T")[0]);
-    setBudgetItems([]); setBudgetQty(1); setBudgetUnitPrice(0); setBudgetValidityDays(15); setBudgetObservations("");
-    setBudgetModalOpen(false);
-    toast.success("Orçamento salvo.");
+    setBudgetItems([]); setBudgetQty(1); setBudgetUnitPrice(0); setBudgetObservations("");
+    setEditingBudgetId(null);
   };
-  const approveBudget = (id: string) => {
-    const next = patientBudgets.map(b => b.id === id ? { ...b, status: "aprovado" as BudgetStatusLocal } : b);
-    setPatientBudgets(next); writePatientBudgets(animalId, next);
-  };
-  const cancelBudget = (id: string) => {
-    const next = patientBudgets.map(b => b.id === id ? { ...b, status: "cancelado" as BudgetStatusLocal } : b);
-    setPatientBudgets(next); writePatientBudgets(animalId, next);
-  };
-  const printBudget = async (b: PatientBudgetMeta) => {
-    if (!currentClient || !currentAnimal) {
-      toast.error("Cliente/animal não encontrados para impressão.");
-      return;
-    }
-    const budgetForPdf = {
-      id: b.id,
-      date: b.date,
-      status: b.status,
-      clientId: currentClient.id,
-      animalId: currentAnimal.id,
-      items: b.items.map(it => ({
+  const startEditBudget = (b: Budget) => {
+    setEditingBudgetId(b.id);
+    setBudgetDate(b.date);
+    setBudgetItems(
+      b.items.map((it) => ({
         itemId: it.itemId,
         name: it.name,
+        type: catalogItemsFromHook.find((c) => c.id === it.itemId)?.type || "product",
         qty: it.qty,
-        price: it.unitPrice,
-      })),
-      notes: b.observations,
-      validityDays: b.validityDays,
-    };
-
-    const blob = await createPdfBlob(<BudgetReportPdfContent budget={budgetForPdf} userProfile={currentUserProfile} catalogItems={catalogItems} />);
+        unitPrice: it.price,
+      }))
+    );
+    setBudgetObservations(b.notes || "");
+    setBudgetModalOpen(true);
+  };
+  const saveBudget = async () => {
+    if (savingBudget) return;
+    if (budgetItems.length === 0) { toast.error("Adicione itens ao orçamento."); return; }
+    if (!currentClient || !currentAnimal) { toast.error("Cliente/animal não encontrados."); return; }
+    setSavingBudget(true);
+    try {
+      const itemsPayload = budgetItems.map((it) => ({ itemId: it.itemId, name: it.name, qty: it.qty, price: it.unitPrice }));
+      if (editingBudgetId) {
+        const existing = patientBudgets.find((b) => b.id === editingBudgetId);
+        if (!existing) { toast.error("Orçamento não encontrado."); return; }
+        const ok = await budgetsApi.updateBudget({
+          ...existing,
+          date: budgetDate,
+          items: itemsPayload,
+          notes: budgetObservations || undefined,
+        });
+        if (!ok) { toast.error("Falha ao atualizar orçamento."); return; }
+        toast.success("Orçamento atualizado.");
+      } else {
+        const created = await budgetsApi.addBudget({
+          clientId: currentClient.id,
+          animalId: currentAnimal.id,
+          clientName: currentClient.name,
+          animalName: currentAnimal.name,
+          clientPhone: currentClient.phone || undefined,
+          date: budgetDate,
+          items: itemsPayload,
+          notes: budgetObservations || undefined,
+        });
+        if (!created) { toast.error("Falha ao salvar orçamento."); return; }
+        toast.success("Orçamento salvo.");
+      }
+      await refetchBudgets();
+      resetBudgetForm();
+      setBudgetModalOpen(false);
+    } finally {
+      setSavingBudget(false);
+    }
+  };
+  const approveBudget = async (id: string) => {
+    const ok = await budgetsApi.updateBudgetStatus(id, "approved");
+    if (!ok) { toast.error("Falha ao aprovar orçamento."); return; }
+    await refetchBudgets();
+  };
+  const cancelBudget = async (id: string) => {
+    const ok = await budgetsApi.updateBudgetStatus(id, "cancelled");
+    if (!ok) { toast.error("Falha ao cancelar orçamento."); return; }
+    await refetchBudgets();
+  };
+  const printBudget = async (b: Budget) => {
+    const blob = await createPdfBlob(<BudgetReportPdfContent budget={b} userProfile={currentUserProfile} catalogItems={catalogItems} />);
     await openPdf({
       blob,
       fileName: `orcamento_${b.id}.pdf`,
@@ -812,13 +763,14 @@ const PatientRecordPage = () => {
     const tx = await financialApi.addFinancialTransaction({
       date: new Date().toISOString().split("T")[0],
       time: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
-      description: `Orçamento convertido (atend. ${appointmentId}): ${b.items.map(i => formatItemQty(i.name, i.qty)).join(", ")}`,
+      description: `Orçamento convertido: ${b.items.map(i => formatItemQty(i.name, i.qty)).join(", ")}`,
       type: "income",
-      amount: b.total,
+      amount: b.items.reduce((s, it) => s + it.qty * it.price, 0),
       category: "Venda de Produtos",
       relatedAnimalId: currentAnimal.id,
       relatedClientId: currentClient.id,
       status: "pending",
+      observations: buildSaleObservations(appointmentId, b.notes || ""),
     });
     const nextId = tx?.id;
     if (!nextId) return false;
@@ -826,32 +778,23 @@ const PatientRecordPage = () => {
     await fulfillSaleLines({
       saleId: nextId,
       catalog: catalogItemsFromHook,
-      lines: b.items.map((it) => ({
-        catalogItemId: it.itemId,
-        name: it.name,
-        type: it.type,
-        quantity: it.qty,
-        unitPrice: it.unitPrice,
-      })),
+      lines: b.items.map((it) => {
+        const catItem = catalogItemsFromHook.find((c) => c.id === it.itemId);
+        return {
+          catalogItemId: it.itemId,
+          name: it.name,
+          type: catItem?.type || "product",
+          quantity: it.qty,
+          unitPrice: it.price,
+        };
+      }),
     });
     await refetchCatalog();
     await refetchFinancial();
 
-    const newSale: PatientSaleMeta = {
-      id: nextId,
-      date: new Date().toISOString().split("T")[0],
-      appointmentId,
-      items: b.items,
-      total: b.total,
-      saleStatus: "open",
-      origin: "orcamento",
-      observations: b.observations,
-    };
-    const updatedSales = [...patientSales, newSale];
-    setPatientSales(updatedSales); writePatientSales(animalId, updatedSales);
-
-    const updatedBudgets = patientBudgets.map(x => x.id === id ? { ...x, status: "convertido" as BudgetStatusLocal, appointmentId } : x);
-    setPatientBudgets(updatedBudgets); writePatientBudgets(animalId, updatedBudgets);
+    const converted = await budgetsApi.updateBudgetStatus(id, "converted");
+    if (!converted) { toast.error("Venda criada, mas falhou marcar o orçamento como convertido."); }
+    await refetchBudgets();
 
     toast.success("Orçamento convertido em venda.");
     return true;
@@ -877,7 +820,7 @@ const PatientRecordPage = () => {
 
   const formatAgeLabel = (birthday?: string) => {
     if (!birthday) return "-";
-    const birthDate = new Date(birthday);
+    const birthDate = parseLocalDate(birthday);
     const today = new Date();
     let age = today.getFullYear() - birthDate.getFullYear();
     const m = today.getMonth() - birthDate.getMonth();
@@ -1008,9 +951,9 @@ const PatientRecordPage = () => {
 
   prescriptions.forEach(rx => {
     const description = rx.treatmentDescription || rx.medicationName || "Receita sem descrição";
-    let badgeColor = "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"; // simples
-    if (rx.type === 'manipulated') badgeColor = "bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-200";
-    if (rx.type === 'controlled') badgeColor = "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200";
+    let badgeColor = "bg-green-100 text-green-800"; // simples
+    if (rx.type === 'manipulated') badgeColor = "bg-teal-100 text-teal-800";
+    if (rx.type === 'controlled') badgeColor = "bg-amber-100 text-amber-800";
 
     const rxIcon = rx.type === 'manipulated' ? FaFlask : rx.type === 'controlled' ? FaExclamationTriangle : FaPrescriptionBottleAlt;
 
@@ -1037,7 +980,7 @@ const PatientRecordPage = () => {
       description: `Peso registrado: ${entry.weight.toFixed(1)} kg (${entry.source})`,
       summary: `Origem: ${entry.source || "-"}`,
       icon: FaWeightHanging,
-      badgeColor: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200",
+      badgeColor: "bg-yellow-100 text-yellow-800",
       author: currentVetName,
     });
   });
@@ -1051,7 +994,7 @@ const PatientRecordPage = () => {
       description: `Observação: ${obs.observation}`,
       summary: obs.observation,
       icon: FaCommentAlt,
-      badgeColor: "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200",
+      badgeColor: "bg-gray-100 text-gray-800",
       author: currentVetName,
       isAlert: !!obs.displayAsAlert,
     });
@@ -1066,7 +1009,7 @@ const PatientRecordPage = () => {
       description: `Venda: ${sale.description} (R$ ${sale.amount.toFixed(2).replace('.', ',')})`,
       summary: sale.description,
       icon: FaDollarSign,
-      badgeColor: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
+      badgeColor: "bg-green-100 text-green-800",
       author: currentVetName,
     });
   });
@@ -1081,7 +1024,7 @@ const PatientRecordPage = () => {
       summary: doc.name,
       icon: FaFileAlt,
       link: doc.fileUrl,
-      badgeColor: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200",
+      badgeColor: "bg-orange-100 text-orange-800",
       author: currentVetName,
     });
   });
@@ -1113,7 +1056,7 @@ const PatientRecordPage = () => {
   const formatAgeYearsMonths = (birthday?: string) => {
     if (!birthday) return "-";
 
-    const birth = new Date(birthday);
+    const birth = parseLocalDate(birthday);
     const now = new Date();
 
     let totalMonths = (now.getFullYear() - birth.getFullYear()) * 12 + (now.getMonth() - birth.getMonth());
@@ -1153,7 +1096,7 @@ const PatientRecordPage = () => {
   };
 
   return (
-    <div className="flex flex-col min-h-screen layered-bg-warm overflow-x-hidden font-exo">
+    <div className="flex flex-col min-h-screen layered-bg-warm overflow-x-hidden">
       {/* CABEÇALHO DO PRONTUÁRIO */}
       <div className="mx-auto w-full max-w-7xl px-5 pt-4 pb-3">
         <div className="premium-card rounded-xl border border-border/60 bg-white px-4 py-3">
@@ -1423,16 +1366,21 @@ const PatientRecordPage = () => {
                 {/* FINANCEIRO */}
                 <div className="rounded-xl border border-border bg-white p-3 h-full">
                   {(() => {
+                    // "Recebimento" é o pagamento de uma venda já contada em
+                    // "Venda de Produtos" — contar os dois somava a mesma venda
+                    // em dobro; e vendas canceladas não são mais receita.
                     const income = mockFinancialTransactions
-                      .filter((t) => t.relatedAnimalId === animalId && t.type === 'income')
+                      .filter((t) => t.relatedAnimalId === animalId && t.type === 'income' && t.category !== 'Recebimento' && t.status !== 'cancelled')
                       .reduce((s, t) => s + t.amount, 0);
                     const expense = mockFinancialTransactions
-                      .filter((t) => t.relatedAnimalId === animalId && t.type === 'expense')
+                      .filter((t) => t.relatedAnimalId === animalId && t.type === 'expense' && t.status !== 'cancelled')
                       .reduce((s, t) => s + t.amount, 0);
                     const net = income - expense;
                     const pending = Math.max(
                       0,
-                      patientSales.reduce((sum, s) => sum + s.total, 0) -
+                      animalSalesTransactions
+                        .filter((s) => s.status !== "cancelled")
+                        .reduce((sum, s) => sum + s.amount, 0) -
                         animalReceipts.reduce((sum, r) => sum + r.amount, 0)
                     );
 
@@ -1484,7 +1432,7 @@ const PatientRecordPage = () => {
                 value="timeline"
                 title="Linha do Tempo"
                 style={{ ["--tab-accent" as any]: "#d97706" }}
-                className="tab-prontuario-trigger tab-active-line relative -mb-px pb-1.5 px-2 md:px-2.5 shrink-0 text-xs md:text-sm text-slate-600 dark:text-slate-300 hover:text-foreground rounded-md transition-colors data-[state=active]:text-foreground data-[state=active]:font-semibold"
+                className="tab-prontuario-trigger tab-active-line relative -mb-px pb-1.5 px-2 md:px-2.5 shrink-0 text-xs md:text-sm text-slate-600 hover:text-foreground rounded-md transition-colors data-[state=active]:text-foreground data-[state=active]:font-semibold"
               >
                 <FaClock className="h-3.5 w-3.5 mr-1 md:mr-1.5 text-amber-600" />
                 <span className="max-w-[9.5rem] md:max-w-none truncate">Timeline</span>
@@ -1494,7 +1442,7 @@ const PatientRecordPage = () => {
                 value="appointments"
                 title="Atendimento"
                 style={{ ["--tab-accent" as any]: "#0d9488" }}
-                className="tab-prontuario-trigger tab-active-line relative -mb-px pb-1.5 px-2 md:px-2.5 shrink-0 text-xs md:text-sm text-slate-600 dark:text-slate-300 hover:text-foreground rounded-md transition-colors data-[state=active]:text-foreground data-[state=active]:font-semibold"
+                className="tab-prontuario-trigger tab-active-line relative -mb-px pb-1.5 px-2 md:px-2.5 shrink-0 text-xs md:text-sm text-slate-600 hover:text-foreground rounded-md transition-colors data-[state=active]:text-foreground data-[state=active]:font-semibold"
               >
                 <FaStethoscope className="h-3.5 w-3.5 mr-1 md:mr-1.5 text-teal-600" />
                 <span className="max-w-[9.5rem] md:max-w-none truncate">Atend.</span>
@@ -1504,7 +1452,7 @@ const PatientRecordPage = () => {
               value="prescriptions"
               title="Receitas"
               style={{ ["--tab-accent" as any]: "#047857" }}
-              className="tab-prontuario-trigger tab-active-line relative -mb-px pb-1.5 px-2 md:px-2.5 shrink-0 text-xs md:text-sm text-slate-600 dark:text-slate-300 hover:text-foreground rounded-md transition-colors data-[state=active]:text-foreground data-[state=active]:font-semibold"
+              className="tab-prontuario-trigger tab-active-line relative -mb-px pb-1.5 px-2 md:px-2.5 shrink-0 text-xs md:text-sm text-slate-600 hover:text-foreground rounded-md transition-colors data-[state=active]:text-foreground data-[state=active]:font-semibold"
             >
               <FaPrescriptionBottleAlt className="h-3.5 w-3.5 mr-1 md:mr-1.5 text-emerald-700" />
               <span className="max-w-[9.5rem] md:max-w-none truncate">Receitas</span>
@@ -1514,7 +1462,7 @@ const PatientRecordPage = () => {
                 value="exams"
                 title="Exames"
                 style={{ ["--tab-accent" as any]: "hsl(var(--vf-clinical))" }}
-                className="tab-prontuario-trigger tab-active-line relative -mb-px pb-1.5 px-2 md:px-2.5 shrink-0 text-xs md:text-sm text-slate-600 dark:text-slate-300 hover:text-foreground rounded-md transition-colors data-[state=active]:text-foreground data-[state=active]:font-semibold"
+                className="tab-prontuario-trigger tab-active-line relative -mb-px pb-1.5 px-2 md:px-2.5 shrink-0 text-xs md:text-sm text-slate-600 hover:text-foreground rounded-md transition-colors data-[state=active]:text-foreground data-[state=active]:font-semibold"
               >
                 <FaFlask className="h-3.5 w-3.5 mr-1 md:mr-1.5 text-vf-clinical" />
                 <span className="max-w-[9.5rem] md:max-w-none truncate">Exames</span>
@@ -1524,7 +1472,7 @@ const PatientRecordPage = () => {
                 value="vaccines"
                 title="Vacinas"
                 style={{ ["--tab-accent" as any]: "hsl(var(--vf-clinical))" }}
-                className="tab-prontuario-trigger tab-active-line relative -mb-px pb-1.5 px-2 md:px-2.5 shrink-0 text-xs md:text-sm text-slate-600 dark:text-slate-300 hover:text-foreground rounded-md transition-colors data-[state=active]:text-foreground data-[state=active]:font-semibold"
+                className="tab-prontuario-trigger tab-active-line relative -mb-px pb-1.5 px-2 md:px-2.5 shrink-0 text-xs md:text-sm text-slate-600 hover:text-foreground rounded-md transition-colors data-[state=active]:text-foreground data-[state=active]:font-semibold"
               >
                 <FaSyringe className="h-3.5 w-3.5 mr-1 md:mr-1.5 text-vf-clinical" />
                 <span className="max-w-[9.5rem] md:max-w-none truncate">Vacinas</span>
@@ -1534,7 +1482,7 @@ const PatientRecordPage = () => {
                 value="weight"
                 title="Peso"
                 style={{ ["--tab-accent" as any]: "#059669" }}
-                className="tab-prontuario-trigger tab-active-line relative -mb-px pb-1.5 px-2 md:px-2.5 shrink-0 text-xs md:text-sm text-slate-600 dark:text-slate-300 hover:text-foreground rounded-md transition-colors data-[state=active]:text-foreground data-[state=active]:font-semibold"
+                className="tab-prontuario-trigger tab-active-line relative -mb-px pb-1.5 px-2 md:px-2.5 shrink-0 text-xs md:text-sm text-slate-600 hover:text-foreground rounded-md transition-colors data-[state=active]:text-foreground data-[state=active]:font-semibold"
               >
                 <FaWeightHanging className="h-3.5 w-3.5 mr-1 md:mr-1.5 text-emerald-600" />
                 <span className="max-w-[9.5rem] md:max-w-none truncate">Peso</span>
@@ -1544,9 +1492,9 @@ const PatientRecordPage = () => {
                 value="documents"
                 title="Documentos"
                 style={{ ["--tab-accent" as any]: "#475569" }}
-                className="tab-prontuario-trigger tab-active-line relative -mb-px pb-1.5 px-2 md:px-2.5 shrink-0 text-xs md:text-sm text-slate-600 dark:text-slate-300 hover:text-foreground rounded-md transition-colors data-[state=active]:text-foreground data-[state=active]:font-semibold"
+                className="tab-prontuario-trigger tab-active-line relative -mb-px pb-1.5 px-2 md:px-2.5 shrink-0 text-xs md:text-sm text-slate-600 hover:text-foreground rounded-md transition-colors data-[state=active]:text-foreground data-[state=active]:font-semibold"
               >
-                <FaFileAlt className="h-3.5 w-3.5 mr-1 md:mr-1.5 text-slate-600 dark:text-slate-200" />
+                <FaFileAlt className="h-3.5 w-3.5 mr-1 md:mr-1.5 text-slate-600" />
                 <span className="max-w-[9.5rem] md:max-w-none truncate">Docs</span>
                 <span className="ml-1.5 inline-flex items-center justify-center h-4 min-w-4 px-1.5 rounded-full text-[9px] bg-muted text-foreground/70">{documents.length}</span>
               </TabsTrigger>
@@ -1561,7 +1509,7 @@ const PatientRecordPage = () => {
                 value="observations"
                 title="Observações"
                 style={{ ["--tab-accent" as any]: "#e11d48" }}
-                className="tab-prontuario-trigger tab-active-line relative -mb-px pb-1.5 px-2 md:px-2.5 shrink-0 text-xs md:text-sm text-slate-600 dark:text-slate-300 hover:text-foreground rounded-md transition-colors data-[state=active]:text-foreground data-[state=active]:font-semibold"
+                className="tab-prontuario-trigger tab-active-line relative -mb-px pb-1.5 px-2 md:px-2.5 shrink-0 text-xs md:text-sm text-slate-600 hover:text-foreground rounded-md transition-colors data-[state=active]:text-foreground data-[state=active]:font-semibold"
               >
                 <FaCommentAlt className="h-3.5 w-3.5 mr-1 md:mr-1.5 text-rose-600" />
                 <span className="max-w-[9.5rem] md:max-w-none truncate">Observ.</span>
@@ -1571,11 +1519,11 @@ const PatientRecordPage = () => {
                 value="financial"
                 title="Financeiro"
                 style={{ ["--tab-accent" as any]: "#F79009" }}
-                className="tab-prontuario-trigger tab-active-line relative -mb-px pb-1.5 px-2 md:px-2.5 shrink-0 text-xs md:text-sm text-slate-600 dark:text-slate-300 hover:text-foreground rounded-md transition-colors data-[state=active]:text-foreground data-[state=active]:font-semibold"
+                className="tab-prontuario-trigger tab-active-line relative -mb-px pb-1.5 px-2 md:px-2.5 shrink-0 text-xs md:text-sm text-slate-600 hover:text-foreground rounded-md transition-colors data-[state=active]:text-foreground data-[state=active]:font-semibold"
               >
                 <FaMoneyBillWave className="h-3.5 w-3.5 mr-1 md:mr-1.5 text-[#F79009]" />
                 <span className="max-w-[9.5rem] md:max-w-none truncate">Financeiro</span>
-                <span className="ml-1.5 inline-flex items-center justify-center h-4 min-w-4 px-1.5 rounded-full text-[9px] bg-muted text-foreground/70">{patientSales.length + pdvSalesForAnimal.length}</span>
+                <span className="ml-1.5 inline-flex items-center justify-center h-4 min-w-4 px-1.5 rounded-full text-[9px] bg-muted text-foreground/70">{animalSalesTransactions.length}</span>
               </TabsTrigger>
           </TabsList>
 
@@ -2148,8 +2096,9 @@ const PatientRecordPage = () => {
                 {canEditPrescriptions ? (
                   <div className="flex w-full flex-wrap gap-2 sm:w-auto">
                     <Button size="sm" asChild className="rounded-md bg-[hsl(var(--vf-clinical))] font-semibold text-white transition-all duration-200 shadow-md hover:bg-[hsl(var(--vf-clinical)/0.9)] hover:shadow-lg">
-                      <Link to={`/clients/${clientId}/animals/${animalId}/add-document`}>
-                        <FaPlus className="h-4 w-4 mr-2" /> Cadastrar novo documento
+                      <Link to={`/clients/${clientId}/animals/${animalId}/emit-document`}>
+                        <FaFileAlt className="h-4 w-4 mr-2" /> Emitir termo/atestado
+                        <span className="ml-2 rounded-full bg-white/20 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide">Modelo oficial</span>
                       </Link>
                     </Button>
                     <Button size="sm" variant="outline" asChild className="rounded-md border-[hsl(var(--vf-clinical)/0.4)] font-semibold text-[hsl(var(--vf-clinical))] hover:bg-[hsl(var(--vf-clinical)/0.08)]">
@@ -2158,8 +2107,8 @@ const PatientRecordPage = () => {
                       </Link>
                     </Button>
                     <Button size="sm" variant="outline" asChild className="rounded-md border-[hsl(var(--vf-clinical)/0.4)] font-semibold text-[hsl(var(--vf-clinical))] hover:bg-[hsl(var(--vf-clinical)/0.08)]">
-                      <Link to={`/clients/${clientId}/animals/${animalId}/emit-document`}>
-                        <FaFileAlt className="h-4 w-4 mr-2" /> Emitir termo/atestado (modelo oficial)
+                      <Link to={`/clients/${clientId}/animals/${animalId}/add-document`}>
+                        <FaPlus className="h-4 w-4 mr-2" /> Cadastrar documento livre
                       </Link>
                     </Button>
                   </div>
@@ -2318,7 +2267,7 @@ const PatientRecordPage = () => {
                     })}
                   </div>
                 ) : (
-                  <p className="text-muted-foreground py-4">Nenhum documento registrado. Use &quot;Cadastrar novo documento&quot; para enviar um arquivo ou criar um documento a partir de um template.</p>
+                  <p className="text-muted-foreground py-4">Nenhum documento registrado. Use &quot;Emitir termo/atestado&quot; para os 30 modelos oficiais (CFMV) ou &quot;Cadastrar documento livre&quot; para enviar um arquivo avulso.</p>
                 )}
               </CardContent>
             </Card>
@@ -2456,8 +2405,15 @@ const PatientRecordPage = () => {
                                       animalId: currentAnimal.id,
                                       displayId: getPatientDisplayId(currentAnimal.id, currentClient.animals),
                                       animalSpecies: currentAnimal.species,
+                                      animalBreed: currentAnimal.breed,
+                                      animalSex: currentAnimal.gender,
+                                      animalBirthday: currentAnimal.birthday,
+                                      animalWeight: currentAnimal.weight,
+                                      animalMicrochip: currentAnimal.microchip,
                                       tutorName: currentClient.name,
                                       tutorAddress: (currentClient.address?.street ?? "") + ", " + (currentClient.address?.number ?? "") + " - " + (currentClient.address?.city ?? "") + " - " + (currentClient.address?.state ?? ""),
+                                      tutorDocument: currentClient.identificationNumber,
+                                      tutorPhone: currentClient.mainPhoneContact,
                                       medications: rx.medications || [],
                                       generalObservations: rx.instructions,
                                       showElectronicSignatureText: false,
@@ -2497,8 +2453,15 @@ const PatientRecordPage = () => {
                                       animalId: currentAnimal.id,
                                       displayId: getPatientDisplayId(currentAnimal.id, currentClient.animals),
                                       animalSpecies: currentAnimal.species,
+                                      animalBreed: currentAnimal.breed,
+                                      animalSex: currentAnimal.gender,
+                                      animalBirthday: currentAnimal.birthday,
+                                      animalWeight: currentAnimal.weight,
+                                      animalMicrochip: currentAnimal.microchip,
                                       tutorName: currentClient.name,
                                       tutorAddress: (currentClient.address?.street ?? "") + ", " + (currentClient.address?.number ?? "") + " - " + (currentClient.address?.city ?? "") + " - " + (currentClient.address?.state ?? ""),
+                                      tutorDocument: currentClient.identificationNumber,
+                                      tutorPhone: currentClient.mainPhoneContact,
                                       medications: rx.medications || [],
                                       generalObservations: rx.instructions,
                                       showElectronicSignatureText: true,
@@ -2541,8 +2504,15 @@ const PatientRecordPage = () => {
                                       animalId: currentAnimal.id,
                                       displayId: getPatientDisplayId(currentAnimal.id, currentClient.animals),
                                       animalSpecies: currentAnimal.species,
+                                      animalBreed: currentAnimal.breed,
+                                      animalSex: currentAnimal.gender,
+                                      animalBirthday: currentAnimal.birthday,
+                                      animalWeight: currentAnimal.weight,
+                                      animalMicrochip: currentAnimal.microchip,
                                       tutorName: currentClient.name,
                                       tutorAddress: (currentClient.address?.street ?? "") + ", " + (currentClient.address?.number ?? "") + " - " + (currentClient.address?.city ?? "") + " - " + (currentClient.address?.state ?? ""),
+                                      tutorDocument: currentClient.identificationNumber,
+                                      tutorPhone: currentClient.mainPhoneContact,
                                       medications: rx.medications || [],
                                       generalObservations: rx.instructions,
                                       showElectronicSignatureText: true,
@@ -2721,7 +2691,7 @@ const PatientRecordPage = () => {
           </TabsContent>
 
           <TabsContent value="financial" className="mt-4">
-            <Card className="bg-white rounded-[12px] shadow-sm border-0">
+            <Card className="vf-surface-card vf-tone-finance rounded-[12px]">
               <CardHeader className="flex flex-row items-center justify-between pb-3">
                 <CardTitle className="flex items-center gap-2 text-lg font-semibold text-foreground">
                   <FaMoneyBillWave className="h-5 w-5 text-primary" /> Financeiro
@@ -2740,9 +2710,9 @@ const PatientRecordPage = () => {
                     </TabsTrigger>
                     <TabsTrigger value="vendas" className="flex items-center gap-1.5 px-4 text-sm font-medium rounded-md">
                       🛒 Vendas
-                      {(patientSales.length + pdvSalesForAnimal.length) > 0 && (
+                      {animalSalesTransactions.length > 0 && (
                         <span className="ml-1 rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-bold">
-                          {patientSales.length + pdvSalesForAnimal.length}
+                          {animalSalesTransactions.length}
                         </span>
                       )}
                     </TabsTrigger>
@@ -2752,17 +2722,17 @@ const PatientRecordPage = () => {
                   </TabsList>
 
                   <TabsContent value="orcamentos">
-                    <div className="bg-[#F5F7FA] p-4 rounded-[12px]">
+                    <div className="bg-muted/40 p-4 rounded-[12px]">
                       <div className="flex justify-end mb-3">
                         <Button
                           size="sm"
-                          onClick={() => setBudgetModalOpen(true)}
-                          className="rounded-md bg-[#0F4C5C] text-white hover:bg-[#0d3f4b] font-semibold transition-all duration-200 shadow-sm hover:shadow-md"
+                          onClick={() => { resetBudgetForm(); setBudgetModalOpen(true); }}
+                          className="rounded-md font-semibold transition-all duration-200 shadow-sm hover:shadow-md"
                         >
                           <FaPlus className="h-4 w-4 mr-2" /> Novo Orçamento
                         </Button>
                       </div>
-                      <Card className="bg-white rounded-[12px] shadow-sm border border-[#E2E8F0]">
+                      <Card className="vf-surface-card vf-tone-finance rounded-[12px]">
                         <CardHeader className="pb-2">
                           <CardTitle className="text-base">Orçamentos</CardTitle>
                         </CardHeader>
@@ -2772,37 +2742,43 @@ const PatientRecordPage = () => {
                           ) : (
                             <div className="space-y-3">
                               {patientBudgets.map(b => {
+                                const total = b.items.reduce((s, it) => s + it.qty * it.price, 0);
                                 const expired = isBudgetExpired(b);
-                                const statusDisplay = expired && b.status !== "convertido" && b.status !== "cancelado" ? "expirado" : b.status;
-                                const canConvert = !expired && b.status !== "cancelado" && b.status !== "convertido";
+                                const statusDisplay = expired && b.status !== "converted" && b.status !== "cancelled" ? "expired" : b.status;
+                                const canConvert = !expired && b.status !== "cancelled" && b.status !== "converted";
+                                const statusLabel: Record<string, string> = {
+                                  draft: "Rascunho", approved: "Aprovado", converted: "Convertido",
+                                  cancelled: "Cancelado", expired: "Expirado",
+                                };
                                 const badgeClass =
-                                  statusDisplay === "convertido" ? "bg-[hsl(var(--vf-clinical))] text-white" :
-                                  statusDisplay === "aprovado" ? "bg-emerald-600 text-white" :
-                                  statusDisplay === "expirado" ? "bg-red-600 text-white" :
-                                  statusDisplay === "cancelado" ? "bg-gray-300 text-gray-900" :
+                                  statusDisplay === "converted" ? "bg-[hsl(var(--vf-clinical))] text-white" :
+                                  statusDisplay === "approved" ? "bg-emerald-600 text-white" :
+                                  statusDisplay === "expired" ? "bg-red-600 text-white" :
+                                  statusDisplay === "cancelled" ? "bg-gray-300 text-gray-900" :
                                   "bg-[hsl(var(--vf-clinical))] text-white";
                                 return (
-                                  <Card key={b.id} className="p-4 bg-white rounded-[12px] shadow-sm border border-[#E2E8F0]">
+                                  <Card key={b.id} className="p-4 vf-surface-card vf-tone-finance rounded-[12px]">
                                     <div className="flex items-center justify-between">
                                       <div className="flex items-center gap-2">
                                         <Badge className={`px-2 py-0.5 text-xs rounded-full ${badgeClass}`}>
-                                          {statusDisplay}
+                                          {statusLabel[statusDisplay] || statusDisplay}
                                         </Badge>
                                       </div>
                                       <div className="text-sm font-semibold text-green-700">
-                                        {new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(b.total)}
+                                        {new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(total)}
                                       </div>
                                     </div>
                                     <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mt-2 text-sm text-muted-foreground">
                                       <div className="flex items-center gap-1"><FaCalendarAlt className="h-3 w-3" /> {formatDateTime(b.date)}</div>
-                                      <div className="flex items-center gap-1"><FaTag className="h-3 w-3" /> Validade: {b.validityDays} dia(s)</div>
-                                      {b.observations && <div className="flex items-center gap-1"><FaTag className="h-3 w-3" /> Obs.: {b.observations}</div>}
+                                      <div className="flex items-center gap-1"><FaTag className="h-3 w-3" /> Validade: {BUDGET_VALIDITY_DAYS} dia(s)</div>
+                                      {b.notes && <div className="flex items-center gap-1"><FaTag className="h-3 w-3" /> Obs.: {b.notes}</div>}
                                     </div>
                                     <div className="flex justify-end gap-2 mt-2">
-                                      <Button variant="outline" size="sm" onClick={()=>approveBudget(b.id)} disabled={statusDisplay==="convertido" || statusDisplay==="cancelado"}>Aprovar</Button>
-                                      <Button variant="outline" size="sm" onClick={()=>cancelBudget(b.id)} disabled={statusDisplay==="convertido" || statusDisplay==="cancelado"}>Cancelar</Button>
-                                      <Button variant="outline" size="sm" onClick={()=>printBudget(b)}>Imprimir</Button>
-                                      <Button size="sm" onClick={()=>openConvertModal(b.id)} disabled={!canConvert} className="rounded-md bg-[#0F4C5C] text-white hover:bg-[#0d3f4b]">
+                                      <Button variant="outline" size="sm" onClick={()=>startEditBudget(b)} disabled={statusDisplay==="converted" || statusDisplay==="cancelled"}>Editar</Button>
+                                      <Button variant="outline" size="sm" onClick={()=>void approveBudget(b.id)} disabled={statusDisplay==="converted" || statusDisplay==="cancelled"}>Aprovar</Button>
+                                      <Button variant="outline" size="sm" onClick={()=>void cancelBudget(b.id)} disabled={statusDisplay==="converted" || statusDisplay==="cancelled"}>Cancelar</Button>
+                                      <Button variant="outline" size="sm" onClick={()=>void printBudget(b)}>Imprimir</Button>
+                                      <Button size="sm" onClick={()=>openConvertModal(b.id)} disabled={!canConvert} className="rounded-md">
                                         Converter em venda
                                       </Button>
                                     </div>
@@ -2817,27 +2793,21 @@ const PatientRecordPage = () => {
                   </TabsContent>
 
                   <TabsContent value="vendas">
-                    <div className="bg-[#F5F7FA] p-4 rounded-[12px]">
+                    <div className="bg-muted/40 p-4 rounded-[12px]">
                       <div className="flex justify-end mb-3">
                         <Button
                           size="sm"
                           onClick={() => { setSaleResponsible(""); setSaleModalOpen(true); }}
-                          className="rounded-md bg-[#0F4C5C] text-white hover:bg-[#0d3f4b] font-semibold transition-all duration-200 shadow-sm hover:shadow-md"
+                          className="rounded-md font-semibold transition-all duration-200 shadow-sm hover:shadow-md"
                         >
                           <FaPlus className="h-4 w-4 mr-2" /> Adicionar Venda
                         </Button>
                       </div>
-                      {pdvSalesForAnimal.length > 0 && (
-                        <div className="mb-4 space-y-2">
-                          <div className="flex items-center gap-2 mb-2">
-                            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                              Vendas via PDV
-                            </span>
-                            <span className="rounded-full bg-[hsl(var(--vf-sales)/0.12)] px-2 py-0.5 text-xs font-semibold text-[hsl(var(--vf-sales))]">
-                              {pdvSalesForAnimal.length}
-                            </span>
-                          </div>
-                          {pdvSalesForAnimal.map(t => {
+                      {animalSalesTransactions.length === 0 ? (
+                        <p className="text-muted-foreground">Nenhuma venda registrada.</p>
+                      ) : (
+                        <div className="space-y-2">
+                          {animalSalesTransactions.map(t => {
                             const statusConfig: Record<string, { label: string; className: string }> = {
                               paid:      { label: 'Pago',      className: 'bg-emerald-100 text-emerald-700' },
                               partial:   { label: 'Parcial',   className: 'bg-blue-100 text-blue-700' },
@@ -2846,8 +2816,10 @@ const PatientRecordPage = () => {
                             };
                             const st = statusConfig[t.status || 'pending'] || statusConfig.pending;
                             const saldo = Math.max(0, t.amount - (t.paidAmount || 0));
+                            const { appointmentId: linkedAppointmentId } = parseSaleObservations(t.observations);
+                            const app = linkedAppointmentId ? animalAppointments.find(a => a.id === linkedAppointmentId) : undefined;
                             return (
-                              <Card key={t.id} className="p-4 bg-white rounded-xl shadow-sm border border-[#E2E8F0]">
+                              <Card key={t.id} className="p-4 vf-surface-card vf-tone-finance rounded-xl">
                                 <div className="flex items-start justify-between gap-3">
                                   <div className="flex flex-col gap-1 min-w-0">
                                     <div className="flex items-center gap-2 flex-wrap">
@@ -2855,31 +2827,35 @@ const PatientRecordPage = () => {
                                         {st.label}
                                       </span>
                                       <span className="text-xs text-muted-foreground">
-                                        PDV · {formatDateTime(t.date, t.time)}
+                                        {formatDateTime(t.date, t.time)}
                                       </span>
                                       {t.paymentMethod && (
-                                        <span className="text-xs text-muted-foreground">
-                                          💳 {t.paymentMethod}
+                                        <span className="text-xs text-muted-foreground inline-flex items-center gap-1">
+                                          <CreditCard className="h-3 w-3" /> {t.paymentMethod}
+                                        </span>
+                                      )}
+                                      {t.responsible && (
+                                        <span className="text-xs text-muted-foreground inline-flex items-center gap-1">
+                                          <User className="h-3 w-3" /> {t.responsible}
                                         </span>
                                       )}
                                     </div>
-                                    <div className="flex items-center gap-2 flex-wrap mt-0.5">
-                                      <span className="inline-flex items-center rounded-md bg-[hsl(var(--vf-sales)/0.1)] px-2 py-0.5 text-xs font-semibold text-[hsl(var(--vf-sales))]">
-                                        PDV
-                                      </span>
-                                      <p className="text-sm font-semibold text-foreground truncate max-w-[340px]">
-                                        {(() => {
-                                          const colonIdx = t.description.indexOf(": ");
-                                          if (colonIdx === -1) return t.description;
-                                          const items = t.description
-                                            .slice(colonIdx + 2)
-                                            .split(", ")
-                                            .map(item => item.replace(/\s+x\d+$/, "").trim());
-                                          if (items.length <= 2) return items.join(" · ");
-                                          return `${items.slice(0, 2).join(" · ")} +${items.length - 2} item${items.length - 2 > 1 ? "s" : ""}`;
-                                        })()}
-                                      </p>
-                                    </div>
+                                    <p className="text-sm font-semibold text-foreground truncate max-w-[400px]">
+                                      {(() => {
+                                        const colonIdx = t.description.indexOf(": ");
+                                        if (colonIdx === -1) return t.description;
+                                        const items = t.description
+                                          .slice(colonIdx + 2)
+                                          .split(", ")
+                                          .map(item => item.replace(/\s+x\d+$/, "").trim());
+                                        if (items.length <= 2) return items.join(" · ");
+                                        return `${items.slice(0, 2).join(" · ")} +${items.length - 2} item${items.length - 2 > 1 ? "s" : ""}`;
+                                      })()}
+                                    </p>
+                                    <span className="text-xs text-muted-foreground inline-flex items-center gap-1">
+                                      <StethoscopeIcon className="h-3 w-3 text-teal-500" />
+                                      {app ? `Atendimento: ${app.type} · ${app.vet}` : "Atendimento não vinculado"}
+                                    </span>
                                   </div>
                                   <div className="flex items-center gap-4 shrink-0 text-right">
                                     <div>
@@ -2902,139 +2878,26 @@ const PatientRecordPage = () => {
                                     </div>
                                   </div>
                                 </div>
-                                <div className="flex justify-end mt-2 pt-2 border-t border-border/50">
+                                <div className="flex justify-end gap-2 mt-2 pt-2 border-t border-border/50">
+                                  {t.status !== "cancelled" && (
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="h-7 text-xs rounded-lg text-amber-700 border-amber-300 hover:bg-amber-50"
+                                      onClick={() => setPdvSaleToCancel(t)}
+                                    >
+                                      Cancelar venda
+                                    </Button>
+                                  )}
                                   <Button
                                     variant="ghost"
                                     size="sm"
                                     className="h-7 text-xs rounded-lg hover:bg-muted"
                                     onClick={() => setSelectedPdvSale(t)}
                                   >
-                                    🔍 Ver detalhes
+                                    Ver detalhes
                                   </Button>
                                 </div>
-                              </Card>
-                            );
-                          })}
-                        </div>
-                      )}
-
-                      {patientSales.length > 0 && (
-                        <div className="space-y-4 mt-3">
-                          {patientSales.map((sale) => {
-                            const paid = getPaidForSale(sale.id);
-                            const saldo = Math.max(0, sale.total - paid);
-                            const finStatus = getFinancialStatusForSale(sale.id, sale.total);
-                            const app = animalAppointments.find(a => a.id === sale.appointmentId);
-                            const isCancelled = sale.saleStatus === "cancelled";
-                            return (
-                              <Card key={sale.id} className={cn(
-                                "p-4 bg-white rounded-xl shadow-sm border transition-all duration-200 hover:shadow-md",
-                                isCancelled ? "border-slate-300 bg-slate-50/50" : "border-[#E2E8F0]"
-                              )}>
-                                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-2 gap-3">
-                                  <div className="flex items-center gap-3 flex-wrap">
-                                    <Badge className={cn(
-                                      "px-3 py-1 text-sm font-bold rounded-full",
-                                      isCancelled && "bg-slate-500 text-white",
-                                      sale.saleStatus === "open" && !isCancelled && "bg-orange-600 text-white",
-                                      sale.saleStatus === "finalized" && !isCancelled && "bg-green-600 text-white"
-                                    )}>
-                                      {isCancelled ? "Cancelada" : sale.saleStatus === "open" ? "Venda Aberta" : "Venda Finalizada"} {sale.origin === "orcamento" ? "• (de orçamento)" : ""}
-                                    </Badge>
-                                    <p className="text-lg font-semibold text-foreground">
-                                      {app ? `${app.type} • ${app.vet}` : `Atendimento ${sale.appointmentId}`}
-                                    </p>
-                                  </div>
-                                  <div className="flex items-center gap-6">
-                                    <div className="text-right">
-                                      <div className="text-xs text-muted-foreground">Total</div>
-                                      <div className="text-xl font-bold text-green-600 dark:text-green-400">
-                                        {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(sale.total)}
-                                      </div>
-                                    </div>
-                                    <div className="text-right">
-                                      <div className="text-xs text-muted-foreground">Pago</div>
-                                      <div className="text-xl font-bold">
-                                        {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(paid)}
-                                      </div>
-                                    </div>
-                                    <div className="text-right">
-                                      <div className="text-xs text-muted-foreground">Saldo</div>
-                                      <div className="text-xl font-bold">
-                                        {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(saldo)}
-                                      </div>
-                                    </div>
-                                  </div>
-                                </div>
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-sm text-muted-foreground">
-                                  <div className="flex items-center gap-1">
-                                    <FaCalendarAlt className="h-3 w-3 text-vf-clinical" /> {formatDateTime(sale.date)}
-                                  </div>
-                                  <div className="flex items-center gap-1">
-                                    <FaTag className="h-3 w-3 text-amber-500" /> Status financeiro: {finStatus === "paid" ? "Pago" : finStatus === "partial" ? "Parcial" : "Pendente"}
-                                  </div>
-                                  <div className="flex items-center gap-1">
-                                    <FaStethoscope className="h-3 w-3 text-teal-500" /> {app ? `Atendimento em ${formatDateTime(app.date)}` : "Atendimento não vinculado"}
-                                  </div>
-                                </div>
-                                <div className="flex flex-wrap items-center justify-between gap-2 mt-3 pt-3 border-t border-border">
-                                  <div className="flex flex-wrap gap-2">
-                                    {!isCancelled && (
-                                      <>
-                                        <Button variant="outline" size="sm" className="transition-all" onClick={() => updateSaleStatus(sale.id, sale.saleStatus === "open" ? "finalized" : "open")}>
-                                          {sale.saleStatus === "open" ? "Finalizar venda" : "Reabrir venda"}
-                                        </Button>
-                                        <Button
-                                          variant="outline"
-                                          size="sm"
-                                          className="text-amber-700 border-amber-300 hover:bg-amber-50"
-                                          title="Cancelar / Devolução"
-                                          onClick={() => {
-                                            const realTx = mockFinancialTransactions.find((t) => t.id === sale.id);
-                                            if (!realTx) {
-                                              toast.error("Venda não encontrada no financeiro.");
-                                              return;
-                                            }
-                                            setPdvSaleToCancel(realTx);
-                                          }}
-                                        >
-                                          Cancelar venda
-                                        </Button>
-                                      </>
-                                    )}
-                                  </div>
-                                  <Button variant="ghost" size="sm" onClick={() => toggleExpanded(sale.id)}>
-                                    {expandedSales[sale.id] ? "Ocultar detalhes" : "Ver detalhes"}
-                                  </Button>
-                                </div>
-                                {expandedSales[sale.id] && (
-                                  <div className="mt-3 overflow-x-auto">
-                                    <Table>
-                                      <TableHeader>
-                                        <TableRow>
-                                          <TableHead>Item</TableHead>
-                                          <TableHead>Tipo</TableHead>
-                                          <TableHead>Qtd</TableHead>
-                                          <TableHead>Preço</TableHead>
-                                          <TableHead className="text-right">Subtotal</TableHead>
-                                        </TableRow>
-                                      </TableHeader>
-                                      <TableBody>
-                                        {sale.items.map((it, idx) => (
-                                          <TableRow key={`${sale.id}-${it.itemId}-${idx}`}>
-                                            <TableCell className="font-medium">{it.name}</TableCell>
-                                            <TableCell className="capitalize">{it.type}</TableCell>
-                                            <TableCell>{it.qty}</TableCell>
-                                            <TableCell>{new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(it.unitPrice)}</TableCell>
-                                            <TableCell className="text-right">
-                                              {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(it.qty * it.unitPrice)}
-                                            </TableCell>
-                                          </TableRow>
-                                        ))}
-                                      </TableBody>
-                                    </Table>
-                                  </div>
-                                )}
                               </Card>
                             );
                           })}
@@ -3044,9 +2907,9 @@ const PatientRecordPage = () => {
                   </TabsContent>
 
                   <TabsContent value="financeiro">
-                    <div className="bg-[#F5F7FA] p-4 rounded-[12px] space-y-4">
+                    <div className="bg-muted/40 p-4 rounded-[12px] space-y-4">
                       <div className="grid grid-cols-1 lg:grid-cols-[35%_65%] gap-4">
-                        <Card className="min-w-0 bg-white rounded-xl shadow-sm border border-[#E2E8F0] transition-all duration-200 hover:shadow-md">
+                        <Card className="min-w-0 vf-surface-card vf-tone-finance rounded-xl transition-all duration-200 hover:shadow-md">
                           <CardHeader className="pb-2">
                             <CardTitle className="text-base flex items-center gap-2">
                               <FaHandHoldingUsd className="h-4 w-4 text-emerald-600" /> Registrar pagamento
@@ -3058,15 +2921,16 @@ const PatientRecordPage = () => {
                               <Select value={paymentSaleId || ""} onValueChange={(v) => setPaymentSaleId(v)}>
                                 <SelectTrigger className="bg-input border border-border rounded-md h-9 mt-1"><SelectValue placeholder="Selecione a venda" /></SelectTrigger>
                                 <SelectContent>
-                                  {patientSales
-                                    .filter(s => s.saleStatus !== "cancelled" && getPaidForSale(s.id) < s.total)
+                                  {animalSalesTransactions
+                                    .filter(s => s.status !== "cancelled" && getPaidForSale(s.id) < s.amount)
                                     .map(s => {
                                       const paid = getPaidForSale(s.id);
-                                      const saldo = Math.max(0, s.total - paid);
-                                      const app = animalAppointments.find(a => a.id === s.appointmentId);
+                                      const saldo = Math.max(0, s.amount - paid);
+                                      const { appointmentId: linkedId } = parseSaleObservations(s.observations);
+                                      const app = linkedId ? animalAppointments.find(a => a.id === linkedId) : undefined;
                                       return (
                                         <SelectItem key={s.id} value={s.id}>
-                                          {app ? `${app.type} • ${app.vet}` : `Atendimento ${s.appointmentId}`} — Total {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(s.total)} • Saldo {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(saldo)}
+                                          {app ? `${app.type} • ${app.vet}` : formatDateTime(s.date, s.time)} — Total {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(s.amount)} • Saldo {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(saldo)}
                                         </SelectItem>
                                       );
                                     })}
@@ -3074,8 +2938,8 @@ const PatientRecordPage = () => {
                               </Select>
                             </div>
                             {paymentSaleId && (() => {
-                              const s = patientSales.find((x) => x.id === paymentSaleId);
-                              const saldo = s ? Math.max(0, s.total - getPaidForSale(s.id)) : 0;
+                              const s = animalSalesTransactions.find((x) => x.id === paymentSaleId);
+                              const saldo = s ? Math.max(0, s.amount - getPaidForSale(s.id)) : 0;
                               return (
                                 <p className="text-sm font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
                                   Saldo pendente: {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(saldo)}
@@ -3140,7 +3004,7 @@ const PatientRecordPage = () => {
                           </AlertDialogContent>
                         </AlertDialog>
 
-                        <Card className="min-w-0 bg-white rounded-xl shadow-sm border border-[#E2E8F0] transition-all duration-200 hover:shadow-md">
+                        <Card className="min-w-0 vf-surface-card vf-tone-finance rounded-xl transition-all duration-200 hover:shadow-md">
                           <CardHeader className="pb-2">
                             <CardTitle className="text-base flex items-center gap-2">
                               <FaMoneyBillWave className="h-4 w-4 text-emerald-600" /> Pagamentos registrados
@@ -3163,15 +3027,16 @@ const PatientRecordPage = () => {
                                   </TableHeader>
                                   <TableBody>
                                     {animalReceipts.map((r, index) => {
-                                      const sale = patientSales.find((s) => s.id === r.saleId);
-                                      const appointment = sale ? animalAppointments.find((a) => a.id === sale.appointmentId) : undefined;
+                                      const sale = animalSalesTransactions.find((s) => s.id === r.saleId);
+                                      const { appointmentId: linkedId } = parseSaleObservations(sale?.observations);
+                                      const appointment = linkedId ? animalAppointments.find((a) => a.id === linkedId) : undefined;
                                       const saleLabel = appointment
                                         ? `${appointment.type} • ${appointment.vet}`
                                         : sale
-                                          ? `Atendimento ${sale.appointmentId}`
+                                          ? formatDateTime(sale.date, sale.time)
                                           : r.description || "Venda";
                                       return (
-                                        <TableRow key={r.id} className={cn(index % 2 === 1 && "bg-[#F9FAFB]", "transition-colors")}>
+                                        <TableRow key={r.id} className={cn(index % 2 === 1 && "bg-muted/30", "transition-colors")}>
                                           <TableCell className="font-medium max-w-[180px] truncate" title={saleLabel}>{saleLabel}</TableCell>
                                           <TableCell>{formatDateTime(r.date, r.time)}</TableCell>
                                           <TableCell className="text-right font-bold text-emerald-600">{new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(r.amount)}</TableCell>
@@ -3216,11 +3081,15 @@ const PatientRecordPage = () => {
               </CardContent>
             </Card>
 
-            <Dialog open={budgetModalOpen} onOpenChange={setBudgetModalOpen}>
+            <Dialog open={budgetModalOpen} onOpenChange={(open) => { setBudgetModalOpen(open); if (!open) resetBudgetForm(); }}>
               <DialogContent className="sm:max-w-3xl">
                 <DialogHeader>
-                  <DialogTitle>Novo Orçamento</DialogTitle>
-                  <DialogDescription>Crie uma proposta de cobrança (não gera movimentação financeira).</DialogDescription>
+                  <DialogTitle>{editingBudgetId ? "Editar Orçamento" : "Novo Orçamento"}</DialogTitle>
+                  <DialogDescription>
+                    {editingBudgetId
+                      ? "Adicione ou remova itens e salve para atualizar a proposta existente."
+                      : "Crie uma proposta de cobrança (não gera movimentação financeira)."}
+                  </DialogDescription>
                 </DialogHeader>
 
                 <div className="space-y-4">
@@ -3297,15 +3166,12 @@ const PatientRecordPage = () => {
                 </div>
 
                 <DialogFooter className="flex items-end justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <div>
-                      <Label>Validade (dias)</Label>
-                      <Input type="number" value={budgetValidityDays} onChange={(e)=>setBudgetValidityDays(parseInt(e.target.value)||0)} className="h-9 bg-input border border-border rounded-md w-28" />
-                    </div>
-                  </div>
+                  <p className="text-xs text-muted-foreground">Validade: {BUDGET_VALIDITY_DAYS} dia(s) a partir da data do orçamento.</p>
                   <div className="flex gap-2">
-                    <Button variant="outline" onClick={()=>setBudgetModalOpen(false)}>Cancelar</Button>
-                    <Button onClick={saveBudget}>Salvar Orçamento</Button>
+                    <Button variant="outline" onClick={()=>{ setBudgetModalOpen(false); resetBudgetForm(); }}>Cancelar</Button>
+                    <Button onClick={() => void saveBudget()} disabled={savingBudget}>
+                      {savingBudget ? "Salvando..." : editingBudgetId ? "Salvar alterações" : "Salvar Orçamento"}
+                    </Button>
                   </div>
                 </DialogFooter>
               </DialogContent>
@@ -3367,7 +3233,7 @@ const PatientRecordPage = () => {
                 (() => {
                   if (!currentAnimal) return undefined;
                   if (currentAnimal.birthday) {
-                    const birth = new Date(currentAnimal.birthday);
+                    const birth = parseLocalDate(currentAnimal.birthday);
                     const now = new Date();
                     const totalMonths =
                       (now.getFullYear() - birth.getFullYear()) * 12 +
@@ -3393,19 +3259,7 @@ const PatientRecordPage = () => {
         open={!!pdvSaleToCancel}
         sale={pdvSaleToCancel}
         onClose={() => setPdvSaleToCancel(null)}
-        onCancelled={() => {
-          void refetchFinancial();
-          // Sincroniza o espelho local da aba "Vendas" (manual) com o status
-          // real — sem isso o badge "Cancelada" não aparecia lá mesmo com o
-          // estorno já revertendo estoque/recebimentos de verdade.
-          if (pdvSaleToCancel) {
-            const updated = patientSales.map((s) =>
-              s.id === pdvSaleToCancel.id ? { ...s, saleStatus: "cancelled" as SaleStatusLocal } : s
-            );
-            setPatientSales(updated);
-            writePatientSales(animalId, updated);
-          }
-        }}
+        onCancelled={() => { void refetchFinancial(); }}
         clientName={currentClient?.name}
         clientPhone={currentClient?.phone || undefined}
         animalName={currentAnimal?.name}

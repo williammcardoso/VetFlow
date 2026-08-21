@@ -1,7 +1,6 @@
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { Palette, Plus, Trash2, Sparkles } from "lucide-react";
@@ -60,11 +59,7 @@ const CoatTypesPage: React.FC = () => {
         icon={Palette}
         tone="registry"
       >
-        <Card className="vf-surface-card card-hover border-border/80">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base text-foreground">Cadastro rápido</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
+        <div className="space-y-4">
             <div className="flex flex-wrap items-center gap-2">
               <Input
                 placeholder="Ex.: Tricolor"
@@ -114,8 +109,7 @@ const CoatTypesPage: React.FC = () => {
                 ))}
               </div>
             )}
-          </CardContent>
-        </Card>
+        </div>
       </SectionCard>
     </PageShell>
   );
