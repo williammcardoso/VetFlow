@@ -2323,22 +2323,22 @@ const PatientRecordPage = () => {
                       const isManipulated = rx.type === 'manipulated';
 
                       const borderClass = isControlled
-                        ? "border-rose-300 hover:shadow-rose-200/60"
+                        ? "border-destructive/35 hover:shadow-destructive/20"
                         : isManipulated
                           ? "border-[hsl(var(--vf-clinical))]/35 hover:shadow-[hsl(var(--vf-clinical))]/20"
-                          : "border-emerald-300 hover:shadow-emerald-200/60";
+                          : "border-primary/35 hover:shadow-primary/20";
 
                       const iconWrapClass = isControlled
-                        ? "bg-rose-50/70"
+                        ? "bg-destructive/12"
                         : isManipulated
                           ? "bg-[hsl(var(--vf-clinical))]/12"
-                          : "bg-emerald-50/70";
+                          : "bg-primary/12";
 
                       const iconClass = isControlled
-                        ? "text-rose-600"
+                        ? "text-destructive"
                         : isManipulated
                           ? "text-vf-clinical"
-                          : "text-emerald-600";
+                          : "text-primary";
 
                       const label = isControlled
                         ? "Receita Controlada"
@@ -2369,10 +2369,10 @@ const PatientRecordPage = () => {
                                   <span className={cn(
                                     "inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-extrabold tracking-widest",
                                     isControlled
-                                      ? "bg-rose-100 text-rose-800"
+                                      ? "bg-destructive/15 text-destructive"
                                       : isManipulated
                                         ? "bg-[hsl(var(--vf-clinical))]/15 text-vf-clinical"
-                                        : "bg-emerald-100 text-emerald-800"
+                                        : "bg-primary/15 text-primary"
                                   )}>
                                     {label}
                                   </span>
@@ -2485,7 +2485,7 @@ const PatientRecordPage = () => {
                                 className="rounded-md hover:bg-muted hover:text-foreground transition-colors duration-200"
                                 title="Baixar PDF"
                               >
-                                <FaDownload className="h-4 w-4 text-emerald-600" />
+                                <FaDownload className="h-4 w-4 text-slate-600" />
                               </Button>
                               <Button
                                 variant="ghost"
@@ -2541,7 +2541,7 @@ const PatientRecordPage = () => {
                               {canEditPrescriptions ? (
                                 <Link to={`/clients/${clientId}/animals/${animalId}/edit-prescription/${rx.id}?type=${rx.type}`}>
                                   <Button variant="ghost" size="icon" className="rounded-md hover:bg-muted hover:text-foreground transition-colors duration-200" title="Editar">
-                                    <FaEdit className="h-4 w-4 text-vf-clinical" />
+                                    <FaEdit className="h-4 w-4 text-slate-600" />
                                   </Button>
                                 </Link>
                               ) : null}
