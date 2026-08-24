@@ -8,7 +8,7 @@ import { getCatalog, addCatalogItem, updateCatalogItem, removeCatalogItem, adjus
 import type { CatalogItem, CatalogItemType } from "@/mockData/catalog";
 import { COST_PROVIDER_PRESETS, resolveCostProvider } from "@/lib/costProviders";
 import CurrencyInput from "@/components/CurrencyInput";
-import { PackageSearch, FileText, Pencil } from "lucide-react";
+import { PackageSearch, FileText, Pencil, Search, X } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { PageShell } from "@/components/saas/PageShell";
 import { PageHeader } from "@/components/saas/PageHeader";
@@ -68,6 +68,7 @@ const ProductsServicesPage: React.FC = () => {
 
   const [loading, setLoading] = useState(false);
   const [exportCategory, setExportCategory] = useState<string>("all");
+  const [searchQuery, setSearchQuery] = useState("");
 
   const [editingItem, setEditingItem] = useState<CatalogItem | null>(null);
   const [editName, setEditName] = useState("");
@@ -129,10 +130,17 @@ const ProductsServicesPage: React.FC = () => {
     refresh();
   }, [refresh]);
 
-  const filteredItems = useMemo(
-    () => items.filter(i => i.type === activeTab),
-    [items, activeTab]
-  );
+  const normalize = (s: string) =>
+    s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+
+  const filteredItems = useMemo(() => {
+    const query = normalize(searchQuery.trim());
+    return items.filter(i => {
+      if (i.type !== activeTab) return false;
+      if (!query) return true;
+      return normalize(i.name).includes(query) || (i.sku ? normalize(i.sku).includes(query) : false);
+    });
+  }, [items, activeTab, searchQuery]);
 
   const handleAddItem = async () => {
     if (!newName.trim()) {
@@ -520,7 +528,7 @@ const ProductsServicesPage: React.FC = () => {
 
       <SectionCard title="Catálogo" description="Edite preços, status e estoque dos itens existentes." icon={PackageSearch} tone="stock">
         <div>
-          <div className="mb-5 flex items-center gap-2">
+          <div className="mb-5 flex flex-wrap items-center gap-3">
             <div className="flex rounded-lg border border-border bg-muted/40 p-0.5 gap-0.5">
               <button
                 type="button"
@@ -545,6 +553,31 @@ const ProductsServicesPage: React.FC = () => {
                 🩺 Serviços
               </button>
             </div>
+
+            <div className="relative min-w-[220px] max-w-xs flex-1">
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder={activeTab === 'product' ? 'Buscar produto por nome...' : 'Buscar serviço por nome...'}
+                className="h-9 border border-border bg-card pl-8 pr-8 text-sm"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  title="Limpar busca"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+            {searchQuery && (
+              <span className="text-xs text-muted-foreground">
+                {filteredItems.length} {filteredItems.length === 1 ? 'resultado' : 'resultados'}
+              </span>
+            )}
           </div>
 
           {activeTab === 'product' && (
@@ -568,7 +601,9 @@ const ProductsServicesPage: React.FC = () => {
                   </TableRow>
                 ) : filteredItems.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="py-8 text-center text-muted-foreground">Nenhum produto cadastrado.</TableCell>
+                    <TableCell colSpan={8} className="py-8 text-center text-muted-foreground">
+                      {searchQuery ? "Nenhum produto encontrado para essa busca." : "Nenhum produto cadastrado."}
+                    </TableCell>
                   </TableRow>
                 ) : filteredItems.map(item => (
                   <TableRow key={item.id}>
@@ -683,7 +718,9 @@ const ProductsServicesPage: React.FC = () => {
                   </TableRow>
                 ) : filteredItems.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="py-8 text-center text-muted-foreground">Nenhum serviço cadastrado.</TableCell>
+                    <TableCell colSpan={8} className="py-8 text-center text-muted-foreground">
+                      {searchQuery ? "Nenhum serviço encontrado para essa busca." : "Nenhum serviço cadastrado."}
+                    </TableCell>
                   </TableRow>
                 ) : filteredItems.map(item => (
                   <TableRow key={item.id}>
