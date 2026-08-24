@@ -24,7 +24,8 @@ export interface ManipulatedFormulaComponent {
   id: string;
   name: string;
   dosageQuantity: string;
-  dosageUnit: string; // Ex: Grama (g), Miligrama (mg), Mililitro (mL)
+  dosageUnit: string; // Ex: Grama (g), Miligrama (mg), Mililitro (mL), %, UI
+  customDosageUnit?: string; // Preenchido quando dosageUnit === "Outro"
 }
 
 export interface ManipulatedVehicleExcipient {
@@ -32,6 +33,7 @@ export interface ManipulatedVehicleExcipient {
   customType?: string; // Novo campo para o tipo personalizado
   quantity: string; // Ex: "30"
   unit: string; // Ex: %, Grama (g), Mililitro (mL), Micrograma (mcg)
+  customUnit?: string; // Preenchido quando unit === "outro(s)"
 }
 
 export interface ManipulatedPosologyAutomatic {

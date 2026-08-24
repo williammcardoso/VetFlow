@@ -26,8 +26,7 @@ interface PrescriptionManipulatedFormProps {
   onSave: (data: ManipulatedPrescriptionData) => void;
 }
 
-const mockVehicleTypes = ["bastão(s)", "cápsula(s)", "comprimido(s)", "creme(s)", "drágea(s)", "gel(es)", "gotas", "líquido(s)", "pó(s)", "dose(s)", "outro(s)"];
-const mockVehicleUnits = ["%", "grama(s) (g)", "miligrama(s) (mg)", "mililitro(s) (mL)", "micrograma(s) (mcg)", "ufc", "ufc/g", "ufc/kg", "unidade(s)"];
+const mockVehicleUnits = ["%", "grama(s) (g)", "miligrama(s) (mg)", "mililitro(s) (mL)", "micrograma(s) (mcg)", "ufc", "ufc/g", "ufc/kg", "unidade(s)", "outro(s)"];
 
 const mockPosologyMeasures = ["Comprimido", "Cápsula", "Líquido (ml)", "Gotas", "Aplicação", "Spray", "Pomada", "Outro"];
 const mockPosologyFrequencies = ["1", "2", "3", "4", "6", "8", "12", "24", "Outro"]; // Valores numéricos
@@ -45,7 +44,10 @@ const getShortUnitAbbreviation = (unit: string): string => {
     case "Mililitro (mL)": return "mL";
     case "Micrograma (mcg)": return "mcg";
     case "Unidade(s)": return "un";
+    case "Unidade": return "un";
     case "%": return "%";
+    case "UI (Unidade Internacional)": return "UI";
+    case "Miligrama por mililitro (mg/mL)": return "mg/mL";
     case "UFC": return "UFC";
     case "UFC/g": return "UFC/g";
     case "UFC/kg": return "UFC/kg";
@@ -67,6 +69,9 @@ const PrescriptionManipulatedForm: React.FC<PrescriptionManipulatedFormProps> = 
   );
   const [customVehicleType, setCustomVehicleType] = useState<string>(
     initialData?.vehicleExcipient?.type === "Outro" ? initialData.vehicleExcipient.customType || "" : ""
+  );
+  const [customVehicleUnit, setCustomVehicleUnit] = useState<string>(
+    initialData?.vehicleExcipient?.unit === "outro(s)" ? initialData.vehicleExcipient.customUnit || "" : ""
   );
 
   const [posologyType, setPosologyType] = useState<'automatic' | 'freeText'>(
@@ -106,6 +111,7 @@ const PrescriptionManipulatedForm: React.FC<PrescriptionManipulatedFormProps> = 
 
   // Refs para os campos de input personalizados
   const customVehicleTypeInputRef = useRef<HTMLInputElement>(null);
+  const customVehicleUnitInputRef = useRef<HTMLInputElement>(null);
   const customPosologyMeasureInputRef = useRef<HTMLInputElement>(null);
   const customPosologyFrequencyValueInputRef = useRef<HTMLInputElement>(null);
   const customPosologyFrequencyUnitInputRef = useRef<HTMLInputElement>(null);
@@ -128,6 +134,12 @@ const PrescriptionManipulatedForm: React.FC<PrescriptionManipulatedFormProps> = 
       setTimeout(() => customVehicleTypeInputRef.current?.focus(), 0);
     }
   }, [vehicleExcipient.type]);
+
+  useEffect(() => {
+    if (vehicleExcipient.unit === "outro(s)" && customVehicleUnitInputRef.current) {
+      setTimeout(() => customVehicleUnitInputRef.current?.focus(), 0);
+    }
+  }, [vehicleExcipient.unit]);
 
   useEffect(() => {
     if (posologyAutomatic.measure === "Outro" && customPosologyMeasureInputRef.current) {
@@ -174,6 +186,15 @@ const PrescriptionManipulatedForm: React.FC<PrescriptionManipulatedFormProps> = 
       setCustomVehicleType(initialData.vehicleExcipient.customType);
     }
   }, [vehicleExcipient.type, initialData]);
+
+  // Sincronizar customVehicleUnit quando vehicleExcipient.unit muda
+  useEffect(() => {
+    if (vehicleExcipient.unit !== "outro(s)") {
+      setCustomVehicleUnit("");
+    } else if (initialData?.vehicleExcipient?.unit === "outro(s)" && initialData.vehicleExcipient.customUnit) {
+      setCustomVehicleUnit(initialData.vehicleExcipient.customUnit);
+    }
+  }, [vehicleExcipient.unit, initialData]);
 
   // Sincronizar customPosologyMeasure quando posologyAutomatic.measure muda
   useEffect(() => {
@@ -291,10 +312,18 @@ const PrescriptionManipulatedForm: React.FC<PrescriptionManipulatedFormProps> = 
       toast.error("Por favor, preencha todos os campos obrigatórios dos componentes da fórmula.");
       return;
     }
+    if (formulaComponents.some(comp => comp.dosageUnit === "Outro" && !(comp.customDosageUnit || "").trim())) {
+      toast.error("Por favor, digite a unidade personalizada dos componentes da fórmula.");
+      return;
+    }
     
     const finalVehicleType = "Excipiente";
     if (!vehicleExcipient.quantity.trim() || !vehicleExcipient.unit.trim()) {
       toast.error("Por favor, preencha todos os campos obrigatórios do veículo/excipiente.");
+      return;
+    }
+    if (vehicleExcipient.unit === "outro(s)" && !customVehicleUnit.trim()) {
+      toast.error("Por favor, digite a unidade personalizada do veículo/excipiente.");
       return;
     }
 
@@ -328,6 +357,7 @@ const PrescriptionManipulatedForm: React.FC<PrescriptionManipulatedFormProps> = 
         customType: undefined,
         quantity: vehicleExcipient.quantity,
         unit: vehicleExcipient.unit,
+        customUnit: vehicleExcipient.unit === "outro(s)" ? customVehicleUnit.trim() : undefined,
       },
       posology: posologyType === 'automatic' ? {
         type: 'automatic',
@@ -353,6 +383,7 @@ const PrescriptionManipulatedForm: React.FC<PrescriptionManipulatedFormProps> = 
   };
 
   const displayVehicleType = "Excipiente";
+  const displayVehicleUnit = vehicleExcipient.unit === "outro(s)" ? customVehicleUnit : vehicleExcipient.unit;
   const displayPosologyMeasure = posologyAutomatic.measure === "Outro" ? customPosologyMeasure : posologyAutomatic.measure;
   const displayPosologyFrequencyValue = posologyAutomatic.frequencyValue === "Outro" ? customPosologyFrequencyValue : posologyAutomatic.frequencyValue;
   const displayPosologyFrequencyUnit = posologyAutomatic.frequencyUnit === "Outro" ? customPosologyFrequencyUnit : posologyAutomatic.frequencyUnit;
@@ -422,16 +453,25 @@ const PrescriptionManipulatedForm: React.FC<PrescriptionManipulatedFormProps> = 
                   id="vehicle-unit"
                   className={`bg-input rounded-md border-border focus:ring-2 focus:ring-ring transition-all duration-200 text-left`}
                 >
-                  <SelectValue placeholder="Ex: Comprimido" />
+                  <SelectValue placeholder="Ex: %, mL, g" />
                 </SelectTrigger>
                 <SelectContent>
-                  {mockVehicleTypes.map((type) => (
-                    <SelectItem key={type} value={type}>
-                      {type}
+                  {mockVehicleUnits.map((unit) => (
+                    <SelectItem key={unit} value={unit}>
+                      {unit}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+              {vehicleExcipient.unit === "outro(s)" && (
+                <Input
+                  ref={customVehicleUnitInputRef}
+                  placeholder="Digite a unidade personalizada"
+                  value={customVehicleUnit}
+                  onChange={(e) => setCustomVehicleUnit(e.target.value)}
+                  className="mt-2 bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200"
+                />
+              )}
             </div>
           </CardContent>
         </Card>
@@ -702,14 +742,16 @@ const PrescriptionManipulatedForm: React.FC<PrescriptionManipulatedFormProps> = 
                     <div key={comp.id} className="flex items-end">
                       <span className="flex-shrink-0">{comp.name}</span>
                       <span className="flex-grow border-b border-dotted border-muted-foreground mx-1 h-3"></span>
-                      <span className="flex-shrink-0">{comp.dosageQuantity} {getShortUnitAbbreviation(comp.dosageUnit)}</span>
+                      <span className="flex-shrink-0">
+                        {comp.dosageQuantity} {getShortUnitAbbreviation(comp.dosageUnit === "Outro" ? (comp.customDosageUnit || "") : comp.dosageUnit)}
+                      </span>
                     </div>
                   ))}
                   {vehicleExcipient.quantity && vehicleExcipient.unit && (
                     <div className="flex items-end">
                       <span className="flex-shrink-0">{displayVehicleType} q.s.p.</span>
                       <span className="flex-grow border-b border-dotted border-muted-foreground mx-1 h-3"></span>
-                      <span className="flex-shrink-0">{vehicleExcipient.quantity} {vehicleExcipient.unit}</span>
+                      <span className="flex-shrink-0">{vehicleExcipient.quantity} {getShortUnitAbbreviation(displayVehicleUnit)}</span>
                     </div>
                   )}
                 </div>
