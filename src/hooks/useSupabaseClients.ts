@@ -184,3 +184,38 @@ export function useClientWithAnimals(clientId: string | undefined) {
     staleTime: 1000 * 60,
   });
 }
+
+async function fetchAnimalRefByPatientCode(
+  patientCode: number
+): Promise<{ clientId: string; animalId: string } | null> {
+  if (!isSupabaseConfigured) {
+    throw new Error("Supabase não está configurado. Defina VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY no .env.local");
+  }
+
+  const { data, error } = await supabase
+    .from("animals")
+    .select("id, client_id")
+    .eq("patient_code", patientCode)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Falha ao localizar paciente #${patientCode}: ${error.message}`);
+  }
+  if (!data) return null;
+  return { clientId: data.client_id as string, animalId: data.id as string };
+}
+
+/**
+ * Resolve o cliente e o animal a partir do código curto do paciente
+ * (patient_code), usado na rota /prontuario/:patientCode para evitar
+ * URLs enormes com dois UUIDs.
+ */
+export function useAnimalRefByPatientCode(patientCode: number | undefined) {
+  return useQuery({
+    queryKey: ["animal-ref-by-patient-code", patientCode],
+    queryFn: () => (patientCode ? fetchAnimalRefByPatientCode(patientCode) : Promise.resolve(null)),
+    enabled: !!patientCode,
+    retry: false,
+    staleTime: 1000 * 60,
+  });
+}

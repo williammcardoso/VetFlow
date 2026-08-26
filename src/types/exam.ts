@@ -50,6 +50,16 @@ export interface ExamEntry {
   // Campos específicos para Bioquímico (várias entradas por enzima)
   biochemicalEntries?: BiochemicalEntry[];
 
+  // Campos específicos para Citologia (CAAF) — dados da coleta; `material`
+  // (nº de lâminas) já é genérico, reaproveitado.
+  metodoColeta?: string; // Ex: "CAAF"
+  fixador?: string; // Ex: "Metanol"
+  coloracao?: string; // Ex: "Panótico", "Romanowsky rápido"
+  cytologyEntries?: CytologyEntry[]; // Uma ou mais lesões/nódulos avaliados
+  // Patologista do laboratório externo que examinou a amostra — diferente de
+  // `liberadoPor` (o veterinário da clínica que libera o laudo no sistema).
+  patologistaResponsavel?: string;
+
   // Campos adicionais do exame
   nota?: string;
   laboratory?: string;
@@ -83,6 +93,15 @@ export interface ExamReportData {
   tutorAddress: string;
   exam: ExamEntry;
   hemogramReferences: Record<string, HemogramReference>;
+}
+
+export interface CytologyEntry {
+  id: string;
+  localLesao: string; // Ex: "Nódulo pedunculado em face"
+  achadosMicroscopicos: string; // Descrição citomorfológica
+  achadoCitologico: string; // Conclusão/diagnóstico (ex: "Tumor benigno de origem folicular")
+  comentarios?: string; // Nota interpretativa/educativa opcional
+  fotoUrl?: string; // Foto da lâmina (data URL), opcional
 }
 
 export interface BiochemicalEntry {

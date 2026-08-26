@@ -406,6 +406,14 @@ const SalesPage = () => {
               })()
             : undefined
         }
+        animalPatientCode={
+          selectedSale?.relatedClientId && selectedSale?.relatedAnimalId
+            ? clients
+                .find(c => c.id === selectedSale.relatedClientId)
+                ?.animals.find(a => a.id === selectedSale.relatedAnimalId)
+                ?.patientCode
+            : undefined
+        }
       />
 
       <CancelSaleDialog

@@ -18,6 +18,7 @@ import type { Budget } from "@/mockData/budgets";
 import { useRegistryList } from "@/hooks/useRegistryList";
 import AutocompleteSelect from "@/components/AutocompleteSelect";
 import ClientCombobox from "@/components/ClientCombobox";
+import { getPatientRecordPath } from "@/utils/patientDisplayId";
 import { formatAgeLong, formatCurrencyBRL, formatDateTime, formatItemQty } from "@/lib/utils";
 import BudgetReportPdfContent from "@/components/BudgetReportPdfContent";
 import { useClientsList } from "@/hooks/useSupabaseClients";
@@ -27,7 +28,9 @@ import { PageHeader } from "@/components/saas/PageHeader";
 import { SectionCard } from "@/components/saas/SectionCard";
 import { DataTableFrame } from "@/components/saas/DataTableFrame";
 import { ArrowLeft, FileText, Filter, Sparkles, CheckCircle2, Ban, Trash2, Printer, Plus, Pencil } from "lucide-react";
+import { SiWhatsapp } from "react-icons/si";
 import { createPdfBlob, openPdf } from "@/lib/pdfExport";
+import { sendPdfViaWhatsApp } from "@/lib/whatsappShare";
 import { useCurrentUserProfile } from "@/hooks/useCurrentUserProfile";
 
 const fmtBRL = (v: number) =>
@@ -347,9 +350,10 @@ const BudgetsPage: React.FC = () => {
     toast.success("Orçamento removido.");
   };
 
-  const handleOpenBudgetPdf = async (b: Budget) => {
-    // Dados ricos (espécie, raça, idade, peso, endereço) vêm do cadastro atual;
-    // o snapshot gravado no orçamento é o fallback se o cliente foi removido.
+  // Dados ricos (espécie, raça, idade, peso, endereço, telefone) vêm do
+  // cadastro atual; o snapshot gravado no orçamento é o fallback se o cliente
+  // foi removido — compartilhado entre imprimir e enviar por WhatsApp.
+  const buildBudgetPdfBlob = async (b: Budget) => {
     const pdfClient = b.clientId ? clients.find(c => c.id === b.clientId) : undefined;
     const pdfAnimal = b.animalId ? pdfClient?.animals.find(a => a.id === b.animalId) : undefined;
     const addr = pdfClient?.address;
@@ -372,11 +376,34 @@ const BudgetsPage: React.FC = () => {
         petWeight={pdfAnimal?.weight != null ? `${pdfAnimal.weight} kg` : undefined}
       />
     );
+    return { blob, phone: pdfClient?.mainPhoneContact || b.clientPhone };
+  };
+
+  const handleOpenBudgetPdf = async (b: Budget) => {
+    const { blob } = await buildBudgetPdfBlob(b);
     await openPdf({
       blob,
       fileName: `orcamento_${b.id}.pdf`,
       persistOptions: { folder: "budgets" },
     });
+  };
+
+  const handleSendBudgetWhatsApp = async (b: Budget) => {
+    try {
+      const { blob, phone } = await buildBudgetPdfBlob(b);
+      await sendPdfViaWhatsApp({
+        phone,
+        blob,
+        fileName: `orcamento_${b.id}.pdf`,
+        folder: "budgets",
+        title: "Orçamento",
+        intro: `Olá! Segue o orçamento de *${b.animalName || "seu pet"}*.`,
+        dateLabel: formatDateTime(b.date),
+      });
+    } catch (err) {
+      console.error("[Enviar orçamento por WhatsApp] falhou ao gerar o PDF", err);
+      toast.error("Não consegui gerar o PDF deste orçamento para enviar por WhatsApp.");
+    }
   };
 
   return (
@@ -664,7 +691,7 @@ const BudgetsPage: React.FC = () => {
                     <TableCell>
                       {b.clientId && b.animalId && animal ? (
                         <Link
-                          to={`/clients/${b.clientId}/animals/${b.animalId}/record`}
+                          to={getPatientRecordPath(b.clientId, b.animalId, animal.patientCode)}
                           className="font-medium text-[hsl(var(--vf-sales))] hover:underline"
                         >
                           {petLabel}
@@ -744,6 +771,15 @@ const BudgetsPage: React.FC = () => {
                           onClick={() => handleOpenBudgetPdf(b)}
                         >
                           <Printer className="h-3.5 w-3.5" /> Relatório
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="h-8 w-8 rounded-lg border-border hover:bg-muted"
+                          title="Enviar orçamento por WhatsApp (com link do PDF, sem precisar anexar)"
+                          onClick={() => void handleSendBudgetWhatsApp(b)}
+                        >
+                          <SiWhatsapp className="h-3.5 w-3.5 text-[#25D366]" />
                         </Button>
                       </div>
                     </TableCell>

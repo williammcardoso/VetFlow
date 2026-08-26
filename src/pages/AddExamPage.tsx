@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ExamEntry, BiochemicalEntry, HemogramReference } from "@/types/exam";
+import { ExamEntry, BiochemicalEntry, CytologyEntry, HemogramReference } from "@/types/exam";
 import { addExam, updateExam, getExamById } from "@/lib/examsApi";
 import {
   fetchHemogramReferences,
@@ -21,6 +21,7 @@ import {
   type BiochemicalReferenceEntry,
 } from "@/constants/examReferences";
 import { useClientWithAnimals } from "@/hooks/useSupabaseClients";
+import { getPatientRecordPath } from "@/utils/patientDisplayId";
 import { useSystemVets } from "@/hooks/useSystemVets";
 import { useRegistryList } from "@/hooks/useRegistryList";
 import { parseBrNumber } from "@/lib/utils";
@@ -34,6 +35,7 @@ const mockExamTypes = [
   { id: "4", name: "Raio-X" },
   { id: "5", name: "Bioquímico" },
   { id: "6", name: "Ultrassonografia" },
+  { id: "8", name: "Citologia" },
   { id: "7", name: "Outro" },
 ];
 
@@ -254,6 +256,19 @@ const AddExamPage = () => {
   const [bioMaxReference, setBioMaxReference] = useState<string>(""); // Novo
   const [bioReferenceUnit, setBioReferenceUnit] = useState<string>(""); // Novo
 
+  // Citologia (CAAF)
+  const [metodoColeta, setMetodoColeta] = useState<string>("CAAF");
+  const [fixador, setFixador] = useState<string>("");
+  const [coloracao, setColoracao] = useState<string>("");
+  const [cytologyEntries, setCytologyEntries] = useState<CytologyEntry[]>([]);
+  const [cytoLocalLesao, setCytoLocalLesao] = useState<string>("");
+  const [cytoAchados, setCytoAchados] = useState<string>("");
+  const [cytoConclusao, setCytoConclusao] = useState<string>("");
+  const [cytoComentarios, setCytoComentarios] = useState<string>("");
+  const [cytoFotoUrl, setCytoFotoUrl] = useState<string>("");
+  const [cytoUploadingFoto, setCytoUploadingFoto] = useState(false);
+  const [patologistaResponsavel, setPatologistaResponsavel] = useState<string>("");
+
   // Adicionais
   const [nota, setNota] = useState<string>("");
   const [laboratory, setLaboratory] = useState<string>("");
@@ -308,6 +323,18 @@ const AddExamPage = () => {
     setBioMinReference(""); // Resetar
     setBioMaxReference(""); // Resetar
     setBioReferenceUnit(""); // Resetar
+
+    // Citologia
+    setMetodoColeta("CAAF");
+    setFixador("");
+    setColoracao("");
+    setCytologyEntries([]);
+    setCytoLocalLesao("");
+    setCytoAchados("");
+    setCytoConclusao("");
+    setCytoComentarios("");
+    setCytoFotoUrl("");
+    setPatologistaResponsavel("");
   };
 
   // Carregar dados ao editar
@@ -361,9 +388,14 @@ const AddExamPage = () => {
         setExamResult(examToEdit.result || "");
         setLiberadoPor(examToEdit.liberadoPor || "WILLIAM DE MORAES CARDOSO CRMV-SP 56895");
         setBiochemicalEntries(examToEdit.biochemicalEntries || []);
+        setMetodoColeta(examToEdit.metodoColeta || "CAAF");
+        setFixador(examToEdit.fixador || "");
+        setColoracao(examToEdit.coloracao || "");
+        setCytologyEntries(examToEdit.cytologyEntries || []);
+        setPatologistaResponsavel(examToEdit.patologistaResponsavel || "");
       } else {
         toast.error("Exame não encontrado para edição.");
-        navigate(`/clients/${clientId}/animals/${animalId}/record`);
+        navigate(getPatientRecordPath(clientId, animalId, currentAnimal?.patientCode));
       }
       })();
     } else {
@@ -390,6 +422,10 @@ const AddExamPage = () => {
         setBioMaterial("Soro ou plasma");
         setBioMethodology("Colorimétrico enzimático");
         setBioEquipment("Bioclin 2200");
+      }
+      if (examType === "Citologia") {
+        setMetodoColeta("CAAF");
+        setColoracao("Panótico");
       }
     }
   }, [examType, isEditing, examId, loadedExam]);
@@ -528,6 +564,65 @@ const AddExamPage = () => {
     );
   };
 
+  // Citologia: converte a foto da lâmina em data URL (mesmo padrão de
+  // upload de documentos do prontuário — sem bucket dedicado, o exame já
+  // grava um JSON flexível no banco).
+  const handleCytoFotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setCytoUploadingFoto(true);
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setCytoFotoUrl(String(reader.result));
+      setCytoUploadingFoto(false);
+    };
+    reader.onerror = () => {
+      toast.error("Erro ao processar a imagem.");
+      setCytoUploadingFoto(false);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleAddCytologyEntry = () => {
+    if (!cytoLocalLesao.trim()) {
+      toast.error("Informe a localização da lesão.");
+      return;
+    }
+    if (!cytoAchados.trim()) {
+      toast.error("Informe os achados microscópicos.");
+      return;
+    }
+    if (!cytoConclusao.trim()) {
+      toast.error("Informe o achado citológico (conclusão).");
+      return;
+    }
+    const entry: CytologyEntry = {
+      id: `cito-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      localLesao: cytoLocalLesao.trim(),
+      achadosMicroscopicos: cytoAchados.trim(),
+      achadoCitologico: cytoConclusao.trim(),
+      comentarios: cytoComentarios.trim() || undefined,
+      fotoUrl: cytoFotoUrl || undefined,
+    };
+    setCytologyEntries(prev => [...prev, entry]);
+    setCytoLocalLesao("");
+    setCytoAchados("");
+    setCytoConclusao("");
+    setCytoComentarios("");
+    setCytoFotoUrl("");
+    toast.success("Lesão adicionada.");
+  };
+
+  const handleRemoveCytologyEntry = (id: string) => {
+    setCytologyEntries(prev => prev.filter(e => e.id !== id));
+  };
+
+  const handleUpdateCytologyEntry = (id: string, field: keyof CytologyEntry, value: string) => {
+    setCytologyEntries(prev =>
+      prev.map(e => (e.id === id ? { ...e, [field]: value } : e))
+    );
+  };
+
   const handleSaveExam = async () => {
     if (!examDate || !examTime || !examType || !examVet) {
       toast.error("Por favor, preencha a data, hora, tipo de exame e veterinário.");
@@ -536,6 +631,11 @@ const AddExamPage = () => {
 
     if (examType === "Bioquímico" && biochemicalEntries.length === 0) {
       toast.error("Adicione pelo menos um analito bioquímico.");
+      return;
+    }
+
+    if (examType === "Citologia" && cytologyEntries.length === 0) {
+      toast.error("Adicione pelo menos uma lesão/nódulo avaliado.");
       return;
     }
 
@@ -593,6 +693,15 @@ const AddExamPage = () => {
       Object.assign(examData, {
         biochemicalEntries: biochemicalEntries.length ? biochemicalEntries : undefined,
       });
+    } else if (examType === "Citologia") {
+      Object.assign(examData, {
+        metodoColeta: metodoColeta.trim() || undefined,
+        fixador: fixador.trim() || undefined,
+        coloracao: coloracao.trim() || undefined,
+        cytologyEntries: cytologyEntries.length ? cytologyEntries : undefined,
+        patologistaResponsavel: patologistaResponsavel.trim() || undefined,
+        nota: nota.trim() || undefined,
+      });
     } else {
       examData.result = examResult.trim() || undefined;
     }
@@ -616,7 +725,7 @@ const AddExamPage = () => {
         }
         toast.success("Exame salvo com sucesso!");
       }
-      navigate(`/clients/${clientId}/animals/${animalId}/record`);
+      navigate(getPatientRecordPath(clientId, animalId, currentAnimal?.patientCode));
     } catch {
       toast.error("Erro ao salvar o exame.");
     } finally {
@@ -635,7 +744,7 @@ const AddExamPage = () => {
         module="clinical"
         breadcrumb={<>Painel &gt; Clientes &gt; Animal &gt; Prontuário &gt; {pageTitle}</>}
         actions={
-          <Link to={`/clients/${clientId}/animals/${animalId}/record`}>
+          <Link to={getPatientRecordPath(clientId, animalId, currentAnimal?.patientCode)}>
             <Button variant="outline" className="rounded-md border-border text-foreground hover:bg-muted hover:text-foreground transition-colors duration-200">
               <FaArrowLeft className="mr-2 h-4 w-4" /> Voltar para Prontuário
             </Button>
@@ -1088,8 +1197,231 @@ const AddExamPage = () => {
               </>
             )}
 
+            {/* Citologia (CAAF) */}
+            {examType === "Citologia" && (
+              <>
+                {/* Dados da coleta */}
+                <Card className="vf-surface-card vf-tone-clinical card-hover mt-6 rounded-xl border border-border/80 p-4">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="flex items-center gap-2 text-lg font-semibold text-foreground">
+                      <FaMicroscope className="h-5 w-5 text-vf-clinical" /> Dados da Coleta
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="grid grid-cols-1 md:grid-cols-4 gap-4 pt-0 px-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="metodoColeta">Método de coleta</Label>
+                      <Input id="metodoColeta" value={metodoColeta} onChange={(e) => setMetodoColeta(e.target.value)} className="bg-input" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="cytoMaterial">Nº de lâminas</Label>
+                      <Input id="cytoMaterial" placeholder="Ex: 06" value={material} onChange={(e) => setMaterial(e.target.value)} className="bg-input" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="fixador">Fixador</Label>
+                      <Input id="fixador" placeholder="Ex: Metanol" value={fixador} onChange={(e) => setFixador(e.target.value)} className="bg-input" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="coloracao">Coloração empregada</Label>
+                      <Input id="coloracao" placeholder="Ex: Panótico" value={coloracao} onChange={(e) => setColoracao(e.target.value)} className="bg-input" />
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Adicionar lesão/nódulo */}
+                <Card className="vf-surface-card vf-tone-clinical card-hover mt-6 rounded-xl border border-border/80 p-4">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="flex items-center gap-2 text-lg font-semibold text-foreground">
+                      <FaMicroscope className="h-5 w-5 text-vf-clinical" /> Adicionar Lesão/Nódulo
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="grid gap-4 pt-0 px-2">
+                    <div className="space-y-2">
+                      <Label>Localização da lesão</Label>
+                      <Input
+                        placeholder="Ex: Nódulo pedunculado em face, ulcerado, sem infecção"
+                        value={cytoLocalLesao}
+                        onChange={(e) => setCytoLocalLesao(e.target.value)}
+                        className="bg-input"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Achados microscópicos</Label>
+                      <Textarea
+                        placeholder="Descrição citomorfológica (celularidade, tipo celular, núcleos, citoplasma, mitoses, agentes etiológicos...)"
+                        value={cytoAchados}
+                        onChange={(e) => setCytoAchados(e.target.value)}
+                        rows={4}
+                        className="bg-input"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Achado citológico (conclusão)</Label>
+                      <Input
+                        placeholder="Ex: Tumor benigno de origem folicular"
+                        value={cytoConclusao}
+                        onChange={(e) => setCytoConclusao(e.target.value)}
+                        className="bg-input"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Comentários (opcional)</Label>
+                      <Textarea
+                        placeholder="Nota interpretativa/educativa sobre o achado, se houver"
+                        value={cytoComentarios}
+                        onChange={(e) => setCytoComentarios(e.target.value)}
+                        rows={3}
+                        className="bg-input"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Foto da lâmina (opcional)</Label>
+                      <Input type="file" accept="image/*" onChange={handleCytoFotoChange} className="bg-input" />
+                      {cytoUploadingFoto && <p className="text-xs text-muted-foreground">Processando imagem...</p>}
+                      {cytoFotoUrl && !cytoUploadingFoto && (
+                        <img src={cytoFotoUrl} alt="Prévia da lâmina" className="mt-2 h-24 rounded-md border border-border object-cover" />
+                      )}
+                    </div>
+                    <div className="flex items-end col-span-full">
+                      <Button type="button" onClick={handleAddCytologyEntry} className="flex items-center gap-2 bg-[hsl(var(--vf-clinical))] text-white hover:bg-[hsl(var(--vf-clinical)/0.9)]">
+                        <FaPlus className="h-4 w-4" /> Adicionar lesão
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Lista de lesões adicionadas */}
+                {cytologyEntries.length > 0 && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+                    {cytologyEntries.map((entry) => (
+                      <Card key={entry.id} className="vf-surface-card vf-tone-clinical card-hover rounded-xl border border-border/80">
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-base">{entry.localLesao}</CardTitle>
+                        </CardHeader>
+                        <CardContent className="grid gap-3 pt-0">
+                          {entry.fotoUrl && (
+                            <img src={entry.fotoUrl} alt={`Lâmina — ${entry.localLesao}`} className="h-32 w-full rounded-md border border-border object-cover" />
+                          )}
+                          <div className="space-y-1">
+                            <Label>Localização da lesão</Label>
+                            <Input
+                              value={entry.localLesao}
+                              onChange={(e) => handleUpdateCytologyEntry(entry.id, "localLesao", e.target.value)}
+                              className="bg-input"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label>Achados microscópicos</Label>
+                            <Textarea
+                              value={entry.achadosMicroscopicos}
+                              onChange={(e) => handleUpdateCytologyEntry(entry.id, "achadosMicroscopicos", e.target.value)}
+                              rows={3}
+                              className="bg-input"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label>Achado citológico (conclusão)</Label>
+                            <Input
+                              value={entry.achadoCitologico}
+                              onChange={(e) => handleUpdateCytologyEntry(entry.id, "achadoCitologico", e.target.value)}
+                              className="bg-input"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label>Comentários</Label>
+                            <Textarea
+                              value={entry.comentarios || ""}
+                              onChange={(e) => handleUpdateCytologyEntry(entry.id, "comentarios", e.target.value)}
+                              rows={2}
+                              className="bg-input"
+                            />
+                          </div>
+                          <div className="flex justify-end">
+                            <Button variant="outline" type="button" onClick={() => handleRemoveCytologyEntry(entry.id)} className="text-red-600 hover:text-red-700">
+                              <FaTrash className="h-4 w-4 mr-2" /> Remover
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+
+                {/* Informações do laboratório para Citologia */}
+                <Card className="vf-surface-card vf-tone-clinical card-hover mt-6 rounded-xl border border-border/80 p-4">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="flex items-center gap-2 text-lg font-semibold text-foreground">
+                      <FaMicroscope className="h-5 w-5 text-vf-clinical" /> Informações do Laboratório
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-0 px-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="cytoLaboratory">Laboratório</Label>
+                      <Input
+                        id="cytoLaboratory"
+                        placeholder="Nome do laboratório"
+                        value={laboratory}
+                        onChange={(e) => setLaboratory(e.target.value)}
+                        className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="cytoLaboratoryDate">Data do Resultado</Label>
+                      <Input
+                        id="cytoLaboratoryDate"
+                        type="date"
+                        value={laboratoryDate}
+                        onChange={(e) => setLaboratoryDate(e.target.value)}
+                        className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="cytoPatologista">Patologista responsável (nome + CRMV)</Label>
+                      <Input
+                        id="cytoPatologista"
+                        placeholder="Ex: Ms. Arita de Cássia Marella Cremasco CRMV-SP 21409"
+                        value={patologistaResponsavel}
+                        onChange={(e) => setPatologistaResponsavel(e.target.value)}
+                        className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="cytoLiberadoPor">Liberado por (veterinário da clínica)</Label>
+                      <Input
+                        id="cytoLiberadoPor"
+                        value={liberadoPor}
+                        onChange={(e) => setLiberadoPor(e.target.value)}
+                        className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200"
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Nota adicional */}
+                <Card className="vf-surface-card vf-tone-clinical card-hover mt-6 rounded-xl border border-border/80 p-4">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="flex items-center gap-2 text-lg font-semibold text-foreground">
+                      <FaNotesMedical className="h-5 w-5 text-vf-clinical" /> Nota
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="pt-0 px-2">
+                    <div className="space-y-2 col-span-full">
+                      <Label htmlFor="cytoNota">Ressalva/observação adicional (opcional)</Label>
+                      <Textarea
+                        id="cytoNota"
+                        placeholder="Ex: A avaliação para malignidade da amostra está sujeita a análise histopatológica."
+                        value={nota}
+                        onChange={(e) => setNota(e.target.value)}
+                        rows={2}
+                        className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200"
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
+              </>
+            )}
+
             {/* Outros tipos (genérico) */}
-            {examType && examType !== "Hemograma Completo" && examType !== "Bioquímico" && (
+            {examType && examType !== "Hemograma Completo" && examType !== "Bioquímico" && examType !== "Citologia" && (
               <>
                 <Card className="vf-surface-card vf-tone-clinical card-hover mt-6 rounded-xl border border-border/80 p-4">
                   <CardHeader className="pb-3">
@@ -1177,7 +1509,7 @@ const AddExamPage = () => {
 
         {/* Ações */}
         <div className="flex flex-col sm:flex-row justify-end gap-2 mt-6">
-          <Link to={`/clients/${clientId}/animals/${animalId}/record`}>
+          <Link to={getPatientRecordPath(clientId, animalId, currentAnimal?.patientCode)}>
             <Button variant="outline" className="w-full sm:w-auto bg-card border border-border text-foreground hover:bg-muted rounded-md transition-all duration-200 shadow-sm hover:shadow-md">
               <FaTimes className="mr-2 h-4 w-4" /> Cancelar
             </Button>

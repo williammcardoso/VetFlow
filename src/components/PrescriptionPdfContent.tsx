@@ -1,5 +1,5 @@
 import React from "react";
-import { Document, Page, View, Text, StyleSheet, Font } from "@react-pdf/renderer";
+import { Document, Page, View, Text, StyleSheet, Font, Image } from "@react-pdf/renderer";
 import { MedicationData, ManipulatedPrescriptionData } from "@/types/medication";
 import { mockCompanySettings } from "@/mockData/settings";
 import type { UserProfile } from "@/lib/authApi";
@@ -15,6 +15,12 @@ Font.register({
     { src: '/fonts/Inter-BoldItalic.ttf', fontStyle: 'italic', fontWeight: 700, format: 'truetype' },
   ],
 });
+
+// Marca d'água (ilustração do pet da clínica, em cinza) centralizada na
+// folha A4 (595.28 x 841.89pt) — pedido do usuário, aprovado após comparar
+// com uma ilustração simples num mockup. Não entra na Receita Controlada
+// (documento oficial de controle especial, decisão explícita do usuário).
+const WATERMARK_PET_STYLE = { position: 'absolute' as const, left: 117.6, top: 226.4, width: 360, opacity: 0.16 };
 
 // Helper function to format date
 const formatDateToPortuguese = (date: Date) => {
@@ -551,6 +557,9 @@ export const PrescriptionPdfContent = ({
   return (
     <Document>
       <Page size="A4" style={styles.page}>
+        {prescriptionType !== 'controlled' && (
+          <Image src="/watermark-pet.png" style={WATERMARK_PET_STYLE} fixed />
+        )}
         <View style={styles.clinicHeader} fixed>
           <View style={styles.clinicInfoLeft}>
             <View>

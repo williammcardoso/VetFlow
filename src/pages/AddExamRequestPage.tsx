@@ -19,6 +19,7 @@ import { toast } from "sonner";
 import { getTodayLocalISO } from "@/lib/utils";
 import { ArrowLeft, FlaskConical, Plus, Trash2 } from "lucide-react";
 import { useClientWithAnimals } from "@/hooks/useSupabaseClients";
+import { getPatientRecordPath } from "@/utils/patientDisplayId";
 import { useCurrentUserProfile } from "@/hooks/useCurrentUserProfile";
 import { useSystemVets } from "@/hooks/useSystemVets";
 import { addPatientDocument } from "@/lib/documentsApi";
@@ -35,8 +36,8 @@ const formatAddress = (address?: { cep: string; street: string; number: string; 
   return [line1, line2, line3, address.cep ? `CEP ${address.cep}` : ""].filter(Boolean).join(" — ");
 };
 
-const recordUrl = (clientId: string, animalId: string) =>
-  `/clients/${clientId}/animals/${animalId}/record?tab=documents`;
+const recordUrl = (clientId: string, animalId: string, patientCode?: number) =>
+  `${getPatientRecordPath(clientId, animalId, patientCode)}?tab=documents`;
 
 const HEMATOLOGIA = ["Hemograma completo", "Contagem de reticulócitos", "Coagulograma (TP/TTPA)", "Tipagem sanguínea"];
 const URINA_FEZES = ["Urinálise (EAS)", "Urocultura + antibiograma", "Parasitológico de fezes (EPF)", "Pesquisa de sangue oculto nas fezes"];
@@ -58,7 +59,7 @@ const AddExamRequestPage: React.FC = () => {
 
   const client = clientData ?? undefined;
   const animal = client?.animals?.find((a) => a.id === animalId);
-  const recordLink = clientId && animalId ? recordUrl(clientId, animalId) : "/clients";
+  const recordLink = clientId && animalId ? recordUrl(clientId, animalId, animal?.patientCode) : "/clients";
 
   const [laboratorio, setLaboratorio] = useState("");
   const [vetSolicitante, setVetSolicitante] = useState("");

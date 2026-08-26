@@ -3,7 +3,7 @@
    Ajustes apenas de estilos e espaçamentos para compactação.
 */
 import React from "react";
-import { Document, Page, View, Text, StyleSheet, Font } from "@react-pdf/renderer";
+import { Document, Page, View, Text, StyleSheet, Font, Svg, Path, Image } from "@react-pdf/renderer";
 import { mockCompanySettings } from "@/mockData/settings";
 import { ExamEntry, HemogramReference, HemogramReferenceValue, ExamReportData, BiochemicalEntry } from "@/types/exam";
 
@@ -16,11 +16,35 @@ Font.register({
   ],
 });
 
+// Marca d'água (ilustração do pet da clínica, em cinza) centralizada na
+// folha A4 (595.28 x 841.89pt) — pedido do usuário, aprovado após comparar
+// com uma ilustração simples num mockup.
+const WATERMARK_PET_STYLE = { position: 'absolute' as const, left: 117.6, top: 226.4, width: 360, opacity: 0.16 };
+
 // Helpers (copiados do original para garantir mesma lógica)
 const formatDateToPortuguese = (date: Date) => {
   const options: Intl.DateTimeFormatOptions = { day: '2-digit', month: 'long', year: 'numeric' };
   const formattedDate = date.toLocaleDateString('pt-BR', options);
   return formattedDate.toUpperCase();
+};
+
+// exam.laboratoryDate vem cru do <input type="date"> (formato ISO
+// YYYY-MM-DD) — sem isso aparecia "no padrão americano" no laudo.
+const formatDateShortBR = (isoDate: string) => {
+  const [y, m, d] = isoDate.split('-');
+  if (!y || !m || !d) return isoDate;
+  return `${d}/${m}/${y}`;
+};
+
+const MONTHS_PT = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
+// Mesma ideia do formatDateShortBR, só que por extenso — nunca passar
+// isoDate por `new Date(...)`: em fuso negativo (Brasil, UTC-3) isso
+// interpreta a data como meia-noite UTC e volta pro dia anterior (ex.:
+// "2026-08-25" virava "24 DE AGOSTO" no "Liberado em").
+const formatDateLongBR = (isoDate: string) => {
+  const [y, m, d] = isoDate.split('-').map(Number);
+  if (!y || !m || !d) return isoDate;
+  return `${String(d).padStart(2, '0')} DE ${MONTHS_PT[m - 1]?.toUpperCase() ?? m} DE ${y}`;
 };
 
 const normalizeNumber = (raw: string | undefined) => {
@@ -47,8 +71,10 @@ const normalizeNumber = (raw: string | undefined) => {
 };
 
 // Marcador textual junto do valor: cor sozinha (azul/vermelho) some em impressão P&B.
+// Espaço fixo (não separável em quebra de linha) - sem isso, em colunas estreitas
+// (leucograma) o PDF quebrava a linha bem no espaço e a setinha caía sozinha embaixo do valor.
 const statusArrow = (status: 'normal' | 'high' | 'low' | 'invalid') =>
-  status === 'high' ? ' ↑' : status === 'low' ? ' ↓' : '';
+  status === 'high' ? ' ↑' : status === 'low' ? ' ↓' : '';
 
 const parseLeukocyteReferenceParts = (refString: string | undefined) => {
   if (!refString || refString === 'N/A' || refString.trim() === '') {
@@ -285,14 +311,25 @@ const styles = StyleSheet.create({
   paramResultUnitWrapper: { width: 22, flexDirection: 'row', justifyContent: 'flex-start' },
   paramResultValue: { fontSize: 9.2, fontWeight: "700", textAlign: "right" },
   paramResultUnit: { fontSize: 8.3, color: "#666", textAlign: 'left' },
-  leukocyteResultContainer: { width: 94, flexDirection: 'row', alignItems: 'center' },
-  leukocyteResultValueCell: { flex: 1, justifyContent: 'flex-end', paddingRight: 2, minHeight: 15 },
-  leukocyteResultUnitCell: { width: 14, justifyContent: 'center', minHeight: 15 },
-  leukocyteResultUnitCellAbs: { width: 20, justifyContent: 'center', minHeight: 15 },
+  // Largura ganhou +16pt (tirados da coluna de referência, ver
+  // leukocyteReferenceContainerNarrow) - mesmo com a coluna Absoluto alargada,
+  // "22.000 ↑" ainda estourava os 94pt originais.
+  leukocyteResultContainer: { width: 110, flexDirection: 'row', alignItems: 'center' },
+  // Relativo é sempre 1-3 dígitos (%); Absoluto pode chegar a 5-6 dígitos
+  // (ex.: "22.000") - larguras iguais faziam o valor absoluto + setinha
+  // estourar a coluna e quebrar linha. Absoluto ganha o espaço que sobra.
+  // 22pt ainda estourava pra relativo de 2 dígitos + seta (ex.: "80 ↑") — subiu pra 28.
+  leukocyteResultValueCell: { width: 28, justifyContent: 'flex-end', paddingRight: 2, minHeight: 15 },
+  leukocyteResultValueCellAbs: { flex: 1, justifyContent: 'flex-end', paddingRight: 2, minHeight: 15 },
+  leukocyteResultUnitCell: { width: 10, justifyContent: 'center', minHeight: 15 },
+  leukocyteResultUnitCellAbs: { width: 18, justifyContent: 'center', minHeight: 15 },
   leukocyteResultValue: { fontSize: 9.2, fontWeight: "700", textAlign: "right" },
   leukocyteResultUnit: { fontSize: 8.3, color: "#666", textAlign: 'center' },
   referenceContainer: { width: 222, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end' },
-  leukocyteReferenceSubContainer: { width: 110, flexDirection: 'row', alignItems: 'center' },
+  // Só para a linha do leucograma: 16pt a menos (foram para leukocyteResultContainer
+  // acima), já que a referência relativo/absoluto tem folga de sobra pra perder isso.
+  leukocyteReferenceContainerNarrow: { width: 206, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end' },
+  leukocyteReferenceSubContainer: { width: 102, flexDirection: 'row', alignItems: 'center' },
   leukocyteReferenceSubContainerRelative: { justifyContent: 'flex-end' },
   leukocyteReferenceSeparator: { width: 6, minHeight: 15, justifyContent: 'center', alignItems: 'center' },
   leukocyteRefValCellRelative: { width: 26, justifyContent: 'flex-end', paddingRight: 4, minHeight: 15 },
@@ -336,12 +373,9 @@ const styles = StyleSheet.create({
   },
   modernIndicatorMarker: {
     position: 'absolute',
-    top: 5.6,
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    borderWidth: 0.9,
-    borderColor: '#ffffff',
+    top: 1.2,
+    width: 8,
+    height: 10,
   },
   fixedIndicator: { position: 'absolute', width: INDICATOR_WIDTH, height: '100%', backgroundColor: '#000000', top: 0 },
   resultNormal: { color: "#000000" },
@@ -402,7 +436,19 @@ const styles = StyleSheet.create({
   },
 });
 
-// IndicatorBar (mesma lógica, tamanhos reduzidos) — atualizado visual 3D/mais moderno
+// IndicatorBar — faixa em 3 blocos (baixo/normal/alto) com marcador em pino.
+// Cores da faixa mais vivas que a pastel original (mas menos fortes que o
+// laudo "modelo atual"), marcador num tom mais escuro que a própria faixa
+// pra não se camuflar nela — desenho aprovado pelo usuário após várias
+// rodadas de ajuste visual nessa sessão.
+const INDICATOR_ZONE_LOW = '#cd625e';
+const INDICATOR_ZONE_NORMAL = '#73af6b';
+const INDICATOR_ZONE_HIGH = '#4d7cc0';
+const INDICATOR_MARKER_LOW = '#8f2d29';
+const INDICATOR_MARKER_NORMAL = '#355e2f';
+const INDICATOR_MARKER_HIGH = '#1d4a85';
+const PIN_PATH = 'M4,0 C6.2,0 8,1.8 8,4 C8,6.5 4,10 4,10 C4,10 0,6.5 0,4 C0,1.8 1.8,0 4,0 Z';
+
 interface IndicatorBarProps { value: string | undefined; minRef: number; maxRef: number; valueStatus: 'normal' | 'high' | 'low' | 'invalid'; }
 const IndicatorBar: React.FC<IndicatorBarProps> = ({ value, minRef, maxRef, valueStatus }) => {
   const BAR_WIDTH = 78;
@@ -410,16 +456,16 @@ const IndicatorBar: React.FC<IndicatorBarProps> = ({ value, minRef, maxRef, valu
   const ACTIVE_RANGE_END_PERCENT = 0.75;
   const numValue = normalizeNumber(value);
   let markerColor = '#64748b';
-  if (valueStatus === 'low') markerColor = '#dc3545';
-  if (valueStatus === 'normal') markerColor = '#16a34a';
-  if (valueStatus === 'high') markerColor = '#2563eb';
+  if (valueStatus === 'low') markerColor = INDICATOR_MARKER_LOW;
+  if (valueStatus === 'normal') markerColor = INDICATOR_MARKER_NORMAL;
+  if (valueStatus === 'high') markerColor = INDICATOR_MARKER_HIGH;
   if (isNaN(numValue)) {
     return (
       <View style={styles.modernIndicatorContainer}>
         <View style={styles.modernIndicatorTrack} />
-        <View style={[styles.modernIndicatorSegment, { left: 0, width: '25%', backgroundColor: '#f8d3d6', borderTopLeftRadius: 2.6, borderBottomLeftRadius: 2.6 }]} />
-        <View style={[styles.modernIndicatorSegment, { left: '25%', width: '50%', backgroundColor: '#d8f1df' }]} />
-        <View style={[styles.modernIndicatorSegment, { left: '75%', width: '25%', backgroundColor: '#d8e7ff', borderTopRightRadius: 2.6, borderBottomRightRadius: 2.6 }]} />
+        <View style={[styles.modernIndicatorSegment, { left: 0, width: '25%', backgroundColor: INDICATOR_ZONE_LOW, borderTopLeftRadius: 2.6, borderBottomLeftRadius: 2.6 }]} />
+        <View style={[styles.modernIndicatorSegment, { left: '25%', width: '50%', backgroundColor: INDICATOR_ZONE_NORMAL }]} />
+        <View style={[styles.modernIndicatorSegment, { left: '75%', width: '25%', backgroundColor: INDICATOR_ZONE_HIGH, borderTopRightRadius: 2.6, borderBottomRightRadius: 2.6 }]} />
         <View style={[styles.modernIndicatorTick, { left: (ACTIVE_RANGE_START_PERCENT * BAR_WIDTH) - (INDICATOR_WIDTH / 2) }]} />
         <View style={[styles.modernIndicatorTick, { left: (ACTIVE_RANGE_END_PERCENT * BAR_WIDTH) - (INDICATOR_WIDTH / 2) }]} />
       </View>
@@ -443,12 +489,16 @@ const IndicatorBar: React.FC<IndicatorBarProps> = ({ value, minRef, maxRef, valu
   return (
     <View style={styles.modernIndicatorContainer}>
       <View style={styles.modernIndicatorTrack} />
-      <View style={[styles.modernIndicatorSegment, { left: 0, width: '25%', backgroundColor: '#f8d3d6', borderTopLeftRadius: 2.6, borderBottomLeftRadius: 2.6 }]} />
-      <View style={[styles.modernIndicatorSegment, { left: '25%', width: '50%', backgroundColor: '#d8f1df' }]} />
-      <View style={[styles.modernIndicatorSegment, { left: '75%', width: '25%', backgroundColor: '#d8e7ff', borderTopRightRadius: 2.6, borderBottomRightRadius: 2.6 }]} />
+      <View style={[styles.modernIndicatorSegment, { left: 0, width: '25%', backgroundColor: INDICATOR_ZONE_LOW, borderTopLeftRadius: 2.6, borderBottomLeftRadius: 2.6 }]} />
+      <View style={[styles.modernIndicatorSegment, { left: '25%', width: '50%', backgroundColor: INDICATOR_ZONE_NORMAL }]} />
+      <View style={[styles.modernIndicatorSegment, { left: '75%', width: '25%', backgroundColor: INDICATOR_ZONE_HIGH, borderTopRightRadius: 2.6, borderBottomRightRadius: 2.6 }]} />
       <View style={[styles.modernIndicatorTick, { left: (ACTIVE_RANGE_START_PERCENT * BAR_WIDTH) - (INDICATOR_WIDTH / 2) }]} />
       <View style={[styles.modernIndicatorTick, { left: (ACTIVE_RANGE_END_PERCENT * BAR_WIDTH) - (INDICATOR_WIDTH / 2) }]} />
-      <View style={[styles.modernIndicatorMarker, { left: ballLeftPosition - 3, backgroundColor: markerColor }]} />
+      <View style={[styles.modernIndicatorMarker, { left: ballLeftPosition - 4 }]}>
+        <Svg width={8} height={10} viewBox="0 0 8 10">
+          <Path d={PIN_PATH} fill={markerColor} stroke="#ffffff" strokeWidth={1.2} />
+        </Svg>
+      </View>
     </View>
   );
 };
@@ -590,10 +640,10 @@ export const ExamReportPdfContentHemogramaOnePage = ({
         <View style={styles.leukocyteResultContainer}>
           <View style={styles.leukocyteResultValueCell}><Text style={[styles.leukocyteResultValue, relResultStyle]}>{relativeValue}{statusArrow(relValueStatus)}</Text></View>
           <View style={styles.leukocyteResultUnitCell}><Text style={styles.leukocyteResultUnit}>%</Text></View>
-          <View style={styles.leukocyteResultValueCell}><Text style={[styles.leukocyteResultValue, absResultStyle]}>{absoluteValue}{statusArrow(absValueStatus)}</Text></View>
+          <View style={styles.leukocyteResultValueCellAbs}><Text style={[styles.leukocyteResultValue, absResultStyle]}>{absoluteValue}{statusArrow(absValueStatus)}</Text></View>
           <View style={styles.leukocyteResultUnitCellAbs}><Text style={styles.leukocyteResultUnit}>/µL</Text></View>
         </View>
-        <View style={styles.referenceContainer}>
+        <View style={styles.leukocyteReferenceContainerNarrow}>
           <View style={[styles.leukocyteReferenceSubContainer, styles.leukocyteReferenceSubContainerRelative]}>
             <View style={styles.leukocyteRefValCellRelative}><Text style={[styles.refPartText, styles.refTextRight]}>{parsedRelRef.val1}</Text></View>
             {parsedRelRef.sep && <View style={styles.leukocyteRefSepCell}><Text style={[styles.refPartText, styles.refTextCenter]}>{parsedRelRef.sep}</Text></View>}
@@ -632,6 +682,7 @@ export const ExamReportPdfContentHemogramaOnePage = ({
   return (
     <Document>
       <Page size="A4" style={styles.page}>
+        <Image src="/watermark-pet.png" style={WATERMARK_PET_STYLE} fixed />
         <View style={styles.clinicHeader} fixed>
           <View style={styles.clinicInfoLeft}>
             <View>
@@ -699,7 +750,7 @@ export const ExamReportPdfContentHemogramaOnePage = ({
               </View>
               <View style={styles.examInfoItem}>
                 <Text style={styles.examInfoLabel}>Data resultado:</Text>
-                <Text style={styles.examInfoValue}>{exam.laboratoryDate || "-"}</Text>
+                <Text style={styles.examInfoValue}>{exam.laboratoryDate ? formatDateShortBR(exam.laboratoryDate) : "-"}</Text>
               </View>
             </View>
           </View>
@@ -860,7 +911,7 @@ export const ExamReportPdfContentHemogramaOnePage = ({
           <View style={{ marginTop: 16, alignItems: 'center' }}>
             <View style={{ height: 0.7, width: 200, backgroundColor: '#9AA3AE', marginBottom: 5 }} />
             <Text style={[styles.signatureSmall, { fontStyle: 'normal', fontWeight: '700', color: '#111827', fontSize: 9 }]}>{exam.liberadoPor}</Text>
-            <Text style={[styles.signatureSmall, { marginTop: 1 }]}>CRMV {mockCompanySettings.crmv} · Liberado em {exam.laboratoryDate ? formatDateToPortuguese(new Date(exam.laboratoryDate)) : formatDateToPortuguese(currentDate)}</Text>
+            <Text style={[styles.signatureSmall, { marginTop: 1 }]}>CRMV {mockCompanySettings.crmv} · Liberado em {exam.laboratoryDate ? formatDateLongBR(exam.laboratoryDate) : formatDateToPortuguese(currentDate)}</Text>
           </View>
         )}
       </Page>

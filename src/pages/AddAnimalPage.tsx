@@ -11,6 +11,7 @@ import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom"
 import { toast } from "sonner";
 import { Animal, Client } from "@/types/client"; // Importar as interfaces Animal e Client
 import { useClientWithAnimals, useClientsList } from "@/hooks/useSupabaseClients";
+import { getPatientRecordPath } from "@/utils/patientDisplayId";
 import { useRegistryList } from "@/hooks/useRegistryList";
 import { addAnimalToClient, updateAnimalDetails } from "@/lib/clientsApi";
 import { useQueryClient } from "@tanstack/react-query";
@@ -124,6 +125,7 @@ const AddAnimalPage = () => {
 
   const { data: clientData, isLoading: isClientLoading, isError: isClientError, error: clientError } =
     useClientWithAnimals(isEditing ? clientId : selectedTutorId);
+  const existingAnimal = clientData?.animals.find((a) => a.id === animalId);
 
   // Carregar dados do animal se estiver em modo de edição
   useEffect(() => {
@@ -311,7 +313,7 @@ const AddAnimalPage = () => {
         }
         await invalidateAnimalQueries(clientId);
         toast.success(`Animal ${animalData.name} atualizado com sucesso!`);
-        navigate(`/clients/${clientId}/animals/${animalId}/record`);
+        navigate(getPatientRecordPath(clientId, animalId, existingAnimal?.patientCode));
         return;
       }
 
@@ -335,7 +337,9 @@ const AddAnimalPage = () => {
 
   const pageTitle = isEditing ? `Editar Animal: ${animalName}` : "Adicionar Animal";
   const breadcrumbText = isEditing ? "Editar Animal" : "Adicionar Animal";
-  const backLink = isEditing ? `/clients/${clientId}/animals/${animalId}/record` : `/clients/${selectedTutorId || ''}`;
+  const backLink = isEditing && clientId && animalId
+    ? getPatientRecordPath(clientId, animalId, existingAnimal?.patientCode)
+    : `/clients/${selectedTutorId || ''}`;
 
   if ((isEditing && isClientLoading) || (!isEditing && isClientsLoading)) {
     return (

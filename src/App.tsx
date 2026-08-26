@@ -121,6 +121,7 @@ const App = () => {
                     <Route path="/animals/add" element={<AddAnimalPage />} />
                     <Route path="/clients/:clientId" element={<ClientDetailPage />} />
                     <Route path="/clients/:clientId/animals/:animalId/record" element={<PatientRecordPage />} />
+                    <Route path="/prontuario/:patientCode" element={<PatientRecordPage />} />
                     <Route path="/clients/:clientId/animals/:animalId/add-exam" element={<AddExamPage />} />
                     <Route path="/clients/:clientId/animals/:animalId/edit-exam/:examId" element={<AddExamPage />} />
                     <Route path="/clients/:clientId/animals/:animalId/edit" element={<AddAnimalPage />} />

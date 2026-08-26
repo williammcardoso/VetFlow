@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { Client } from "@/types/client";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useClientWithAnimals } from "@/hooks/useSupabaseClients";
+import { getPatientRecordPath } from "@/utils/patientDisplayId";
 import { PageShell } from "@/components/saas/PageShell";
 import { PageHeader } from "@/components/saas/PageHeader";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -53,8 +54,9 @@ const ClientDetailPage = () => {
     );
   }
 
-  const handleViewRecord = (animalId: string) => {
-    navigate(`/clients/${clientId}/animals/${animalId}/record`);
+  const handleViewRecord = (animalId: string, patientCode?: number) => {
+    if (!clientId) return;
+    navigate(getPatientRecordPath(clientId, animalId, patientCode));
   };
 
   const handleEditClient = () => {
@@ -234,7 +236,7 @@ const ClientDetailPage = () => {
                                     size="icon"
                                     aria-label={`Ver prontuário de ${animal.name}`}
                                     title={`Ver prontuário de ${animal.name}`}
-                                    onClick={() => handleViewRecord(animal.id)}
+                                    onClick={() => handleViewRecord(animal.id, animal.patientCode)}
                                     className="rounded-md hover:bg-muted hover:text-foreground transition-colors duration-200"
                                   >
                                     <FaEye className="h-4 w-4" />

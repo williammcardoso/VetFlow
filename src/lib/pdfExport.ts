@@ -13,6 +13,11 @@ type PersistOptions = {
 function sanitizeFileName(name: string) {
   return name
     .trim()
+    // Remove acentos (ex.: "Bioquímico" -> "Bioquimico") - nome de arquivo com
+    // caractere acentuado no path do Storage vinha falhando o upload em silêncio
+    // (persistPdf caía no fallback de download local sem avisar o motivo).
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
     .replace(/[\\/:*?"<>|]+/g, "-")
     .replace(/\s+/g, "_")
     .replace(/_+/g, "_");
@@ -41,11 +46,15 @@ async function tryPersistPdf(blob: Blob, options?: PersistOptions): Promise<stri
       upsert: false,
       contentType: "application/pdf",
     });
-    if (uploadError) return null;
+    if (uploadError) {
+      console.error("[persistPdf] upload falhou", uploadError);
+      return null;
+    }
 
     const { data } = supabase.storage.from(bucket).getPublicUrl(path);
     return data.publicUrl || null;
-  } catch {
+  } catch (err) {
+    console.error("[persistPdf] erro inesperado", err);
     return null;
   }
 }

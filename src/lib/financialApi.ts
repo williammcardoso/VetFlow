@@ -170,11 +170,14 @@ export async function addReceipt(data: {
   description?: string;
   relatedClientId?: string;
   relatedAnimalId?: string;
+  date?: string;
+  time?: string;
+  observations?: string;
 }): Promise<void> {
   const now = new Date();
   await addFinancialTransaction({
-    date: now.toISOString().split("T")[0],
-    time: now.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
+    date: data.date || now.toISOString().split("T")[0],
+    time: data.time || now.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
     description: data.description || "Recebimento",
     type: "income",
     amount: data.amount,
@@ -183,6 +186,7 @@ export async function addReceipt(data: {
     saleId: data.saleId,
     relatedClientId: data.relatedClientId,
     relatedAnimalId: data.relatedAnimalId,
+    observations: data.observations,
   });
   if (data.saleId) {
     const paid = await sumReceiptsForSale(data.saleId);

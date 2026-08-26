@@ -43,6 +43,19 @@ const CATEGORY_BADGE: Record<string, { label: string; color: string }> = {
 
 const FALLBACK_BADGE_COLOR = "bg-slate-100 text-slate-700";
 
+// "Margem" (lucro ÷ preço) e "markup" (lucro ÷ custo) respondem perguntas
+// diferentes e dão números bem diferentes pro mesmo item — usuário confundiu
+// os dois vendo só "margem" na tela. Mostrando os dois lado a lado.
+function formatMarkupMargin(price: number, cost: number): string {
+  const lucro = price - cost;
+  const margemPct = price > 0 ? Math.round((lucro / price) * 100) : 100;
+  if (cost > 0) {
+    const markupPct = Math.round((lucro / cost) * 100);
+    return `${markupPct}% markup · ${margemPct}% margem`;
+  }
+  return `${margemPct}% margem`;
+}
+
 function defaultProviderForCategory(category: string): string {
   if (category === "exame_externo") return "Laboratório externo";
   if (category === "especialista") return "Especialista";
@@ -455,7 +468,7 @@ const ProductsServicesPage: React.FC = () => {
                   />
                   {newCost > 0 && newPrice > 0 && (
                     <p className="mt-0.5 text-xs text-emerald-600 font-medium">
-                      {Math.round(((newPrice - newCost) / newPrice) * 100)}% margem
+                      {formatMarkupMargin(newPrice, newCost)}
                     </p>
                   )}
                 </div>
@@ -627,7 +640,7 @@ const ProductsServicesPage: React.FC = () => {
                               {new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(lucro)}
                             </span>
                             <span className={`text-xs ${isHigh ? 'text-emerald-400' : 'text-amber-400'}`}>
-                              {pct}% margem
+                              {formatMarkupMargin(item.price, item.cost ?? 0)}
                             </span>
                           </div>
                         );
@@ -768,7 +781,7 @@ const ProductsServicesPage: React.FC = () => {
                               {new Intl.NumberFormat('pt-BR', {style:'currency',currency:'BRL'}).format(lucro)}
                             </span>
                             <span className={`text-xs ${isHigh ? 'text-emerald-400' : 'text-amber-400'}`}>
-                              {pct}% margem
+                              {formatMarkupMargin(item.price, item.cost ?? 0)}
                             </span>
                           </div>
                         );

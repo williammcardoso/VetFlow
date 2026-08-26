@@ -11,6 +11,7 @@ import { createPdfBlob, openPdf } from "@/lib/pdfExport";
 import { getReversedAmountForSale } from "@/lib/saleCancellation";
 import { groupRepassesByProvider, resolveCostProvider } from "@/lib/costProviders";
 import { toast } from "sonner";
+import { getPatientRecordPath } from "@/utils/patientDisplayId";
 
 interface SaleDetailModalProps {
   transaction: FinancialTransaction | null;
@@ -25,6 +26,7 @@ interface SaleDetailModalProps {
   animalSpecies?: string;
   animalBreed?: string;
   animalAge?: string;
+  animalPatientCode?: number;
 }
 
 const fmt = (v: number) =>
@@ -52,7 +54,7 @@ const SaleDetailModal: React.FC<SaleDetailModalProps> = (props) => {
   const {
     transaction, open, onClose, onRequestCancel, onRequestDelete,
     clientName, clientPhone, clientAddress,
-    animalName, animalSpecies, animalBreed, animalAge,
+    animalName, animalSpecies, animalBreed, animalAge, animalPatientCode,
   } = props;
   const [items, setItems] = useState<SaleItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -310,7 +312,7 @@ const SaleDetailModal: React.FC<SaleDetailModalProps> = (props) => {
             <div>
               {transaction.relatedClientId && transaction.relatedAnimalId && (
                 <Link
-                  to={`/clients/${transaction.relatedClientId}/animals/${transaction.relatedAnimalId}/record`}
+                  to={getPatientRecordPath(transaction.relatedClientId, transaction.relatedAnimalId, animalPatientCode)}
                   onClick={onClose}
                 >
                   <Button variant="outline" size="sm" className="h-8 text-xs rounded-lg">

@@ -25,9 +25,10 @@ import { replaceTemplateVariables } from "@/utils/templateReplacements";
 import { PageShell } from "@/components/saas/PageShell";
 import { useCurrentUserProfile } from "@/hooks/useCurrentUserProfile";
 import { useAuth } from "@/contexts/AuthContext";
+import { getPatientRecordPath } from "@/utils/patientDisplayId";
 
-const recordUrl = (clientId: string, animalId: string) =>
-  `/clients/${clientId}/animals/${animalId}/record?tab=documents`;
+const recordUrl = (clientId: string, animalId: string, patientCode?: number) =>
+  `${getPatientRecordPath(clientId, animalId, patientCode)}?tab=documents`;
 
 /** Converte texto com \n em HTML para o Quill (parágrafos/br) - ReactQuill espera HTML no value */
 function plainTextToQuillHtml(text: string): string {
@@ -89,7 +90,7 @@ const AddDocumentPage: React.FC = () => {
   const client = clientData ?? undefined;
   const animal = client?.animals?.find((a) => a.id === animalId);
 
-  const recordLink = recordUrl(clientId!, animalId!);
+  const recordLink = recordUrl(clientId!, animalId!, animal?.patientCode);
 
   // ---- Upload ----
   const [uploadName, setUploadName] = useState("");

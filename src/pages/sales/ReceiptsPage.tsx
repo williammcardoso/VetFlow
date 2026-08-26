@@ -8,12 +8,15 @@ import { addReceipt } from "@/lib/financialApi";
 import { formatCurrencyBRL, formatDateTime } from "@/lib/utils";
 import { useRegistryList } from "@/hooks/useRegistryList";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { PageShell } from "@/components/saas/PageShell";
 import { SectionCard } from "@/components/saas/SectionCard";
 import { useFinancialTransactions } from "@/hooks/useFinancialTransactions";
 import CurrencyInput from "@/components/CurrencyInput";
+import { getPatientRecordPath } from "@/utils/patientDisplayId";
 
 const ReceiptsPage = () => {
   const { list: pmRegistry } = useRegistryList("paymentMethods");
@@ -39,6 +42,10 @@ const ReceiptsPage = () => {
     parseFloat(searchParams.get("amount") || "0") || 0
   );
   const [receiptMethodId, setReceiptMethodId] = useState<string | undefined>(undefined);
+  const [receiptDate, setReceiptDate] = useState<string>(new Date().toISOString().split("T")[0]);
+  const [receiptTime, setReceiptTime] = useState<string>(new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }));
+  const [receiptObservations, setReceiptObservations] = useState<string>("");
+  const [savingReceipt, setSavingReceipt] = useState(false);
 
   const paymentMethodOptions = useMemo(
     () =>
@@ -72,25 +79,42 @@ const ReceiptsPage = () => {
     : 0;
 
   const handleAddReceipt = async () => {
+    if (savingReceipt) return;
     if (!receiptAmount || receiptAmount <= 0) {
       toast.error("Informe um valor válido para recebimento.");
       return;
     }
-    const normalizedSaleId = selectedSaleId === "none" ? undefined : selectedSaleId;
-    const pmName = receiptMethodId ? (pmRegistry.find(pm => pm.id === receiptMethodId)?.name || undefined) : undefined;
-    await addReceipt({
-      saleId: normalizedSaleId,
-      amount: receiptAmount,
-      paymentMethod: pmName,
-      description: normalizedSaleId ? "Recebimento de venda" : "Recebimento",
-      relatedClientId: normalizedSaleId ? transactions.find(t => t.id === normalizedSaleId)?.relatedClientId : undefined,
-      relatedAnimalId: normalizedSaleId ? transactions.find(t => t.id === normalizedSaleId)?.relatedAnimalId : undefined,
-    });
-    await refetch();
-    toast.success("Recebimento registrado.");
-    setSelectedSaleId("none");
-    setReceiptAmount(0);
-    setReceiptMethodId(undefined);
+    const today = new Date().toISOString().split("T")[0];
+    if (receiptDate > today) {
+      toast.error("Data do recebimento não pode ser futura.");
+      return;
+    }
+    setSavingReceipt(true);
+    try {
+      const normalizedSaleId = selectedSaleId === "none" ? undefined : selectedSaleId;
+      const pmName = receiptMethodId ? (pmRegistry.find(pm => pm.id === receiptMethodId)?.name || undefined) : undefined;
+      await addReceipt({
+        saleId: normalizedSaleId,
+        amount: receiptAmount,
+        paymentMethod: pmName,
+        description: normalizedSaleId ? "Recebimento de venda" : "Recebimento",
+        relatedClientId: normalizedSaleId ? transactions.find(t => t.id === normalizedSaleId)?.relatedClientId : undefined,
+        relatedAnimalId: normalizedSaleId ? transactions.find(t => t.id === normalizedSaleId)?.relatedAnimalId : undefined,
+        date: receiptDate,
+        time: receiptTime,
+        observations: receiptObservations.trim() || undefined,
+      });
+      await refetch();
+      toast.success("Recebimento registrado.");
+      setSelectedSaleId("none");
+      setReceiptAmount(0);
+      setReceiptMethodId(undefined);
+      setReceiptDate(new Date().toISOString().split("T")[0]);
+      setReceiptTime(new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }));
+      setReceiptObservations("");
+    } finally {
+      setSavingReceipt(false);
+    }
   };
 
   const getClientName = (clientId?: string) =>
@@ -99,6 +123,11 @@ const ReceiptsPage = () => {
   const getAnimalName = (clientId?: string, animalId?: string) => {
     if (!clientId || !animalId) return null;
     return clients.find(c => c.id === clientId)?.animals.find(a => a.id === animalId)?.name || null;
+  };
+
+  const getAnimalPatientCode = (clientId?: string, animalId?: string) => {
+    if (!clientId || !animalId) return undefined;
+    return clients.find(c => c.id === clientId)?.animals.find(a => a.id === animalId)?.patientCode;
   };
 
   return (
@@ -236,6 +265,31 @@ const ReceiptsPage = () => {
               />
             </div>
 
+            {/* Data */}
+            <div className="w-40 shrink-0">
+              <label className="text-xs font-medium text-muted-foreground">
+                Data
+              </label>
+              <Input
+                type="date"
+                value={receiptDate}
+                onChange={(e) => setReceiptDate(e.target.value)}
+                className="mt-1 h-10 border border-border bg-card text-sm w-full"
+              />
+            </div>
+
+            {/* Hora */}
+            <div className="w-28 shrink-0">
+              <label className="text-xs font-medium text-muted-foreground">
+                Hora
+              </label>
+              <Input
+                value={receiptTime}
+                onChange={(e) => setReceiptTime(e.target.value)}
+                className="mt-1 h-10 border border-border bg-card text-sm w-full"
+              />
+            </div>
+
             {/* Forma de pagamento */}
             <div className="w-48 shrink-0">
               <label className="text-xs font-medium text-muted-foreground">
@@ -259,13 +313,26 @@ const ReceiptsPage = () => {
               </Select>
             </div>
 
+            {/* Observações */}
+            <div className="min-w-[220px] flex-1">
+              <label className="text-xs font-medium text-muted-foreground">
+                Observações
+              </label>
+              <Textarea
+                value={receiptObservations}
+                onChange={(e) => setReceiptObservations(e.target.value)}
+                className="mt-1 min-h-10 h-10 border border-border bg-card text-sm w-full"
+              />
+            </div>
+
             {/* Botão */}
             <div className="shrink-0 self-end">
               <Button
                 onClick={() => void handleAddReceipt()}
+                disabled={savingReceipt}
                 className="h-10 px-6 bg-emerald-600 text-white font-semibold rounded-xl shadow-md hover:bg-emerald-700 transition-all"
               >
-                <Banknote className="h-4 w-4 mr-2" /> Registrar
+                <Banknote className="h-4 w-4 mr-2" /> {savingReceipt ? "Registrando..." : "Registrar"}
               </Button>
             </div>
           </div>
@@ -366,7 +433,7 @@ const ReceiptsPage = () => {
                     {formatCurrencyBRL(rec.amount)}
                   </span>
                   {rec.relatedClientId && rec.relatedAnimalId && (
-                    <Link to={`/clients/${rec.relatedClientId}/animals/${rec.relatedAnimalId}/record`}>
+                    <Link to={getPatientRecordPath(rec.relatedClientId, rec.relatedAnimalId, getAnimalPatientCode(rec.relatedClientId, rec.relatedAnimalId))}>
                       <Button
                         variant="outline"
                         size="sm"

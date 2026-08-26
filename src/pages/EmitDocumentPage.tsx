@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { FileSignature, ArrowLeft, CheckCircle2, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import { useClientWithAnimals } from "@/hooks/useSupabaseClients";
+import { getPatientRecordPath } from "@/utils/patientDisplayId";
 import { useAppointments } from "@/hooks/useAppointments";
 import { useDocumentTemplates, useDocumentTemplateVersion } from "@/hooks/useDocumentTemplates";
 import { getMyUserProfile } from "@/lib/authApi";
@@ -281,7 +282,7 @@ const EmitDocumentPage: React.FC = () => {
         breadcrumb={<>Painel &gt; Clientes &gt; {client.name} &gt; {animal.name} &gt; Emitir documento</>}
         actions={
           <Button asChild variant="outline">
-            <Link to={`/clients/${clientId}/animals/${animalId}/record?tab=documents`}>
+            <Link to={`${getPatientRecordPath(clientId, animalId, animal?.patientCode)}?tab=documents`}>
               <ArrowLeft className="mr-2 h-4 w-4" /> Voltar ao prontuário
             </Link>
           </Button>
@@ -434,7 +435,7 @@ const EmitDocumentPage: React.FC = () => {
                 // mandar pra lá em vez de tentar manter um botão aqui.
                 queryClient.invalidateQueries({ queryKey: ["patient-documents", animal.id] });
                 toast.success("Assinaturas concluídas.");
-                navigate(`/clients/${clientId}/animals/${animalId}/record?tab=documents`);
+                navigate(`${getPatientRecordPath(clientId, animalId, animal?.patientCode)}?tab=documents`);
               }}
             />
           )}

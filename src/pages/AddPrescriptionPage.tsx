@@ -18,6 +18,7 @@ import { PrescriptionPdfContent } from "@/components/PrescriptionPdfContent";
 import { PrescriptionEntry, ManipulatedPrescriptionData } from "@/types/medication";
 import { usePrescriptions } from "@/hooks/usePrescriptions";
 import { useClientWithAnimals } from "@/hooks/useSupabaseClients";
+import { getPatientRecordPath } from "@/utils/patientDisplayId";
 import * as prescriptionsApi from "@/lib/prescriptionsApi";
 import {
   AlertDialog,
@@ -102,7 +103,7 @@ const AddPrescriptionPage = () => {
       if (p) applyPrescription(p);
       else {
         toast.error("Receita não encontrada.");
-        navigate(`/clients/${clientId}/animals/${animalId}/record`);
+        navigate(getPatientRecordPath(clientId, animalId, animal?.patientCode));
       }
     });
   }, [prescriptionId, clientId, animalId, navigate, prescriptions]);
@@ -234,7 +235,7 @@ const AddPrescriptionPage = () => {
       if (ok) {
         await refetchPrescriptions();
         toast.success("Receita salva com sucesso!");
-        navigate(`/clients/${clientId}/animals/${animalId}/record`);
+        navigate(getPatientRecordPath(clientId, animalId, animal?.patientCode));
       } else {
         toast.error("Falha ao atualizar receita.");
       }
@@ -244,7 +245,7 @@ const AddPrescriptionPage = () => {
       if (created) {
         await refetchPrescriptions();
         toast.success("Receita salva com sucesso!");
-        navigate(`/clients/${clientId}/animals/${animalId}/record`);
+        navigate(getPatientRecordPath(clientId, animalId, animal?.patientCode));
       } else {
         toast.error("Falha ao salvar receita.");
       }
@@ -392,11 +393,11 @@ const AddPrescriptionPage = () => {
         module="clinical"
         breadcrumb={
           <>
-            Painel &gt; <Link to="/clients" className="hover:text-primary">Clientes</Link> &gt; <Link to={`/clients/${client.id}`} className="hover:text-primary">{client.name}</Link> &gt; <Link to={`/clients/${clientId}/animals/${animalId}/record`} className="hover:text-primary">{animal.name}</Link> &gt; Receita
+            Painel &gt; <Link to="/clients" className="hover:text-primary">Clientes</Link> &gt; <Link to={`/clients/${client.id}`} className="hover:text-primary">{client.name}</Link> &gt; <Link to={getPatientRecordPath(clientId, animalId, animal?.patientCode)} className="hover:text-primary">{animal.name}</Link> &gt; Receita
           </>
         }
         actions={
-          <Link to={`/clients/${clientId}/animals/${animalId}/record`}>
+          <Link to={getPatientRecordPath(clientId, animalId, animal?.patientCode)}>
             <Button variant="outline" className="rounded-md border-border text-foreground hover:bg-muted hover:text-foreground transition-colors duration-200">
               <FaArrowLeft className="mr-2 h-4 w-4" /> Voltar para Prontuário
             </Button>
@@ -523,7 +524,7 @@ const AddPrescriptionPage = () => {
       </div>
 
       <div className="flex flex-col sm:flex-row justify-end gap-2 mt-6 p-4 bg-card/80 backdrop-blur-sm border-t border-border sticky bottom-0 z-10">
-        <Button variant="outline" onClick={() => navigate(`/clients/${clientId}/animals/${animalId}/record`)} className="bg-card border border-border text-foreground hover:bg-muted rounded-md transition-all duration-200 shadow-sm hover:shadow-md">
+        <Button variant="outline" onClick={() => navigate(getPatientRecordPath(clientId, animalId, animal?.patientCode))} className="bg-card border border-border text-foreground hover:bg-muted rounded-md transition-all duration-200 shadow-sm hover:shadow-md">
           <FaTimes className="mr-2 h-4 w-4" /> Cancelar
         </Button>
         <Button onClick={handleSavePrescription} disabled={isPrintSaveDisabled} className="rounded-md bg-[hsl(var(--vf-clinical))] font-semibold text-white transition-all duration-200 shadow-md hover:bg-[hsl(var(--vf-clinical)/0.9)] hover:shadow-lg">

@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Document, Page, View, Text, StyleSheet, Font } from "@react-pdf/renderer";
+import { Document, Page, View, Text, StyleSheet, Font, Image } from "@react-pdf/renderer";
 import { mockCompanySettings } from "@/mockData/settings";
 import { ExamEntry, HemogramReference, HemogramReferenceValue, ExamReportData, BiochemicalEntry } from "@/types/exam";
 // import { hemogramReferences } from "@/constants/examReferences"; // Removido: agora vem via props
@@ -17,11 +17,35 @@ Font.register({
   ],
 });
 
+// Marca d'água (ilustração do pet da clínica, em cinza) centralizada na
+// folha A4 (595.28 x 841.89pt) — pedido do usuário, aprovado após comparar
+// com uma ilustração simples num mockup.
+const WATERMARK_PET_STYLE = { position: 'absolute' as const, left: 117.6, top: 226.4, width: 360, opacity: 0.16 };
+
 // Helper function to format date
 const formatDateToPortuguese = (date: Date) => {
   const options: Intl.DateTimeFormatOptions = { day: '2-digit', month: 'long', year: 'numeric' };
   const formattedDate = date.toLocaleDateString('pt-BR', options);
   return formattedDate.toUpperCase();
+};
+
+// exam.laboratoryDate vem cru do <input type="date"> (formato ISO
+// YYYY-MM-DD) — sem isso aparecia "no padrão americano" no laudo.
+const formatDateShortBR = (isoDate: string) => {
+  const [y, m, d] = isoDate.split('-');
+  if (!y || !m || !d) return isoDate;
+  return `${d}/${m}/${y}`;
+};
+
+const MONTHS_PT = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
+// Mesma ideia do formatDateShortBR, só que por extenso — nunca passar
+// isoDate por `new Date(...)`: em fuso negativo (Brasil, UTC-3) isso
+// interpreta a data como meia-noite UTC e volta pro dia anterior (ex.:
+// "2026-08-25" virava "24 DE AGOSTO" no "Liberado em").
+const formatDateLongBR = (isoDate: string) => {
+  const [y, m, d] = isoDate.split('-').map(Number);
+  if (!y || !m || !d) return isoDate;
+  return `${String(d).padStart(2, '0')} DE ${MONTHS_PT[m - 1]?.toUpperCase() ?? m} DE ${y}`;
 };
 
 // Normalizador de números (remove separador de milhar e troca vírgula por ponto)
@@ -57,8 +81,10 @@ const normalizeNumber = (raw: string | undefined) => {
 };
 
 // Marcador textual junto do valor: cor sozinha (azul/vermelho) some em impressão P&B.
+// Espaço fixo (não separável em quebra de linha) - sem isso, em colunas estreitas
+// (leucograma) o PDF quebrava a linha bem no espaço e a setinha caía sozinha embaixo do valor.
 const statusArrow = (status: 'normal' | 'high' | 'low' | 'invalid') =>
-  status === 'high' ? ' ↑' : status === 'low' ? ' ↓' : '';
+  status === 'high' ? ' ↑' : status === 'low' ? ' ↓' : '';
 
 // Nova função para formatar números para exibição (com separador de milhar e decimal correto)
 const formatNumberForDisplay = (num: number) => {
@@ -377,24 +403,37 @@ const styles = StyleSheet.create({
     textAlign: 'left',
   },
   // For multi-value results (Leukogram) - REMOVIDAS BORDAS
+  // Largura ganhou +16pt (tirados da coluna de referência, ver
+  // leukocyteReferenceContainerNarrow) - mesmo com a coluna Absoluto alargada,
+  // "22.000 ↑" ainda estourava os 100pt originais.
   leukocyteResultContainer: { // This is now a flex container for its cells
-    width: 100,
+    width: 116,
     flexDirection: 'row',
     alignItems: 'center',
   },
+  // Relativo é sempre 1-3 dígitos (%); Absoluto pode chegar a 5-6 dígitos
+  // (ex.: "22.000") - larguras iguais faziam o valor absoluto + setinha
+  // estourar a coluna e quebrar linha. Absoluto ganha o espaço que sobra.
   leukocyteResultValueCell: { // NEW: Cell for leukocyte result value
-    flex: 1,
+    // 24pt ainda estourava pra relativo de 2 dígitos + seta (ex.: "80 ↑") — subiu pra 30.
+    width: 30,
     justifyContent: 'flex-end',
     paddingRight: 2,
     minHeight: 18, // Ensure consistent height
   },
+  leukocyteResultValueCellAbs: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    paddingRight: 2,
+    minHeight: 18,
+  },
   leukocyteResultUnitCell: { // NEW: Cell for leukocyte result unit
-    width: 15, // Fixed width for unit (e.g., %)
+    width: 11, // Fixed width for unit (e.g., %)
     justifyContent: 'center',
     minHeight: 18, // Ensure consistent height
   },
   leukocyteResultUnitCellAbs: { // NEW: Cell for leukocyte absolute unit (/µL)
-    width: 25, // Fixed width for unit (e.g., /µL)
+    width: 20, // Fixed width for unit (e.g., /µL)
     justifyContent: 'center',
     minHeight: 18, // Ensure consistent height
   },
@@ -416,8 +455,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'flex-end', // Alinhado à direita
   },
+  // Só para a linha do leucograma: 16pt a menos (foram para leukocyteResultContainer
+  // acima), já que a referência relativo/absoluto tem folga de sobra pra perder isso.
+  leukocyteReferenceContainerNarrow: {
+    width: 209,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+  },
   leukocyteReferenceSubContainer: { // This is now a flex container for its cells
-    width: 110, // Each sub-container for relative/absolute reference (220 / 2)
+    width: 102, // Each sub-container for relative/absolute reference (204 / 2) - reduzido pra dar espaço ao Absoluto (ver leukocyteResultContainer)
     flexDirection: 'row',
     alignItems: 'center',
   },
@@ -1008,7 +1055,7 @@ export const ExamReportPdfContent = ({
             <Text style={styles.leukocyteResultUnit}>%</Text>
           </View>
           {/* Absolute Result */}
-          <View style={styles.leukocyteResultValueCell}>
+          <View style={styles.leukocyteResultValueCellAbs}>
             <Text style={[styles.leukocyteResultValue, absResultStyle]}>{absoluteValue}{statusArrow(absValueStatus)}</Text>
           </View>
           <View style={styles.leukocyteResultUnitCellAbs}>
@@ -1017,7 +1064,7 @@ export const ExamReportPdfContent = ({
         </View>
 
         {/* References Section - SEM BORDAS */}
-        <View style={styles.referenceContainer}>
+        <View style={styles.leukocyteReferenceContainerNarrow}>
           {/* Relative Reference */}
           <View style={[styles.leukocyteReferenceSubContainer, styles.leukocyteReferenceSubContainerRelative]}>
             <View style={styles.leukocyteRefValCellRelative}>
@@ -1074,6 +1121,7 @@ export const ExamReportPdfContent = ({
   return (
     <Document>
       <Page size="A4" style={styles.page}>
+        <Image src="/watermark-pet.png" style={WATERMARK_PET_STYLE} fixed />
         {/* Cabecalho */}
         <View style={styles.clinicHeader} fixed>
           <View style={styles.clinicInfoLeft}>
@@ -1125,7 +1173,7 @@ export const ExamReportPdfContent = ({
           {exam.material && <Text style={[styles.infoText, { width: '50%' }]}>Material: {exam.material}</Text>}
           {exam.equipamento && <Text style={[styles.infoText, { width: '50%' }]}>Equipamento: {exam.equipamento}</Text>}
           {exam.laboratory && <Text style={[styles.infoText, { width: '50%' }]}>Laboratório: {exam.laboratory}</Text>}
-          {exam.laboratoryDate && <Text style={[styles.infoText, { width: '50%' }]}>Data do Resultado: {exam.laboratoryDate}</Text>}
+          {exam.laboratoryDate && <Text style={[styles.infoText, { width: '50%' }]}>Data do Resultado: {formatDateShortBR(exam.laboratoryDate)}</Text>}
         </View>
 
         {exam.type === "Hemograma Completo" ? (
@@ -1284,7 +1332,7 @@ export const ExamReportPdfContent = ({
             <Text style={styles.sigSub}>CRMV {mockCompanySettings.crmv} · Responsável Técnico</Text>
             {exam.liberadoPor && (
               <Text style={styles.signatureSmall}>
-                Liberado em {exam.laboratoryDate ? formatDateToPortuguese(new Date(exam.laboratoryDate)) : formatDateToPortuguese(currentDate)}
+                Liberado em {exam.laboratoryDate ? formatDateLongBR(exam.laboratoryDate) : formatDateToPortuguese(currentDate)}
               </Text>
             )}
           </View>

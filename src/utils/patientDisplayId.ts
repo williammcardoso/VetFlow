@@ -20,3 +20,19 @@ export function getPatientDisplayId(animalId: string, animals: AnimalForDisplay[
   // Último fallback para manter telas funcionais com dados legados.
   return animalId;
 }
+
+/**
+ * Caminho para o prontuário do paciente. Usa a rota curta /prontuario/:patientCode
+ * sempre que o animal já tem um código; cai para a rota antiga (com os dois
+ * UUIDs) só quando o código ainda não existe (dado legado).
+ */
+export function getPatientRecordPath(
+  clientId: string,
+  animalId: string,
+  patientCode?: number | null
+): string {
+  if (typeof patientCode === "number" && Number.isFinite(patientCode) && patientCode > 0) {
+    return `/prontuario/${patientCode}`;
+  }
+  return `/clients/${clientId}/animals/${animalId}/record`;
+}

@@ -34,6 +34,7 @@ import { useSchedulesList } from "@/hooks/useSchedules";
 import { useAppointments } from "@/hooks/useAppointments";
 import { PageShell } from "@/components/saas/PageShell";
 import { Link } from "react-router-dom";
+import { getPatientRecordPath } from "@/utils/patientDisplayId";
 
 const Dashboard = () => {
   const { data: dbClients, isError } = useClientsList();
@@ -123,10 +124,10 @@ const Dashboard = () => {
   const in7days = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
 
   const animalMap = useMemo(() => {
-    const map = new Map<string, { animalName: string; clientName: string; clientId: string }>();
+    const map = new Map<string, { animalName: string; clientName: string; clientId: string; patientCode?: number }>();
     for (const client of (dbClients || [])) {
       for (const animal of (client.animals || [])) {
-        map.set(animal.id, { animalName: animal.name, clientName: client.name, clientId: client.id });
+        map.set(animal.id, { animalName: animal.name, clientName: client.name, clientId: client.id, patientCode: animal.patientCode });
       }
     }
     return map;
@@ -144,7 +145,7 @@ const Dashboard = () => {
         const days = (app.details as Record<string, unknown>).retornoRecomendadoEmDias as number;
         const returnDate = new Date(parseLocalDate(app.date).getTime() + days * 86400000);
         const info = animalMap.get(app.animalId);
-        return { animalId: app.animalId, animalName: info?.animalName ?? "Pet", clientName: info?.clientName ?? "Tutor", clientId: info?.clientId, returnDate };
+        return { animalId: app.animalId, animalName: info?.animalName ?? "Pet", clientName: info?.clientName ?? "Tutor", clientId: info?.clientId, patientCode: info?.patientCode, returnDate };
       })
       .slice(0, 5);
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -163,7 +164,7 @@ const Dashboard = () => {
         const d = app.details as Record<string, unknown>;
         const doseDate = parseLocalDate(d.proximaDose as string);
         const info = animalMap.get(app.animalId);
-        return { animalId: app.animalId, animalName: info?.animalName ?? "Pet", clientName: info?.clientName ?? "Tutor", clientId: info?.clientId, doseDate, vaccine: (d.tipoVacina as string) || "Vacina" };
+        return { animalId: app.animalId, animalName: info?.animalName ?? "Pet", clientName: info?.clientName ?? "Tutor", clientId: info?.clientId, patientCode: info?.patientCode, doseDate, vaccine: (d.tipoVacina as string) || "Vacina" };
       })
       .slice(0, 5);
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -294,7 +295,7 @@ const Dashboard = () => {
                     <div key={`ret-${r.animalId}-${i}`} className="flex items-center justify-between rounded-lg border border-orange-200/70 bg-orange-50/50 px-3 py-2">
                       <div className="min-w-0">
                         {r.clientId ? (
-                          <Link to={`/clients/${r.clientId}/animals/${r.animalId}/record`} className="truncate text-sm font-semibold text-foreground hover:underline">{r.animalName}</Link>
+                          <Link to={getPatientRecordPath(r.clientId, r.animalId, r.patientCode)} className="truncate text-sm font-semibold text-foreground hover:underline">{r.animalName}</Link>
                         ) : (
                           <p className="truncate text-sm font-semibold text-foreground">{r.animalName}</p>
                         )}
@@ -318,7 +319,7 @@ const Dashboard = () => {
                     <div key={`vac-${v.animalId}-${i}`} className="flex items-center justify-between rounded-lg border border-blue-200/70 bg-blue-50/50 px-3 py-2">
                       <div className="min-w-0">
                         {v.clientId ? (
-                          <Link to={`/clients/${v.clientId}/animals/${v.animalId}/record`} className="truncate text-sm font-semibold text-foreground hover:underline">{v.animalName}</Link>
+                          <Link to={getPatientRecordPath(v.clientId, v.animalId, v.patientCode)} className="truncate text-sm font-semibold text-foreground hover:underline">{v.animalName}</Link>
                         ) : (
                           <p className="truncate text-sm font-semibold text-foreground">{v.animalName}</p>
                         )}

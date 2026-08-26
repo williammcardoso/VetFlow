@@ -38,7 +38,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
 import { PrescriptionEntry } from "@/types/medication";
-import { cn, formatDateTime, formatItemQty, parseLocalDate } from "@/lib/utils";
+import { cn, formatAgeLong, formatDateTime, formatItemQty, parseLocalDate } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -54,6 +54,7 @@ import { PrescriptionPdfContent } from "@/components/PrescriptionPdfContent";
 import { ExamReportPdfContent } from "@/components/ExamReportPdfContent";
 import ExamReportPdfContentHemogramaOnePage from "@/components/ExamReportPdfContent_Hemograma_OnePage";
 import ExamReportPdfContentBioquimicoOnePage from "@/components/ExamReportPdfContent_Bioquimico_OnePage";
+import ExamReportPdfContentCitologiaOnePage from "@/components/ExamReportPdfContent_Citologia_OnePage";
 import type { FinancialTransaction } from "@/mockData/financial";
 import { AppointmentEntry, BaseAppointmentDetails } from "@/types/appointment";
 import { updateAnimalDetails, getWeightHistory } from "@/lib/clientsApi";
@@ -105,9 +106,10 @@ import {
   removePatientDocument,
   type PatientDocumentEntry,
 } from "@/lib/documentsApi";
-import { useClientWithAnimals } from "@/hooks/useSupabaseClients";
+import { useClientWithAnimals, useAnimalRefByPatientCode } from "@/hooks/useSupabaseClients";
 import { useQueryClient } from "@tanstack/react-query";
-import { createPdfBlob, downloadPdf, openPdf, persistPdf } from "@/lib/pdfExport";
+import { createPdfBlob, downloadPdf, openPdf } from "@/lib/pdfExport";
+import { sendPdfViaWhatsApp as sendPdfViaWhatsAppShared } from "@/lib/whatsappShare";
 import { useCurrentUserProfile } from "@/hooks/useCurrentUserProfile";
 import { useAuth } from "@/contexts/AuthContext";
 import { useObservations } from "@/hooks/useObservations";
@@ -221,10 +223,26 @@ function extractExamRequestData(content: string): ExamRequestPdfData | null {
 }
 
 const PatientRecordPage = () => {
-  const { clientId, animalId } = useParams<{ clientId: string; animalId: string }>();
+  const {
+    clientId: clientIdParam,
+    animalId: animalIdParam,
+    patientCode: patientCodeParam,
+  } = useParams<{ clientId?: string; animalId?: string; patientCode?: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
+
+  // Rota curta /prontuario/:patientCode — resolve clientId/animalId a partir
+  // do código do paciente para não depender dos dois UUIDs na URL.
+  const parsedPatientCode = patientCodeParam ? Number(patientCodeParam) : undefined;
+  const {
+    data: animalRef,
+    isLoading: isAnimalRefLoading,
+    isError: isAnimalRefError,
+    error: animalRefError,
+  } = useAnimalRefByPatientCode(parsedPatientCode);
+  const clientId = clientIdParam || animalRef?.clientId;
+  const animalId = animalIdParam || animalRef?.animalId;
 
   const { transactions: mockFinancialTransactions, refetch: refetchFinancial } = useFinancialTransactions();
   const { appointments: animalAppointmentsFromHook, refetch: refetchAppointments } = useAppointments(animalId);
@@ -727,6 +745,23 @@ const PatientRecordPage = () => {
     });
   };
 
+  const sendBudgetViaWhatsApp = async (b: Budget) => {
+    try {
+      const blob = await createPdfBlob(<BudgetReportPdfContent budget={b} userProfile={currentUserProfile} catalogItems={catalogItems} />);
+      await sendPdfViaWhatsApp({
+        blob,
+        fileName: `orcamento_${b.id}.pdf`,
+        folder: "budgets",
+        title: "Orçamento",
+        intro: `Olá! Segue o orçamento de *${b.animalName || currentAnimal?.name || "seu pet"}*.`,
+        dateLabel: formatDateTime(b.date),
+      });
+    } catch (err) {
+      console.error("[Enviar orçamento por WhatsApp] falhou ao gerar o PDF", err);
+      toast.error("Não consegui gerar o PDF deste orçamento para enviar por WhatsApp.");
+    }
+  };
+
   const [convertModalOpen, setConvertModalOpen] = useState(false);
   const [convertTargetBudgetId, setConvertTargetBudgetId] = useState<string | null>(null);
   const [convertAppointmentId, setConvertAppointmentId] = useState<string>("");
@@ -834,63 +869,25 @@ const PatientRecordPage = () => {
     return `${text} kg`;
   };
 
-  // Envia um PDF (receita, laudo de exame etc.) por WhatsApp: sobe o arquivo
-  // e manda o link direto na mensagem (WhatsApp não aceita anexo via link,
-  // só texto) — compartilhado entre Receitas e Exames pra não duplicar a
+  // Envia um PDF (receita, laudo de exame, orçamento etc.) por WhatsApp usando
+  // o telefone do cliente atual — lógica compartilhada em lib/whatsappShare.ts
+  // (também usada pela tela dedicada de Orçamentos) pra não duplicar a
   // validação de telefone/formatação de mensagem em cada botão.
-  const sendPdfViaWhatsApp = async (opts: {
+  const sendPdfViaWhatsApp = (opts: {
     blob: Blob;
     fileName: string;
     folder: string;
     title: string;
     intro: string;
     dateLabel: string;
-  }) => {
-    if (!currentClient) return;
-    const raw = (currentClient.mainPhoneContact ?? "").replace(/\D/g, "");
-    if (raw.length < 10) {
-      toast.error("Este cliente não tem um telefone válido cadastrado. Atualize o telefone no cadastro do cliente para enviar por WhatsApp.");
-      return;
-    }
-    const num = raw.length <= 10 ? "55" + raw : raw.startsWith("55") ? raw : "55" + raw;
-
-    const buildMsg = (link?: string) => {
-      const parts = [
-        `🐾 *${opts.title}*`,
-        "",
-        opts.intro,
-        `🗓️ ${opts.dateLabel}`,
-        "",
-        link ? `📎 Abra o PDF aqui:\n${link}` : "📎 O PDF foi baixado — por favor anexe o arquivo e envie.",
-        "",
-        "Qualquer dúvida, é só chamar! 💬",
-      ];
-      return encodeURIComponent(parts.join("\n"));
-    };
-
-    // api.whatsapp.com/send direto, em vez de wa.me — wa.me é um redirect da
-    // própria Meta que, ao converter pra api.whatsapp.com/send, corrompe
-    // emoji de 4 bytes no meio do caminho (confirmado testando o link real:
-    // %F0%9F%90%BE certo em wa.me virava %EF%BF%BD no api.whatsapp.com/send
-    // gerado por eles ~1s depois). Indo direto no endpoint final, pula essa
-    // conversão que estava mastigando os emoji.
-    const pdfUrl = await persistPdf(opts.blob, { folder: opts.folder, fileName: opts.fileName });
-    if (pdfUrl) {
-      window.open(`https://api.whatsapp.com/send?phone=${num}&text=${buildMsg(pdfUrl)}`, "_blank");
-      toast.success("WhatsApp aberto com o link do documento.");
-    } else {
-      await downloadPdf({ blob: opts.blob, fileName: opts.fileName, persist: false });
-      window.open(`https://api.whatsapp.com/send?phone=${num}&text=${buildMsg()}`, "_blank");
-      toast.success("PDF baixado. Abra o WhatsApp e anexe o arquivo para enviar ao tutor.");
-    }
-  };
+  }) => sendPdfViaWhatsAppShared({ ...opts, phone: currentClient?.mainPhoneContact });
 
   // ADDED: Navegar para a edição do animal
   const handleEditAnimal = () => {
     navigate(`/clients/${clientId}/animals/${animalId}/edit`);
   };
 
-  if (isClientLoading) {
+  if (isClientLoading || isAnimalRefLoading) {
     return (
       <div className="p-6 text-center">
         <h1 className="text-2xl font-semibold mb-2">Carregando prontuário...</h1>
@@ -903,8 +900,14 @@ const PatientRecordPage = () => {
     return (
       <div className="p-6 text-center">
         <h1 className="text-3xl font-bold mb-4">
-          {isClientError
-            ? `Erro ao carregar prontuário do Supabase: ${clientError instanceof Error ? clientError.message : "erro desconhecido"}.`
+          {isClientError || isAnimalRefError
+            ? `Erro ao carregar prontuário do Supabase: ${
+                clientError instanceof Error
+                  ? clientError.message
+                  : animalRefError instanceof Error
+                    ? animalRefError.message
+                    : "erro desconhecido"
+              }.`
             : "Animal ou Cliente não encontrado."}
         </h1>
         <Link to="/clients">
@@ -1266,10 +1269,11 @@ const PatientRecordPage = () => {
                             </div>
                             <div className="flex items-start gap-1.5">
                               <FaMapMarkerAlt className="mt-0.5 h-3.5 w-3.5 text-vf-clinical" />
-                              <span className="line-clamp-1">
+                              <span className={isTutorExpanded ? "" : "line-clamp-1"}>
                                 <span className="text-foreground/70 font-medium">Endereço:</span>{" "}
                                 <span className="text-foreground/90">
                                   {currentClient.address?.street ? `${currentClient.address.street}, ${currentClient.address.number}` : "-"}
+                                  {currentClient.address?.complement ? ` - ${currentClient.address.complement}` : ""}
                                   {currentClient.address?.neighborhood ? ` • ${currentClient.address.neighborhood}` : ""}
                                   {currentClient.address?.city ? ` • ${currentClient.address.city}` : ""}
                                   {currentClient.address?.state ? ` - ${currentClient.address.state}` : ""}
@@ -1336,12 +1340,6 @@ const PatientRecordPage = () => {
                               <span>
                                 <span className="text-foreground/70 font-medium">Profissão:</span>{" "}
                                 <span className="font-semibold text-foreground/90">{currentClient.profession}</span>
-                              </span>
-                            ) : null}
-                            {currentClient.nationality ? (
-                              <span>
-                                <span className="text-foreground/70 font-medium">Nacionalidade:</span>{" "}
-                                <span className="font-semibold text-foreground/90">{currentClient.nationality}</span>
                               </span>
                             ) : null}
                             {currentClient.dynamicContacts?.length ? (
@@ -1726,7 +1724,9 @@ const PatientRecordPage = () => {
                       const title = exam.type || "Exame";
                       const subtitle = exam.type === "Hemograma Completo"
                         ? "Hemograma Completo"
-                        : (exam.result || exam.nota || "Ver detalhes");
+                        : exam.type === "Citologia"
+                          ? (exam.cytologyEntries?.[0]?.achadoCitologico || exam.nota || "Ver detalhes")
+                          : (exam.result || exam.nota || "Ver detalhes");
 
                       return (
                         <div
@@ -1769,6 +1769,35 @@ const PatientRecordPage = () => {
                                 size="icon"
                                 onClick={async () => {
                                   const tutorAddress = `${currentClient.address.street}, ${currentClient.address.number} - ${currentClient.address.city} - ${currentClient.address.state}`;
+                                  // Citologia não tem uma versão "completa" separada do genérico
+                                  // (que ficava em branco pra esse tipo — não tem seção própria pra
+                                  // cytologyEntries) — usa o mesmo laudo compacto nos dois botões.
+                                  if (exam.type === "Citologia") {
+                                    createPdfBlob(
+                                      <ExamReportPdfContentCitologiaOnePage
+                                        animalName={currentAnimal.name}
+                                        animalId={currentAnimal.id}
+                                        displayId={getPatientDisplayId(currentAnimal.id, currentClient.animals)}
+                                        animalSpecies={currentAnimal.species}
+                                        animalBreed={currentAnimal.breed}
+                                        animalGender={currentAnimal.gender}
+                                        animalAge={formatAgeLong(currentAnimal.birthday)}
+                                        tutorName={currentClient.name}
+                                        tutorAddress={tutorAddress}
+                                        exam={exam}
+                                      />
+                                    ).then((blob) => openPdf({
+                                      blob,
+                                      fileName: `laudo_${exam.id || exam.date}.pdf`,
+                                      persistOptions: { folder: "exams" },
+                                    })).then(() => {
+                                      toast.success("Laudo de exame enviado para impressão!");
+                                    }).catch((err) => {
+                                      console.error(err);
+                                      toast.error("Erro ao gerar o PDF.");
+                                    });
+                                    return;
+                                  }
                                   const hemogramRefs = await fetchHemogramReferences();
                                   createPdfBlob(
                                     <ExamReportPdfContent
@@ -1883,25 +1912,12 @@ const PatientRecordPage = () => {
                                     toast.error("Erro: Dados do cliente ou animal não disponíveis.");
                                     return;
                                   }
-                                  const tutorAddress = `${currentClient.address.street}, ${currentClient.address.number} - ${currentClient.address.city} - ${currentClient.address.state}`;
-                                  const displayId = getPatientDisplayId(currentAnimal.id, currentClient.animals);
-                                  const blob = exam.type === "Hemograma Completo"
-                                    ? await createPdfBlob(
-                                        <ExamReportPdfContentHemogramaOnePage
-                                          animalName={currentAnimal.name}
-                                          animalId={currentAnimal.id}
-                                          displayId={displayId}
-                                          animalSpecies={currentAnimal.species}
-                                          animalBreed={currentAnimal.breed}
-                                          tutorName={currentClient.name}
-                                          tutorAddress={tutorAddress}
-                                          exam={exam}
-                                          hemogramReferences={await fetchHemogramReferences()}
-                                        />
-                                      )
-                                    : exam.type === "Bioquímico"
+                                  try {
+                                    const tutorAddress = `${currentClient.address.street}, ${currentClient.address.number} - ${currentClient.address.city} - ${currentClient.address.state}`;
+                                    const displayId = getPatientDisplayId(currentAnimal.id, currentClient.animals);
+                                    const blob = exam.type === "Hemograma Completo"
                                       ? await createPdfBlob(
-                                          <ExamReportPdfContentBioquimicoOnePage
+                                          <ExamReportPdfContentHemogramaOnePage
                                             animalName={currentAnimal.name}
                                             animalId={currentAnimal.id}
                                             displayId={displayId}
@@ -1910,28 +1926,61 @@ const PatientRecordPage = () => {
                                             tutorName={currentClient.name}
                                             tutorAddress={tutorAddress}
                                             exam={exam}
-                                          />
-                                        )
-                                      : await createPdfBlob(
-                                          <ExamReportPdfContent
-                                            animalName={currentAnimal.name}
-                                            animalId={currentAnimal.id}
-                                            displayId={displayId}
-                                            animalSpecies={currentAnimal.species}
-                                            tutorName={currentClient.name}
-                                            tutorAddress={tutorAddress}
-                                            exam={exam}
                                             hemogramReferences={await fetchHemogramReferences()}
                                           />
-                                        );
-                                  await sendPdfViaWhatsApp({
-                                    blob,
-                                    fileName: `laudo_${exam.type || "exame"}_${exam.id || exam.date}.pdf`,
-                                    folder: "exams",
-                                    title: `Resultado de Exame — ${exam.type || "Exame"}`,
-                                    intro: `Olá! Segue o resultado do exame *${exam.type || "Exame"}* de *${currentAnimal.name}*.`,
-                                    dateLabel: formatDateTime(exam.date, exam.time),
-                                  });
+                                        )
+                                      : exam.type === "Bioquímico"
+                                        ? await createPdfBlob(
+                                            <ExamReportPdfContentBioquimicoOnePage
+                                              animalName={currentAnimal.name}
+                                              animalId={currentAnimal.id}
+                                              displayId={displayId}
+                                              animalSpecies={currentAnimal.species}
+                                              animalBreed={currentAnimal.breed}
+                                              tutorName={currentClient.name}
+                                              tutorAddress={tutorAddress}
+                                              exam={exam}
+                                            />
+                                          )
+                                        : exam.type === "Citologia"
+                                          ? await createPdfBlob(
+                                              <ExamReportPdfContentCitologiaOnePage
+                                                animalName={currentAnimal.name}
+                                                animalId={currentAnimal.id}
+                                                displayId={displayId}
+                                                animalSpecies={currentAnimal.species}
+                                                animalBreed={currentAnimal.breed}
+                                                animalGender={currentAnimal.gender}
+                                                animalAge={formatAgeLong(currentAnimal.birthday)}
+                                                tutorName={currentClient.name}
+                                                tutorAddress={tutorAddress}
+                                                exam={exam}
+                                              />
+                                            )
+                                          : await createPdfBlob(
+                                            <ExamReportPdfContent
+                                              animalName={currentAnimal.name}
+                                              animalId={currentAnimal.id}
+                                              displayId={displayId}
+                                              animalSpecies={currentAnimal.species}
+                                              tutorName={currentClient.name}
+                                              tutorAddress={tutorAddress}
+                                              exam={exam}
+                                              hemogramReferences={await fetchHemogramReferences()}
+                                            />
+                                          );
+                                    await sendPdfViaWhatsApp({
+                                      blob,
+                                      fileName: `laudo_${exam.type || "exame"}_${exam.id || exam.date}.pdf`,
+                                      folder: "exams",
+                                      title: `Resultado de Exame — ${exam.type || "Exame"}`,
+                                      intro: `Olá! Segue o resultado do exame *${exam.type || "Exame"}* de *${currentAnimal.name}*.`,
+                                      dateLabel: formatDateTime(exam.date, exam.time),
+                                    });
+                                  } catch (err) {
+                                    console.error("[Enviar exame por WhatsApp] falhou ao gerar o PDF", err);
+                                    toast.error("Não consegui gerar o PDF deste exame para enviar por WhatsApp.");
+                                  }
                                 }}
                                 className="rounded-md hover:bg-muted hover:text-foreground transition-colors duration-200"
                               >
@@ -2778,6 +2827,14 @@ const PatientRecordPage = () => {
                                       <Button variant="outline" size="sm" onClick={()=>void approveBudget(b.id)} disabled={statusDisplay==="converted" || statusDisplay==="cancelled"}>Aprovar</Button>
                                       <Button variant="outline" size="sm" onClick={()=>void cancelBudget(b.id)} disabled={statusDisplay==="converted" || statusDisplay==="cancelled"}>Cancelar</Button>
                                       <Button variant="outline" size="sm" onClick={()=>void printBudget(b)}>Imprimir</Button>
+                                      <Button
+                                        variant="outline"
+                                        size="icon"
+                                        title="Enviar orçamento por WhatsApp (com link do PDF, sem precisar anexar)"
+                                        onClick={()=>void sendBudgetViaWhatsApp(b)}
+                                      >
+                                        <SiWhatsapp className="h-4 w-4 text-[#25D366]" />
+                                      </Button>
                                       <Button size="sm" onClick={()=>openConvertModal(b.id)} disabled={!canConvert} className="rounded-md">
                                         Converter em venda
                                       </Button>
@@ -3229,6 +3286,7 @@ const PatientRecordPage = () => {
               animalName={currentAnimal?.name}
               animalSpecies={currentAnimal?.species || undefined}
               animalBreed={currentAnimal?.breed || undefined}
+              animalPatientCode={currentAnimal?.patientCode}
               animalAge={
                 (() => {
                   if (!currentAnimal) return undefined;

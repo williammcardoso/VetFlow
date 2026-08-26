@@ -14,6 +14,7 @@ import { useClientWithAnimals } from "@/hooks/useSupabaseClients";
 import { useAppointments } from "@/hooks/useAppointments";
 import * as appointmentsApi from "@/lib/appointmentsApi";
 import { PageShell } from "@/components/saas/PageShell";
+import { getPatientRecordPath } from "@/utils/patientDisplayId";
 
 const AddAppointmentPage = () => {
   const { clientId, animalId, appointmentId } = useParams<{
@@ -114,11 +115,11 @@ const AddAppointmentPage = () => {
       toast.success("Atendimento salvo com sucesso!");
     }
 
-    navigate(`/clients/${clientId}/animals/${animalId}/record`);
+    navigate(getPatientRecordPath(clientId, animalId, animal.patientCode));
   };
 
   const handleCancel = () => {
-    navigate(`/clients/${clientId}/animals/${animalId}/record`);
+    navigate(getPatientRecordPath(clientId, animalId, animal.patientCode));
   };
 
   return (

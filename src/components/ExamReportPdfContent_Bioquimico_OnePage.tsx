@@ -6,7 +6,7 @@
    hemograma — não compartilha módulo com o laudo genérico.
 */
 import React from "react";
-import { Document, Page, View, Text, StyleSheet, Font } from "@react-pdf/renderer";
+import { Document, Page, View, Text, StyleSheet, Font, Svg, Path, Image } from "@react-pdf/renderer";
 import { mockCompanySettings } from "@/mockData/settings";
 import { ExamEntry, BiochemicalEntry } from "@/types/exam";
 
@@ -19,9 +19,33 @@ Font.register({
   ],
 });
 
+// Marca d'água (ilustração do pet da clínica, em cinza) centralizada na
+// folha A4 (595.28 x 841.89pt) — pedido do usuário, aprovado após comparar
+// com uma ilustração simples num mockup.
+const WATERMARK_PET_STYLE = { position: 'absolute' as const, left: 117.6, top: 226.4, width: 360, opacity: 0.16 };
+
 const formatDateToPortuguese = (date: Date) => {
   const options: Intl.DateTimeFormatOptions = { day: '2-digit', month: 'long', year: 'numeric' };
   return date.toLocaleDateString('pt-BR', options).toUpperCase();
+};
+
+// exam.laboratoryDate vem cru do <input type="date"> (formato ISO
+// YYYY-MM-DD) — sem isso aparecia "no padrão americano" no laudo.
+const formatDateShortBR = (isoDate: string) => {
+  const [y, m, d] = isoDate.split('-');
+  if (!y || !m || !d) return isoDate;
+  return `${d}/${m}/${y}`;
+};
+
+const MONTHS_PT = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
+// Mesma ideia do formatDateShortBR, só que por extenso — nunca passar
+// isoDate por `new Date(...)`: em fuso negativo (Brasil, UTC-3) isso
+// interpreta a data como meia-noite UTC e volta pro dia anterior (ex.:
+// "2026-08-25" virava "24 DE AGOSTO" no "Liberado em").
+const formatDateLongBR = (isoDate: string) => {
+  const [y, m, d] = isoDate.split('-').map(Number);
+  if (!y || !m || !d) return isoDate;
+  return `${String(d).padStart(2, '0')} DE ${MONTHS_PT[m - 1]?.toUpperCase() ?? m} DE ${y}`;
 };
 
 // Mesma lógica de normalização de número usada no laudo de hemograma —
@@ -133,14 +157,14 @@ const styles = StyleSheet.create({
   bioEntryGroup: {
     borderBottomWidth: 0.6,
     borderBottomColor: "#eef0f3",
-    paddingTop: 1,
-    paddingBottom: 2,
-    marginBottom: 1,
+    paddingTop: 4,
+    paddingBottom: 6,
+    marginBottom: 8,
   },
   bioRow: {
     flexDirection: "row",
     alignItems: "center",
-    minHeight: 15,
+    minHeight: 17,
   },
   bioNameWrap: { width: 150, paddingLeft: 4, alignItems: "flex-start" },
   bioName: {
@@ -157,7 +181,7 @@ const styles = StyleSheet.create({
   bioResultUnit: { fontSize: 7.6, color: "#666", marginLeft: 3 },
   bioRefWrap: { width: 165, alignItems: "center" },
   bioRefText: { fontSize: 8.2, color: "#666", textAlign: "center" },
-  bioDetailRow: { flexDirection: "row", paddingLeft: 4, paddingTop: 0.5 },
+  bioDetailRow: { flexDirection: "row", paddingLeft: 4, paddingTop: 3 },
   bioDetailText: { fontSize: 7.3, color: "#6b7280" },
   indicatorColumn: { width: 86, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', flexGrow: 1 },
   modernIndicatorContainer: { width: 78, height: 14.2, position: 'relative' },
@@ -167,7 +191,7 @@ const styles = StyleSheet.create({
   },
   modernIndicatorSegment: { position: 'absolute', left: 0, top: 6, height: 5.2 },
   modernIndicatorTick: { position: 'absolute', top: 5.2, width: INDICATOR_WIDTH, height: 6.5, backgroundColor: 'rgba(0,0,0,0.25)' },
-  modernIndicatorMarker: { position: 'absolute', top: 5.6, width: 6, height: 6, borderRadius: 3, borderWidth: 0.9, borderColor: '#ffffff' },
+  modernIndicatorMarker: { position: 'absolute', top: 1.2, width: 8, height: 10 },
   resultNormal: { color: "#000000" },
   resultHigh: { color: "#2563eb" },
   resultLow: { color: "#dc3545" },
@@ -185,8 +209,18 @@ const styles = StyleSheet.create({
   },
 });
 
-// Mesma barra indicadora (visual/matemática) do laudo de hemograma — só
-// reaproveitada aqui, sem alterações.
+// IndicatorBar — faixa em 3 blocos (baixo/normal/alto) com marcador em pino.
+// Mesmo desenho aprovado no laudo de hemograma (várias rodadas de ajuste
+// visual nessa sessão): cores mais vivas que a pastel original, marcador
+// num tom mais escuro que a própria faixa pra não se camuflar nela.
+const INDICATOR_ZONE_LOW = '#cd625e';
+const INDICATOR_ZONE_NORMAL = '#73af6b';
+const INDICATOR_ZONE_HIGH = '#4d7cc0';
+const INDICATOR_MARKER_LOW = '#8f2d29';
+const INDICATOR_MARKER_NORMAL = '#355e2f';
+const INDICATOR_MARKER_HIGH = '#1d4a85';
+const PIN_PATH = 'M4,0 C6.2,0 8,1.8 8,4 C8,6.5 4,10 4,10 C4,10 0,6.5 0,4 C0,1.8 1.8,0 4,0 Z';
+
 interface IndicatorBarProps { value: string | undefined; minRef: number; maxRef: number; valueStatus: 'normal' | 'high' | 'low' | 'invalid'; }
 const IndicatorBar: React.FC<IndicatorBarProps> = ({ value, minRef, maxRef, valueStatus }) => {
   const BAR_WIDTH = 78;
@@ -194,16 +228,16 @@ const IndicatorBar: React.FC<IndicatorBarProps> = ({ value, minRef, maxRef, valu
   const ACTIVE_RANGE_END_PERCENT = 0.75;
   const numValue = normalizeNumber(value);
   let markerColor = '#64748b';
-  if (valueStatus === 'low') markerColor = '#dc3545';
-  if (valueStatus === 'normal') markerColor = '#16a34a';
-  if (valueStatus === 'high') markerColor = '#2563eb';
+  if (valueStatus === 'low') markerColor = INDICATOR_MARKER_LOW;
+  if (valueStatus === 'normal') markerColor = INDICATOR_MARKER_NORMAL;
+  if (valueStatus === 'high') markerColor = INDICATOR_MARKER_HIGH;
   if (isNaN(numValue)) {
     return (
       <View style={styles.modernIndicatorContainer}>
         <View style={styles.modernIndicatorTrack} />
-        <View style={[styles.modernIndicatorSegment, { left: 0, width: '25%', backgroundColor: '#f8d3d6', borderTopLeftRadius: 2.6, borderBottomLeftRadius: 2.6 }]} />
-        <View style={[styles.modernIndicatorSegment, { left: '25%', width: '50%', backgroundColor: '#d8f1df' }]} />
-        <View style={[styles.modernIndicatorSegment, { left: '75%', width: '25%', backgroundColor: '#d8e7ff', borderTopRightRadius: 2.6, borderBottomRightRadius: 2.6 }]} />
+        <View style={[styles.modernIndicatorSegment, { left: 0, width: '25%', backgroundColor: INDICATOR_ZONE_LOW, borderTopLeftRadius: 2.6, borderBottomLeftRadius: 2.6 }]} />
+        <View style={[styles.modernIndicatorSegment, { left: '25%', width: '50%', backgroundColor: INDICATOR_ZONE_NORMAL }]} />
+        <View style={[styles.modernIndicatorSegment, { left: '75%', width: '25%', backgroundColor: INDICATOR_ZONE_HIGH, borderTopRightRadius: 2.6, borderBottomRightRadius: 2.6 }]} />
         <View style={[styles.modernIndicatorTick, { left: (ACTIVE_RANGE_START_PERCENT * BAR_WIDTH) - (INDICATOR_WIDTH / 2) }]} />
         <View style={[styles.modernIndicatorTick, { left: (ACTIVE_RANGE_END_PERCENT * BAR_WIDTH) - (INDICATOR_WIDTH / 2) }]} />
       </View>
@@ -227,12 +261,16 @@ const IndicatorBar: React.FC<IndicatorBarProps> = ({ value, minRef, maxRef, valu
   return (
     <View style={styles.modernIndicatorContainer}>
       <View style={styles.modernIndicatorTrack} />
-      <View style={[styles.modernIndicatorSegment, { left: 0, width: '25%', backgroundColor: '#f8d3d6', borderTopLeftRadius: 2.6, borderBottomLeftRadius: 2.6 }]} />
-      <View style={[styles.modernIndicatorSegment, { left: '25%', width: '50%', backgroundColor: '#d8f1df' }]} />
-      <View style={[styles.modernIndicatorSegment, { left: '75%', width: '25%', backgroundColor: '#d8e7ff', borderTopRightRadius: 2.6, borderBottomRightRadius: 2.6 }]} />
+      <View style={[styles.modernIndicatorSegment, { left: 0, width: '25%', backgroundColor: INDICATOR_ZONE_LOW, borderTopLeftRadius: 2.6, borderBottomLeftRadius: 2.6 }]} />
+      <View style={[styles.modernIndicatorSegment, { left: '25%', width: '50%', backgroundColor: INDICATOR_ZONE_NORMAL }]} />
+      <View style={[styles.modernIndicatorSegment, { left: '75%', width: '25%', backgroundColor: INDICATOR_ZONE_HIGH, borderTopRightRadius: 2.6, borderBottomRightRadius: 2.6 }]} />
       <View style={[styles.modernIndicatorTick, { left: (ACTIVE_RANGE_START_PERCENT * BAR_WIDTH) - (INDICATOR_WIDTH / 2) }]} />
       <View style={[styles.modernIndicatorTick, { left: (ACTIVE_RANGE_END_PERCENT * BAR_WIDTH) - (INDICATOR_WIDTH / 2) }]} />
-      <View style={[styles.modernIndicatorMarker, { left: ballLeftPosition - 3, backgroundColor: markerColor }]} />
+      <View style={[styles.modernIndicatorMarker, { left: ballLeftPosition - 4 }]}>
+        <Svg width={8} height={10} viewBox="0 0 8 10">
+          <Path d={PIN_PATH} fill={markerColor} stroke="#ffffff" strokeWidth={1.2} />
+        </Svg>
+      </View>
     </View>
   );
 };
@@ -319,6 +357,7 @@ export const ExamReportPdfContentBioquimicoOnePage = ({
   return (
     <Document>
       <Page size="A4" style={styles.page} wrap>
+        <Image src="/watermark-pet.png" style={WATERMARK_PET_STYLE} fixed />
         <View style={styles.clinicHeader} fixed>
           <View style={styles.clinicInfoLeft}>
             <View>
@@ -376,7 +415,7 @@ export const ExamReportPdfContentBioquimicoOnePage = ({
             </View>
             <View style={styles.examInfoItem}>
               <Text style={styles.examInfoLabel}>Data resultado:</Text>
-              <Text style={styles.examInfoValue}>{exam.laboratoryDate || "-"}</Text>
+              <Text style={styles.examInfoValue}>{exam.laboratoryDate ? formatDateShortBR(exam.laboratoryDate) : "-"}</Text>
             </View>
           </View>
         </View>
@@ -410,10 +449,10 @@ export const ExamReportPdfContentBioquimicoOnePage = ({
         )}
 
         {exam.liberadoPor && (
-          <View style={{ marginTop: 6, alignItems: 'center' }}>
-            <View style={{ height: 0.7, width: 200, backgroundColor: '#9AA3AE', marginBottom: 3 }} />
-            <Text style={[styles.signatureSmall, { fontStyle: 'normal', fontWeight: '700', color: '#111827', fontSize: 9 }]}>{exam.liberadoPor}</Text>
-            <Text style={[styles.signatureSmall, { marginTop: 1 }]}>CRMV {mockCompanySettings.crmv} · Liberado em {exam.laboratoryDate ? formatDateToPortuguese(new Date(exam.laboratoryDate)) : formatDateToPortuguese(currentDate)}</Text>
+          <View style={{ marginTop: 28, alignItems: 'center' }}>
+            <View style={{ height: 0.7, width: 200, backgroundColor: '#9AA3AE', marginBottom: 8 }} />
+            <Text style={[styles.signatureSmall, { fontStyle: 'normal', fontWeight: '700', color: '#111827', fontSize: 9, marginTop: 0 }]}>{exam.liberadoPor}</Text>
+            <Text style={[styles.signatureSmall, { marginTop: 3 }]}>CRMV {mockCompanySettings.crmv} · Liberado em {exam.laboratoryDate ? formatDateLongBR(exam.laboratoryDate) : formatDateToPortuguese(currentDate)}</Text>
           </View>
         )}
       </Page>

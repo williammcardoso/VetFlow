@@ -33,6 +33,7 @@ import type {
   VaccinationDetails,
 } from "@/types/appointment";
 import { useClientWithAnimals } from "@/hooks/useSupabaseClients";
+import { getPatientRecordPath } from "@/utils/patientDisplayId";
 import { getAppointmentById, getAppointmentsByAnimal } from "@/lib/appointmentsApi";
 
 const formatDateBR = (dateISO?: string) => {
@@ -167,7 +168,7 @@ export default function AppointmentViewPage() {
     return (
       <div className="p-6 text-center">
         <h1 className="text-2xl font-semibold mb-4">Atendimento não encontrado.</h1>
-        <Link to={`/clients/${clientId}/animals/${animalId}/record`}>
+        <Link to={getPatientRecordPath(clientId, animalId, animal?.patientCode)}>
           <SaasButton saasVariant="outline">
             <ArrowLeft className="mr-2 h-4 w-4" /> Voltar para Prontuário
           </SaasButton>
@@ -468,7 +469,7 @@ export default function AppointmentViewPage() {
             </Link>{" "}
             &gt;{" "}
             <Link
-              to={`/clients/${clientId}/animals/${animalId}/record`}
+              to={getPatientRecordPath(clientId, animalId, animal.patientCode)}
               className="hover:text-primary"
             >
               {animal.name}
@@ -494,7 +495,7 @@ export default function AppointmentViewPage() {
             >
               <Edit className="mr-2 h-4 w-4" /> Editar
             </SaasButton>
-            <Link to={`/clients/${clientId}/animals/${animalId}/record`}>
+            <Link to={getPatientRecordPath(clientId, animalId, animal.patientCode)}>
               <SaasButton saasVariant="outline">
                 <ArrowLeft className="mr-2 h-4 w-4" /> Voltar
               </SaasButton>

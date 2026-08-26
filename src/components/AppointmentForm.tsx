@@ -57,7 +57,7 @@ interface AppointmentFormProps {
   clientName?: string;
   animal?: Animal;
   initialData?: AppointmentEntry;
-  onSave: (appointment: AppointmentEntry) => void;
+  onSave: (appointment: AppointmentEntry) => void | Promise<void>;
   onCancel: () => void;
   mockAppointments: AppointmentEntry[];
   /** Nome e espécie do animal (opcional), usados pelo assistente de IA */
@@ -187,6 +187,7 @@ export default function AppointmentForm({
     has ? "border-destructive focus-visible:ring-destructive focus-visible:border-destructive" : "";
 
   const [errors, setErrors] = useState<Record<string, boolean>>({});
+  const [isSaving, setIsSaving] = useState(false);
   const clearError = (key: string) =>
     setErrors((prev) => {
       if (!prev[key]) return prev;
@@ -564,6 +565,8 @@ export default function AppointmentForm({
   };
 
   const handleSave = async () => {
+    if (isSaving) return;
+
     const nextErrors: Record<string, boolean> = {};
 
     if (!date) nextErrors.date = true;
@@ -620,6 +623,9 @@ export default function AppointmentForm({
     }
 
     setErrors({});
+    setIsSaving(true);
+
+    try {
 
     // Evita que o autosave na desmontagem recrie/atualize o rascunho depois do salvar.
     suppressDraftWriteRef.current = true;
@@ -667,7 +673,7 @@ export default function AppointmentForm({
       details: detailsToSave,
     };
 
-    onSave(newAppointment);
+    await onSave(newAppointment);
 
     if (draftId) {
       removeAppointmentDraft(clientId, animalId, draftId);
@@ -712,6 +718,9 @@ export default function AppointmentForm({
           toast.error("Atendimento salvo, mas não foi possível atualizar o peso do animal no banco.");
         }
       }
+    }
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -1458,13 +1467,13 @@ export default function AppointmentForm({
       {/* Rodapé fixo de ações */}
       <div className="sticky bottom-0 z-10 -mx-6 px-6 py-4 border-t border-border bg-background/90 backdrop-blur">
         <div className="flex flex-col sm:flex-row gap-2 sm:items-center sm:justify-end">
-          <SaasButton type="button" saasVariant="outline" onClick={handleCancelClick} className="w-full sm:w-auto">
+          <SaasButton type="button" saasVariant="outline" onClick={handleCancelClick} disabled={isSaving} className="w-full sm:w-auto">
             <X className="h-4 w-4 mr-2" /> Cancelar
           </SaasButton>
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button type="button" variant="outline" className="w-full sm:w-auto">
+              <Button type="button" variant="outline" disabled={isSaving} className="w-full sm:w-auto">
                 <MoreHorizontal className="h-4 w-4 mr-2" /> Ações
               </Button>
             </DropdownMenuTrigger>
@@ -1475,8 +1484,16 @@ export default function AppointmentForm({
             </DropdownMenuContent>
           </DropdownMenu>
 
-          <SaasButton type="submit" className="w-full sm:w-auto">
-            <Save className="h-4 w-4 mr-2" /> Salvar atendimento
+          <SaasButton type="submit" disabled={isSaving} className="w-full sm:w-auto">
+            {isSaving ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" /> Salvando...
+              </>
+            ) : (
+              <>
+                <Save className="h-4 w-4 mr-2" /> Salvar atendimento
+              </>
+            )}
           </SaasButton>
         </div>
       </div>

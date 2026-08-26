@@ -19,6 +19,7 @@ import { createPdfBlob, openPdf } from "@/lib/pdfExport";
 import type { FinancialTransaction } from "@/mockData/financial";
 import { useFinancialTransactions } from "@/hooks/useFinancialTransactions";
 import { getSaleItemsBySaleIds, type SaleItem } from "@/lib/saleItemsApi";
+import { getPatientRecordPath } from "@/utils/patientDisplayId";
 import { groupRepassesByProvider, resolveCostProvider } from "@/lib/costProviders";
 import { classifyTransaction } from "@/lib/financialTransactionDisplay";
 import { useClientsList } from "@/hooks/useSupabaseClients";
@@ -678,7 +679,7 @@ const FinancialReportsPage: React.FC = () => {
                         <TableCell className="py-2">
                           {row.clientId && row.animalId ? (
                             <Link
-                              to={`/clients/${row.clientId}/animals/${row.animalId}/record`}
+                              to={getPatientRecordPath(row.clientId, row.animalId, row.patientCode)}
                               className="font-medium text-foreground hover:text-[hsl(var(--vf-finance))] hover:underline"
                             >
                               {row.animalName}

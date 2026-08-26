@@ -8,6 +8,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { RotateCcw, Syringe, CalendarDays, ExternalLink } from "lucide-react";
+import { getPatientRecordPath } from "@/utils/patientDisplayId";
 
 type PeriodFilter = "7" | "30" | "90" | "all";
 
@@ -17,6 +18,7 @@ interface ReturnAlert {
   animalName: string;
   clientName: string;
   clientId?: string;
+  patientCode?: number;
   dueDate: Date;
   label: string;
   daysUntil: number;
@@ -32,10 +34,10 @@ export default function ReturnsForecastPage() {
   const parseLocalDate = (dateStr: string) => new Date(`${dateStr}T00:00:00`);
 
   const animalMap = useMemo(() => {
-    const map = new Map<string, { animalName: string; clientName: string; clientId: string }>();
+    const map = new Map<string, { animalName: string; clientName: string; clientId: string; patientCode?: number }>();
     for (const client of dbClients || []) {
       for (const animal of client.animals || []) {
-        map.set(animal.id, { animalName: animal.name, clientName: client.name, clientId: client.id });
+        map.set(animal.id, { animalName: animal.name, clientName: client.name, clientId: client.id, patientCode: animal.patientCode });
       }
     }
     return map;
@@ -71,6 +73,7 @@ export default function ReturnsForecastPage() {
             animalName: info?.animalName ?? "Pet",
             clientName: info?.clientName ?? "Tutor",
             clientId: info?.clientId,
+            patientCode: info?.patientCode,
             dueDate,
             label: `Próximo acompanhamento (${app.type} de ${parseLocalDate(app.date).toLocaleDateString("pt-BR")})`,
             daysUntil,
@@ -92,6 +95,7 @@ export default function ReturnsForecastPage() {
               animalName: info?.animalName ?? "Pet",
               clientName: info?.clientName ?? "Tutor",
               clientId: info?.clientId,
+              patientCode: info?.patientCode,
               dueDate,
               label: `Próxima dose: ${tipoVacina}`,
               daysUntil,
@@ -141,7 +145,7 @@ export default function ReturnsForecastPage() {
                 <div className="flex items-center gap-1.5">
                   {item.clientId ? (
                     <Link
-                      to={`/clients/${item.clientId}/animals/${item.animalId}/record`}
+                      to={getPatientRecordPath(item.clientId, item.animalId, item.patientCode)}
                       className="truncate text-sm font-semibold hover:underline"
                     >
                       {item.animalName}
@@ -150,7 +154,7 @@ export default function ReturnsForecastPage() {
                     <span className="truncate text-sm font-semibold">{item.animalName}</span>
                   )}
                   {item.clientId && (
-                    <Link to={`/clients/${item.clientId}/animals/${item.animalId}/record`} className="shrink-0 opacity-50 hover:opacity-100">
+                    <Link to={getPatientRecordPath(item.clientId, item.animalId, item.patientCode)} className="shrink-0 opacity-50 hover:opacity-100">
                       <ExternalLink className="h-3 w-3" />
                     </Link>
                   )}
