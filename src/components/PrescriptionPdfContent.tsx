@@ -20,7 +20,10 @@ Font.register({
 // folha A4 (595.28 x 841.89pt) — pedido do usuário, aprovado após comparar
 // com uma ilustração simples num mockup. Não entra na Receita Controlada
 // (documento oficial de controle especial, decisão explícita do usuário).
-const WATERMARK_PET_STYLE = { position: 'absolute' as const, left: 117.6, top: 226.4, width: 360, opacity: 0.16 };
+// left/top calculados pra deixar o rosto do cão (não a imagem inteira, que
+// tem bastante espaço vazio abaixo do focinho até as patas) alinhado com o
+// centro vertical da folha.
+const WATERMARK_PET_STYLE = { position: 'absolute' as const, left: 97.6, top: 276.6, width: 400, opacity: 0.16 };
 
 // Helper function to format date
 const formatDateToPortuguese = (date: Date) => {
