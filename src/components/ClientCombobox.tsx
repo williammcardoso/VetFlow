@@ -1,16 +1,5 @@
 import React from "react";
-import { Button } from "@/components/ui/button";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command";
-import { Check, ChevronsUpDown } from "lucide-react";
-import { cn } from "@/lib/utils";
+import SmartComboInput from "@/components/SmartComboInput";
 
 export interface ClientComboboxOption {
   id: string;
@@ -29,12 +18,18 @@ interface ClientComboboxProps {
   id?: string;
 }
 
+// Valor sintético só pra representar a opção "allLabel" (limpar seleção) —
+// nunca colide com um id real de cliente (uuid).
+const CLEAR_VALUE = "__clear__";
+
 /**
  * Seleção de cliente com busca digitável.
  *
- * Um `<Select>` simples fica inutilizável conforme a base cresce (vira um
- * scroll de milhares de itens), então todo campo de cliente do sistema usa
- * este componente.
+ * Wrapper fino em volta de SmartComboInput — mantém a mesma API
+ * (clients/value/onChange/allLabel) que as telas já usam, mas trocou o
+ * padrão visual de "botão que abre popover com busca cmdk (fuzzy match,
+ * trazia cliente sem nada a ver com o que foi digitado)" pro campo de
+ * texto direto com filtro substring simples.
  */
 const ClientCombobox: React.FC<ClientComboboxProps> = ({
   clients,
@@ -46,67 +41,22 @@ const ClientCombobox: React.FC<ClientComboboxProps> = ({
   className,
   id,
 }) => {
-  const [open, setOpen] = React.useState(false);
-  const selected = value ? clients.find((c) => c.id === value) : undefined;
+  const options = React.useMemo(() => {
+    const base = clients.map((c) => ({ value: c.id, label: c.name }));
+    return allLabel ? [{ value: CLEAR_VALUE, label: allLabel }, ...base] : base;
+  }, [clients, allLabel]);
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          id={id}
-          type="button"
-          variant="outline"
-          role="combobox"
-          aria-expanded={open}
-          disabled={disabled}
-          className={cn(
-            "w-full justify-between border border-border bg-card font-normal text-sm",
-            !selected && "text-muted-foreground",
-            className
-          )}
-        >
-          <span className="truncate">{selected?.name ?? (value ? "—" : placeholder)}</span>
-          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-[--radix-popover-trigger-width] min-w-[240px] p-0" align="start">
-        <Command>
-          <CommandInput placeholder="Buscar cliente..." className="h-9" />
-          <CommandList>
-            <CommandEmpty>Nenhum cliente encontrado.</CommandEmpty>
-            <CommandGroup>
-              {allLabel && (
-                <CommandItem
-                  value={allLabel}
-                  onSelect={() => {
-                    onChange(undefined);
-                    setOpen(false);
-                  }}
-                >
-                  <Check className={cn("mr-2 h-4 w-4", !value ? "opacity-100" : "opacity-0")} />
-                  {allLabel}
-                </CommandItem>
-              )}
-              {clients.map((c) => (
-                <CommandItem
-                  key={c.id}
-                  value={c.name}
-                  onSelect={() => {
-                    onChange(c.id);
-                    setOpen(false);
-                  }}
-                >
-                  <Check
-                    className={cn("mr-2 h-4 w-4", value === c.id ? "opacity-100" : "opacity-0")}
-                  />
-                  {c.name}
-                </CommandItem>
-              ))}
-            </CommandGroup>
-          </CommandList>
-        </Command>
-      </PopoverContent>
-    </Popover>
+    <SmartComboInput
+      id={id}
+      options={options}
+      value={value}
+      onSelect={(val) => onChange(val === CLEAR_VALUE ? undefined : val)}
+      placeholder={placeholder}
+      emptyLabel="Nenhum cliente encontrado."
+      className={className}
+      disabled={disabled}
+    />
   );
 };
 

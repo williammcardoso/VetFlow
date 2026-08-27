@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import AutocompleteSelect from "@/components/AutocompleteSelect";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { PawPrint, Plus, Trash2, Filter, Pencil, Check, X } from "lucide-react";
@@ -167,18 +168,12 @@ const BreedsPage: React.FC = () => {
         <div className="space-y-3">
           <div className="grid grid-cols-1 gap-2 md:grid-cols-[1fr_260px_auto]">
             <Input placeholder="Ex.: Labrador Retriever" value={newName} onChange={(e) => setNewName(e.target.value)} />
-            <Select value={species} onValueChange={setSpecies}>
-              <SelectTrigger>
-                <SelectValue placeholder="Espécie (opcional)" />
-              </SelectTrigger>
-              <SelectContent>
-                {speciesList.map((s) => (
-                  <SelectItem key={s.id} value={s.id}>
-                    {s.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <AutocompleteSelect
+              value={species}
+              onChange={setSpecies}
+              placeholder="Espécie (opcional)"
+              options={speciesList.map((s) => ({ value: s.id, label: s.name }))}
+            />
             <Button onClick={handleAdd} className="bg-[hsl(var(--vf-registry))] text-white shadow-sm hover:bg-[hsl(var(--vf-registry)/0.9)]">
               <Plus className="mr-2 h-4 w-4" />
               Adicionar

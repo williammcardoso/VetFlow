@@ -1,11 +1,7 @@
 "use client";
 
 import React from "react";
-import { Button } from "@/components/ui/button";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
-import { Check, ChevronsUpDown } from "lucide-react";
-import { cn } from "@/lib/utils";
+import SmartComboInput from "@/components/SmartComboInput";
 
 export interface AutocompleteOption {
   value: string;
@@ -17,60 +13,36 @@ interface AutocompleteSelectProps {
   onChange: (val: string) => void;
   options: AutocompleteOption[];
   placeholder?: string;
+  emptyLabel?: string;
   className?: string;
   disabled?: boolean;
 }
 
+/**
+ * Wrapper fino em volta de SmartComboInput — mantém a mesma API
+ * (value/onChange/options) que as telas já usam, mas trocou o padrão visual
+ * de "botão que abre popover com busca cmdk (fuzzy match, trazia item sem
+ * nada a ver)" pro campo de texto direto com filtro substring simples.
+ */
 const AutocompleteSelect: React.FC<AutocompleteSelectProps> = ({
   value,
   onChange,
   options,
   placeholder = "Selecione...",
+  emptyLabel = "Nenhuma opção encontrada.",
   className,
   disabled = false,
 }) => {
-  const [open, setOpen] = React.useState(false);
-  const selected = options.find(o => o.value === value);
-
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          type="button"
-          variant="outline"
-          role="combobox"
-          aria-expanded={open}
-          className={cn("w-full justify-between h-8 text-sm", className)}
-          disabled={disabled}
-        >
-          {selected ? selected.label : placeholder}
-          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
-        <Command>
-          <CommandInput placeholder="Digite para filtrar..." />
-          <CommandList>
-            <CommandEmpty>Nenhuma opção encontrada.</CommandEmpty>
-            <CommandGroup>
-              {options.map(opt => (
-                <CommandItem
-                  key={opt.value}
-                  value={opt.label}
-                  onSelect={() => {
-                    onChange(opt.value);
-                    setOpen(false);
-                  }}
-                >
-                  <Check className={cn("mr-2 h-4 w-4", opt.value === value ? "opacity-100" : "opacity-0")} />
-                  {opt.label}
-                </CommandItem>
-              ))}
-            </CommandGroup>
-          </CommandList>
-        </Command>
-      </PopoverContent>
-    </Popover>
+    <SmartComboInput
+      options={options}
+      value={value}
+      onSelect={(val) => onChange(val)}
+      placeholder={placeholder}
+      emptyLabel={emptyLabel}
+      className={className}
+      disabled={disabled}
+    />
   );
 };
 

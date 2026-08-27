@@ -4,6 +4,7 @@ import WeightInput from "@/components/inputs/WeightInput";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import ClientCombobox from "@/components/ClientCombobox";
+import AutocompleteSelect from "@/components/AutocompleteSelect";
 import { Textarea } from "@/components/ui/textarea";
 import { FaArrowLeft, FaPlus, FaTimes, FaSave } from "@/components/icons/fa";
 import React, { useState, useEffect, useRef, useMemo } from "react";
@@ -428,18 +429,13 @@ const AddAnimalPage = () => {
           </div>
           <div className="space-y-2">
             <Label htmlFor="breed" className="text-muted-foreground font-medium">Raça</Label>
-            <Select disabled={!selectedSpecies || selectedSpecies === "other"} onValueChange={setSelectedBreed} value={selectedBreed}>
-              <SelectTrigger id="breed" className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200">
-                <SelectValue placeholder="Selecione..." />
-              </SelectTrigger>
-              <SelectContent>
-                {getFilteredBreeds().map((breed) => (
-                  <SelectItem key={breed.id} value={breed.id}>
-                    {breed.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <AutocompleteSelect
+              disabled={!selectedSpecies || selectedSpecies === "other"}
+              value={selectedBreed}
+              onChange={setSelectedBreed}
+              options={getFilteredBreeds().map((breed) => ({ value: breed.id, label: breed.name }))}
+              placeholder="Digite pra buscar a raça..."
+            />
             {selectedBreed && selectedBreed.startsWith("other-") && (
               <Input
                 id="customBreedName"

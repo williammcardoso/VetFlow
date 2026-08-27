@@ -8,13 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import AutocompleteSelect from "@/components/AutocompleteSelect";
 import { toast } from "sonner";
 import { getTodayLocalISO } from "@/lib/utils";
 import { ArrowLeft, FlaskConical, Plus, Trash2 } from "lucide-react";
@@ -286,16 +280,12 @@ ${signatureBlock}
             <div className="space-y-1.5">
               <Label htmlFor="vet">Veterinário solicitante *</Label>
               {vets.length > 0 ? (
-                <Select value={vetSolicitante} onValueChange={setVetSolicitante}>
-                  <SelectTrigger id="vet">
-                    <SelectValue placeholder="Selecione..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {vets.map((v) => (
-                      <SelectItem key={v} value={v}>{v}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <AutocompleteSelect
+                  value={vetSolicitante}
+                  onChange={setVetSolicitante}
+                  placeholder="Digite pra buscar o veterinário..."
+                  options={vets.map((v) => ({ value: v, label: v }))}
+                />
               ) : (
                 <Input id="vet" value={vetSolicitante} onChange={(e) => setVetSolicitante(e.target.value)} placeholder="Nome do veterinário" />
               )}

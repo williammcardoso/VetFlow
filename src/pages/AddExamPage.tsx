@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import AutocompleteSelect from "@/components/AutocompleteSelect";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ExamEntry, BiochemicalEntry, CytologyEntry, HemogramReference } from "@/types/exam";
@@ -777,46 +778,27 @@ const AddExamPage = () => {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="examType">Tipo de Exame</Label>
-                <Select onValueChange={setExamType} value={examType}>
-                  <SelectTrigger id="examType" className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200 w-full">
-                    <SelectValue placeholder="Selecione o tipo de exame" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {mockExamTypes.map((type) => (
-                      <SelectItem key={type.id} value={type.name}>
-                        {type.name}
-                      </SelectItem>
-                    ))}
-                    {examTypesList
+                <AutocompleteSelect
+                  value={examType}
+                  onChange={setExamType}
+                  placeholder="Digite pra buscar o tipo de exame..."
+                  options={[
+                    ...mockExamTypes.map((type) => ({ value: type.name, label: type.name })),
+                    ...examTypesList
                       .filter((item) => !mockExamTypes.some((t) => t.name === item.name))
-                      .map((item) => (
-                        <SelectItem key={item.id} value={item.name}>
-                          {item.name}
-                        </SelectItem>
-                      ))}
-                  </SelectContent>
-                </Select>
+                      .map((item) => ({ value: item.name, label: item.name })),
+                  ]}
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="examVet">Veterinário Solicitante</Label>
-                <Select onValueChange={setExamVet} value={examVet}>
-                  <SelectTrigger id="examVet" className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200 w-full">
-                    <SelectValue placeholder="Selecione o veterinário" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {systemVets.length > 0 ? (
-                      systemVets.map((vetName) => (
-                        <SelectItem key={vetName} value={vetName}>
-                          {vetName}
-                        </SelectItem>
-                      ))
-                    ) : (
-                      <SelectItem value="__none" disabled>
-                        Complete seu nome em Configuração › Usuários
-                      </SelectItem>
-                    )}
-                  </SelectContent>
-                </Select>
+                <AutocompleteSelect
+                  value={examVet}
+                  onChange={setExamVet}
+                  placeholder="Digite pra buscar o veterinário..."
+                  emptyLabel="Complete seu nome em Configuração › Usuários"
+                  options={systemVets.map((vetName) => ({ value: vetName, label: vetName }))}
+                />
               </div>
             </div>
 

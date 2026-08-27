@@ -1,6 +1,6 @@
 "use client";
 
-import React, { forwardRef, useImperativeHandle, useMemo, useRef, useState } from "react";
+import React, { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover";
 import { ChevronDown } from "lucide-react";
@@ -19,6 +19,15 @@ export interface SmartComboInputHandle {
 
 interface SmartComboInputProps {
   options: SmartComboOption[];
+  /**
+   * Valor selecionado controlado de fora (ex.: editar um registro que já
+   * tem cliente/item preenchido, ou limpar a seleção pelo componente-pai).
+   * Omitir esse prop deixa o campo livre pra digitação sem nenhuma
+   * sincronização (modo usado hoje no PDV e em Compras) — só passe `value`
+   * quando o componente-pai realmente precisa controlar a seleção (é o que
+   * os wrappers ClientCombobox/AutocompleteSelect fazem por baixo).
+   */
+  value?: string;
   onSelect: (value: string, option: SmartComboOption) => void;
   placeholder?: string;
   emptyLabel?: string;
@@ -43,7 +52,22 @@ const normalize = (s: string) =>
  * pesquisável, pensado pra digitação rápida no balcão.
  */
 const SmartComboInput = forwardRef<SmartComboInputHandle, SmartComboInputProps>(
-  ({ options, onSelect, placeholder = "Digite para buscar...", emptyLabel = "Nenhum item encontrado.", className, id, disabled }, ref) => {
+  (props, ref) => {
+    const {
+      options,
+      value,
+      onSelect,
+      placeholder = "Digite para buscar...",
+      emptyLabel = "Nenhum item encontrado.",
+      className,
+      id,
+      disabled,
+    } = props;
+    // `"value" in props` (não `value !== undefined`) distingue "componente
+    // controlado, sem seleção agora" de "nunca foi controlado" — o PDV e
+    // Compras nunca passam `value`, então não são afetados pelo efeito
+    // abaixo mesmo quando `value` seria `undefined` de qualquer jeito.
+    const isControlled = "value" in props;
     const [query, setQuery] = useState("");
     const [open, setOpen] = useState(false);
     const [activeIndex, setActiveIndex] = useState(0);
@@ -57,6 +81,18 @@ const SmartComboInput = forwardRef<SmartComboInputHandle, SmartComboInputProps>(
         setActiveIndex(0);
       },
     }));
+
+    // Sincroniza o texto exibido com o valor controlado — cobre editar um
+    // registro já preenchido (inclusive se `options` ainda estiver
+    // carregando, por isso depende de `options.length` também) e limpar a
+    // seleção de fora. Nunca mexe no que o usuário está digitando: só reage
+    // quando `value`/a quantidade de opções muda, não a cada re-render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    useEffect(() => {
+      if (!isControlled) return;
+      const match = options.find((o) => o.value === value);
+      setQuery(match ? match.label : "");
+    }, [value, isControlled, options.length]);
 
     const filtered = useMemo(() => {
       const q = normalize(query.trim());
