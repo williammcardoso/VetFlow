@@ -78,6 +78,123 @@ export async function listSchedules(): Promise<ScheduleUI[]> {
   return (data || []).map((r) => rowToUI(r as Record<string, unknown>));
 }
 
+export interface ScheduleTimeSummary {
+  id: string;
+  date: string;
+  time: string;
+  clientName?: string;
+  title?: string;
+}
+
+// Usado pela página pública de agendamento (balcão da agropecuária) — tanto
+// pro calendário semanal (marcar horários ocupados, com nome/descrição em
+// hint no hover — pedido explícito do usuário) quanto pra checar conflito
+// antes de reservar (chamado com startISO === endISO).
+export async function listScheduleTimesInRange(startISO: string, endISO: string): Promise<ScheduleTimeSummary[]> {
+  if (!isSupabaseConfigured) {
+    throw new Error("Supabase não está configurado.");
+  }
+  const { data, error } = await supabase
+    .from(TABLE)
+    .select("id, date, time, client_name, title, status")
+    .gte("date", startISO)
+    .lte("date", endISO);
+  if (error) {
+    throw new Error(`Falha ao consultar horários: ${error.message}`);
+  }
+  return (data || [])
+    .map((r) => {
+      const row = r as Record<string, unknown>;
+      return {
+        id: row.id as string,
+        date: row.date as string,
+        time: (row.time as string) || "",
+        clientName: (row.client_name as string) || undefined,
+        title: (row.title as string) || undefined,
+        status: (row.status as string) || undefined,
+      };
+    })
+    // Cancelado libera o horário de novo (usado pelo "Cancelar horário" da
+    // página pública) — não trata linha sem status (dado antigo) como cancelada.
+    .filter((r) => r.time && r.status !== "cancelled");
+}
+
+// Atualização parcial usada pela página pública de agendamento pra permitir
+// corrigir um agendamento errado (nome/data/horário/descrição) sem precisar
+// do registro completo de ScheduleUI (a página não tem clientId/animalId).
+export async function updatePublicBooking(
+  id: string,
+  fields: { date: Date; time: string; clientName: string; title: string }
+): Promise<void> {
+  if (!isSupabaseConfigured) {
+    throw new Error("Supabase não está configurado.");
+  }
+  const { error } = await supabase
+    .from(TABLE)
+    .update({
+      date: format(fields.date, "yyyy-MM-dd"),
+      time: fields.time,
+      client_name: fields.clientName,
+      title: fields.title,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", id);
+  if (error) {
+    throw new Error(`Falha ao atualizar agendamento: ${error.message}`);
+  }
+}
+
+// "Cancelar" pela página pública é um soft-delete (status='cancelled'), não
+// um DELETE de verdade — mantém histórico e evita precisar dar permissão de
+// exclusão pra `anon` na RLS, só de UPDATE (que já é necessária pra editar).
+export async function cancelPublicBooking(id: string): Promise<void> {
+  if (!isSupabaseConfigured) {
+    throw new Error("Supabase não está configurado.");
+  }
+  const { error } = await supabase
+    .from(TABLE)
+    .update({ status: "cancelled", updated_at: new Date().toISOString() })
+    .eq("id", id);
+  if (error) {
+    throw new Error(`Falha ao cancelar agendamento: ${error.message}`);
+  }
+}
+
+// Um agendamento é "encaixe" quando existe outro no mesmo dia a menos de
+// `gapMinutes` de distância (mesma regra usada pra avisar sobre conflito na
+// página pública de agendamento) — calculado na hora a partir da lista, sem
+// precisar de coluna nova no banco pra marcar isso.
+export function computeEncaixeIds(
+  items: { id: string; date: string; time: string }[],
+  gapMinutes = 60
+): Set<string> {
+  const toMinutes = (t: string): number | null => {
+    const match = /^(\d{1,2}):(\d{2})$/.exec(t.trim());
+    if (!match) return null;
+    return Number(match[1]) * 60 + Number(match[2]);
+  };
+  const byDate = new Map<string, { id: string; minutes: number }[]>();
+  for (const it of items) {
+    const minutes = toMinutes(it.time);
+    if (minutes === null) continue;
+    const list = byDate.get(it.date) || [];
+    list.push({ id: it.id, minutes });
+    byDate.set(it.date, list);
+  }
+  const result = new Set<string>();
+  for (const list of byDate.values()) {
+    for (let i = 0; i < list.length; i++) {
+      for (let j = i + 1; j < list.length; j++) {
+        if (Math.abs(list[i].minutes - list[j].minutes) < gapMinutes) {
+          result.add(list[i].id);
+          result.add(list[j].id);
+        }
+      }
+    }
+  }
+  return result;
+}
+
 export async function createSchedule(entry: Omit<ScheduleUI, "id"> & { id?: string }): Promise<ScheduleUI> {
   if (!isSupabaseConfigured) {
     throw new Error("Supabase não está configurado.");

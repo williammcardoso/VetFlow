@@ -26,7 +26,8 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { toast } from "sonner";
 import { useClientsList } from "@/hooks/useSupabaseClients";
 import { useSchedulesList, useScheduleMutations } from "@/hooks/useSchedules";
-import type { ScheduleStatus, ScheduleUI } from "@/lib/schedulesApi";
+import { computeEncaixeIds, type ScheduleStatus, type ScheduleUI } from "@/lib/schedulesApi";
+import { Badge } from "@/components/ui/badge";
 import { PageShell } from "@/components/saas/PageShell";
 import { PageHeader } from "@/components/saas/PageHeader";
 import { CalendarDays, ChevronDown } from "lucide-react";
@@ -82,6 +83,14 @@ const AgendaPage = () => {
       [...schedules].sort(
         (a, b) => a.date.getTime() - b.date.getTime() || a.time.localeCompare(b.time)
       ),
+    [schedules]
+  );
+
+  // Marca como "encaixe" agendamentos com menos de 1h de distância de outro
+  // no mesmo dia (ex.: duas vacinas em casas vizinhas) — mesma regra usada
+  // no aviso de confirmação da página pública de agendamento.
+  const encaixeIds = useMemo(
+    () => computeEncaixeIds(schedules.map((s) => ({ id: s.id, date: format(s.date, "yyyy-MM-dd"), time: s.time }))),
     [schedules]
   );
 
@@ -368,7 +377,12 @@ const AgendaPage = () => {
                           <FaStickyNote className="h-3 w-3" /> {app.notes}
                         </p>
                       )}
-                      <StatusBadge status={app.status || "scheduled"} className="mt-2 inline-flex" />
+                      <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                        <StatusBadge status={app.status || "scheduled"} className="inline-flex" />
+                        {encaixeIds.has(app.id) && (
+                          <Badge className="border-transparent bg-amber-100 text-amber-800 hover:bg-amber-100">Encaixe</Badge>
+                        )}
+                      </div>
                     </div>
                     <div className="flex gap-2">
                       <DropdownMenu>
@@ -431,7 +445,12 @@ const AgendaPage = () => {
                           >
                             <p className="text-xs font-semibold text-foreground">{app.time} - {app.title}</p>
                             <p className="mt-0.5 text-xs text-muted-foreground truncate">{app.clientName} • {app.animalName}</p>
-                            <StatusBadge status={app.status || "scheduled"} className="mt-1 inline-flex" />
+                            <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                              <StatusBadge status={app.status || "scheduled"} className="inline-flex" />
+                              {encaixeIds.has(app.id) && (
+                                <Badge className="border-transparent bg-amber-100 text-amber-800 hover:bg-amber-100">Encaixe</Badge>
+                              )}
+                            </div>
                           </button>
                         ))}
                       </div>
@@ -457,7 +476,12 @@ const AgendaPage = () => {
                           >
                             <p className="text-xs font-semibold text-foreground">{app.time} - {app.title}</p>
                             <p className="mt-0.5 text-xs text-muted-foreground truncate">{app.clientName} • {app.animalName}</p>
-                            <StatusBadge status={app.status || "scheduled"} className="mt-1 inline-flex" />
+                            <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                              <StatusBadge status={app.status || "scheduled"} className="inline-flex" />
+                              {encaixeIds.has(app.id) && (
+                                <Badge className="border-transparent bg-amber-100 text-amber-800 hover:bg-amber-100">Encaixe</Badge>
+                              )}
+                            </div>
                           </button>
                         ))}
                       </div>
