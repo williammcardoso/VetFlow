@@ -153,6 +153,23 @@ const BookSchedulePage: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [weekStart]);
 
+  // Vários computadores do balcão usam essa página ao mesmo tempo — sem
+  // isso, quem já estava com a grade aberta só via o horário reservado por
+  // outro computador depois de um F5. Atualiza sozinho a cada 10s, sem
+  // mostrar "Carregando..." (silencioso, pra não interromper quem está
+  // digitando no formulário embaixo).
+  React.useEffect(() => {
+    const startISO = toISODate(weekDays[0]);
+    const endISO = toISODate(weekDays[6]);
+    const intervalId = setInterval(() => {
+      listScheduleTimesInRange(startISO, endISO)
+        .then((rows) => setBookings(rows))
+        .catch(() => { /* falha passageira — tenta de novo no próximo tick */ });
+    }, 10000);
+    return () => clearInterval(intervalId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [weekStart]);
+
   // Agrupa os agendamentos da semana pela célula da grade (dia + hora cheia)
   // mais próxima de cada um — assim um "encaixe" torto (ex.: 8h30) ganha o
   // próprio botãozinho na célula certa, ao lado do agendamento vizinho, em
