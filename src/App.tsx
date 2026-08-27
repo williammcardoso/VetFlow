@@ -1,7 +1,7 @@
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate, Outlet, useLocation } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, Outlet, useLocation, useParams } from "react-router-dom";
 import { useEffect } from "react";
 import Layout from "./components/Layout";
 import Dashboard from "./pages/Dashboard";
@@ -71,6 +71,19 @@ import { getCompanySettings } from "./lib/settingsApi";
 
 const queryClient = new QueryClient();
 
+// React Router reaproveita a mesma instância de PatientRecordPage ao navegar
+// entre prontuários diferentes (só os params da rota mudam) — como o arquivo
+// tem várias listas em estado local (timeline, exames, receitas, peso,
+// documentos), dados do paciente anterior podiam ficar visíveis até as
+// buscas do paciente novo voltarem. `key` força o React a desmontar e
+// remontar do zero a cada troca de paciente, o jeito mais seguro de garantir
+// que nenhum estado sobra de um prontuário pro outro.
+const PatientRecordRoute = () => {
+  const { clientId, animalId, patientCode } = useParams<{ clientId?: string; animalId?: string; patientCode?: string }>();
+  const key = patientCode || animalId || clientId || "new";
+  return <PatientRecordPage key={key} />;
+};
+
 const ProtectedAppShell = () => {
   const { isAuthenticated, permissionsLoading, canAccessPath, canAccessModule } = useAuth();
   const location = useLocation();
@@ -122,8 +135,8 @@ const App = () => {
                     <Route path="/clients/:clientId/edit" element={<ClientFormPage />} />
                     <Route path="/animals/add" element={<AddAnimalPage />} />
                     <Route path="/clients/:clientId" element={<ClientDetailPage />} />
-                    <Route path="/clients/:clientId/animals/:animalId/record" element={<PatientRecordPage />} />
-                    <Route path="/prontuario/:patientCode" element={<PatientRecordPage />} />
+                    <Route path="/clients/:clientId/animals/:animalId/record" element={<PatientRecordRoute />} />
+                    <Route path="/prontuario/:patientCode" element={<PatientRecordRoute />} />
                     <Route path="/clients/:clientId/animals/:animalId/add-exam" element={<AddExamPage />} />
                     <Route path="/clients/:clientId/animals/:animalId/edit-exam/:examId" element={<AddExamPage />} />
                     <Route path="/clients/:clientId/animals/:animalId/edit" element={<AddAnimalPage />} />

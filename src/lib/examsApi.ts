@@ -39,9 +39,16 @@ function examToRow(entry: ExamEntry): Record<string, unknown> {
 }
 
 export async function getExams(animalId?: string): Promise<ExamEntry[]> {
-  let q = supabase.from(TABLE).select("*").order("date", { ascending: false }).order("time", { ascending: false });
-  if (animalId) q = q.eq("animal_id", animalId);
-  const { data, error } = await q;
+  // Nunca chamado de propósito sem animalId — um animalId "ainda não
+  // resolvido" não deve virar "todos os exames da clínica" (bug real:
+  // prontuário mostrando exame de outro paciente).
+  if (!animalId) return [];
+  const { data, error } = await supabase
+    .from(TABLE)
+    .select("*")
+    .eq("animal_id", animalId)
+    .order("date", { ascending: false })
+    .order("time", { ascending: false });
   if (error) {
     console.error("[getExams] error", error);
     return [];

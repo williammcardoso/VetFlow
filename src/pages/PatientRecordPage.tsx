@@ -245,7 +245,12 @@ const PatientRecordPage = () => {
   const animalId = animalIdParam || animalRef?.animalId;
 
   const { transactions: mockFinancialTransactions, refetch: refetchFinancial } = useFinancialTransactions();
-  const { appointments: animalAppointmentsFromHook, refetch: refetchAppointments } = useAppointments(animalId);
+  // `skipWhenNoAnimalId`: na rota curta /prontuario/:patientCode, animalId
+  // fica undefined por pelo menos 1 render enquanto useAnimalRefByPatientCode
+  // resolve — sem essa opção, o hook caía no fallback de "todos os
+  // atendimentos da clínica" (bug real: prontuário mostrando dados de outros
+  // pacientes até a busca certa voltar).
+  const { appointments: animalAppointmentsFromHook, refetch: refetchAppointments } = useAppointments(animalId, { skipWhenNoAnimalId: true });
   const { prescriptions: prescriptionsFromHook, refetch: refetchPrescriptions } = usePrescriptions(animalId);
   const { exams: examsFromHook, refetch: refetchExams } = useExams(animalId);
   const { items: catalogItemsFromHook, refetch: refetchCatalog } = useCatalog();
@@ -309,6 +314,13 @@ const PatientRecordPage = () => {
     setWeightHistory(await getWeightHistory(animalId));
   }, [animalId]);
 
+  // Limpa assim que o animalId muda — sem isso, o peso do prontuário
+  // anterior ficava visível até a busca nova voltar (SPA não remonta o
+  // componente ao trocar de paciente).
+  useEffect(() => {
+    setWeightHistory([]);
+  }, [animalId]);
+
   useEffect(() => {
     void refetchWeightHistory();
   }, [refetchWeightHistory]);
@@ -322,6 +334,13 @@ const PatientRecordPage = () => {
   }, [weightHistory]);
 
   const [documents, setDocuments] = useState<PatientDocumentEntry[]>([]);
+
+  // Limpa assim que o animalId muda, antes da busca nova — sem isso,
+  // documentos do prontuário anterior ficavam visíveis até a busca nova
+  // voltar (SPA não remonta o componente ao trocar de paciente).
+  useEffect(() => {
+    setDocuments([]);
+  }, [animalId]);
 
   useEffect(() => {
     (async () => {

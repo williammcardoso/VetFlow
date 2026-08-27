@@ -10,6 +10,12 @@ export function useObservations(animalId?: string): {
   const [observations, setObservations] = useState<ObservationEntry[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Limpa a lista assim que o animalId muda — sem isso, observações do
+  // prontuário anterior ficavam visíveis até a busca nova voltar.
+  useEffect(() => {
+    setObservations([]);
+  }, [animalId]);
+
   const refetch = useCallback(async () => {
     setLoading(true);
     const data = await observationsApi.getObservations(animalId);

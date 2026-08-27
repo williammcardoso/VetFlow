@@ -10,6 +10,12 @@ export function usePrescriptions(animalId?: string): {
   const [prescriptions, setPrescriptions] = useState<PrescriptionEntry[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Limpa a lista assim que o animalId muda — sem isso, receitas do
+  // prontuário anterior ficavam visíveis até a busca nova voltar.
+  useEffect(() => {
+    setPrescriptions([]);
+  }, [animalId]);
+
   const refetch = useCallback(async () => {
     setLoading(true);
     const data = await prescriptionsApi.getPrescriptions(animalId);

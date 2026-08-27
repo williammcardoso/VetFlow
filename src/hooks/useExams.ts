@@ -10,6 +10,12 @@ export function useExams(animalId?: string): {
   const [exams, setExams] = useState<ExamEntry[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Limpa a lista assim que o animalId muda — sem isso, exames do
+  // prontuário anterior ficavam visíveis até a busca nova voltar.
+  useEffect(() => {
+    setExams([]);
+  }, [animalId]);
+
   const refetch = useCallback(async () => {
     setLoading(true);
     const data = await examsApi.getExams(animalId);

@@ -20,9 +20,16 @@ function rowToPrescription(r: Record<string, unknown>): PrescriptionEntry {
 }
 
 export async function getPrescriptions(animalId?: string): Promise<PrescriptionEntry[]> {
-  let q = supabase.from(TABLE).select("*").order("date", { ascending: false }).order("time", { ascending: false });
-  if (animalId) q = q.eq("animal_id", animalId);
-  const { data, error } = await q;
+  // Nunca chamado de propósito sem animalId (diferente de getAppointments) —
+  // um animalId "ainda não resolvido" não deve virar "todas as receitas da
+  // clínica" (bug real: prontuário mostrando receita de outro paciente).
+  if (!animalId) return [];
+  const { data, error } = await supabase
+    .from(TABLE)
+    .select("*")
+    .eq("animal_id", animalId)
+    .order("date", { ascending: false })
+    .order("time", { ascending: false });
   if (error) {
     console.error("[getPrescriptions] error", error);
     return [];
