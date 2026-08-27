@@ -117,7 +117,10 @@ const Dashboard = () => {
       if (status === "attended" || status === "cancelled" || status === "no_show") return false;
       return itemDate.getTime() >= now.getTime();
     });
-  const upcoming = upcomingAll.slice(0, 3);
+  // Antes cortava em 3 (`.slice(0, 3)`) mas o badge ao lado mostrava a
+  // contagem real (ex.: "7 eventos") — usuário via o número maior sem
+  // conseguir ver os outros. Mostra todos, com scroll no card.
+  const upcoming = upcomingAll;
   const todayLabel = now.toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "short" });
 
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -350,7 +353,7 @@ const Dashboard = () => {
           </div>
 
           {upcoming.length > 0 ? (
-            <div className="space-y-2.5">
+            <div className="max-h-[420px] space-y-2.5 overflow-y-auto pr-1">
               {upcoming.map((app) => {
                 return (
                   <Card key={app.id} className="rounded-xl border border-border/70 bg-card p-3.5 transition-all duration-200 hover:-translate-y-0.5 hover:border-vf-clinical/70">
@@ -384,6 +387,14 @@ const Dashboard = () => {
                 );
               })}
             </div>
+          ) : null}
+          {upcoming.length > 0 ? (
+            <Link
+              to="/agenda"
+              className="mt-2.5 inline-flex items-center text-xs font-medium text-vf-clinical hover:underline"
+            >
+              Ver agenda completa →
+            </Link>
           ) : (
             <div className="rounded-xl border border-dashed border-border/65 bg-muted/35 p-4">
               <div className="flex items-center gap-3">
