@@ -1,8 +1,12 @@
 <!doctype html>
-<html lang="en">
+<html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Evita que o Chrome ofereça/ative tradução automática — quando isso
+         acontece durante o carregamento, a extensão mexe no HTML por fora do
+         React e causa erros de "removeChild" na hora de re-renderizar. -->
+    <meta name="google" content="notranslate" />
     <link rel="icon" type="image/png" href="/favicon.png" />
     <!-- Inter: mesma família usada nos PDFs, servida localmente de
          /fonts/Inter-*.ttf. Declarada aqui para o editor de documentos
