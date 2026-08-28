@@ -184,6 +184,24 @@ export function buildContextFromExams(
   return parts.join("\n").trim();
 }
 
+/**
+ * Tira a marcação `**negrito**`/`**Título**` da resposta da IA antes de
+ * salvar como texto puro (ex.: numa Observação do prontuário) — essa
+ * marcação só faz sentido quando renderizada com AISuggestionsView; salva
+ * como está, sobra asterisco literal no meio do texto.
+ */
+export function stripMarkdownForPlainText(text: string): string {
+  return text
+    .split("\n")
+    .map((line) => {
+      const trimmed = line.trim();
+      const headerMatch = /^\*\*(.+?)\*\*:?$/.exec(trimmed);
+      if (headerMatch) return headerMatch[1].toUpperCase();
+      return line.replace(/\*\*(.+?)\*\*/g, "$1");
+    })
+    .join("\n");
+}
+
 export interface FetchInterpretationResult {
   ok: true;
   text: string;

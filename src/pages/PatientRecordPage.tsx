@@ -82,7 +82,7 @@ import { getPatientDisplayId, getPatientSubPath } from "@/utils/patientDisplayId
 import PatientAppointmentsTab from "@/components/patient/appointments/PatientAppointmentsTab";
 import PatientVaccinesTab from "@/components/patient/vaccines/PatientVaccinesTab";
 import AISuggestionsView from "@/components/AISuggestionsView";
-import { buildContextFromExams, fetchExamInterpretation, type ChatMessage } from "@/lib/examInterpretation";
+import { buildContextFromExams, fetchExamInterpretation, stripMarkdownForPlainText, type ChatMessage } from "@/lib/examInterpretation";
 import {
   Circle as CircleIcon,
   FileText as FileTextIcon,
@@ -492,7 +492,10 @@ const PatientRecordPage = () => {
       // feita depois entra como "Pergunta:"/"Resposta:" — só acontece se o
       // usuário realmente continuou a conversa.
       const body = conversation
-        .map((m, i) => (i === 0 ? m.content : m.role === "user" ? `Pergunta: ${m.content}` : `Resposta: ${m.content}`))
+        .map((m, i) => {
+          const text = stripMarkdownForPlainText(m.content);
+          return i === 0 ? text : m.role === "user" ? `Pergunta: ${text}` : `Resposta: ${text}`;
+        })
         .join("\n\n");
       const created = await observationsApi.addObservation(animalId, {
         observation: header + body,
@@ -2867,7 +2870,7 @@ const PatientRecordPage = () => {
                                   <span className="text-xs text-muted-foreground">{formatDateTime(obs.date, obs.time)}</span>
                                 </div>
 
-                                <div className={cn("mt-2 text-[15px] sm:text-base font-semibold leading-snug", isAlert ? "text-red-900" : "text-foreground")}>
+                                <div className={cn("mt-2 whitespace-pre-wrap text-[15px] sm:text-base font-semibold leading-snug", isAlert ? "text-red-900" : "text-foreground")}>
                                   {obs.observation}
                                 </div>
                               </div>
@@ -3514,7 +3517,7 @@ const PatientRecordPage = () => {
             <DialogDescription>Detalhes da observação registrada.</DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
-            <p className="text-sm text-foreground">{selectedObservation?.observation}</p>
+            <p className="whitespace-pre-wrap text-sm text-foreground">{selectedObservation?.observation}</p>
             {selectedObservation && (
               <p className="text-xs text-muted-foreground">Data: {formatDateTime(selectedObservation.date, selectedObservation.time)}</p>
             )}
