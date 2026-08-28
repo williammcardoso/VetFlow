@@ -82,7 +82,7 @@ import { getPatientDisplayId, getPatientSubPath } from "@/utils/patientDisplayId
 import PatientAppointmentsTab from "@/components/patient/appointments/PatientAppointmentsTab";
 import PatientVaccinesTab from "@/components/patient/vaccines/PatientVaccinesTab";
 import AISuggestionsView from "@/components/AISuggestionsView";
-import { buildContextFromExams, fetchExamInterpretation } from "@/lib/examInterpretation";
+import { buildContextFromExams, fetchExamInterpretation, type ChatMessage } from "@/lib/examInterpretation";
 import {
   Circle as CircleIcon,
   FileText as FileTextIcon,
@@ -401,7 +401,12 @@ const PatientRecordPage = () => {
   const [examInterpExamIds, setExamInterpExamIds] = useState<Set<string>>(new Set());
   const [examInterpObservation, setExamInterpObservation] = useState("");
   const [examInterpLoading, setExamInterpLoading] = useState(false);
-  const [examInterpResult, setExamInterpResult] = useState<string | null>(null);
+  // Mensagem [0] é o contexto montado automaticamente (dados dos exames),
+  // nunca renderizada como "pergunta" — a partir daí alterna resposta da IA
+  // e pergunta de acompanhamento, pra dar pra tirar dúvida sobre a
+  // interpretação já gerada em vez de cada geração ficar isolada.
+  const [examInterpMessages, setExamInterpMessages] = useState<ChatMessage[]>([]);
+  const [examInterpFollowUp, setExamInterpFollowUp] = useState("");
   const [examInterpError, setExamInterpError] = useState<string | null>(null);
   const [examInterpSaving, setExamInterpSaving] = useState(false);
 
@@ -409,7 +414,8 @@ const PatientRecordPage = () => {
     setExamInterpAppointmentId("none");
     setExamInterpExamIds(new Set());
     setExamInterpObservation("");
-    setExamInterpResult(null);
+    setExamInterpMessages([]);
+    setExamInterpFollowUp("");
     setExamInterpError(null);
     setExamInterpOpen(true);
   };
@@ -431,7 +437,6 @@ const PatientRecordPage = () => {
     }
     setExamInterpLoading(true);
     setExamInterpError(null);
-    setExamInterpResult(null);
     try {
       const appointment = examInterpAppointmentId !== "none"
         ? animalAppointments.find((a) => a.id === examInterpAppointmentId)
@@ -444,9 +449,30 @@ const PatientRecordPage = () => {
         { name: currentAnimal?.name, species: currentAnimal?.species },
         hemogramRefs
       );
-      const result = await fetchExamInterpretation(context);
+      const initialMessages: ChatMessage[] = [{ role: "user", content: context }];
+      const result = await fetchExamInterpretation(initialMessages);
       if (result.ok) {
-        setExamInterpResult(result.text);
+        setExamInterpMessages([...initialMessages, { role: "assistant", content: result.text }]);
+      } else {
+        setExamInterpError(result.error);
+      }
+    } finally {
+      setExamInterpLoading(false);
+    }
+  };
+
+  const handleExamInterpFollowUp = async () => {
+    const question = examInterpFollowUp.trim();
+    if (!question || examInterpLoading) return;
+    setExamInterpError(null);
+    setExamInterpLoading(true);
+    const nextMessages: ChatMessage[] = [...examInterpMessages, { role: "user", content: question }];
+    setExamInterpMessages(nextMessages);
+    setExamInterpFollowUp("");
+    try {
+      const result = await fetchExamInterpretation(nextMessages);
+      if (result.ok) {
+        setExamInterpMessages([...nextMessages, { role: "assistant", content: result.text }]);
       } else {
         setExamInterpError(result.error);
       }
@@ -456,13 +482,20 @@ const PatientRecordPage = () => {
   };
 
   const handleSaveExamInterpretationAsObservation = async () => {
-    if (!examInterpResult || !animalId) return;
+    const conversation = examInterpMessages.slice(1);
+    if (conversation.length === 0 || !animalId) return;
     setExamInterpSaving(true);
     try {
       const chosenExams = examsList.filter((e) => examInterpExamIds.has(e.id));
       const header = `Interpretação de IA (exames: ${chosenExams.map((e) => e.type).join(", ")}):\n\n`;
+      // Primeira resposta entra direto; qualquer pergunta de acompanhamento
+      // feita depois entra como "Pergunta:"/"Resposta:" — só acontece se o
+      // usuário realmente continuou a conversa.
+      const body = conversation
+        .map((m, i) => (i === 0 ? m.content : m.role === "user" ? `Pergunta: ${m.content}` : `Resposta: ${m.content}`))
+        .join("\n\n");
       const created = await observationsApi.addObservation(animalId, {
-        observation: header + examInterpResult,
+        observation: header + body,
         displayAsAlert: false,
         createdBy: currentVetName,
       });
@@ -3500,7 +3533,7 @@ const PatientRecordPage = () => {
             </DialogDescription>
           </DialogHeader>
 
-          {!examInterpResult ? (
+          {examInterpMessages.length === 0 ? (
             <div className="space-y-4">
               <div className="space-y-1.5">
                 <Label>Atendimento relacionado (opcional)</Label>
@@ -3557,11 +3590,54 @@ const PatientRecordPage = () => {
               )}
             </div>
           ) : (
-            <AISuggestionsView text={examInterpResult} />
+            <div className="space-y-3">
+              {/* Mensagem [0] é o contexto montado automaticamente, não uma
+                  pergunta do veterinário — nunca renderizada. */}
+              {examInterpMessages.slice(1).map((msg, i) =>
+                msg.role === "assistant" ? (
+                  <AISuggestionsView key={i} text={msg.content} />
+                ) : (
+                  <div key={i} className="rounded-lg border border-primary/20 bg-primary/5 px-3 py-2 text-sm">
+                    <span className="font-semibold text-primary">Você perguntou: </span>
+                    {msg.content}
+                  </div>
+                )
+              )}
+
+              {examInterpError && (
+                <div className="rounded-lg border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                  {examInterpError}
+                </div>
+              )}
+
+              <div className="flex gap-2">
+                <Input
+                  value={examInterpFollowUp}
+                  onChange={(e) => setExamInterpFollowUp(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      void handleExamInterpFollowUp();
+                    }
+                  }}
+                  placeholder="Tirar uma dúvida sobre essa interpretação..."
+                  disabled={examInterpLoading}
+                  className="bg-input"
+                />
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={handleExamInterpFollowUp}
+                  disabled={examInterpLoading || !examInterpFollowUp.trim()}
+                >
+                  {examInterpLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Perguntar"}
+                </Button>
+              </div>
+            </div>
           )}
 
           <DialogFooter className="gap-2">
-            {!examInterpResult ? (
+            {examInterpMessages.length === 0 ? (
               <>
                 <Button variant="outline" onClick={() => setExamInterpOpen(false)}>Cancelar</Button>
                 <Button onClick={handleGenerateExamInterpretation} disabled={examInterpLoading}>
@@ -3578,7 +3654,7 @@ const PatientRecordPage = () => {
               </>
             ) : (
               <>
-                <Button variant="outline" onClick={() => setExamInterpResult(null)}>Voltar</Button>
+                <Button variant="outline" onClick={() => setExamInterpMessages([])}>Recomeçar</Button>
                 <Button onClick={handleSaveExamInterpretationAsObservation} disabled={examInterpSaving}>
                   {examInterpSaving ? (
                     <>

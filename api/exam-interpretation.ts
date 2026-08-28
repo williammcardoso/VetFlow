@@ -41,6 +41,10 @@ interface VercelResponse {
   status: (code: number) => VercelResponse;
   json: (body: unknown) => void;
 }
+interface ChatMessage {
+  role: "user" | "assistant";
+  content: string;
+}
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "POST") {
@@ -57,10 +61,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
-  const body = (req.body ?? {}) as { context?: unknown };
-  const context = typeof body.context === "string" ? body.context.trim() : "";
-  if (!context) {
-    res.status(400).json({ ok: false, error: "Contexto do exame vazio." });
+  // Recebe o histórico inteiro da conversa (contexto inicial + perguntas de
+  // acompanhamento já feitas) — permite continuar perguntando sobre a mesma
+  // interpretação, em vez de cada geração ser isolada sem memória do que já
+  // foi dito. O cliente (src/lib/examInterpretation.ts) monta esse array.
+  const body = (req.body ?? {}) as { messages?: unknown };
+  const messages = Array.isArray(body.messages)
+    ? (body.messages as ChatMessage[]).filter(
+        (m) => m && (m.role === "user" || m.role === "assistant") && typeof m.content === "string" && m.content.trim()
+      )
+    : [];
+  if (messages.length === 0) {
+    res.status(400).json({ ok: false, error: "Nenhuma mensagem enviada." });
     return;
   }
 
@@ -73,10 +85,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       },
       body: JSON.stringify({
         model: "gpt-4o-mini",
-        messages: [
-          { role: "system", content: EXAM_INTERPRETATION_SYSTEM_PROMPT },
-          { role: "user", content: `Dados do(s) exame(s) e contexto:\n\n${context}` },
-        ],
+        messages: [{ role: "system", content: EXAM_INTERPRETATION_SYSTEM_PROMPT }, ...messages],
         max_tokens: 1500,
         temperature: 0.3,
       }),

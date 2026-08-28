@@ -48,7 +48,7 @@ import LegacyConsultationForm from "@/components/appointments/forms/LegacyConsul
 
 import AppointmentPdfContent from "@/components/AppointmentPdfContent";
 import { removeAppointmentDraft, upsertAppointmentDraft } from "@/lib/appointmentDrafts";
-import { buildConsultationContext, fetchAISuggestions } from "@/lib/aiAssistant";
+import { buildConsultationContext, fetchAISuggestions, type ChatMessage } from "@/lib/aiAssistant";
 import AISuggestionsView from "@/components/AISuggestionsView";
 import { createPdfBlob, openPdf } from "@/lib/pdfExport";
 
@@ -260,11 +260,15 @@ export default function AppointmentForm({
 
   const [consultationMode, setConsultationMode] = useState<ConsultationMode>("simplificado");
 
-  // Assistente de IA (consultas)
+  // Assistente de IA (consultas) — assistantMessages guarda a conversa
+  // inteira (mensagem [0] é o contexto montado automaticamente, não
+  // renderizada como "pergunta"; a partir daí alterna resposta da IA e
+  // pergunta de acompanhamento do veterinário).
   const [useAssistantIA, setUseAssistantIA] = useState(false);
   const [assistantLoading, setAssistantLoading] = useState(false);
-  const [assistantResponse, setAssistantResponse] = useState<string | null>(null);
+  const [assistantMessages, setAssistantMessages] = useState<ChatMessage[]>([]);
   const [assistantError, setAssistantError] = useState<string | null>(null);
+  const [assistantFollowUp, setAssistantFollowUp] = useState("");
 
   // Estado de UI para "Outra" (não salva no registro)
   const [vaccineNameChoice, setVaccineNameChoice] = useState<string>("");
@@ -545,7 +549,6 @@ export default function AppointmentForm({
 
   const handleGenerateAISuggestions = async () => {
     setAssistantError(null);
-    setAssistantResponse(null);
     setAssistantLoading(true);
     try {
       const draft = buildDraftAppointment();
@@ -553,9 +556,37 @@ export default function AppointmentForm({
         name: animalName,
         species: animalSpecies,
       });
-      const result = await fetchAISuggestions(context);
+      const initialMessages: ChatMessage[] = [
+        { role: "user", content: `Contexto da consulta (anamnese e exame já registrados):\n\n${context}` },
+      ];
+      const result = await fetchAISuggestions(initialMessages);
       if (result.ok) {
-        setAssistantResponse(result.text);
+        setAssistantMessages([...initialMessages, { role: "assistant", content: result.text }]);
+      } else {
+        setAssistantMessages([]);
+        setAssistantError(result.error);
+        toast.error(result.error);
+      }
+    } finally {
+      setAssistantLoading(false);
+    }
+  };
+
+  // Continua a mesma conversa (manda o histórico inteiro de novo) — antes,
+  // cada geração era isolada, sem memória do que já tinha sido respondido,
+  // e não dava pra tirar dúvida sobre uma sugestão já gerada.
+  const handleAssistantFollowUp = async () => {
+    const question = assistantFollowUp.trim();
+    if (!question || assistantLoading) return;
+    setAssistantError(null);
+    setAssistantLoading(true);
+    const nextMessages: ChatMessage[] = [...assistantMessages, { role: "user", content: question }];
+    setAssistantMessages(nextMessages);
+    setAssistantFollowUp("");
+    try {
+      const result = await fetchAISuggestions(nextMessages);
+      if (result.ok) {
+        setAssistantMessages([...nextMessages, { role: "assistant", content: result.text }]);
       } else {
         setAssistantError(result.error);
         toast.error(result.error);
@@ -1417,30 +1448,75 @@ export default function AppointmentForm({
               Com base na queixa, anamnese e exame já preenchidos, o assistente pode sugerir perguntas ao tutor,
               hipóteses diagnósticas, exames e condutas. Valide sempre as sugestões com seu julgamento clínico.
             </p>
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={handleGenerateAISuggestions}
-              disabled={assistantLoading}
-            >
-              {assistantLoading ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Gerando sugestões...
-                </>
-              ) : (
-                <>
-                  <Sparkles className="h-4 w-4 mr-2" />
-                  Gerar sugestões
-                </>
-              )}
-            </Button>
+            {assistantMessages.length === 0 ? (
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={handleGenerateAISuggestions}
+                disabled={assistantLoading}
+              >
+                {assistantLoading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Gerando sugestões...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="h-4 w-4 mr-2" />
+                    Gerar sugestões
+                  </>
+                )}
+              </Button>
+            ) : (
+              <Button type="button" variant="ghost" size="sm" onClick={() => { setAssistantMessages([]); setAssistantError(null); }}>
+                Recomeçar
+              </Button>
+            )}
+
             {assistantError && (
               <div className="rounded-lg border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive">
                 {assistantError}
               </div>
             )}
-            {assistantResponse && <AISuggestionsView text={assistantResponse} />}
+
+            {/* Mensagem [0] é o contexto montado automaticamente, não uma
+                pergunta do veterinário — nunca renderizada. */}
+            {assistantMessages.slice(1).map((msg, i) =>
+              msg.role === "assistant" ? (
+                <AISuggestionsView key={i} text={msg.content} />
+              ) : (
+                <div key={i} className="rounded-lg border border-primary/20 bg-primary/5 px-3 py-2 text-sm">
+                  <span className="font-semibold text-primary">Você perguntou: </span>
+                  {msg.content}
+                </div>
+              )
+            )}
+
+            {assistantMessages.length > 0 && (
+              <div className="flex gap-2">
+                <Input
+                  value={assistantFollowUp}
+                  onChange={(e) => setAssistantFollowUp(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      void handleAssistantFollowUp();
+                    }
+                  }}
+                  placeholder="Tirar uma dúvida sobre essa sugestão..."
+                  disabled={assistantLoading}
+                  className="bg-card"
+                />
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={handleAssistantFollowUp}
+                  disabled={assistantLoading || !assistantFollowUp.trim()}
+                >
+                  {assistantLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Perguntar"}
+                </Button>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}

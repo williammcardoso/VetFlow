@@ -193,20 +193,26 @@ export interface FetchInterpretationError {
   error: string;
 }
 
+export interface ChatMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
 /**
- * Pede a interpretação de IA pro contexto de exames montado acima, via
- * proxy serverless (api/exam-interpretation.ts) — mesmo motivo do
- * assistente do atendimento: chamar a OpenAI direto do navegador expõe a
- * chave e esbarra em CORS.
+ * Pede a interpretação de IA, via proxy serverless (api/exam-interpretation.ts)
+ * — `messages` é o histórico completo da conversa (contexto inicial +
+ * perguntas de acompanhamento já feitas, se houver), permitindo continuar
+ * perguntando sobre a mesma interpretação em vez de cada geração ser
+ * isolada.
  */
 export async function fetchExamInterpretation(
-  context: string
+  messages: ChatMessage[]
 ): Promise<FetchInterpretationResult | FetchInterpretationError> {
   try {
     const res = await fetch("/api/exam-interpretation", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ context }),
+      body: JSON.stringify({ messages }),
     });
 
     const data = (await res.json().catch(() => null)) as

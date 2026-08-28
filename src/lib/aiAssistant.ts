@@ -132,17 +132,25 @@ export interface FetchSuggestionsError {
   error: string;
 }
 
+export interface ChatMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
 /**
- * Pede sugestões de IA pro contexto da consulta, via proxy serverless.
+ * Pede sugestões de IA, via proxy serverless — `messages` é o histórico
+ * completo da conversa (contexto inicial + perguntas de acompanhamento já
+ * feitas, se houver), permitindo continuar perguntando sobre a mesma
+ * sugestão em vez de cada geração ser isolada.
  */
 export async function fetchConsultationSuggestions(
-  context: string
+  messages: ChatMessage[]
 ): Promise<FetchSuggestionsResult | FetchSuggestionsError> {
   try {
     const res = await fetch(AI_SUGGESTIONS_ENDPOINT, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ context }),
+      body: JSON.stringify({ messages }),
     });
 
     const data = (await res.json().catch(() => null)) as
