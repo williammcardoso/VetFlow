@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import ClientCombobox from "@/components/ClientCombobox";
 import AutocompleteSelect from "@/components/AutocompleteSelect";
+import { usePatientRouteParams } from "@/hooks/usePatientRouteParams";
 import { Textarea } from "@/components/ui/textarea";
 import { FaArrowLeft, FaPlus, FaTimes, FaSave } from "@/components/icons/fa";
 import React, { useState, useEffect, useRef, useMemo } from "react";
@@ -96,7 +97,7 @@ const mockBreeds = [
 
 const AddAnimalPage = () => {
   const navigate = useNavigate();
-  const { clientId, animalId } = useParams<{ clientId?: string; animalId?: string }>(); // Obter clientId e animalId da URL
+  const { clientId, animalId } = usePatientRouteParams(); // clientId/animalId da rota longa OU curta (/prontuario/:patientCode/edit)
   const isEditing = !!animalId; // Determinar se está em modo de edição
   const [searchParams] = useSearchParams();
   const initialClientIdFromParams = searchParams.get('clientId');

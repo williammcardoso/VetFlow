@@ -20,6 +20,7 @@ import { toast } from "sonner";
 import { useRegistryList } from "@/hooks/useRegistryList";
 import { addPatientDocument, updatePatientDocument, readPatientDocuments } from "@/lib/documentsApi";
 import { useClientWithAnimals } from "@/hooks/useSupabaseClients";
+import { usePatientRouteParams } from "@/hooks/usePatientRouteParams";
 import type { Client, Animal } from "@/types/client";
 import { replaceTemplateVariables } from "@/utils/templateReplacements";
 import { PageShell } from "@/components/saas/PageShell";
@@ -72,10 +73,7 @@ function withDefaultTemplateTypography(html: string): string {
 
 
 const AddDocumentPage: React.FC = () => {
-  const { clientId, animalId } = useParams<{
-    clientId: string;
-    animalId: string;
-  }>();
+  const { clientId, animalId } = usePatientRouteParams();
   const [searchParams] = useSearchParams();
   const editDocId = searchParams.get("edit") ?? undefined;
   const debug = searchParams.get("debug") === "1";

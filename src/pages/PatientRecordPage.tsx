@@ -78,7 +78,7 @@ import DocumentPdfContent from "@/components/DocumentPdfContent";
 import ExamRequestPdfContent, { type ExamRequestPdfData } from "@/components/ExamRequestPdfContent";
 import { EXAM_REQUEST_MARKER } from "@/lib/examRequestMarker";
 import { replaceTemplateVariables } from "@/utils/templateReplacements";
-import { getPatientDisplayId } from "@/utils/patientDisplayId";
+import { getPatientDisplayId, getPatientSubPath } from "@/utils/patientDisplayId";
 import PatientAppointmentsTab from "@/components/patient/appointments/PatientAppointmentsTab";
 import PatientVaccinesTab from "@/components/patient/vaccines/PatientVaccinesTab";
 import {
@@ -109,7 +109,7 @@ import {
 import { useClientWithAnimals, useAnimalRefByPatientCode } from "@/hooks/useSupabaseClients";
 import { useQueryClient } from "@tanstack/react-query";
 import { createPdfBlob, downloadPdf, openPdf } from "@/lib/pdfExport";
-import { sendPdfViaWhatsApp as sendPdfViaWhatsAppShared } from "@/lib/whatsappShare";
+import { sendPdfViaWhatsApp as sendPdfViaWhatsAppShared, openWhatsAppChat } from "@/lib/whatsappShare";
 import { useCurrentUserProfile } from "@/hooks/useCurrentUserProfile";
 import { useAuth } from "@/contexts/AuthContext";
 import { useObservations } from "@/hooks/useObservations";
@@ -263,6 +263,13 @@ const PatientRecordPage = () => {
   const currentAnimal: Animal | undefined = useMemo(
     () => clientData?.animals.find((a) => a.id === animalId),
     [clientData, animalId]
+  );
+  // Gera link curto (/prontuario/:patientCode/...) sempre que o animal já
+  // tem patient_code, senão cai pra rota longa — mesmo padrão de
+  // getPatientRecordPath, só que pras telas "de baixo" do prontuário.
+  const subPath = useCallback(
+    (suffix: string) => getPatientSubPath(clientId ?? "", animalId ?? "", currentAnimal?.patientCode, suffix),
+    [clientId, animalId, currentAnimal?.patientCode]
   );
   const currentVetName =
     currentUserProfile?.signature_text?.trim() ||
@@ -903,7 +910,7 @@ const PatientRecordPage = () => {
 
   // ADDED: Navegar para a edição do animal
   const handleEditAnimal = () => {
-    navigate(`/clients/${clientId}/animals/${animalId}/edit`);
+    navigate(subPath("/edit"));
   };
 
   if (isClientLoading || isAnimalRefLoading) {
@@ -951,7 +958,7 @@ const PatientRecordPage = () => {
       description: `${app.type}: ${description}`,
       summary: app.observacoesGerais || description,
       icon: FaStethoscope,
-      link: `/clients/${clientId}/animals/${animalId}/view-appointment/${app.id}`,
+      link: subPath(`/view-appointment/${app.id}`),
       badgeColor: "bg-[hsl(var(--vf-clinical))]/15 text-vf-clinical",
       author: app.vet || currentVetName,
     });
@@ -987,7 +994,7 @@ const PatientRecordPage = () => {
       description: `${rx.type === 'simple' ? 'Receita Simples' : rx.type === 'controlled' ? 'Receita Controlada' : 'Receita Manipulada'}: ${description}`,
       summary: rx.instructions || rx.treatmentDescription || rx.medicationName || undefined,
       icon: rxIcon,
-      link: `/clients/${clientId}/animals/${animalId}/edit-prescription/${rx.id}?type=${rx.type}`,
+      link: subPath(`/edit-prescription/${rx.id}?type=${rx.type}`),
       badgeColor,
       author: currentVetName,
     });
@@ -1285,6 +1292,20 @@ const PatientRecordPage = () => {
                                 <span className="text-foreground/70 font-medium">Telefone:</span>{" "}
                                 <span className="text-foreground/90">{currentClient.mainPhoneContact || "-"}</span>
                               </span>
+                              {currentClient.mainPhoneContact && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    openWhatsAppChat(currentClient.mainPhoneContact);
+                                  }}
+                                  title="Conversar no WhatsApp"
+                                  aria-label="Conversar no WhatsApp"
+                                  className="ml-0.5 shrink-0 rounded-md p-1 text-green-600 hover:bg-green-50 hover:text-green-700"
+                                >
+                                  <SiWhatsapp className="h-3.5 w-3.5" />
+                                </button>
+                              )}
                             </div>
                             <div className="flex items-start gap-1.5">
                               <FaMapMarkerAlt className="mt-0.5 h-3.5 w-3.5 text-vf-clinical" />
@@ -1633,7 +1654,7 @@ const PatientRecordPage = () => {
                         const onView = () => {
                           if (event.type === 'Exame') {
                             const examId = (event.id || "").replace(/^exam-/, "");
-                            if (examId) navigate(`/clients/${clientId}/animals/${animalId}/edit-exam/${examId}`);
+                            if (examId) navigate(subPath(`/edit-exam/${examId}`));
                             return;
                           }
                           if (event.link) {
@@ -1718,6 +1739,7 @@ const PatientRecordPage = () => {
             <PatientAppointmentsTab
               clientId={clientId!}
               animalId={animalId!}
+              patientCode={currentAnimal?.patientCode}
               animalAppointments={animalAppointments}
               setAnimalAppointments={async () => { await refetchAppointments(); }}
             />
@@ -1730,7 +1752,7 @@ const PatientRecordPage = () => {
                 <CardTitle className="flex items-center gap-2 text-lg font-semibold text-foreground">
                   <FaFlask className="h-5 w-5 text-primary" /> Histórico de Exames
                 </CardTitle>
-                <Link to={`/clients/${clientId}/animals/${animalId}/add-exam`}>
+                <Link to={subPath("/add-exam")}>
                   <Button size="sm" className="rounded-md bg-[hsl(var(--vf-clinical))] font-semibold text-white transition-all duration-200 shadow-md hover:bg-[hsl(var(--vf-clinical)/0.9)] hover:shadow-lg">
                     <FaPlus className="h-4 w-4 mr-2" /> Adicionar Exame
                   </Button>
@@ -2009,7 +2031,7 @@ const PatientRecordPage = () => {
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                onClick={() => navigate(`/clients/${clientId}/animals/${animalId}/edit-exam/${exam.id}`)}
+                                onClick={() => navigate(subPath(`/edit-exam/${exam.id}`))}
                                 className="rounded-md hover:bg-muted hover:text-foreground transition-colors duration-200"
                                 title="Editar"
                               >
@@ -2032,6 +2054,7 @@ const PatientRecordPage = () => {
             <PatientVaccinesTab
               clientId={clientId!}
               animalId={animalId!}
+              patientCode={currentAnimal?.patientCode}
               animalAppointments={animalAppointments}
               setAnimalAppointments={async () => { await refetchAppointments(); }}
             />
@@ -2164,18 +2187,18 @@ const PatientRecordPage = () => {
                 {canEditPrescriptions ? (
                   <div className="flex w-full flex-wrap gap-2 sm:w-auto">
                     <Button size="sm" asChild className="rounded-md bg-[hsl(var(--vf-clinical))] font-semibold text-white transition-all duration-200 shadow-md hover:bg-[hsl(var(--vf-clinical)/0.9)] hover:shadow-lg">
-                      <Link to={`/clients/${clientId}/animals/${animalId}/emit-document`}>
+                      <Link to={subPath("/emit-document")}>
                         <FaFileAlt className="h-4 w-4 mr-2" /> Emitir termo/atestado
                         <span className="ml-2 rounded-full bg-white/20 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide">Modelo oficial</span>
                       </Link>
                     </Button>
                     <Button size="sm" variant="outline" asChild className="rounded-md border-[hsl(var(--vf-clinical)/0.4)] font-semibold text-[hsl(var(--vf-clinical))] hover:bg-[hsl(var(--vf-clinical)/0.08)]">
-                      <Link to={`/clients/${clientId}/animals/${animalId}/add-exam-request`}>
+                      <Link to={subPath("/add-exam-request")}>
                         <FaPlus className="h-4 w-4 mr-2" /> Pedido de exame
                       </Link>
                     </Button>
                     <Button size="sm" variant="outline" asChild className="rounded-md border-[hsl(var(--vf-clinical)/0.4)] font-semibold text-[hsl(var(--vf-clinical))] hover:bg-[hsl(var(--vf-clinical)/0.08)]">
-                      <Link to={`/clients/${clientId}/animals/${animalId}/add-document`}>
+                      <Link to={subPath("/add-document")}>
                         <FaPlus className="h-4 w-4 mr-2" /> Cadastrar documento livre
                       </Link>
                     </Button>
@@ -2303,7 +2326,7 @@ const PatientRecordPage = () => {
                                   className="rounded-md hover:bg-muted hover:text-foreground transition-colors duration-200"
                                   title="Editar"
                                 >
-                                  <Link to={`/clients/${clientId}/animals/${animalId}/add-document?edit=${encodeURIComponent(doc.id)}`}>
+                                  <Link to={subPath(`/add-document?edit=${encodeURIComponent(doc.id)}`)}>
                                     <FaEdit className="h-4 w-4" />
                                   </Link>
                                 </Button>
@@ -2341,28 +2364,28 @@ const PatientRecordPage = () => {
             </Card>
 
             {clientId && animalId && (
-              <DocumentTimeline pacienteId={animalId} clientId={clientId} animalId={animalId} />
+              <DocumentTimeline pacienteId={animalId} clientId={clientId} animalId={animalId} patientCode={currentAnimal?.patientCode} />
             )}
           </TabsContent>
 
           <TabsContent value="prescriptions" className="mt-4">
             {canEditPrescriptions ? (
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                <Link to={`/clients/${clientId}/animals/${animalId}/add-prescription?type=simple`}>
+                <Link to={subPath("/add-prescription?type=simple")}>
                   <Card className="vf-surface-card vf-tone-clinical card-hover flex h-full flex-col items-center justify-center rounded-md border border-border/80 p-6 text-center">
                     <FaFileMedical className="h-12 w-12 text-primary mb-3" />
                     <CardTitle className="text-lg font-semibold text-foreground">Receita Simples</CardTitle>
                     <p className="text-sm text-muted-foreground mt-1">Medicamentos de uso comum</p>
                   </Card>
                 </Link>
-                <Link to={`/clients/${clientId}/animals/${animalId}/add-prescription?type=controlled`}>
+                <Link to={subPath("/add-prescription?type=controlled")}>
                   <Card className="vf-surface-card vf-tone-clinical card-hover flex h-full flex-col items-center justify-center rounded-md border border-border/80 p-6 text-center">
                     <FaExclamationTriangle className="h-12 w-12 text-destructive mb-3" />
                     <CardTitle className="text-lg font-semibold text-foreground">Receita Controlada</CardTitle>
                     <p className="text-sm text-muted-foreground mt-1">Medicamentos controlados</p>
                   </Card>
                 </Link>
-                <Link to={`/clients/${clientId}/animals/${animalId}/add-prescription?type=manipulated`}>
+                <Link to={subPath("/add-prescription?type=manipulated")}>
                   <Card className="vf-surface-card vf-tone-clinical card-hover flex h-full flex-col items-center justify-center rounded-md border border-border/80 p-6 text-center">
                     <FaFlask className="h-12 w-12 text-vf-clinical mb-3" />
                     <CardTitle className="text-lg font-semibold text-foreground">Receita Manipulada</CardTitle>
@@ -2607,7 +2630,7 @@ const PatientRecordPage = () => {
                                 <SiWhatsapp className="h-5 w-5 text-[#25D366]" />
                               </Button>
                               {canEditPrescriptions ? (
-                                <Link to={`/clients/${clientId}/animals/${animalId}/edit-prescription/${rx.id}?type=${rx.type}`}>
+                                <Link to={subPath(`/edit-prescription/${rx.id}?type=${rx.type}`)}>
                                   <Button variant="ghost" size="icon" className="rounded-md hover:bg-muted hover:text-foreground transition-colors duration-200" title="Editar">
                                     <FaEdit className="h-4 w-4 text-slate-600" />
                                   </Button>

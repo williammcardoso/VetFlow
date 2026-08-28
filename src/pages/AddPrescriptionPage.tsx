@@ -18,6 +18,7 @@ import { PrescriptionPdfContent } from "@/components/PrescriptionPdfContent";
 import { PrescriptionEntry, ManipulatedPrescriptionData } from "@/types/medication";
 import { usePrescriptions } from "@/hooks/usePrescriptions";
 import { useClientWithAnimals } from "@/hooks/useSupabaseClients";
+import { usePatientRouteParams } from "@/hooks/usePatientRouteParams";
 import { getPatientRecordPath } from "@/utils/patientDisplayId";
 import * as prescriptionsApi from "@/lib/prescriptionsApi";
 import {
@@ -39,7 +40,8 @@ function formatAddress(client: { address: { street?: string; number?: string; co
 }
 
 const AddPrescriptionPage = () => {
-  const { clientId, animalId, prescriptionId } = useParams<{ clientId: string; animalId: string; prescriptionId?: string }>();
+  const { prescriptionId } = useParams<{ prescriptionId?: string }>();
+  const { clientId, animalId } = usePatientRouteParams();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const prescriptionType = (searchParams.get('type') as 'simple' | 'controlled' | 'manipulated') || 'simple';

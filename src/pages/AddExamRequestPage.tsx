@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { getTodayLocalISO } from "@/lib/utils";
 import { ArrowLeft, FlaskConical, Plus, Trash2 } from "lucide-react";
 import { useClientWithAnimals } from "@/hooks/useSupabaseClients";
+import { usePatientRouteParams } from "@/hooks/usePatientRouteParams";
 import { getPatientRecordPath } from "@/utils/patientDisplayId";
 import { useCurrentUserProfile } from "@/hooks/useCurrentUserProfile";
 import { useSystemVets } from "@/hooks/useSystemVets";
@@ -43,7 +44,7 @@ const escapeHtml = (s: string) =>
   s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
 const AddExamRequestPage: React.FC = () => {
-  const { clientId, animalId } = useParams<{ clientId: string; animalId: string }>();
+  const { clientId, animalId } = usePatientRouteParams();
   const navigate = useNavigate();
   const { data: clientData } = useClientWithAnimals(clientId);
   const { profile: currentUserProfile } = useCurrentUserProfile();

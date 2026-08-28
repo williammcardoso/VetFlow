@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { FileSignature, ArrowLeft, CheckCircle2, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import { useClientWithAnimals } from "@/hooks/useSupabaseClients";
+import { usePatientRouteParams } from "@/hooks/usePatientRouteParams";
 import { getPatientRecordPath } from "@/utils/patientDisplayId";
 import { useAppointments } from "@/hooks/useAppointments";
 import { useDocumentTemplates, useDocumentTemplateVersion } from "@/hooks/useDocumentTemplates";
@@ -45,7 +46,7 @@ function labelForPath(caminho: string): string {
 }
 
 const EmitDocumentPage: React.FC = () => {
-  const { clientId, animalId } = useParams<{ clientId: string; animalId: string }>();
+  const { clientId, animalId } = usePatientRouteParams();
   const [searchParams] = useSearchParams();
   const appointmentId = searchParams.get("appointmentId");
   const navigate = useNavigate();
@@ -54,7 +55,10 @@ const EmitDocumentPage: React.FC = () => {
 
   const { data: client, isLoading: loadingClient } = useClientWithAnimals(clientId);
   const animal = useMemo(() => client?.animals.find((a) => a.id === animalId), [client, animalId]);
-  const { appointments, loading: loadingAppointments } = useAppointments(animalId);
+  // skipWhenNoAnimalId: na rota curta, animalId fica undefined por 1 render
+  // enquanto o código do paciente é resolvido — sem essa opção, cairia no
+  // fallback de "todos os atendimentos da clínica".
+  const { appointments, loading: loadingAppointments } = useAppointments(animalId, { skipWhenNoAnimalId: true });
   const appointment = useMemo(
     () => (appointmentId ? appointments.find((a) => a.id === appointmentId) : undefined),
     [appointments, appointmentId]

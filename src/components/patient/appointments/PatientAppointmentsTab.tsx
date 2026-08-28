@@ -49,6 +49,7 @@ import type {
 import { cn, formatDateTime } from "@/lib/utils";
 import * as appointmentsApi from "@/lib/appointmentsApi";
 import { readAppointmentDrafts, removeAppointmentDraft } from "@/lib/appointmentDrafts";
+import { getPatientSubPath } from "@/utils/patientDisplayId";
 
 const displayType = (type: AppointmentEntry["type"]) => {
   if (type === "Consulta" || type === "Consulta (Modelo Antigo)") return "Consulta";
@@ -205,11 +206,13 @@ function buildSummary(app: AppointmentEntry) {
 export default function PatientAppointmentsTab({
   clientId,
   animalId,
+  patientCode,
   animalAppointments,
   setAnimalAppointments,
 }: {
   clientId: string;
   animalId: string;
+  patientCode?: number;
   animalAppointments: AppointmentEntry[];
   setAnimalAppointments: (next?: AppointmentEntry[]) => void | Promise<void>;
 }) {
@@ -243,7 +246,7 @@ export default function PatientAppointmentsTab({
   const goNew = (type: AppointmentEntry["type"]) => {
     const qp = new URLSearchParams();
     qp.set("type", type);
-    navigate(`/clients/${clientId}/animals/${animalId}/add-appointment?${qp.toString()}`);
+    navigate(getPatientSubPath(clientId, animalId, patientCode, `/add-appointment?${qp.toString()}`));
   };
 
   const removeAppointment = async (id: string) => {
@@ -389,7 +392,7 @@ export default function PatientAppointmentsTab({
           <SaasButton
             saasVariant="soft"
             size="sm"
-            onClick={() => navigate(`/clients/${clientId}/animals/${animalId}/add-appointment`)}
+            onClick={() => navigate(getPatientSubPath(clientId, animalId, patientCode, "/add-appointment"))}
             className="gap-2"
           >
             <Plus className="h-4 w-4" /> Novo
@@ -461,9 +464,7 @@ export default function PatientAppointmentsTab({
                             saasVariant="ghost"
                             size="icon"
                             onClick={() =>
-                              navigate(
-                                `/clients/${clientId}/animals/${animalId}/edit-appointment/${app.id}`
-                              )
+                              navigate(getPatientSubPath(clientId, animalId, patientCode, `/edit-appointment/${app.id}`))
                             }
                             className="rounded-md"
                             title="Continuar edição"
@@ -475,9 +476,7 @@ export default function PatientAppointmentsTab({
                             saasVariant="ghost"
                             size="icon"
                             onClick={() =>
-                              navigate(
-                                `/clients/${clientId}/animals/${animalId}/view-appointment/${app.id}`
-                              )
+                              navigate(getPatientSubPath(clientId, animalId, patientCode, `/view-appointment/${app.id}`))
                             }
                             className="rounded-md"
                             title="Ver"

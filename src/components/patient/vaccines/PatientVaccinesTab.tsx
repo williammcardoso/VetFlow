@@ -22,15 +22,18 @@ import { formatDateTime } from "@/lib/utils";
 import { isoToBR } from "@/components/appointments/inputs/DateInputBR";
 import { cn } from "@/lib/utils";
 import * as appointmentsApi from "@/lib/appointmentsApi";
+import { getPatientSubPath } from "@/utils/patientDisplayId";
 
 export default function PatientVaccinesTab({
   clientId,
   animalId,
+  patientCode,
   animalAppointments,
   setAnimalAppointments,
 }: {
   clientId: string;
   animalId: string;
+  patientCode?: number;
   animalAppointments: AppointmentEntry[];
   setAnimalAppointments: (next?: AppointmentEntry[]) => void | Promise<void>;
 }) {
@@ -74,7 +77,7 @@ export default function PatientVaccinesTab({
             saasVariant="soft"
             size="sm"
             onClick={() =>
-              navigate(`/clients/${clientId}/animals/${animalId}/add-appointment?type=${encodeURIComponent("Vacina")}`)
+              navigate(getPatientSubPath(clientId, animalId, patientCode, `/add-appointment?type=${encodeURIComponent("Vacina")}`))
             }
             className="gap-2"
           >
@@ -143,7 +146,7 @@ export default function PatientVaccinesTab({
                         <SaasButton
                           saasVariant="ghost"
                           size="icon"
-                          onClick={() => navigate(`/clients/${clientId}/animals/${animalId}/view-appointment/${v.id}`)}
+                          onClick={() => navigate(getPatientSubPath(clientId, animalId, patientCode, `/view-appointment/${v.id}`))}
                           className="rounded-md"
                           title="Ver"
                         >
@@ -153,7 +156,7 @@ export default function PatientVaccinesTab({
                         <SaasButton
                           saasVariant="ghost"
                           size="icon"
-                          onClick={() => navigate(`/clients/${clientId}/animals/${animalId}/edit-appointment/${v.id}`)}
+                          onClick={() => navigate(getPatientSubPath(clientId, animalId, patientCode, `/edit-appointment/${v.id}`))}
                           className="rounded-md"
                           title="Editar"
                         >

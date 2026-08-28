@@ -31,8 +31,23 @@ export function getPatientRecordPath(
   animalId: string,
   patientCode?: number | null
 ): string {
+  return getPatientSubPath(clientId, animalId, patientCode, "/record");
+}
+
+/**
+ * Igual a getPatientRecordPath, mas pra qualquer tela "de baixo" do
+ * prontuário (editar/adicionar atendimento, exame, receita, documento,
+ * etc.) — `suffix` é o resto do caminho depois do id do paciente, sempre
+ * começando com "/" (ex.: "/edit-appointment/app-123", "/add-exam").
+ */
+export function getPatientSubPath(
+  clientId: string,
+  animalId: string,
+  patientCode: number | null | undefined,
+  suffix: string
+): string {
   if (typeof patientCode === "number" && Number.isFinite(patientCode) && patientCode > 0) {
-    return `/prontuario/${patientCode}`;
+    return `/prontuario/${patientCode}${suffix}`;
   }
-  return `/clients/${clientId}/animals/${animalId}/record`;
+  return `/clients/${clientId}/animals/${animalId}${suffix}`;
 }

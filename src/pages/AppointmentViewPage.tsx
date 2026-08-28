@@ -33,7 +33,8 @@ import type {
   VaccinationDetails,
 } from "@/types/appointment";
 import { useClientWithAnimals } from "@/hooks/useSupabaseClients";
-import { getPatientRecordPath } from "@/utils/patientDisplayId";
+import { usePatientRouteParams } from "@/hooks/usePatientRouteParams";
+import { getPatientRecordPath, getPatientSubPath } from "@/utils/patientDisplayId";
 import { getAppointmentById, getAppointmentsByAnimal } from "@/lib/appointmentsApi";
 
 const formatDateBR = (dateISO?: string) => {
@@ -86,11 +87,8 @@ const typeLabel = (t: AppointmentEntry["type"]) => {
 };
 
 export default function AppointmentViewPage() {
-  const { clientId, animalId, appointmentId } = useParams<{
-    clientId: string;
-    animalId: string;
-    appointmentId: string;
-  }>();
+  const { appointmentId } = useParams<{ appointmentId: string }>();
+  const { clientId, animalId } = usePatientRouteParams();
   const navigate = useNavigate();
 
   const { data: client, isLoading: isClientLoading } = useClientWithAnimals(clientId);
@@ -490,7 +488,7 @@ export default function AppointmentViewPage() {
             <SaasButton
               saasVariant="outline"
               onClick={() =>
-                navigate(`/clients/${clientId}/animals/${animalId}/edit-appointment/${appointmentId}`)
+                navigate(getPatientSubPath(clientId ?? "", animalId ?? "", animal?.patientCode, `/edit-appointment/${appointmentId}`))
               }
             >
               <Edit className="mr-2 h-4 w-4" /> Editar

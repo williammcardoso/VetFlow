@@ -1,6 +1,28 @@
 import { toast } from "sonner";
 import { persistPdf, downloadPdf } from "@/lib/pdfExport";
 
+/** Normaliza telefone brasileiro pro formato que o WhatsApp espera (55 + DDD + número). */
+function normalizeBrazilPhone(phone: string | undefined | null): string | null {
+  const raw = (phone ?? "").replace(/\D/g, "");
+  if (raw.length < 10) return null;
+  return raw.length <= 10 ? "55" + raw : raw.startsWith("55") ? raw : "55" + raw;
+}
+
+/**
+ * Abre uma conversa no WhatsApp com o telefone informado, com uma mensagem
+ * opcional já preenchida — pro "falar com o tutor" rápido a partir do
+ * prontuário, sem precisar de PDF nenhum.
+ */
+export function openWhatsAppChat(phone: string | undefined | null, message?: string): void {
+  const num = normalizeBrazilPhone(phone);
+  if (!num) {
+    toast.error("Este cliente não tem um telefone válido cadastrado. Atualize o telefone no cadastro do cliente para conversar por WhatsApp.");
+    return;
+  }
+  const text = message ? `&text=${encodeURIComponent(message)}` : "";
+  window.open(`https://api.whatsapp.com/send?phone=${num}${text}`, "_blank");
+}
+
 /**
  * Envia um PDF (receita, laudo de exame, orçamento etc.) por WhatsApp: sobe o
  * arquivo e manda o link direto na mensagem (WhatsApp não aceita anexo via
@@ -16,12 +38,11 @@ export async function sendPdfViaWhatsApp(opts: {
   intro: string;
   dateLabel: string;
 }): Promise<void> {
-  const raw = (opts.phone ?? "").replace(/\D/g, "");
-  if (raw.length < 10) {
+  const num = normalizeBrazilPhone(opts.phone);
+  if (!num) {
     toast.error("Este cliente não tem um telefone válido cadastrado. Atualize o telefone no cadastro do cliente para enviar por WhatsApp.");
     return;
   }
-  const num = raw.length <= 10 ? "55" + raw : raw.startsWith("55") ? raw : "55" + raw;
 
   const buildMsg = (link?: string) => {
     const parts = [

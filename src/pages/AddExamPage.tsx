@@ -22,6 +22,7 @@ import {
   type BiochemicalReferenceEntry,
 } from "@/constants/examReferences";
 import { useClientWithAnimals } from "@/hooks/useSupabaseClients";
+import { usePatientRouteParams } from "@/hooks/usePatientRouteParams";
 import { getPatientRecordPath } from "@/utils/patientDisplayId";
 import { useSystemVets } from "@/hooks/useSystemVets";
 import { useRegistryList } from "@/hooks/useRegistryList";
@@ -159,7 +160,8 @@ const LeukocyteFieldWithReference = React.memo(({
 ));
 
 const AddExamPage = () => {
-  const { clientId, animalId, examId } = useParams<{ clientId: string; animalId: string; examId?: string }>();
+  const { examId } = useParams<{ examId?: string }>();
+  const { clientId, animalId } = usePatientRouteParams();
   const navigate = useNavigate();
 
   const isEditing = !!examId;

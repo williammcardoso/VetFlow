@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { FileSignature, ExternalLink, Ban, Plus, Link2 } from "lucide-react";
 import { toast } from "sonner";
 import { usePatientDocuments } from "@/hooks/usePatientDocuments";
+import { getPatientSubPath } from "@/utils/patientDisplayId";
 import { cancelDocument, type EmittedDocumentSummary } from "@/lib/documentEmissionApi";
 
 const STATUS_LABEL: Record<string, string> = {
@@ -85,9 +86,10 @@ interface DocumentTimelineProps {
   pacienteId: string;
   clientId: string;
   animalId: string;
+  patientCode?: number;
 }
 
-const DocumentTimeline: React.FC<DocumentTimelineProps> = ({ pacienteId, clientId, animalId }) => {
+const DocumentTimeline: React.FC<DocumentTimelineProps> = ({ pacienteId, clientId, animalId, patientCode }) => {
   const { data: docs, isLoading, isError } = usePatientDocuments(pacienteId);
   const queryClient = useQueryClient();
   const [cancelTarget, setCancelTarget] = useState<EmittedDocumentSummary | null>(null);
@@ -101,7 +103,7 @@ const DocumentTimeline: React.FC<DocumentTimelineProps> = ({ pacienteId, clientI
           <FileSignature className="h-4 w-4 text-primary" /> Termos e atestados (modelos oficiais)
         </h3>
         <Button size="sm" variant="outline" asChild>
-          <Link to={`/clients/${clientId}/animals/${animalId}/emit-document`}>
+          <Link to={getPatientSubPath(clientId, animalId, patientCode, "/emit-document")}>
             <Plus className="mr-2 h-4 w-4" /> Emitir novo
           </Link>
         </Button>

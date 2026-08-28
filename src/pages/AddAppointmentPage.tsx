@@ -11,20 +11,22 @@ import AppointmentForm from "@/components/AppointmentForm";
 import type { AppointmentEntry } from "@/types/appointment";
 import { findAppointmentDraft, removeAppointmentDraft } from "@/lib/appointmentDrafts";
 import { useClientWithAnimals } from "@/hooks/useSupabaseClients";
+import { usePatientRouteParams } from "@/hooks/usePatientRouteParams";
 import { useAppointments } from "@/hooks/useAppointments";
 import * as appointmentsApi from "@/lib/appointmentsApi";
 import { PageShell } from "@/components/saas/PageShell";
 import { getPatientRecordPath } from "@/utils/patientDisplayId";
 
 const AddAppointmentPage = () => {
-  const { clientId, animalId, appointmentId } = useParams<{
-    clientId: string;
-    animalId: string;
-    appointmentId?: string;
-  }>();
+  const { appointmentId } = useParams<{ appointmentId?: string }>();
+  const { clientId, animalId } = usePatientRouteParams();
   const navigate = useNavigate();
   const { data: clientData, isLoading: isClientLoading, isError: isClientError, error: clientError } = useClientWithAnimals(clientId);
-  const { appointments: dbAppointments, loading: isAppointmentsLoading } = useAppointments(animalId);
+  // skipWhenNoAnimalId: na rota curta (/prontuario/:patientCode/...), animalId
+  // fica undefined por 1 render enquanto o código é resolvido — sem essa
+  // opção, cairia no fallback de "todos os atendimentos da clínica" (mesmo
+  // bug já corrigido no prontuário).
+  const { appointments: dbAppointments, loading: isAppointmentsLoading } = useAppointments(animalId, { skipWhenNoAnimalId: true });
 
   const client = clientData ?? undefined;
   const animal = client?.animals.find((a) => a.id === animalId);

@@ -24,6 +24,7 @@ import { PageShell } from "@/components/saas/PageShell";
 import { PageHeader } from "@/components/saas/PageHeader";
 import { formatDateTime } from "@/lib/utils";
 import type { AppointmentEntry } from "@/types/appointment";
+import { getPatientSubPath } from "@/utils/patientDisplayId";
 
 const withinRange = (dateStr: string, from?: string, to?: string) => {
   const dt = new Date(`${dateStr}T00:00`);
@@ -101,10 +102,10 @@ const AppointmentsReportPage: React.FC = () => {
   }, [periodPreset]);
 
   const animalMap = useMemo(() => {
-    const map = new Map<string, { animalName: string; clientName: string; clientId: string }>();
+    const map = new Map<string, { animalName: string; clientName: string; clientId: string; patientCode?: number }>();
     for (const client of dbClients || []) {
       for (const animal of client.animals || []) {
-        map.set(animal.id, { animalName: animal.name, clientName: client.name, clientId: client.id });
+        map.set(animal.id, { animalName: animal.name, clientName: client.name, clientId: client.id, patientCode: animal.patientCode });
       }
     }
     return map;
@@ -426,7 +427,7 @@ const AppointmentsReportPage: React.FC = () => {
                           <td className="py-2 pr-3 print:hidden">
                             {info?.clientId && (
                               <Link
-                                to={`/clients/${info.clientId}/animals/${a.animalId}/view-appointment/${a.id}`}
+                                to={getPatientSubPath(info.clientId, a.animalId, info.patientCode, `/view-appointment/${a.id}`)}
                                 className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
                               >
                                 Ver <ExternalLink className="h-3 w-3" />

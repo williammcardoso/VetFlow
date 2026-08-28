@@ -84,6 +84,29 @@ const PatientRecordRoute = () => {
   return <PatientRecordPage key={key} />;
 };
 
+// Mesma proteção do PatientRecordRoute acima, só que genérica pras telas
+// "de baixo" do prontuário (editar/adicionar atendimento, exame, receita,
+// documento, etc.) — cada uma tem seu próprio param de entidade
+// (appointmentId/examId/...), então a key usa todos os params da rota
+// batida (o que muda entre "editar item A" e "editar item B", ou entre
+// pacientes diferentes, sempre muda a key e força remount).
+function makeKeyedPatientRoute(Component: React.ComponentType) {
+  return function KeyedPatientRoute() {
+    const params = useParams();
+    const key = Object.values(params).filter(Boolean).join("|") || "new";
+    return <Component key={key} />;
+  };
+}
+
+const AddExamRoute = makeKeyedPatientRoute(AddExamPage);
+const AddAnimalEditRoute = makeKeyedPatientRoute(AddAnimalPage);
+const AddPrescriptionRoute = makeKeyedPatientRoute(AddPrescriptionPage);
+const AddAppointmentRoute = makeKeyedPatientRoute(AddAppointmentPage);
+const AppointmentViewRoute = makeKeyedPatientRoute(AppointmentViewPage);
+const AddDocumentRoute = makeKeyedPatientRoute(AddDocumentPage);
+const AddExamRequestRoute = makeKeyedPatientRoute(AddExamRequestPage);
+const EmitDocumentRoute = makeKeyedPatientRoute(EmitDocumentPage);
+
 const ProtectedAppShell = () => {
   const { isAuthenticated, permissionsLoading, canAccessPath, canAccessModule } = useAuth();
   const location = useLocation();
@@ -137,14 +160,32 @@ const App = () => {
                     <Route path="/clients/:clientId" element={<ClientDetailPage />} />
                     <Route path="/clients/:clientId/animals/:animalId/record" element={<PatientRecordRoute />} />
                     <Route path="/prontuario/:patientCode" element={<PatientRecordRoute />} />
-                    <Route path="/clients/:clientId/animals/:animalId/add-exam" element={<AddExamPage />} />
-                    <Route path="/clients/:clientId/animals/:animalId/edit-exam/:examId" element={<AddExamPage />} />
-                    <Route path="/clients/:clientId/animals/:animalId/edit" element={<AddAnimalPage />} />
+
+                    {/* Telas "de baixo" do prontuário — rota longa (2 UUIDs) mantida por
+                        compatibilidade com link antigo/favorito, e rota curta
+                        (/prontuario/:patientCode/...) nova, mesmo padrão da URL curta do
+                        prontuário em si. */}
+                    <Route path="/clients/:clientId/animals/:animalId/add-exam" element={<AddExamRoute />} />
+                    <Route path="/prontuario/:patientCode/add-exam" element={<AddExamRoute />} />
+                    <Route path="/clients/:clientId/animals/:animalId/edit-exam/:examId" element={<AddExamRoute />} />
+                    <Route path="/prontuario/:patientCode/edit-exam/:examId" element={<AddExamRoute />} />
+
+                    <Route path="/clients/:clientId/animals/:animalId/edit" element={<AddAnimalEditRoute />} />
+                    <Route path="/prontuario/:patientCode/edit" element={<AddAnimalEditRoute />} />
+
                     <Route
                       path="/clients/:clientId/animals/:animalId/add-prescription"
                       element={
                         <ProtectedRoute requireModule="prescriptions" requireAction="edit">
-                          <AddPrescriptionPage />
+                          <AddPrescriptionRoute />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/prontuario/:patientCode/add-prescription"
+                      element={
+                        <ProtectedRoute requireModule="prescriptions" requireAction="edit">
+                          <AddPrescriptionRoute />
                         </ProtectedRoute>
                       }
                     />
@@ -152,18 +193,39 @@ const App = () => {
                       path="/clients/:clientId/animals/:animalId/edit-prescription/:prescriptionId"
                       element={
                         <ProtectedRoute requireModule="prescriptions" requireAction="edit">
-                          <AddPrescriptionPage />
+                          <AddPrescriptionRoute />
                         </ProtectedRoute>
                       }
                     />
-                    <Route path="/clients/:clientId/animals/:animalId/add-appointment" element={<AddAppointmentPage />} />
-                    <Route path="/clients/:clientId/animals/:animalId/edit-appointment/:appointmentId" element={<AddAppointmentPage />} />
-                    <Route path="/clients/:clientId/animals/:animalId/view-appointment/:appointmentId" element={<AppointmentViewPage />} />
+                    <Route
+                      path="/prontuario/:patientCode/edit-prescription/:prescriptionId"
+                      element={
+                        <ProtectedRoute requireModule="prescriptions" requireAction="edit">
+                          <AddPrescriptionRoute />
+                        </ProtectedRoute>
+                      }
+                    />
+
+                    <Route path="/clients/:clientId/animals/:animalId/add-appointment" element={<AddAppointmentRoute />} />
+                    <Route path="/prontuario/:patientCode/add-appointment" element={<AddAppointmentRoute />} />
+                    <Route path="/clients/:clientId/animals/:animalId/edit-appointment/:appointmentId" element={<AddAppointmentRoute />} />
+                    <Route path="/prontuario/:patientCode/edit-appointment/:appointmentId" element={<AddAppointmentRoute />} />
+                    <Route path="/clients/:clientId/animals/:animalId/view-appointment/:appointmentId" element={<AppointmentViewRoute />} />
+                    <Route path="/prontuario/:patientCode/view-appointment/:appointmentId" element={<AppointmentViewRoute />} />
+
                     <Route
                       path="/clients/:clientId/animals/:animalId/add-document"
                       element={
                         <ProtectedRoute requireModule="prescriptions" requireAction="edit">
-                          <AddDocumentPage />
+                          <AddDocumentRoute />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/prontuario/:patientCode/add-document"
+                      element={
+                        <ProtectedRoute requireModule="prescriptions" requireAction="edit">
+                          <AddDocumentRoute />
                         </ProtectedRoute>
                       }
                     />
@@ -171,7 +233,15 @@ const App = () => {
                       path="/clients/:clientId/animals/:animalId/add-exam-request"
                       element={
                         <ProtectedRoute requireModule="prescriptions" requireAction="edit">
-                          <AddExamRequestPage />
+                          <AddExamRequestRoute />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/prontuario/:patientCode/add-exam-request"
+                      element={
+                        <ProtectedRoute requireModule="prescriptions" requireAction="edit">
+                          <AddExamRequestRoute />
                         </ProtectedRoute>
                       }
                     />
@@ -179,7 +249,15 @@ const App = () => {
                       path="/clients/:clientId/animals/:animalId/emit-document"
                       element={
                         <ProtectedRoute requireModule="prescriptions" requireAction="edit">
-                          <EmitDocumentPage />
+                          <EmitDocumentRoute />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/prontuario/:patientCode/emit-document"
+                      element={
+                        <ProtectedRoute requireModule="prescriptions" requireAction="edit">
+                          <EmitDocumentRoute />
                         </ProtectedRoute>
                       }
                     />
