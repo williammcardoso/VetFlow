@@ -1,4 +1,3 @@
-import { AI_ASSISTANT_SYSTEM_PROMPT } from "@/constants/aiAssistantPrompt";
 import type { AppointmentEntry, ConsultationDetails } from "@/types/appointment";
 
 export interface AnimalInfo {
@@ -115,7 +114,13 @@ export function buildContextFromAppointment(
   return parts.join("\n").trim();
 }
 
-const OPENAI_API_URL = "https://api.openai.com/v1/chat/completions";
+// Proxy serverless em api/ai-suggestions.ts — a chamada à OpenAI acontece no
+// servidor (Vercel), não no navegador. Evita expor a chave da API no bundle
+// público (antes ia em VITE_OPENAI_API_KEY, visível pra qualquer um no
+// DevTools) e evita o "Failed to fetch" de chamar api.openai.com direto do
+// navegador (CORS/extensões). Requer OPENAI_API_KEY (sem prefixo VITE_) nas
+// variáveis de ambiente do projeto no Vercel.
+const AI_SUGGESTIONS_ENDPOINT = "/api/ai-suggestions";
 
 export interface FetchSuggestionsResult {
   ok: true;
@@ -128,61 +133,27 @@ export interface FetchSuggestionsError {
 }
 
 /**
- * Chama a API OpenAI com o contexto da consulta e retorna o texto das sugestões.
- * Requer VITE_OPENAI_API_KEY no .env.
+ * Pede sugestões de IA pro contexto da consulta, via proxy serverless.
  */
 export async function fetchConsultationSuggestions(
   context: string
 ): Promise<FetchSuggestionsResult | FetchSuggestionsError> {
-  const apiKey = import.meta.env.VITE_OPENAI_API_KEY as string | undefined;
-  if (!apiKey?.trim()) {
-    return {
-      ok: false,
-      error: "Chave da API OpenAI não configurada. Adicione VITE_OPENAI_API_KEY no arquivo .env.local.",
-    };
-  }
-
   try {
-    const res = await fetch(OPENAI_API_URL, {
+    const res = await fetch(AI_SUGGESTIONS_ENDPOINT, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: "gpt-4o-mini",
-        messages: [
-          { role: "system", content: AI_ASSISTANT_SYSTEM_PROMPT },
-          {
-            role: "user",
-            content: `Contexto da consulta (anamnese e exame já registrados):\n\n${context}`,
-          },
-        ],
-        max_tokens: 1500,
-        temperature: 0.3,
-      }),
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ context }),
     });
 
-    if (!res.ok) {
-      const errBody = await res.text();
-      let message = `Erro na API: ${res.status}`;
-      try {
-        const j = JSON.parse(errBody);
-        if (j.error?.message) message = j.error.message;
-      } catch {
-        if (errBody) message += ` – ${errBody.slice(0, 200)}`;
-      }
-      return { ok: false, error: message };
+    const data = (await res.json().catch(() => null)) as
+      | { ok: true; text: string }
+      | { ok: false; error: string }
+      | null;
+
+    if (!data) {
+      return { ok: false, error: `Erro na API: ${res.status}` };
     }
-
-    const data = (await res.json()) as {
-      choices?: Array<{ message?: { content?: string } }>;
-    };
-    const text =
-      data.choices?.[0]?.message?.content?.trim() ||
-      "A API não retornou sugestões. Tente novamente.";
-
-    return { ok: true, text };
+    return data;
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
     return {
