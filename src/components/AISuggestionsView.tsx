@@ -1,5 +1,5 @@
 import React from "react";
-import { HelpCircle, Stethoscope, FlaskConical, Pill, Sparkles } from "lucide-react";
+import { HelpCircle, Stethoscope, FlaskConical, Pill, Sparkles, Search, AlertTriangle, ClipboardCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface Section {
@@ -34,6 +34,31 @@ const SECTION_STYLES: Record<string, { icon: React.ElementType; badge: string; i
     badge: "bg-rose-50 text-rose-800 border-rose-200",
     iconColor: "text-rose-600",
     dot: "bg-rose-500",
+  },
+  // Seções do assistente de interpretação de exames (examInterpretationPrompt.ts)
+  "Achados relevantes": {
+    icon: Search,
+    badge: "bg-teal-50 text-teal-800 border-teal-200",
+    iconColor: "text-teal-600",
+    dot: "bg-teal-500",
+  },
+  "Possíveis interpretações clínicas": {
+    icon: Stethoscope,
+    badge: "bg-amber-50 text-amber-800 border-amber-200",
+    iconColor: "text-amber-600",
+    dot: "bg-amber-500",
+  },
+  "Alertas": {
+    icon: AlertTriangle,
+    badge: "bg-red-50 text-red-800 border-red-200",
+    iconColor: "text-red-600",
+    dot: "bg-red-500",
+  },
+  "Recomendações": {
+    icon: ClipboardCheck,
+    badge: "bg-emerald-50 text-emerald-800 border-emerald-200",
+    iconColor: "text-emerald-600",
+    dot: "bg-emerald-500",
   },
 };
 

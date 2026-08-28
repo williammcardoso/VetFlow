@@ -81,6 +81,8 @@ import { replaceTemplateVariables } from "@/utils/templateReplacements";
 import { getPatientDisplayId, getPatientSubPath } from "@/utils/patientDisplayId";
 import PatientAppointmentsTab from "@/components/patient/appointments/PatientAppointmentsTab";
 import PatientVaccinesTab from "@/components/patient/vaccines/PatientVaccinesTab";
+import AISuggestionsView from "@/components/AISuggestionsView";
+import { buildContextFromExams, fetchExamInterpretation } from "@/lib/examInterpretation";
 import {
   Circle as CircleIcon,
   FileText as FileTextIcon,
@@ -94,6 +96,8 @@ import {
   UserRound,
   CreditCard,
   User,
+  Sparkles,
+  Loader2,
 } from "lucide-react";
 import { Calendar } from "lucide-react";
 import SaleDetailModal from "@/components/SaleDetailModal";
@@ -387,6 +391,92 @@ const PatientRecordPage = () => {
   );
 
   const examsList = examsFromHook;
+
+  // --- Interpretação de IA sobre exames já lançados (aba Exames) — pega
+  // atendimento relacionado + exames escolhidos + observação, monta o
+  // contexto e manda pro assistente. Diferente do assistente do atendimento
+  // (AppointmentForm.tsx), que trabalha com anamnese/exame físico.
+  const [examInterpOpen, setExamInterpOpen] = useState(false);
+  const [examInterpAppointmentId, setExamInterpAppointmentId] = useState<string>("none");
+  const [examInterpExamIds, setExamInterpExamIds] = useState<Set<string>>(new Set());
+  const [examInterpObservation, setExamInterpObservation] = useState("");
+  const [examInterpLoading, setExamInterpLoading] = useState(false);
+  const [examInterpResult, setExamInterpResult] = useState<string | null>(null);
+  const [examInterpError, setExamInterpError] = useState<string | null>(null);
+  const [examInterpSaving, setExamInterpSaving] = useState(false);
+
+  const openExamInterpretation = () => {
+    setExamInterpAppointmentId("none");
+    setExamInterpExamIds(new Set());
+    setExamInterpObservation("");
+    setExamInterpResult(null);
+    setExamInterpError(null);
+    setExamInterpOpen(true);
+  };
+
+  const toggleExamInterpExam = (examId: string) => {
+    setExamInterpExamIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(examId)) next.delete(examId);
+      else next.add(examId);
+      return next;
+    });
+  };
+
+  const handleGenerateExamInterpretation = async () => {
+    const chosenExams = examsList.filter((e) => examInterpExamIds.has(e.id));
+    if (chosenExams.length === 0) {
+      toast.error("Escolha pelo menos um exame.");
+      return;
+    }
+    setExamInterpLoading(true);
+    setExamInterpError(null);
+    setExamInterpResult(null);
+    try {
+      const appointment = examInterpAppointmentId !== "none"
+        ? animalAppointments.find((a) => a.id === examInterpAppointmentId)
+        : undefined;
+      const hemogramRefs = await fetchHemogramReferences();
+      const context = buildContextFromExams(
+        chosenExams,
+        appointment,
+        examInterpObservation,
+        { name: currentAnimal?.name, species: currentAnimal?.species },
+        hemogramRefs
+      );
+      const result = await fetchExamInterpretation(context);
+      if (result.ok) {
+        setExamInterpResult(result.text);
+      } else {
+        setExamInterpError(result.error);
+      }
+    } finally {
+      setExamInterpLoading(false);
+    }
+  };
+
+  const handleSaveExamInterpretationAsObservation = async () => {
+    if (!examInterpResult || !animalId) return;
+    setExamInterpSaving(true);
+    try {
+      const chosenExams = examsList.filter((e) => examInterpExamIds.has(e.id));
+      const header = `Interpretação de IA (exames: ${chosenExams.map((e) => e.type).join(", ")}):\n\n`;
+      const created = await observationsApi.addObservation(animalId, {
+        observation: header + examInterpResult,
+        displayAsAlert: false,
+        createdBy: currentVetName,
+      });
+      if (!created) {
+        toast.error("Falha ao salvar a interpretação como observação.");
+        return;
+      }
+      await refetchObservations();
+      toast.success("Interpretação salva na aba Observações.");
+      setExamInterpOpen(false);
+    } finally {
+      setExamInterpSaving(false);
+    }
+  };
 
   const [observationModalOpen, setObservationModalOpen] = useState(false);
   const [selectedObservation, setSelectedObservation] = useState<ObservationEntry | null>(null);
@@ -1752,11 +1842,23 @@ const PatientRecordPage = () => {
                 <CardTitle className="flex items-center gap-2 text-lg font-semibold text-foreground">
                   <FaFlask className="h-5 w-5 text-primary" /> Histórico de Exames
                 </CardTitle>
-                <Link to={subPath("/add-exam")}>
-                  <Button size="sm" className="rounded-md bg-[hsl(var(--vf-clinical))] font-semibold text-white transition-all duration-200 shadow-md hover:bg-[hsl(var(--vf-clinical)/0.9)] hover:shadow-lg">
-                    <FaPlus className="h-4 w-4 mr-2" /> Adicionar Exame
-                  </Button>
-                </Link>
+                <div className="flex gap-2">
+                  {examsList.length > 0 && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={openExamInterpretation}
+                      className="rounded-md border-primary/25 shadow-sm transition-colors hover:border-primary/40"
+                    >
+                      <Sparkles className="h-4 w-4 mr-2 text-primary" /> Pedir interpretação de IA
+                    </Button>
+                  )}
+                  <Link to={subPath("/add-exam")}>
+                    <Button size="sm" className="rounded-md bg-[hsl(var(--vf-clinical))] font-semibold text-white transition-all duration-200 shadow-md hover:bg-[hsl(var(--vf-clinical)/0.9)] hover:shadow-lg">
+                      <FaPlus className="h-4 w-4 mr-2" /> Adicionar Exame
+                    </Button>
+                  </Link>
+                </div>
               </CardHeader>
               <CardContent className="pt-0">
                 {examsList.length > 0 ? (
@@ -3384,6 +3486,111 @@ const PatientRecordPage = () => {
               <p className="text-xs text-muted-foreground">Data: {formatDateTime(selectedObservation.date, selectedObservation.time)}</p>
             )}
           </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={examInterpOpen} onOpenChange={setExamInterpOpen}>
+        <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-primary" /> Pedir interpretação de IA
+            </DialogTitle>
+            <DialogDescription>
+              Escolha o atendimento relacionado (opcional), os exames que quer analisar e, se quiser, uma observação. Valide sempre as sugestões com seu julgamento clínico.
+            </DialogDescription>
+          </DialogHeader>
+
+          {!examInterpResult ? (
+            <div className="space-y-4">
+              <div className="space-y-1.5">
+                <Label>Atendimento relacionado (opcional)</Label>
+                <Select value={examInterpAppointmentId} onValueChange={setExamInterpAppointmentId}>
+                  <SelectTrigger className="bg-input">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Nenhum / não informado</SelectItem>
+                    {animalAppointments.map((a) => (
+                      <SelectItem key={a.id} value={a.id}>
+                        {formatDateTime(a.date, a.time)} — {a.type || "Atendimento"}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>Exames a analisar</Label>
+                <div className="max-h-48 space-y-1 overflow-y-auto rounded-md border border-border p-2">
+                  {examsList.map((exam) => (
+                    <label
+                      key={exam.id}
+                      className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted/50"
+                    >
+                      <Checkbox
+                        checked={examInterpExamIds.has(exam.id)}
+                        onCheckedChange={() => toggleExamInterpExam(exam.id)}
+                      />
+                      <span className="truncate">
+                        {exam.type || "Exame"} — {formatDateTime(exam.date, exam.time)}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>Observação (opcional)</Label>
+                <Textarea
+                  value={examInterpObservation}
+                  onChange={(e) => setExamInterpObservation(e.target.value)}
+                  placeholder="Ex.: paciente com histórico de..."
+                  rows={3}
+                  className="bg-input border border-border rounded-md"
+                />
+              </div>
+
+              {examInterpError && (
+                <div className="rounded-lg border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                  {examInterpError}
+                </div>
+              )}
+            </div>
+          ) : (
+            <AISuggestionsView text={examInterpResult} />
+          )}
+
+          <DialogFooter className="gap-2">
+            {!examInterpResult ? (
+              <>
+                <Button variant="outline" onClick={() => setExamInterpOpen(false)}>Cancelar</Button>
+                <Button onClick={handleGenerateExamInterpretation} disabled={examInterpLoading}>
+                  {examInterpLoading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" /> Gerando...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="h-4 w-4 mr-2" /> Gerar interpretação
+                    </>
+                  )}
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button variant="outline" onClick={() => setExamInterpResult(null)}>Voltar</Button>
+                <Button onClick={handleSaveExamInterpretationAsObservation} disabled={examInterpSaving}>
+                  {examInterpSaving ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" /> Salvando...
+                    </>
+                  ) : (
+                    "Salvar como observação"
+                  )}
+                </Button>
+              </>
+            )}
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
