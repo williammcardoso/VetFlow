@@ -49,6 +49,7 @@ import LegacyConsultationForm from "@/components/appointments/forms/LegacyConsul
 import AppointmentPdfContent from "@/components/AppointmentPdfContent";
 import { removeAppointmentDraft, upsertAppointmentDraft } from "@/lib/appointmentDrafts";
 import { buildConsultationContext, fetchAISuggestions } from "@/lib/aiAssistant";
+import AISuggestionsView from "@/components/AISuggestionsView";
 import { createPdfBlob, openPdf } from "@/lib/pdfExport";
 
 interface AppointmentFormProps {
@@ -1439,13 +1440,7 @@ export default function AppointmentForm({
                 {assistantError}
               </div>
             )}
-            {assistantResponse && (
-              <div className="rounded-lg border border-border bg-muted/30 p-4">
-                <pre className="text-sm whitespace-pre-wrap font-sans text-foreground">
-                  {assistantResponse}
-                </pre>
-              </div>
-            )}
+            {assistantResponse && <AISuggestionsView text={assistantResponse} />}
           </CardContent>
         </Card>
       )}
