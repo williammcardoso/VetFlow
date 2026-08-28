@@ -31,7 +31,15 @@ export function getPatientRecordPath(
   animalId: string,
   patientCode?: number | null
 ): string {
-  return getPatientSubPath(clientId, animalId, patientCode, "/record");
+  // Assimétrico de propósito: a rota curta do prontuário em si é
+  // /prontuario/:patientCode (SEM sufixo — só as telas "de baixo" dele
+  // usam /prontuario/:patientCode/sufixo). Só a rota longa mantém "/record"
+  // (nome antigo). Usar getPatientSubPath aqui geraria /prontuario/25/record,
+  // que não bate com nenhuma rota registrada (404) — bug real já cometido.
+  if (typeof patientCode === "number" && Number.isFinite(patientCode) && patientCode > 0) {
+    return `/prontuario/${patientCode}`;
+  }
+  return `/clients/${clientId}/animals/${animalId}/record`;
 }
 
 /**
