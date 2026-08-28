@@ -59,4 +59,5 @@ export interface Client {
   };
   notes: string;
   animals: Animal[];
+  createdAt?: string;
 }

@@ -25,6 +25,7 @@ type DbClient = {
   neighborhood: string | null;
   city: string | null;
   state: string | null;
+  created_at: string | null;
 };
 
 type DbAnimal = {
@@ -97,6 +98,7 @@ function mapDbClientToClient(c: DbClient, animals: Animal[]): Client {
     },
     notes: c.notes || "",
     animals,
+    createdAt: c.created_at || undefined,
   };
 }
 
@@ -107,7 +109,7 @@ async function fetchClientsWithAnimals(): Promise<Client[]> {
 
   const { data: clientsData, error: clientsError } = await supabase
     .from("clients")
-    .select("id, name, client_type, nationality, gender, identification_number, secondary_identification, birthday, profession, accept_email, accept_whatsapp, accept_sms, main_email_contact, main_phone_contact, notes, cep, street, number, complement, neighborhood, city, state")
+    .select("id, name, client_type, nationality, gender, identification_number, secondary_identification, birthday, profession, accept_email, accept_whatsapp, accept_sms, main_email_contact, main_phone_contact, notes, cep, street, number, complement, neighborhood, city, state, created_at")
     .order("name", { ascending: true });
 
   if (clientsError) {
@@ -143,7 +145,7 @@ async function fetchClientWithAnimals(clientId: string): Promise<Client | null> 
 
   const { data: clientRow, error: clientError } = await supabase
     .from("clients")
-    .select("id, name, client_type, nationality, gender, identification_number, secondary_identification, birthday, profession, accept_email, accept_whatsapp, accept_sms, main_email_contact, main_phone_contact, notes, cep, street, number, complement, neighborhood, city, state")
+    .select("id, name, client_type, nationality, gender, identification_number, secondary_identification, birthday, profession, accept_email, accept_whatsapp, accept_sms, main_email_contact, main_phone_contact, notes, cep, street, number, complement, neighborhood, city, state, created_at")
     .eq("id", clientId)
     .maybeSingle();
 

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Users, Search, Filter, RefreshCw, Plus, Eye, X } from "lucide-react";
+import { Users, Search, Filter, RefreshCw, Plus, Eye, X, ArrowUpDown } from "lucide-react";
 import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { PageHeader } from "@/components/saas/PageHeader";
@@ -45,6 +45,9 @@ const ClientsPage = () => {
   const [isFilterDialogOpen, setIsFilterDialogOpen] = useState(false);
   const [filterSpecies, setFilterSpecies] = useState<string>("all");
   const [filterGender, setFilterGender] = useState<string>("all");
+  // Padrão "mais recente primeiro" — pedido do usuário, fica mais fácil de
+  // achar quem acabou de cadastrar do que procurar em ordem alfabética.
+  const [sortOrder, setSortOrder] = useState<"newest" | "oldest" | "name-asc" | "name-desc">("newest");
 
   const applyFilters = () => {
     const lowerCaseResponsibleSearch = responsibleSearch.toLowerCase();
@@ -106,6 +109,24 @@ const ClientsPage = () => {
     setIsFilterDialogOpen(false);
   };
 
+  const sortedClients = useMemo(() => {
+    const list = [...filteredClients];
+    const byCreatedAt = (a: Client, b: Client) =>
+      (a.createdAt ? new Date(a.createdAt).getTime() : 0) - (b.createdAt ? new Date(b.createdAt).getTime() : 0);
+    switch (sortOrder) {
+      case "newest":
+        return list.sort((a, b) => byCreatedAt(b, a));
+      case "oldest":
+        return list.sort(byCreatedAt);
+      case "name-asc":
+        return list.sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+      case "name-desc":
+        return list.sort((a, b) => b.name.localeCompare(a.name, "pt-BR"));
+      default:
+        return list;
+    }
+  }, [filteredClients, sortOrder]);
+
   return (
     <PageShell>
       <PageHeader
@@ -146,6 +167,18 @@ const ClientsPage = () => {
           <Button variant="secondary" size="icon" onClick={applyFilters} aria-label="Pesquisar clientes" title="Pesquisar">
             <Search className="h-4 w-4" />
           </Button>
+          <Select value={sortOrder} onValueChange={(v) => setSortOrder(v as typeof sortOrder)}>
+            <SelectTrigger className="vf-toolbar-control w-[200px] rounded-xl border-border bg-input" aria-label="Ordenar lista de clientes">
+              <ArrowUpDown className="mr-2 h-4 w-4 shrink-0 text-vf-clinical" />
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="newest">Mais recente primeiro</SelectItem>
+              <SelectItem value="oldest">Mais antigo primeiro</SelectItem>
+              <SelectItem value="name-asc">Nome (A-Z)</SelectItem>
+              <SelectItem value="name-desc">Nome (Z-A)</SelectItem>
+            </SelectContent>
+          </Select>
           <Button
             variant="secondary"
             size="icon"
@@ -191,7 +224,7 @@ const ClientsPage = () => {
             <Skeleton className="h-9 w-full" />
           </div>
         ) : (
-          <DataTableFrame empty={filteredClients.length === 0}>
+          <DataTableFrame empty={sortedClients.length === 0}>
             <Table>
               <TableHeader>
                 <TableRow>
@@ -201,7 +234,7 @@ const ClientsPage = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredClients.map((client, index) => {
+                {sortedClients.map((client, index) => {
                   const animals = client.animals ?? [];
                   return (
                     <TableRow key={client.id} className={cn(index % 2 === 1 && "bg-muted/50")}>
