@@ -39,6 +39,7 @@ import {
   Building2,
   Palette,
   KeyRound,
+  Clock,
 } from "lucide-react";
 
 interface NavItem {
@@ -110,6 +111,7 @@ const navItemsBase: NavItem[] = [
     icon: Settings,
     subItems: [
       { title: "Empresa", href: "/settings/company", icon: Building2 },
+      { title: "Horários da agenda pública", href: "/settings/agenda-availability", icon: Clock, requireRole: "admin" },
       { title: "Usuários", href: "/settings/user", icon: Users },
       { title: "Usuarios do sistema", href: "/settings/users-management", icon: Shield, requireRole: "admin" },
       { title: "Aparência", href: "/settings/appearance", icon: Palette },

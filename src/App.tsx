@@ -22,6 +22,7 @@ import BreedsPage from "./pages/registrations/BreedsPage";
 import CoatTypesPage from "./pages/registrations/CoatTypesPage";
 import ExamReferencesPage from "./pages/registrations/ExamReferencesPage";
 import CompanySettingsPage from "./pages/settings/CompanySettingsPage";
+import AgendaAvailabilityPage from "./pages/settings/AgendaAvailabilityPage";
 import UserSettingsPage from "./pages/settings/UserSettingsPage";
 import AppointmentTypesPage from "./pages/registrations/AppointmentTypesPage";
 import VaccinesPage from "./pages/registrations/VaccinesPage";
@@ -280,6 +281,14 @@ const App = () => {
                       element={
                         <ProtectedRoute requireRole="admin">
                           <CompanySettingsPage />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/settings/agenda-availability"
+                      element={
+                        <ProtectedRoute requireRole="admin">
+                          <AgendaAvailabilityPage />
                         </ProtectedRoute>
                       }
                     />

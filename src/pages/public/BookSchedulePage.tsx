@@ -23,6 +23,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CalendarPlus, CheckCircle2, ChevronLeft, ChevronRight, Loader2, PawPrint, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -35,10 +36,10 @@ import {
 } from "@/lib/schedulesApi";
 import { getCompanySettings } from "@/lib/settingsApi";
 import { getTodayLocalISO } from "@/lib/utils";
+import { useAgendaAvailability } from "@/hooks/useAgendaAvailability";
+import { generateSlotsForDay, isMinutesOpen } from "@/lib/agendaAvailabilityApi";
 
-const MIN_GAP_MINUTES = 60;
 const WEEKDAY_LABELS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
-const GRID_HOURS = ["08:00", "09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00"];
 
 // Navegador não tem como ler o nome real do computador (Windows não expõe
 // isso pra página nenhuma) — em vez disso, cada aparelho "se apresenta" uma
@@ -62,22 +63,6 @@ function writeStationName(name: string): void {
     // localStorage bloqueado (aba anônima, configuração do navegador) —
     // sem persistência nesse caso, mas não quebra a página.
   }
-}
-
-// Horário de funcionamento (confirmado com o usuário) — seg-sex 8h-18h,
-// sábado 8h-12h, domingo fechado. Sem tabela de configuração pra isso no
-// sistema ainda, então fica fixo aqui; se mudar, é só ajustar esses 2 pontos.
-// Almoço seg-sex das 13h às 15h (reservado, não aparece como horário livre).
-function getDaySlots(dayOfWeek: number): string[] {
-  if (dayOfWeek === 0) return []; // domingo: fechado
-  if (dayOfWeek === 6) return ["08:00", "09:00", "10:00", "11:00"]; // sábado até 12h
-  return ["08:00", "09:00", "10:00", "11:00", "12:00", "15:00", "16:00", "17:00"];
-}
-function isWithinBusinessHours(dayOfWeek: number, minutes: number): boolean {
-  if (dayOfWeek === 0) return false;
-  if (dayOfWeek === 6) return minutes >= 8 * 60 && minutes < 12 * 60;
-  if (minutes >= 13 * 60 && minutes < 15 * 60) return false; // almoço
-  return minutes >= 8 * 60 && minutes < 18 * 60;
 }
 
 function toMinutes(time: string): number | null {
@@ -140,8 +125,12 @@ type PendingAction =
 // vacinação a domicílio) sem precisar ligar. `schedules` já tem RLS aberta
 // pra `anon` (mesmo padrão usado em document_signatures/documents pras
 // outras páginas públicas), então dá pra chamar createSchedule() direto.
-// Reserva ~1h por horário checando conflito com agendamentos existentes no
-// mesmo dia, em vez de adicionar coluna de duração (não existe no sistema).
+// Reserva ~1 intervalo por horário (ver useAgendaAvailability) checando
+// conflito com agendamentos existentes no mesmo dia, em vez de adicionar
+// coluna de duração (não existe no sistema). Horário aberto/fechado, blocos
+// e intervalo entre horários vêm de agenda_weekly_hours/agenda_exceptions/
+// agenda_settings (Configuração > Horários da agenda pública) — não são mais
+// fixos aqui.
 const BookSchedulePage: React.FC = () => {
   const [companyName, setCompanyName] = React.useState("");
   const [clientName, setClientName] = React.useState("");
@@ -168,12 +157,31 @@ const BookSchedulePage: React.FC = () => {
     setStationDialogOpen(false);
   };
 
+  // Horário de funcionamento, exceções e intervalo — configuráveis em
+  // Configuração > Horários da agenda pública (cai no horário que era fixo
+  // no código, como fallback, se a config ainda não tiver sido aplicada).
+  const { weeklyHours, exceptions, settings: availability } = useAgendaAvailability();
+  const intervalMinutes = availability.intervalMinutes;
+  const getDaySlots = React.useCallback(
+    (dateISO: string) => generateSlotsForDay(dateISO, weeklyHours, exceptions, intervalMinutes),
+    [weeklyHours, exceptions, intervalMinutes]
+  );
+
   const todayMonday = React.useMemo(() => mondayOf(getTodayLocalISO()), []);
   const [weekStart, setWeekStart] = React.useState<Date>(todayMonday);
   const weekDays = React.useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)), [weekStart]);
   const [bookings, setBookings] = React.useState<ScheduleTimeSummary[]>([]);
   const [loadingWeek, setLoadingWeek] = React.useState(true);
-  const encaixeIds = React.useMemo(() => computeEncaixeIds(bookings, MIN_GAP_MINUTES), [bookings]);
+  const encaixeIds = React.useMemo(() => computeEncaixeIds(bookings, intervalMinutes), [bookings, intervalMinutes]);
+
+  // Grade da semana: todos os horários que aparecem em pelo menos um dia da
+  // semana visível — dias com expediente diferente (ex.: sábado até 12h)
+  // simplesmente ficam "—" nas linhas que não têm.
+  const gridHours = React.useMemo(() => {
+    const set = new Set<string>();
+    weekDays.forEach((d) => getDaySlots(toISODate(d)).forEach((h) => set.add(h)));
+    return Array.from(set).sort();
+  }, [weekDays, getDaySlots]);
 
   React.useEffect(() => {
     getCompanySettings()
@@ -219,7 +227,7 @@ const BookSchedulePage: React.FC = () => {
     const map = new Map<string, ScheduleTimeSummary[]>();
     for (const d of weekDays) {
       const dISO = toISODate(d);
-      const openSlots = getDaySlots(d.getDay());
+      const openSlots = getDaySlots(dISO);
       if (openSlots.length === 0) continue;
       for (const b of bookings) {
         if (b.date !== dISO) continue;
@@ -236,7 +244,7 @@ const BookSchedulePage: React.FC = () => {
       list.sort((a, b) => (toMinutes(a.time) ?? 0) - (toMinutes(b.time) ?? 0));
     }
     return map;
-  }, [bookings, weekDays]);
+  }, [bookings, weekDays, getDaySlots]);
 
   const clientNameRef = React.useRef<HTMLInputElement>(null);
   const handlePickSlot = (dateISO: string, slotTime: string) => {
@@ -307,9 +315,8 @@ const BookSchedulePage: React.FC = () => {
       toast.error("Horário inválido.");
       return;
     }
-    const dayOfWeek = new Date(`${date}T12:00:00`).getDay();
-    if (!isWithinBusinessHours(dayOfWeek, requestedMinutes)) {
-      toast.error("Esse horário está fora do funcionamento da clínica (seg-sex 8h-18h, sáb 8h-12h).");
+    if (!isMinutesOpen(date, requestedMinutes, weeklyHours, exceptions)) {
+      toast.error("Esse horário está fora do funcionamento da clínica nesse dia.");
       return;
     }
 
@@ -318,7 +325,7 @@ const BookSchedulePage: React.FC = () => {
       const existing = await listScheduleTimesInRange(date, date);
       const conflict = existing.find((b) => {
         const bMin = toMinutes(b.time);
-        return bMin !== null && Math.abs(bMin - requestedMinutes) < MIN_GAP_MINUTES;
+        return bMin !== null && Math.abs(bMin - requestedMinutes) < intervalMinutes;
       });
       if (conflict) {
         // Não bloqueia mais — vira um "encaixe" que precisa de confirmação,
@@ -419,9 +426,8 @@ const BookSchedulePage: React.FC = () => {
       toast.error("Horário inválido.");
       return;
     }
-    const dayOfWeek = new Date(`${editDate}T12:00:00`).getDay();
-    if (!isWithinBusinessHours(dayOfWeek, requestedMinutes)) {
-      toast.error("Esse horário está fora do funcionamento da clínica (seg-sex 8h-18h, sáb 8h-12h).");
+    if (!isMinutesOpen(editDate, requestedMinutes, weeklyHours, exceptions)) {
+      toast.error("Esse horário está fora do funcionamento da clínica nesse dia.");
       return;
     }
 
@@ -431,7 +437,7 @@ const BookSchedulePage: React.FC = () => {
       const conflict = existing.find((b) => {
         if (b.id === editingBooking.id) return false; // não conflita consigo mesmo
         const bMin = toMinutes(b.time);
-        return bMin !== null && Math.abs(bMin - requestedMinutes) < MIN_GAP_MINUTES;
+        return bMin !== null && Math.abs(bMin - requestedMinutes) < intervalMinutes;
       });
       if (conflict) {
         setEditSaving(false);
@@ -464,7 +470,18 @@ const BookSchedulePage: React.FC = () => {
         .sort((a, b) => (toMinutes(a.time) ?? 0) - (toMinutes(b.time) ?? 0)),
     [bookings, summaryDateISO]
   );
-  const summaryOpenSlots = summaryDateISO ? getDaySlots(new Date(`${summaryDateISO}T12:00:00`).getDay()) : [];
+  const summaryOpenSlots = summaryDateISO ? getDaySlots(summaryDateISO) : [];
+
+  // Horários que aparecem no <Select> do formulário — inclui o valor atual
+  // mesmo se não bater com a configuração vigente (ex.: agendamento antigo
+  // feito antes de mudar o horário-padrão), pra nunca sumir um valor já
+  // escolhido/salvo.
+  const withCurrentOption = (options: string[], current: string): string[] => {
+    if (!current || options.includes(current)) return options;
+    return [...options, current].sort();
+  };
+  const timeOptions = date ? withCurrentOption(getDaySlots(date), time) : [];
+  const editTimeOptions = editDate ? withCurrentOption(getDaySlots(editDate), editTime) : [];
 
   const canGoPrevWeek = toISODate(weekStart) > toISODate(todayMonday);
 
@@ -547,13 +564,13 @@ const BookSchedulePage: React.FC = () => {
                         </tr>
                       </thead>
                       <tbody>
-                        {GRID_HOURS.map((hour) => (
+                        {gridHours.map((hour) => (
                           <tr key={hour}>
                             <td className="sticky left-0 z-10 border-r border-border/60 bg-card p-1 text-muted-foreground">{hour}</td>
                             {weekDays.map((d) => {
                               const dISO = toISODate(d);
                               const isPast = dISO < getTodayLocalISO();
-                              const openSlots = getDaySlots(d.getDay());
+                              const openSlots = getDaySlots(dISO);
                               const isOpen = openSlots.includes(hour);
                               if (!isOpen) {
                                 return <td key={dISO} className="p-1 text-center text-muted-foreground/30">—</td>;
@@ -654,19 +671,30 @@ const BookSchedulePage: React.FC = () => {
                       type="date"
                       min={getTodayLocalISO()}
                       value={date}
-                      onChange={(e) => setDate(e.target.value)}
+                      onChange={(e) => {
+                        const nextDate = e.target.value;
+                        setDate(nextDate);
+                        // Horário escolhido pode não existir mais no dia novo
+                        // (ex.: sábado tem menos horário que dia de semana).
+                        if (time && !getDaySlots(nextDate).includes(time)) setTime("");
+                      }}
                       required
                     />
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="time">Horário</Label>
-                    <Input
-                      id="time"
-                      type="time"
-                      value={time}
-                      onChange={(e) => setTime(e.target.value)}
-                      required
-                    />
+                    <Select value={time} onValueChange={setTime} disabled={!date}>
+                      <SelectTrigger id="time">
+                        <SelectValue placeholder={!date ? "Escolha a data" : timeOptions.length === 0 ? "Fechado nesse dia" : "Selecione"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {timeOptions.map((t) => (
+                          <SelectItem key={t} value={t}>
+                            {t}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
                 <div className="space-y-1.5">
@@ -692,7 +720,7 @@ const BookSchedulePage: React.FC = () => {
                   )}
                 </Button>
                 <p className="text-center text-xs text-muted-foreground">
-                  Cada horário reserva cerca de 1h na agenda. Funcionamento: seg-sex 8h-18h, sáb 8h-12h.
+                  Horários com intervalo de {intervalMinutes} min, conforme o expediente de cada dia.
                 </p>
               </form>
             </div>
@@ -738,11 +766,32 @@ const BookSchedulePage: React.FC = () => {
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label htmlFor="editDate">Data</Label>
-                <Input id="editDate" type="date" value={editDate} onChange={(e) => setEditDate(e.target.value)} required />
+                <Input
+                  id="editDate"
+                  type="date"
+                  value={editDate}
+                  onChange={(e) => {
+                    const nextDate = e.target.value;
+                    setEditDate(nextDate);
+                    if (editTime && !getDaySlots(nextDate).includes(editTime)) setEditTime("");
+                  }}
+                  required
+                />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="editTime">Horário</Label>
-                <Input id="editTime" type="time" value={editTime} onChange={(e) => setEditTime(e.target.value)} required />
+                <Select value={editTime} onValueChange={setEditTime} disabled={!editDate}>
+                  <SelectTrigger id="editTime">
+                    <SelectValue placeholder={editTimeOptions.length === 0 ? "Fechado nesse dia" : "Selecione"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {editTimeOptions.map((t) => (
+                      <SelectItem key={t} value={t}>
+                        {t}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
             <div className="space-y-1.5">
