@@ -56,6 +56,7 @@ import { ExamReportPdfContent } from "@/components/ExamReportPdfContent";
 import ExamReportPdfContentHemogramaOnePage from "@/components/ExamReportPdfContent_Hemograma_OnePage";
 import ExamReportPdfContentBioquimicoOnePage from "@/components/ExamReportPdfContent_Bioquimico_OnePage";
 import ExamReportPdfContentCitologiaOnePage from "@/components/ExamReportPdfContent_Citologia_OnePage";
+import ExamReportPdfContentTesteRapidoOnePage from "@/components/ExamReportPdfContent_TesteRapido_OnePage";
 import type { FinancialTransaction } from "@/mockData/financial";
 import { AppointmentEntry, BaseAppointmentDetails } from "@/types/appointment";
 import { updateAnimalDetails, getWeightHistory } from "@/lib/clientsApi";
@@ -1958,7 +1959,11 @@ const PatientRecordPage = () => {
                         ? "Hemograma Completo"
                         : exam.type === "Citologia"
                           ? (exam.cytologyEntries?.[0]?.achadoCitologico || exam.nota || "Ver detalhes")
-                          : (exam.result || exam.nota || "Ver detalhes");
+                          : exam.type === "Teste Rápido"
+                            ? (exam.rapidTestEntries?.length
+                                ? exam.rapidTestEntries.map((t) => `${t.testName}: ${t.result}`).join(" · ")
+                                : exam.nota || "Ver detalhes")
+                            : (exam.result || exam.nota || "Ver detalhes");
 
                       return (
                         <div
@@ -2007,6 +2012,34 @@ const PatientRecordPage = () => {
                                   if (exam.type === "Citologia") {
                                     createPdfBlob(
                                       <ExamReportPdfContentCitologiaOnePage
+                                        animalName={currentAnimal.name}
+                                        animalId={currentAnimal.id}
+                                        displayId={getPatientDisplayId(currentAnimal.id, currentClient.animals)}
+                                        animalSpecies={currentAnimal.species}
+                                        animalBreed={currentAnimal.breed}
+                                        animalGender={currentAnimal.gender}
+                                        animalAge={formatAgeLong(currentAnimal.birthday)}
+                                        tutorName={currentClient.name}
+                                        tutorAddress={tutorAddress}
+                                        exam={exam}
+                                      />
+                                    ).then((blob) => openPdf({
+                                      blob,
+                                      fileName: `laudo_${exam.id || exam.date}.pdf`,
+                                      persistOptions: { folder: "exams" },
+                                    })).then(() => {
+                                      toast.success("Laudo de exame enviado para impressão!");
+                                    }).catch((err) => {
+                                      console.error(err);
+                                      toast.error("Erro ao gerar o PDF.");
+                                    });
+                                    return;
+                                  }
+                                  // Teste Rápido também só tem o laudo compacto (não tem seção
+                                  // própria pra rapidTestEntries no genérico) — mesmo padrão da Citologia.
+                                  if (exam.type === "Teste Rápido") {
+                                    createPdfBlob(
+                                      <ExamReportPdfContentTesteRapidoOnePage
                                         animalName={currentAnimal.name}
                                         animalId={currentAnimal.id}
                                         displayId={getPatientDisplayId(currentAnimal.id, currentClient.animals)}
@@ -2189,6 +2222,21 @@ const PatientRecordPage = () => {
                                                 exam={exam}
                                               />
                                             )
+                                          : exam.type === "Teste Rápido"
+                                            ? await createPdfBlob(
+                                                <ExamReportPdfContentTesteRapidoOnePage
+                                                  animalName={currentAnimal.name}
+                                                  animalId={currentAnimal.id}
+                                                  displayId={displayId}
+                                                  animalSpecies={currentAnimal.species}
+                                                  animalBreed={currentAnimal.breed}
+                                                  animalGender={currentAnimal.gender}
+                                                  animalAge={formatAgeLong(currentAnimal.birthday)}
+                                                  tutorName={currentClient.name}
+                                                  tutorAddress={tutorAddress}
+                                                  exam={exam}
+                                                />
+                                              )
                                           : await createPdfBlob(
                                             <ExamReportPdfContent
                                               animalName={currentAnimal.name}

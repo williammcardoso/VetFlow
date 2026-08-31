@@ -118,6 +118,18 @@ function formatCytology(exam: ExamEntry): string[] {
   return lines;
 }
 
+function formatRapidTest(exam: ExamEntry): string[] {
+  const lines: string[] = [];
+  (exam.rapidTestEntries || []).forEach((t) => {
+    const bits = [t.result];
+    if (t.sampleMaterial) bits.push(`amostra: ${t.sampleMaterial}`);
+    if (t.brand) bits.push(`kit: ${t.brand}`);
+    lines.push(`- ${t.testName}: ${bits.join(", ")}`);
+    if (t.comentarios) lines.push(`  Observações: ${t.comentarios}`);
+  });
+  return lines;
+}
+
 function formatGeneric(exam: ExamEntry): string[] {
   const lines: string[] = [];
   if (exam.result) lines.push(`- Resultado: ${exam.result}`);
@@ -167,6 +179,8 @@ export function buildContextFromExams(
       lines = formatBiochemical(exam);
     } else if (exam.type === "Citologia") {
       lines = formatCytology(exam);
+    } else if (exam.type === "Teste Rápido") {
+      lines = formatRapidTest(exam);
     } else {
       lines = formatGeneric(exam);
     }

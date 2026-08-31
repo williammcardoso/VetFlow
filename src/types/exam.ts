@@ -60,6 +60,12 @@ export interface ExamEntry {
   // `liberadoPor` (o veterinário da clínica que libera o laudo no sistema).
   patologistaResponsavel?: string;
 
+  // Campos específicos para Teste Rápido (SNAP/imunocromatográfico — ex.:
+  // FIV/FeLV, cinomose, erliquiose, parvovirose, giárdia, leishmaniose,
+  // dirofilariose). Um exame pode reunir mais de um teste feito na mesma
+  // visita (ex.: SNAP FIV/FeLV + teste de giárdia no mesmo atendimento).
+  rapidTestEntries?: RapidTestEntry[];
+
   // Campos adicionais do exame
   nota?: string;
   laboratory?: string;
@@ -102,6 +108,20 @@ export interface CytologyEntry {
   achadoCitologico: string; // Conclusão/diagnóstico (ex: "Tumor benigno de origem folicular")
   comentarios?: string; // Nota interpretativa/educativa opcional
   fotoUrl?: string; // Foto da lâmina (data URL), opcional
+}
+
+export type RapidTestResult = "Positivo" | "Negativo" | "Inconclusivo";
+
+export interface RapidTestEntry {
+  id: string;
+  testName: string; // Ex: "FIV/FeLV Combo", "Cinomose", "Erliquiose", "Parvovirose"...
+  brand?: string; // Marca/fabricante do kit — ex.: "IDEXX SNAP", "Alere"
+  lot?: string; // Nº do lote
+  expirationDate?: string; // Validade do kit (ISO yyyy-MM-dd)
+  sampleMaterial?: string; // Amostra usada — ex.: "Soro", "Sangue total", "Fezes"
+  result: RapidTestResult;
+  comentarios?: string;
+  fotoUrl?: string; // Foto do dispositivo/teste (data URL), opcional
 }
 
 export interface BiochemicalEntry {

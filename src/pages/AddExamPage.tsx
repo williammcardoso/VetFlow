@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import AutocompleteSelect from "@/components/AutocompleteSelect";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ExamEntry, BiochemicalEntry, CytologyEntry, HemogramReference } from "@/types/exam";
+import { ExamEntry, BiochemicalEntry, CytologyEntry, HemogramReference, RapidTestEntry, RapidTestResult } from "@/types/exam";
 import { addExam, updateExam, getExamById } from "@/lib/examsApi";
 import {
   fetchHemogramReferences,
@@ -38,7 +38,25 @@ const mockExamTypes = [
   { id: "5", name: "Bioquímico" },
   { id: "6", name: "Ultrassonografia" },
   { id: "8", name: "Citologia" },
+  { id: "9", name: "Teste Rápido" },
   { id: "7", name: "Outro" },
+];
+
+// Testes rápidos (imunocromatográficos/SNAP) mais comuns na rotina de clínica
+// veterinária no Brasil — cinomose/erliquiose/parvovirose/giárdia/
+// leishmaniose costumam ser kits tipo Alere/TR DPP, FIV/FeLV/dirofilariose
+// costumam ser SNAP (IDEXX). "Outro" libera digitar um nome livre.
+const rapidTestNameOptions = [
+  "FIV/FeLV Combo",
+  "FIV (Imunodeficiência Felina)",
+  "FeLV (Leucemia Felina)",
+  "Cinomose",
+  "Parvovirose",
+  "Erliquiose",
+  "Giardíase",
+  "Leishmaniose Visceral Canina",
+  "Dirofilariose (Verme do Coração)",
+  "Outro",
 ];
 
 
@@ -272,6 +290,19 @@ const AddExamPage = () => {
   const [cytoUploadingFoto, setCytoUploadingFoto] = useState(false);
   const [patologistaResponsavel, setPatologistaResponsavel] = useState<string>("");
 
+  // Teste Rápido (SNAP/imunocromatográfico)
+  const [rapidTestEntries, setRapidTestEntries] = useState<RapidTestEntry[]>([]);
+  const [rtTestName, setRtTestName] = useState<string | undefined>(undefined);
+  const [rtCustomTestName, setRtCustomTestName] = useState<string>("");
+  const [rtBrand, setRtBrand] = useState<string>("");
+  const [rtLot, setRtLot] = useState<string>("");
+  const [rtExpirationDate, setRtExpirationDate] = useState<string>("");
+  const [rtSampleMaterial, setRtSampleMaterial] = useState<string>("");
+  const [rtResult, setRtResult] = useState<RapidTestResult>("Negativo");
+  const [rtComentarios, setRtComentarios] = useState<string>("");
+  const [rtFotoUrl, setRtFotoUrl] = useState<string>("");
+  const [rtUploadingFoto, setRtUploadingFoto] = useState(false);
+
   // Adicionais
   const [nota, setNota] = useState<string>("");
   const [laboratory, setLaboratory] = useState<string>("");
@@ -338,6 +369,18 @@ const AddExamPage = () => {
     setCytoComentarios("");
     setCytoFotoUrl("");
     setPatologistaResponsavel("");
+
+    // Teste Rápido
+    setRapidTestEntries([]);
+    setRtTestName(undefined);
+    setRtCustomTestName("");
+    setRtBrand("");
+    setRtLot("");
+    setRtExpirationDate("");
+    setRtSampleMaterial("");
+    setRtResult("Negativo");
+    setRtComentarios("");
+    setRtFotoUrl("");
   };
 
   // Carregar dados ao editar
@@ -396,6 +439,7 @@ const AddExamPage = () => {
         setColoracao(examToEdit.coloracao || "");
         setCytologyEntries(examToEdit.cytologyEntries || []);
         setPatologistaResponsavel(examToEdit.patologistaResponsavel || "");
+        setRapidTestEntries(examToEdit.rapidTestEntries || []);
       } else {
         toast.error("Exame não encontrado para edição.");
         navigate(getPatientRecordPath(clientId, animalId, currentAnimal?.patientCode));
@@ -626,6 +670,76 @@ const AddExamPage = () => {
     );
   };
 
+  // Teste Rápido: mesmo padrão de foto em data URL da Citologia (sem bucket
+  // dedicado — o exame já grava um JSON flexível no banco).
+  const handleRapidTestFotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setRtUploadingFoto(true);
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setRtFotoUrl(String(reader.result));
+      setRtUploadingFoto(false);
+    };
+    reader.onerror = () => {
+      toast.error("Erro ao processar a imagem.");
+      setRtUploadingFoto(false);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleAddRapidTestEntry = () => {
+    const testName = rtTestName === "Outro" ? rtCustomTestName.trim() : rtTestName;
+    if (!testName) {
+      toast.error("Escolha (ou digite) qual teste foi feito.");
+      return;
+    }
+    const entry: RapidTestEntry = {
+      id: `rt-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      testName,
+      brand: rtBrand.trim() || undefined,
+      lot: rtLot.trim() || undefined,
+      expirationDate: rtExpirationDate || undefined,
+      sampleMaterial: rtSampleMaterial.trim() || undefined,
+      result: rtResult,
+      comentarios: rtComentarios.trim() || undefined,
+      fotoUrl: rtFotoUrl || undefined,
+    };
+    setRapidTestEntries(prev => [...prev, entry]);
+    setRtTestName(undefined);
+    setRtCustomTestName("");
+    setRtBrand("");
+    setRtLot("");
+    setRtExpirationDate("");
+    setRtSampleMaterial("");
+    setRtResult("Negativo");
+    setRtComentarios("");
+    setRtFotoUrl("");
+    toast.success("Teste adicionado.");
+  };
+
+  const handleRemoveRapidTestEntry = (id: string) => {
+    setRapidTestEntries(prev => prev.filter(e => e.id !== id));
+  };
+
+  // Campos de texto livre — "result" (union tipada) tem um updater à parte
+  // (handleUpdateRapidTestResult) pra manter o tipo estrito.
+  const handleUpdateRapidTestEntry = (
+    id: string,
+    field: Exclude<keyof RapidTestEntry, "id" | "result">,
+    value: string
+  ) => {
+    setRapidTestEntries(prev =>
+      prev.map(e => (e.id === id ? { ...e, [field]: value } : e))
+    );
+  };
+
+  const handleUpdateRapidTestResult = (id: string, value: RapidTestResult) => {
+    setRapidTestEntries(prev =>
+      prev.map(e => (e.id === id ? { ...e, result: value } : e))
+    );
+  };
+
   const handleSaveExam = async () => {
     if (!examDate || !examTime || !examType || !examVet) {
       toast.error("Por favor, preencha a data, hora, tipo de exame e veterinário.");
@@ -639,6 +753,11 @@ const AddExamPage = () => {
 
     if (examType === "Citologia" && cytologyEntries.length === 0) {
       toast.error("Adicione pelo menos uma lesão/nódulo avaliado.");
+      return;
+    }
+
+    if (examType === "Teste Rápido" && rapidTestEntries.length === 0) {
+      toast.error("Adicione pelo menos um teste.");
       return;
     }
 
@@ -703,6 +822,11 @@ const AddExamPage = () => {
         coloracao: coloracao.trim() || undefined,
         cytologyEntries: cytologyEntries.length ? cytologyEntries : undefined,
         patologistaResponsavel: patologistaResponsavel.trim() || undefined,
+        nota: nota.trim() || undefined,
+      });
+    } else if (examType === "Teste Rápido") {
+      Object.assign(examData, {
+        rapidTestEntries: rapidTestEntries.length ? rapidTestEntries : undefined,
         nota: nota.trim() || undefined,
       });
     } else {
@@ -1404,8 +1528,271 @@ const AddExamPage = () => {
               </>
             )}
 
+            {/* Teste Rápido (SNAP/imunocromatográfico) */}
+            {examType === "Teste Rápido" && (
+              <>
+                {/* Adicionar teste */}
+                <Card className="vf-surface-card vf-tone-clinical card-hover mt-6 rounded-xl border border-border/80 p-4">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="flex items-center gap-2 text-lg font-semibold text-foreground">
+                      <FaFlask className="h-5 w-5 text-vf-clinical" /> Adicionar Teste
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="grid gap-4 pt-0 px-2">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>Qual teste</Label>
+                        <Select value={rtTestName} onValueChange={setRtTestName}>
+                          <SelectTrigger className="bg-input"><SelectValue placeholder="Selecione o teste" /></SelectTrigger>
+                          <SelectContent>
+                            {rapidTestNameOptions.map((name) => (
+                              <SelectItem key={name} value={name}>{name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      {rtTestName === "Outro" && (
+                        <div className="space-y-2">
+                          <Label>Nome do teste</Label>
+                          <Input
+                            placeholder="Ex: Toxoplasmose"
+                            value={rtCustomTestName}
+                            onChange={(e) => setRtCustomTestName(e.target.value)}
+                            className="bg-input"
+                          />
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>Resultado</Label>
+                        <Select value={rtResult} onValueChange={(v) => setRtResult(v as RapidTestResult)}>
+                          <SelectTrigger className="bg-input"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Negativo">Negativo</SelectItem>
+                            <SelectItem value="Positivo">Positivo</SelectItem>
+                            <SelectItem value="Inconclusivo">Inconclusivo</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Amostra utilizada</Label>
+                        <Input
+                          placeholder="Ex: Soro, sangue total, fezes"
+                          value={rtSampleMaterial}
+                          onChange={(e) => setRtSampleMaterial(e.target.value)}
+                          className="bg-input"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="space-y-2">
+                        <Label>Marca/Fabricante</Label>
+                        <Input
+                          placeholder="Ex: IDEXX SNAP, Alere"
+                          value={rtBrand}
+                          onChange={(e) => setRtBrand(e.target.value)}
+                          className="bg-input"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Lote</Label>
+                        <Input value={rtLot} onChange={(e) => setRtLot(e.target.value)} className="bg-input" />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Validade do kit</Label>
+                        <Input type="date" value={rtExpirationDate} onChange={(e) => setRtExpirationDate(e.target.value)} className="bg-input" />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Observações (opcional)</Label>
+                      <Textarea
+                        placeholder="Ex: Leitura feita em 10 minutos, linha controle presente."
+                        value={rtComentarios}
+                        onChange={(e) => setRtComentarios(e.target.value)}
+                        rows={2}
+                        className="bg-input"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Foto do teste (opcional)</Label>
+                      <Input type="file" accept="image/*" onChange={handleRapidTestFotoChange} className="bg-input" />
+                      {rtUploadingFoto && <p className="text-xs text-muted-foreground">Processando imagem...</p>}
+                      {rtFotoUrl && !rtUploadingFoto && (
+                        <img src={rtFotoUrl} alt="Prévia do teste" className="mt-2 h-24 rounded-md border border-border object-cover" />
+                      )}
+                    </div>
+
+                    <div className="flex items-end col-span-full">
+                      <Button type="button" onClick={handleAddRapidTestEntry} className="flex items-center gap-2 bg-[hsl(var(--vf-clinical))] text-white hover:bg-[hsl(var(--vf-clinical)/0.9)]">
+                        <FaPlus className="h-4 w-4" /> Adicionar teste
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Lista de testes adicionados */}
+                {rapidTestEntries.length > 0 && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+                    {rapidTestEntries.map((entry) => (
+                      <Card key={entry.id} className="vf-surface-card vf-tone-clinical card-hover rounded-xl border border-border/80">
+                        <CardHeader className="pb-2">
+                          <CardTitle className="flex items-center justify-between gap-2 text-base">
+                            <span className="truncate">{entry.testName}</span>
+                            <span
+                              className={
+                                "shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold " +
+                                (entry.result === "Positivo"
+                                  ? "bg-red-100 text-red-700"
+                                  : entry.result === "Inconclusivo"
+                                    ? "bg-amber-100 text-amber-800"
+                                    : "bg-emerald-100 text-emerald-700")
+                              }
+                            >
+                              {entry.result}
+                            </span>
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="grid gap-3 pt-0">
+                          {entry.fotoUrl && (
+                            <img src={entry.fotoUrl} alt={`Teste — ${entry.testName}`} className="h-32 w-full rounded-md border border-border object-cover" />
+                          )}
+                          <div className="space-y-1">
+                            <Label>Qual teste</Label>
+                            <Input
+                              value={entry.testName}
+                              onChange={(e) => handleUpdateRapidTestEntry(entry.id, "testName", e.target.value)}
+                              className="bg-input"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label>Resultado</Label>
+                            <Select value={entry.result} onValueChange={(v) => handleUpdateRapidTestResult(entry.id, v as RapidTestResult)}>
+                              <SelectTrigger className="bg-input"><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="Negativo">Negativo</SelectItem>
+                                <SelectItem value="Positivo">Positivo</SelectItem>
+                                <SelectItem value="Inconclusivo">Inconclusivo</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-1">
+                              <Label>Marca/Fabricante</Label>
+                              <Input
+                                value={entry.brand || ""}
+                                onChange={(e) => handleUpdateRapidTestEntry(entry.id, "brand", e.target.value)}
+                                className="bg-input"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <Label>Lote</Label>
+                              <Input
+                                value={entry.lot || ""}
+                                onChange={(e) => handleUpdateRapidTestEntry(entry.id, "lot", e.target.value)}
+                                className="bg-input"
+                              />
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-1">
+                              <Label>Validade</Label>
+                              <Input
+                                type="date"
+                                value={entry.expirationDate || ""}
+                                onChange={(e) => handleUpdateRapidTestEntry(entry.id, "expirationDate", e.target.value)}
+                                className="bg-input"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <Label>Amostra</Label>
+                              <Input
+                                value={entry.sampleMaterial || ""}
+                                onChange={(e) => handleUpdateRapidTestEntry(entry.id, "sampleMaterial", e.target.value)}
+                                className="bg-input"
+                              />
+                            </div>
+                          </div>
+                          <div className="space-y-1">
+                            <Label>Observações</Label>
+                            <Textarea
+                              value={entry.comentarios || ""}
+                              onChange={(e) => handleUpdateRapidTestEntry(entry.id, "comentarios", e.target.value)}
+                              rows={2}
+                              className="bg-input"
+                            />
+                          </div>
+                          <div className="flex justify-end">
+                            <Button variant="outline" type="button" onClick={() => handleRemoveRapidTestEntry(entry.id)} className="text-red-600 hover:text-red-700">
+                              <FaTrash className="h-4 w-4 mr-2" /> Remover
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+
+                {/* Liberação do laudo */}
+                <Card className="vf-surface-card vf-tone-clinical card-hover mt-6 rounded-xl border border-border/80 p-4">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="flex items-center gap-2 text-lg font-semibold text-foreground">
+                      <FaUserMd className="h-5 w-5 text-vf-clinical" /> Liberação do Laudo
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-0 px-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="rtLaboratoryDate">Data do resultado</Label>
+                      <Input
+                        id="rtLaboratoryDate"
+                        type="date"
+                        value={laboratoryDate}
+                        onChange={(e) => setLaboratoryDate(e.target.value)}
+                        className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="rtLiberadoPor">Liberado por (veterinário da clínica)</Label>
+                      <Input
+                        id="rtLiberadoPor"
+                        value={liberadoPor}
+                        onChange={(e) => setLiberadoPor(e.target.value)}
+                        className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200"
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Nota adicional */}
+                <Card className="vf-surface-card vf-tone-clinical card-hover mt-6 rounded-xl border border-border/80 p-4">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="flex items-center gap-2 text-lg font-semibold text-foreground">
+                      <FaNotesMedical className="h-5 w-5 text-vf-clinical" /> Nota
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="pt-0 px-2">
+                    <div className="space-y-2 col-span-full">
+                      <Label htmlFor="rtNota">Ressalva/observação adicional (opcional)</Label>
+                      <Textarea
+                        id="rtNota"
+                        placeholder="Ex: Resultado negativo não descarta infecção em fase de incubação — repetir em 2-4 semanas se houver suspeita clínica."
+                        value={nota}
+                        onChange={(e) => setNota(e.target.value)}
+                        rows={2}
+                        className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200"
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
+              </>
+            )}
+
             {/* Outros tipos (genérico) */}
-            {examType && examType !== "Hemograma Completo" && examType !== "Bioquímico" && examType !== "Citologia" && (
+            {examType && examType !== "Hemograma Completo" && examType !== "Bioquímico" && examType !== "Citologia" && examType !== "Teste Rápido" && (
               <>
                 <Card className="vf-surface-card vf-tone-clinical card-hover mt-6 rounded-xl border border-border/80 p-4">
                   <CardHeader className="pb-3">
