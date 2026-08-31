@@ -78,6 +78,30 @@ export async function listSchedules(): Promise<ScheduleUI[]> {
   return (data || []).map((r) => rowToUI(r as Record<string, unknown>));
 }
 
+// Usado pela Linha do Tempo do prontuário — traz os agendamentos (Agenda/
+// página pública) de um paciente específico, incluindo os cancelados
+// (diferente de listScheduleTimesInRange, que os esconde por representarem
+// horário liberado): no prontuário o cancelamento é histórico, não deve sumir.
+export async function getSchedulesByAnimal(animalId: string): Promise<ScheduleUI[]> {
+  if (!isSupabaseConfigured) {
+    throw new Error("Supabase não está configurado.");
+  }
+  if (!animalId) return [];
+
+  const { data, error } = await supabase
+    .from(TABLE)
+    .select("*")
+    .eq("animal_id", animalId)
+    .order("date", { ascending: true })
+    .order("time", { ascending: true });
+
+  if (error) {
+    throw new Error(`Falha ao carregar agendamentos do paciente: ${error.message}`);
+  }
+
+  return (data || []).map((r) => rowToUI(r as Record<string, unknown>));
+}
+
 export interface ScheduleTimeSummary {
   id: string;
   date: string;

@@ -2,6 +2,7 @@
 
 import React, { useMemo, useState, useEffect, useCallback } from "react";
 import { Link, useParams, useNavigate, useSearchParams } from "react-router-dom";
+import { format } from "date-fns";
 import {
   FaArrowLeft, FaUsers, FaPaw, FaPlus, FaEye, FaStethoscope, FaCalendarAlt, FaDollarSign, FaSyringe, FaWeightHanging, FaFileAlt, FaClipboardList, FaCommentAlt, FaHeart, FaMale, FaUser, FaPrint, FaDownload, FaTimes, FaSave, FaBalanceScale, FaFileMedical, FaExclamationTriangle, FaFlask, FaTag, FaBox, FaClock, FaMoneyBillWave, FaArrowUp, FaArrowDown, FaTrashAlt, FaPrescriptionBottleAlt, FaEdit, FaIdCard, FaPhone, FaUndo, FaShoppingCart, FaHandHoldingUsd
 } from "react-icons/fa";
@@ -83,6 +84,7 @@ import PatientAppointmentsTab from "@/components/patient/appointments/PatientApp
 import PatientVaccinesTab from "@/components/patient/vaccines/PatientVaccinesTab";
 import AISuggestionsView from "@/components/AISuggestionsView";
 import { buildContextFromExams, fetchExamInterpretation, stripMarkdownForPlainText, type ChatMessage } from "@/lib/examInterpretation";
+import { useAnimalSchedules } from "@/hooks/useSchedules";
 import {
   Circle as CircleIcon,
   FileText as FileTextIcon,
@@ -90,6 +92,7 @@ import {
   Stethoscope as StethoscopeIcon,
   Syringe as SyringeIcon,
   AlertTriangle as AlertTriangleIcon,
+  CalendarClock as CalendarClockIcon,
   CheckCircle2,
   AlertCircle,
   BadgeDollarSign,
@@ -127,7 +130,7 @@ interface TimelineEvent {
   id: string;
   date: string;
   time: string;
-  type: 'Atendimento' | 'Exame' | 'Receita' | 'Peso' | 'Observação' | 'Venda' | 'Vacina' | 'Documento';
+  type: 'Atendimento' | 'Agendamento' | 'Exame' | 'Receita' | 'Peso' | 'Observação' | 'Venda' | 'Vacina' | 'Documento';
   description: string;
   icon: React.ElementType;
   link?: string;
@@ -135,6 +138,9 @@ interface TimelineEvent {
   summary?: string;
   author?: string;
   isAlert?: boolean;
+  /** Só em eventos 'Agendamento' — status atual (schedules.status), pra
+   *  destacar visualmente um agendamento cancelado na timeline. */
+  scheduleStatus?: string;
 }
 
 // Helper function to calculate age
@@ -173,6 +179,7 @@ const parseSaleObservations = (raw: string | undefined): { appointmentId?: strin
 // Helper para identidade visual por tipo de evento
 const EVENT_STYLES: Record<string, { dot: string; badge: string }> = {
   'Atendimento': { dot: 'timeline-dot-clinical', badge: 'badge-soft-clinical' },
+  'Agendamento': { dot: 'timeline-dot-blue', badge: 'badge-soft-blue' },        // Azul — diferente do Atendimento (clínico)
   'Exame': { dot: 'timeline-dot-clinical-strong', badge: 'badge-soft-clinical-strong' },
   'Receita': { dot: 'timeline-dot-green', badge: 'badge-soft-green' },          // Verde base
   'Peso': { dot: 'timeline-dot-amber', badge: 'badge-soft-amber' },             // Mantém como está
@@ -188,6 +195,7 @@ const getEventStyle = (type: string) => EVENT_STYLES[type] || { dot: 'timeline-d
 const getEventIconClass = (type: string) => {
   switch (type) {
     case 'Atendimento': return 'icon-soft-teal';
+    case 'Agendamento': return 'icon-soft-blue';
     case 'Exame': return 'icon-soft-teal';
     case 'Receita': return 'icon-soft-green';
     case 'Peso': return 'icon-soft-amber';
@@ -198,6 +206,17 @@ const getEventIconClass = (type: string) => {
     case 'Observação': return 'icon-soft-gray';
     default: return 'icon-soft-gray';
   }
+};
+
+// Rótulo em pt-BR pro status do agendamento (schedules.status) — mesmos
+// rótulos usados em StatusBadge.tsx (Agenda/Dashboard), pra ficar consistente
+// em toda a tela quando o vet muda o status por lá e volta pro prontuário.
+const SCHEDULE_STATUS_LABEL: Record<string, string> = {
+  scheduled: "Agendado",
+  in_progress: "Em atendimento",
+  attended: "Atendido",
+  no_show: "Não atendido",
+  cancelled: "Cancelado",
 };
 
 // PatientRecordPage
@@ -255,6 +274,7 @@ const PatientRecordPage = () => {
   // atendimentos da clínica" (bug real: prontuário mostrando dados de outros
   // pacientes até a busca certa voltar).
   const { appointments: animalAppointmentsFromHook, refetch: refetchAppointments } = useAppointments(animalId, { skipWhenNoAnimalId: true });
+  const { schedules: animalSchedules, refetch: refetchSchedules } = useAnimalSchedules(animalId);
   const { prescriptions: prescriptionsFromHook, refetch: refetchPrescriptions } = usePrescriptions(animalId);
   const { exams: examsFromHook, refetch: refetchExams } = useExams(animalId);
   const { items: catalogItemsFromHook, refetch: refetchCatalog } = useCatalog();
@@ -1090,6 +1110,27 @@ const PatientRecordPage = () => {
     });
   });
 
+  // Agendamentos (Agenda interna e página pública) — entidade separada do
+  // "Atendimento" clínico acima (uma é o horário marcado, a outra é o
+  // registro do que foi feito na consulta). Mostra o status atual sempre
+  // que o prontuário é aberto, então mudar o status na Agenda (ex.: cancelar)
+  // já reflete aqui na próxima vez que a timeline for carregada.
+  animalSchedules.forEach(sched => {
+    const statusLabel = SCHEDULE_STATUS_LABEL[sched.status] || sched.status;
+    allTimelineEvents.push({
+      id: `sched-${sched.id}`,
+      date: format(sched.date, "yyyy-MM-dd"),
+      time: sched.time,
+      type: 'Agendamento',
+      description: `${sched.title || "Agendamento"}: ${statusLabel}`,
+      summary: statusLabel,
+      icon: FaCalendarAlt,
+      badgeColor: "bg-blue-100 text-blue-800",
+      author: currentVetName,
+      scheduleStatus: sched.status,
+    });
+  });
+
   examsList.forEach(exam => {
     allTimelineEvents.push({
       id: `exam-${exam.id}`,
@@ -1243,6 +1284,7 @@ const PatientRecordPage = () => {
 
   const getTimelineMarkerIcon = (event: TimelineEvent) => {
     if (event.type === "Atendimento") return StethoscopeIcon;
+    if (event.type === "Agendamento") return CalendarClockIcon;
     if (event.type === "Exame") return FlaskConicalIcon;
     if (event.type === "Vacina") return SyringeIcon;
     if (event.type === "Receita") return FileTextIcon;
@@ -1732,6 +1774,9 @@ const PatientRecordPage = () => {
                           if (event.type === 'Atendimento') {
                             return (event.description || "").split(":")[0]?.trim() || "Atendimento";
                           }
+                          if (event.type === 'Agendamento') {
+                            return (event.description || "").split(":")[0]?.trim() || "Agendamento";
+                          }
                           if (event.type === 'Exame') {
                             return (event.description || "").split(":")[0]?.trim() || "Exame";
                           }
@@ -1753,6 +1798,7 @@ const PatientRecordPage = () => {
 
                         const getSubtitle = () => {
                           if (event.type === 'Atendimento') return (event.summary || "").trim();
+                          if (event.type === 'Agendamento') return (event.summary || "").trim();
                           if (event.type === 'Exame') return (event.summary || "").trim();
                           if (event.type === 'Receita') return (event.summary || "").trim();
                           if (event.type === 'Vacina') {
@@ -1762,15 +1808,20 @@ const PatientRecordPage = () => {
                           return "";
                         };
 
-                        const dotClass = isAlertObs
+                        // Agendamento cancelado ganha o mesmo destaque em vermelho do
+                        // Alerta em Observação — precisa saltar aos olhos na timeline
+                        // que aquele horário não aconteceu.
+                        const isCancelledAgenda = event.type === 'Agendamento' && event.scheduleStatus === 'cancelled';
+
+                        const dotClass = isAlertObs || isCancelledAgenda
                           ? "bg-red-300"
                           : (event.type === 'Receita' ? getRecipeDotClass() : styles.dot);
 
-                        const badgeClass = isAlertObs
+                        const badgeClass = isAlertObs || isCancelledAgenda
                           ? "bg-red-100 text-red-800"
                           : (event.type === 'Receita' ? getRecipeVariantClass() : styles.badge);
 
-                        const iconColorClass = isAlertObs
+                        const iconColorClass = isAlertObs || isCancelledAgenda
                           ? "text-red-700"
                           : (event.type === 'Receita' ? getRecipeIconClass() : iconClass);
 
@@ -1809,6 +1860,8 @@ const PatientRecordPage = () => {
                                     <span className={cn("chip-soft", badgeClass)}>
                                       {isAlertObs
                                         ? "Alerta"
+                                        : isCancelledAgenda
+                                        ? "Agendamento cancelado"
                                         : event.type === 'Receita'
                                           ? ((event.description || "").toLowerCase().includes('controlada') ? 'Receita Controlada'
                                             : (event.description || "").toLowerCase().includes('manipulada') ? 'Receita Manipulada'
