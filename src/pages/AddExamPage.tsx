@@ -59,6 +59,23 @@ const rapidTestNameOptions = [
   "Outro",
 ];
 
+// Ressalva clínica padrão de cada teste — preenche o campo "Observações"
+// como sugestão editável ao escolher o teste (pedido do usuário depois de
+// ver a nota genérica que só aparecia como texto de exemplo/placeholder).
+// Nunca sobrescreve algo que o usuário já tenha digitado (ver
+// handleRtTestNameChange) — só entra quando o campo ainda está vazio.
+const rapidTestDefaultNotes: Record<string, string> = {
+  "FIV/FeLV Combo": "Resultado negativo não descarta infecção recente (janela imunológica) — repetir em 60 dias se houver suspeita clínica ou exposição de risco.",
+  "FIV (Imunodeficiência Felina)": "Detecta anticorpos anti-FIV. Filhotes de mães FIV+ podem ter resultado falso-positivo por anticorpos maternos — repetir o teste após 6 meses de idade.",
+  "FeLV (Leucemia Felina)": "Detecta antígeno p27. Resultado positivo em gato assintomático deve ser confirmado com um segundo método (ex.: PCR) antes de definir prognóstico.",
+  "Cinomose": "Resultado negativo não descarta infecção em fase de incubação ou pós-vacinal recente — repetir em 7 a 10 dias se houver suspeita clínica.",
+  "Parvovirose": "Eliminação viral nas fezes pode ser intermitente — resultado negativo com quadro clínico compatível não descarta a doença; repetir em 24-48h se necessário.",
+  "Erliquiose": "Detecta anticorpos — pode levar até 3 semanas para positivar após a infecção (janela sorológica). Correlacionar com hemograma (plaquetopenia).",
+  "Giardíase": "Eliminação de cistos é intermitente — recomenda-se repetir em amostras de dias diferentes em caso de suspeita clínica com teste negativo.",
+  "Leishmaniose Visceral Canina": "Teste sorológico de triagem. Conforme o PNCVL, resultado positivo requer confirmação por método complementar antes de qualquer conduta.",
+  "Dirofilariose (Verme do Coração)": "Detecta antígeno de fêmeas adultas — infecções só por machos ou pré-patentes (menos de 5-7 meses) podem dar falso-negativo.",
+};
+
 
 // Analitos/Enzimas comuns em rotina (cães e gatos) — lista base; analitos
 // lançados como "Outro" entram no cadastro (Cadastros > Referências de
@@ -300,6 +317,11 @@ const AddExamPage = () => {
   const [rtSampleMaterial, setRtSampleMaterial] = useState<string>("");
   const [rtResult, setRtResult] = useState<RapidTestResult>("Negativo");
   const [rtComentarios, setRtComentarios] = useState<string>("");
+  // true enquanto o texto em rtComentarios veio da sugestão automática (não
+  // foi editado à mão) — permite trocar de teste e atualizar a sugestão;
+  // vira false no primeiro caractere que o usuário digitar, e a partir daí
+  // trocar de teste nunca mais mexe no que ele escreveu.
+  const [rtComentariosAutoFilled, setRtComentariosAutoFilled] = useState(false);
   const [rtFotoUrl, setRtFotoUrl] = useState<string>("");
   const [rtUploadingFoto, setRtUploadingFoto] = useState(false);
 
@@ -380,6 +402,7 @@ const AddExamPage = () => {
     setRtSampleMaterial("");
     setRtResult("Negativo");
     setRtComentarios("");
+    setRtComentariosAutoFilled(false);
     setRtFotoUrl("");
   };
 
@@ -688,6 +711,17 @@ const AddExamPage = () => {
     reader.readAsDataURL(file);
   };
 
+  // Ao escolher o teste, sugere a ressalva clínica padrão em "Observações"
+  // — só substitui se o campo está vazio ou ainda tem outra sugestão
+  // automática (nunca apaga algo que o usuário tenha digitado à mão).
+  const handleRtTestNameChange = (value: string) => {
+    setRtTestName(value);
+    if (rtComentarios.trim() && !rtComentariosAutoFilled) return;
+    const suggestion = rapidTestDefaultNotes[value] || "";
+    setRtComentarios(suggestion);
+    setRtComentariosAutoFilled(!!suggestion);
+  };
+
   const handleAddRapidTestEntry = () => {
     const testName = rtTestName === "Outro" ? rtCustomTestName.trim() : rtTestName;
     if (!testName) {
@@ -714,6 +748,7 @@ const AddExamPage = () => {
     setRtSampleMaterial("");
     setRtResult("Negativo");
     setRtComentarios("");
+    setRtComentariosAutoFilled(false);
     setRtFotoUrl("");
     toast.success("Teste adicionado.");
   };
@@ -1542,7 +1577,7 @@ const AddExamPage = () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label>Qual teste</Label>
-                        <Select value={rtTestName} onValueChange={setRtTestName}>
+                        <Select value={rtTestName} onValueChange={handleRtTestNameChange}>
                           <SelectTrigger className="bg-input"><SelectValue placeholder="Selecione o teste" /></SelectTrigger>
                           <SelectContent>
                             {rapidTestNameOptions.map((name) => (
@@ -1612,7 +1647,10 @@ const AddExamPage = () => {
                       <Textarea
                         placeholder="Ex: Leitura feita em 10 minutos, linha controle presente."
                         value={rtComentarios}
-                        onChange={(e) => setRtComentarios(e.target.value)}
+                        onChange={(e) => {
+                          setRtComentarios(e.target.value);
+                          setRtComentariosAutoFilled(false);
+                        }}
                         rows={2}
                         className="bg-input"
                       />
