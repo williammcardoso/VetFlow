@@ -40,6 +40,30 @@ const MIN_GAP_MINUTES = 60;
 const WEEKDAY_LABELS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 const GRID_HOURS = ["08:00", "09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00"];
 
+// Navegador não tem como ler o nome real do computador (Windows não expõe
+// isso pra página nenhuma) — em vez disso, cada aparelho "se apresenta" uma
+// vez (ex.: "Balcão 1") e o navegador lembra sozinho depois, via
+// localStorage. Vai junto nas observações de cada agendamento criado
+// dali, pra dar pra saber de qual computador saiu cada reserva.
+const STATION_NAME_STORAGE_KEY = "vetflow:agendar-horario:nomeComputador";
+
+function readStationName(): string {
+  try {
+    return localStorage.getItem(STATION_NAME_STORAGE_KEY) || "";
+  } catch {
+    return "";
+  }
+}
+
+function writeStationName(name: string): void {
+  try {
+    localStorage.setItem(STATION_NAME_STORAGE_KEY, name);
+  } catch {
+    // localStorage bloqueado (aba anônima, configuração do navegador) —
+    // sem persistência nesse caso, mas não quebra a página.
+  }
+}
+
 // Horário de funcionamento (confirmado com o usuário) — seg-sex 8h-18h,
 // sábado 8h-12h, domingo fechado. Sem tabela de configuração pra isso no
 // sistema ainda, então fica fixo aqui; se mudar, é só ajustar esses 2 pontos.
@@ -126,6 +150,23 @@ const BookSchedulePage: React.FC = () => {
   const [description, setDescription] = React.useState("");
   const [saving, setSaving] = React.useState(false);
   const [success, setSuccess] = React.useState(false);
+
+  // Nome do computador/balcão (só nesse navegador — ver STATION_NAME_STORAGE_KEY).
+  const [stationName, setStationName] = React.useState<string>(() => readStationName());
+  const [stationDialogOpen, setStationDialogOpen] = React.useState(false);
+  const [stationNameInput, setStationNameInput] = React.useState("");
+
+  const openStationDialog = () => {
+    setStationNameInput(stationName);
+    setStationDialogOpen(true);
+  };
+
+  const handleSaveStationName = () => {
+    const trimmed = stationNameInput.trim();
+    writeStationName(trimmed);
+    setStationName(trimmed);
+    setStationDialogOpen(false);
+  };
 
   const todayMonday = React.useMemo(() => mondayOf(getTodayLocalISO()), []);
   const [weekStart, setWeekStart] = React.useState<Date>(todayMonday);
@@ -223,7 +264,9 @@ const BookSchedulePage: React.FC = () => {
         animalId: "",
         animalName: "",
         status: "scheduled",
-        notes: "Agendado pelo link público (balcão da agropecuária).",
+        notes: stationName.trim()
+          ? `Agendado pelo link público (balcão da agropecuária) — computador: ${stationName.trim()}.`
+          : "Agendado pelo link público (balcão da agropecuária).",
       });
 
       // Atualiza o calendário na hora, sem precisar recarregar a página —
@@ -431,6 +474,13 @@ const BookSchedulePage: React.FC = () => {
           </div>
           <CardTitle className="text-lg">Agendar horário{companyName ? ` — ${companyName}` : ""}</CardTitle>
           <p className="text-sm text-muted-foreground">Reserve um horário na agenda (ex.: vacina a domicílio, consulta).</p>
+          <button
+            type="button"
+            onClick={openStationDialog}
+            className="mx-auto mt-1 text-xs text-muted-foreground underline decoration-dotted hover:text-foreground"
+          >
+            {stationName ? `Computador: ${stationName} (trocar)` : "Identificar este computador"}
+          </button>
         </CardHeader>
         <CardContent>
           {success ? (
@@ -814,6 +864,40 @@ const BookSchedulePage: React.FC = () => {
               ))}
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Nome do computador/balcão — só fica salvo nesse navegador
+          (localStorage), pra saber de qual aparelho saiu cada reserva. */}
+      <Dialog open={stationDialogOpen} onOpenChange={setStationDialogOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Identificar este computador</DialogTitle>
+            <DialogDescription>
+              Um nome curto pra saber de qual computador saiu cada reserva (ex.: "Balcão 1", "Caixa"). Fica salvo só
+              neste navegador — cada computador precisa fazer isso uma vez.
+            </DialogDescription>
+          </DialogHeader>
+          <Input
+            value={stationNameInput}
+            onChange={(e) => setStationNameInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                handleSaveStationName();
+              }
+            }}
+            placeholder="Ex.: Balcão 1"
+            autoFocus
+          />
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setStationDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button type="button" onClick={handleSaveStationName}>
+              Salvar
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
