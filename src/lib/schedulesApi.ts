@@ -84,7 +84,15 @@ export interface ScheduleTimeSummary {
   time: string;
   clientName?: string;
   title?: string;
+  /** Nome do computador/balcão que fez a reserva (ver BookSchedulePage.tsx),
+   *  extraído de `notes` — só existe pra reservas feitas depois de o
+   *  computador ter sido identificado. */
+  stationName?: string;
 }
+
+// Mesmo texto gravado em BookSchedulePage.tsx (doCreateBooking) — mudar um
+// lado sem o outro quebra a extração do nome do computador no hover.
+const STATION_NAME_NOTES_PATTERN = /— computador: (.+?)\.?$/;
 
 // Usado pela página pública de agendamento (balcão da agropecuária) — tanto
 // pro calendário semanal (marcar horários ocupados, com nome/descrição em
@@ -96,7 +104,7 @@ export async function listScheduleTimesInRange(startISO: string, endISO: string)
   }
   const { data, error } = await supabase
     .from(TABLE)
-    .select("id, date, time, client_name, title, status")
+    .select("id, date, time, client_name, title, status, notes")
     .gte("date", startISO)
     .lte("date", endISO);
   if (error) {
@@ -105,6 +113,8 @@ export async function listScheduleTimesInRange(startISO: string, endISO: string)
   return (data || [])
     .map((r) => {
       const row = r as Record<string, unknown>;
+      const notes = (row.notes as string) || "";
+      const stationMatch = STATION_NAME_NOTES_PATTERN.exec(notes);
       return {
         id: row.id as string,
         date: row.date as string,
@@ -112,6 +122,7 @@ export async function listScheduleTimesInRange(startISO: string, endISO: string)
         clientName: (row.client_name as string) || undefined,
         title: (row.title as string) || undefined,
         status: (row.status as string) || undefined,
+        stationName: stationMatch?.[1]?.trim() || undefined,
       };
     })
     // Cancelado libera o horário de novo (usado pelo "Cancelar horário" da

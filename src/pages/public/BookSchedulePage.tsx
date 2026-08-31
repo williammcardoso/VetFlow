@@ -273,7 +273,10 @@ const BookSchedulePage: React.FC = () => {
       // antes o horário recém-reservado só aparecia como "Ocupado" depois
       // de um F5, porque `bookings` (carregado uma vez por semana) nunca
       // era atualizado após salvar.
-      setBookings((prev) => [...prev, { id: created.id, date, time, clientName: clientName.trim(), title: description.trim() }]);
+      setBookings((prev) => [
+        ...prev,
+        { id: created.id, date, time, clientName: clientName.trim(), title: description.trim(), stationName: stationName.trim() || undefined },
+      ]);
 
       setSuccess(true);
       toast.success("Horário reservado com sucesso!");
@@ -607,6 +610,9 @@ const BookSchedulePage: React.FC = () => {
                                               {formatDayHeader(d)} às {b.time}
                                               {isEncaixe && " • Encaixe (tem outro agendamento perto)"}
                                             </p>
+                                            {b.stationName && (
+                                              <p className="mt-1 text-xs text-muted-foreground">Agendado por: {b.stationName}</p>
+                                            )}
                                             <p className="mt-2 text-xs font-medium text-teal-700">Clique para editar ou cancelar</p>
                                           </HoverCardContent>
                                         </HoverCard>
@@ -847,6 +853,7 @@ const BookSchedulePage: React.FC = () => {
                       {encaixeIds.has(b.id) && <span className="ml-1.5 text-xs font-normal text-amber-700">(encaixe)</span>}
                     </p>
                     {b.title && <p className="truncate text-xs text-muted-foreground">{b.title}</p>}
+                    {b.stationName && <p className="truncate text-xs text-muted-foreground">Agendado por: {b.stationName}</p>}
                   </div>
                   <Button
                     type="button"
