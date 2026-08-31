@@ -21,7 +21,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { toast } from "sonner";
 import { useClientsList } from "@/hooks/useSupabaseClients";
@@ -34,6 +34,8 @@ import { CalendarDays, ChevronDown } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import StatusBadge from "@/components/saas/StatusBadge";
 import ClientCombobox from "@/components/ClientCombobox";
+import { SiWhatsapp } from "react-icons/si";
+import { sendAppointmentReminderViaWhatsApp } from "@/lib/whatsappShare";
 
 const AgendaPage = () => {
   const { data: dbClients, isError: isClientsError } = useClientsList();
@@ -168,6 +170,26 @@ const AgendaPage = () => {
       const msg = e instanceof Error ? e.message : "Erro ao atualizar status.";
       toast.error(msg);
     }
+  };
+
+  const handleSendWhatsAppReminder = (app: ScheduleUI) => {
+    const client = clients.find((c) => c.id === app.clientId);
+    const phone = client?.mainPhoneContact;
+    if (!phone) {
+      toast.error(
+        app.clientId
+          ? "Este cliente não tem telefone cadastrado."
+          : "Esse agendamento não tem cliente cadastrado vinculado (provavelmente veio da agenda pública) — não dá pra saber o telefone."
+      );
+      return;
+    }
+    sendAppointmentReminderViaWhatsApp(phone, {
+      clientName: app.clientName || "tutor(a)",
+      animalName: app.animalName,
+      title: app.title,
+      date: app.date,
+      time: app.time,
+    });
   };
 
   const handleSaveAppointment = async () => {
@@ -391,7 +413,11 @@ const AgendaPage = () => {
                             <ChevronDown className="h-3.5 w-3.5" />
                           </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-48">
+                        <DropdownMenuContent align="end" className="w-52">
+                          <DropdownMenuItem className="text-foreground" onClick={() => handleSendWhatsAppReminder(app)}>
+                            <SiWhatsapp className="mr-2 h-3.5 w-3.5 text-[#25D366]" /> Enviar lembrete por WhatsApp
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
                           <DropdownMenuItem className="text-foreground" onClick={() => void handleSetStatus(app, "scheduled")}>Agendado</DropdownMenuItem>
                           <DropdownMenuItem className="text-foreground" onClick={() => void handleSetStatus(app, "in_progress")}>Em atendimento</DropdownMenuItem>
                           <DropdownMenuItem className="text-foreground" onClick={() => void handleSetStatus(app, "attended")}>Atendido</DropdownMenuItem>
@@ -563,7 +589,11 @@ const AgendaPage = () => {
                               <ChevronDown className="h-3.5 w-3.5" />
                             </Button>
                           </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-44">
+                          <DropdownMenuContent align="end" className="w-52">
+                            <DropdownMenuItem className="text-foreground" onClick={() => handleSendWhatsAppReminder(item)}>
+                              <SiWhatsapp className="mr-2 h-3.5 w-3.5 text-[#25D366]" /> Enviar lembrete por WhatsApp
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
                             <DropdownMenuItem className="text-foreground" onClick={() => void handleSetStatus(item, "scheduled")}>Agendado</DropdownMenuItem>
                             <DropdownMenuItem className="text-foreground" onClick={() => void handleSetStatus(item, "in_progress")}>Em atendimento</DropdownMenuItem>
                             <DropdownMenuItem className="text-foreground" onClick={() => void handleSetStatus(item, "attended")}>Atendido</DropdownMenuItem>

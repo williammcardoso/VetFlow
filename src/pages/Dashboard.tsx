@@ -13,8 +13,12 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { toast } from "sonner";
+import { SiWhatsapp } from "react-icons/si";
+import { sendAppointmentReminderViaWhatsApp } from "@/lib/whatsappShare";
 import {
   LayoutDashboard,
   AlertTriangle,
@@ -177,6 +181,26 @@ const Dashboard = () => {
 
   const handleStatusChange = async (app: ScheduleUI, status: ScheduleStatus) => {
     await update.mutateAsync({ ...app, status });
+  };
+
+  const handleSendWhatsAppReminder = (app: ScheduleUI) => {
+    const client = (dbClients || []).find((c) => c.id === app.clientId);
+    const phone = client?.mainPhoneContact;
+    if (!phone) {
+      toast.error(
+        app.clientId
+          ? "Este cliente não tem telefone cadastrado."
+          : "Esse agendamento não tem cliente cadastrado vinculado (provavelmente veio da agenda pública) — não dá pra saber o telefone."
+      );
+      return;
+    }
+    sendAppointmentReminderViaWhatsApp(phone, {
+      clientName: app.clientName || "tutor(a)",
+      animalName: app.animalName,
+      title: app.title,
+      date: app.date,
+      time: app.time,
+    });
   };
 
   return (
@@ -374,7 +398,11 @@ const Dashboard = () => {
                             <ChevronDown className="h-3.5 w-3.5" />
                           </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-48">
+                        <DropdownMenuContent align="end" className="w-52">
+                          <DropdownMenuItem className="text-[11px] text-foreground" onClick={() => handleSendWhatsAppReminder(app)}>
+                            <SiWhatsapp className="mr-2 h-3.5 w-3.5 text-[#25D366]" /> Enviar lembrete por WhatsApp
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
                           <DropdownMenuItem className="text-[11px] text-foreground" onClick={() => void handleStatusChange(app, "scheduled")}>Agendado</DropdownMenuItem>
                           <DropdownMenuItem className="text-[11px] text-foreground" onClick={() => void handleStatusChange(app, "in_progress")}>Em atendimento</DropdownMenuItem>
                           <DropdownMenuItem className="text-[11px] text-foreground" onClick={() => void handleStatusChange(app, "attended")}>Atendido</DropdownMenuItem>
