@@ -382,11 +382,11 @@ const Dashboard = () => {
                 return (
                   <Card key={app.id} className="rounded-xl border border-border/70 bg-card p-3.5 transition-all duration-200 hover:-translate-y-0.5 hover:border-vf-clinical/70">
                     <div className="flex items-center justify-between gap-3">
-                      <div className="min-w-0">
+                      <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-semibold text-foreground">{app.animalName || "Pet"}</p>
                         <p className="truncate text-sm text-muted-foreground">{app.clientName || "Tutor"} - {app.title}</p>
                       </div>
-                      <div className="text-right">
+                      <div className="shrink-0 text-right">
                         <p className="text-xs text-muted-foreground">
                           {toScheduleDateTime(app).toLocaleDateString("pt-BR")} às {app.time}
                         </p>
