@@ -3383,12 +3383,17 @@ const PatientRecordPage = () => {
                 </DialogHeader>
 
                 <div className="space-y-4">
-                  <div className="grid grid-cols-12 gap-2 items-end">
-                    <div className="col-span-2">
+                  {/* grid-cols-1 no celular (empilha) — antes era grid-cols-12
+                      fixo em qualquer tela, então no celular os spans (ex.:
+                      col-span-6) forçavam colunas implícitas extras, o campo
+                      ficava espremido/sobreposto e o modal inteiro passava a
+                      exigir scroll horizontal pra alcançar até os botões. */}
+                  <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 sm:items-end">
+                    <div className="sm:col-span-2">
                       <Label>Data</Label>
                       <Input type="date" value={budgetDate} onChange={(e)=>setBudgetDate(e.target.value)} className="h-9 bg-input border border-border rounded-md" />
                     </div>
-                    <div className="col-span-6">
+                    <div className="sm:col-span-6">
                       <Label>Item</Label>
                       <AutocompleteSelect
                         value={budgetSelectedItemId}
@@ -3398,18 +3403,18 @@ const PatientRecordPage = () => {
                         className="bg-input border border-border rounded-md"
                       />
                     </div>
-                    <div className="col-span-2">
+                    <div className="sm:col-span-2">
                       <Label>Qtd</Label>
                       <Input type="number" value={budgetQty} onChange={(e)=>setBudgetQty(Number(e.target.value)||0)} className="h-9 bg-input border border-border rounded-md" />
                     </div>
-                    <div className="col-span-2">
+                    <div className="sm:col-span-2">
                       <Label>Preço Unitário</Label>
                       <CurrencyInput value={budgetUnitPrice} onValueChange={setBudgetUnitPrice} className="h-9 w-full border border-border rounded-md" />
                     </div>
                   </div>
 
                   <div className="flex justify-end">
-                    <Button onClick={addItemToBudget} className="h-9 px-4">Adicionar</Button>
+                    <Button onClick={addItemToBudget} className="h-9 px-4 w-full sm:w-auto">Adicionar</Button>
                   </div>
 
                   {budgetItems.length > 0 && (
@@ -3455,14 +3460,12 @@ const PatientRecordPage = () => {
                   </div>
                 </div>
 
-                <DialogFooter className="flex items-end justify-between gap-2">
-                  <p className="text-xs text-muted-foreground">Validade: {BUDGET_VALIDITY_DAYS} dia(s) a partir da data do orçamento.</p>
-                  <div className="flex gap-2">
-                    <Button variant="outline" onClick={()=>{ setBudgetModalOpen(false); resetBudgetForm(); }}>Cancelar</Button>
-                    <Button onClick={() => void saveBudget()} disabled={savingBudget}>
-                      {savingBudget ? "Salvando..." : editingBudgetId ? "Salvar alterações" : "Salvar Orçamento"}
-                    </Button>
-                  </div>
+                <p className="text-xs text-muted-foreground">Validade: {BUDGET_VALIDITY_DAYS} dia(s) a partir da data do orçamento.</p>
+                <DialogFooter>
+                  <Button variant="outline" onClick={()=>{ setBudgetModalOpen(false); resetBudgetForm(); }}>Cancelar</Button>
+                  <Button onClick={() => void saveBudget()} disabled={savingBudget}>
+                    {savingBudget ? "Salvando..." : editingBudgetId ? "Salvar alterações" : "Salvar Orçamento"}
+                  </Button>
                 </DialogFooter>
               </DialogContent>
             </Dialog>

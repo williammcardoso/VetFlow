@@ -36,7 +36,13 @@ const DialogContent = React.forwardRef<
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
-        "fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg",
+        // max-h + overflow-y-auto no padrão base: sem isso, um formulário
+        // alto (ex.: orçamento com tabela de itens) simplesmente vazava pra
+        // fora da tela no celular, sem scroll nenhum pra alcançar os botões
+        // no rodapé — cada Dialog precisava lembrar de adicionar isso na sua
+        // própria className. Vira comportamento padrão de todos os modais do
+        // sistema; um Dialog específico pode sobrescrever se precisar de outro valor.
+        "fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg max-h-[90vh] translate-x-[-50%] translate-y-[-50%] gap-4 overflow-y-auto border bg-background p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg",
         className,
       )}
       {...props}
@@ -57,7 +63,11 @@ const DialogHeader = ({
 }: React.HTMLAttributes<HTMLDivElement>) => (
   <div
     className={cn(
-      "flex flex-col space-y-1.5 text-center sm:text-left",
+      // min-w-0: DialogContent é grid, e um item de grid sem isso não
+      // encolhe abaixo da largura do próprio conteúdo — um título comprido
+      // sem quebra vazava pela borda do modal (mesmo bug já corrigido uma
+      // vez à mão em CancelSaleDialog; agora é o padrão de todo Dialog).
+      "flex min-w-0 flex-col space-y-1.5 text-center sm:text-left",
       className,
     )}
     {...props}
@@ -71,7 +81,7 @@ const DialogFooter = ({
 }: React.HTMLAttributes<HTMLDivElement>) => (
   <div
     className={cn(
-      "flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2",
+      "flex min-w-0 flex-col-reverse flex-wrap gap-2 sm:flex-row sm:justify-end",
       className,
     )}
     {...props}

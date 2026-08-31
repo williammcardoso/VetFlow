@@ -40,6 +40,7 @@ import {
   Palette,
   KeyRound,
   Clock,
+  ExternalLink,
 } from "lucide-react";
 
 interface NavItem {
@@ -193,13 +194,13 @@ const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, onCloseMobile, isDeskto
         aria-modal={isMobileOpen}
         aria-label="Menu de navegação"
         className={cn(
-          "vf-sidebar-shell h-screen fixed left-0 top-0 overflow-y-auto border-r",
-          "px-3 py-4 shadow-sm transition-all duration-300 ease-in-out z-50 hide-scrollbar",
+          "vf-sidebar-shell h-screen fixed left-0 top-0 flex flex-col border-r",
+          "px-3 py-4 shadow-sm transition-all duration-300 ease-in-out z-50",
           isMobileOpen ? "translate-x-0 w-64" : "-translate-x-full",
           isDesktopOpen ? "md:translate-x-0 md:w-[var(--vf-sidebar-w)]" : "md:translate-x-0 md:w-[var(--vf-sidebar-w-collapsed)]"
         )}
       >
-        <div className={cn("h-12 flex items-center", isDesktopOpen ? "px-2" : "px-0 justify-center")}>
+        <div className={cn("h-12 flex shrink-0 items-center", isDesktopOpen ? "px-2" : "px-0 justify-center")}>
           {isDesktopOpen ? (
             <SystemVetLogo />
           ) : (
@@ -207,7 +208,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, onCloseMobile, isDeskto
           )}
         </div>
 
-        <nav className="mt-4 space-y-2">
+        <nav className="mt-4 flex-1 space-y-2 overflow-y-auto hide-scrollbar">
           {isDesktopOpen ? (
             <Accordion type="multiple" className="w-full">
               {navItems.map((item, index) => {
@@ -347,6 +348,29 @@ const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, onCloseMobile, isDeskto
             </div>
           )}
         </nav>
+
+        {/* Fixo embaixo, fora da lista rolável — acesso rápido pra abrir a
+            agenda pública (link do balcão/tutores) em outra aba, sem
+            precisar navegar/sair da tela em que o vet está. */}
+        <div className="mt-2 shrink-0 border-t border-border/50 pt-2">
+          <a
+            href="/agendar-horario"
+            target="_blank"
+            rel="noopener noreferrer"
+            title="Abrir agenda pública em nova aba"
+            className={cn(
+              "vf-nav-hover group flex min-h-11 items-center rounded-xl transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
+              isDesktopOpen ? "justify-start gap-3 px-3" : "justify-center"
+            )}
+          >
+            <NavIcon icon={ExternalLink} />
+            {isDesktopOpen && (
+              <span className="text-[13.5px] font-normal vf-sidebar-text-soft relative top-[0.5px]">
+                Agenda pública
+              </span>
+            )}
+          </a>
+        </div>
       </aside>
     </>
   );
