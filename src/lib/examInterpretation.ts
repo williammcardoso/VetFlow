@@ -121,7 +121,7 @@ function formatCytology(exam: ExamEntry): string[] {
 function formatRapidTest(exam: ExamEntry): string[] {
   const lines: string[] = [];
   (exam.rapidTestEntries || []).forEach((t) => {
-    const bits = [t.result];
+    const bits: string[] = [t.result];
     if (t.sampleMaterial) bits.push(`amostra: ${t.sampleMaterial}`);
     if (t.brand) bits.push(`kit: ${t.brand}`);
     lines.push(`- ${t.testName}: ${bits.join(", ")}`);
