@@ -317,16 +317,17 @@ const AddExamPage = () => {
   const [rtSampleMaterial, setRtSampleMaterial] = useState<string>("");
   const [rtResult, setRtResult] = useState<RapidTestResult>("Negativo");
   const [rtComentarios, setRtComentarios] = useState<string>("");
-  // true enquanto o texto em rtComentarios veio da sugestão automática (não
-  // foi editado à mão) — permite trocar de teste e atualizar a sugestão;
-  // vira false no primeiro caractere que o usuário digitar, e a partir daí
-  // trocar de teste nunca mais mexe no que ele escreveu.
-  const [rtComentariosAutoFilled, setRtComentariosAutoFilled] = useState(false);
   const [rtFotoUrl, setRtFotoUrl] = useState<string>("");
   const [rtUploadingFoto, setRtUploadingFoto] = useState(false);
 
   // Adicionais
   const [nota, setNota] = useState<string>("");
+  // true enquanto o texto em `nota` (campo "Nota" no Teste Rápido) veio da
+  // sugestão automática por teste — permite trocar de teste no dropdown e
+  // atualizar a sugestão; vira false no primeiro caractere que o usuário
+  // digitar, e a partir daí trocar de teste nunca mais mexe no que ele
+  // escreveu. Só é usado/atualizado dentro do fluxo de Teste Rápido.
+  const [rtNotaAutoFilled, setRtNotaAutoFilled] = useState(false);
   const [laboratory, setLaboratory] = useState<string>("");
   const [laboratoryDate, setLaboratoryDate] = useState<string>("");
   const [observacoesGeraisExame, setObservacoesGeraisExame] = useState<string>("");
@@ -402,8 +403,8 @@ const AddExamPage = () => {
     setRtSampleMaterial("");
     setRtResult("Negativo");
     setRtComentarios("");
-    setRtComentariosAutoFilled(false);
     setRtFotoUrl("");
+    setRtNotaAutoFilled(false);
   };
 
   // Carregar dados ao editar
@@ -711,15 +712,16 @@ const AddExamPage = () => {
     reader.readAsDataURL(file);
   };
 
-  // Ao escolher o teste, sugere a ressalva clínica padrão em "Observações"
-  // — só substitui se o campo está vazio ou ainda tem outra sugestão
-  // automática (nunca apaga algo que o usuário tenha digitado à mão).
+  // Ao escolher o teste, sugere a ressalva clínica padrão no campo "Nota"
+  // (Ressalva/observação adicional, embaixo do formulário) — só substitui se
+  // o campo está vazio ou ainda tem outra sugestão automática (nunca apaga
+  // algo que o usuário tenha digitado à mão).
   const handleRtTestNameChange = (value: string) => {
     setRtTestName(value);
-    if (rtComentarios.trim() && !rtComentariosAutoFilled) return;
+    if (nota.trim() && !rtNotaAutoFilled) return;
     const suggestion = rapidTestDefaultNotes[value] || "";
-    setRtComentarios(suggestion);
-    setRtComentariosAutoFilled(!!suggestion);
+    setNota(suggestion);
+    setRtNotaAutoFilled(!!suggestion);
   };
 
   const handleAddRapidTestEntry = () => {
@@ -748,7 +750,6 @@ const AddExamPage = () => {
     setRtSampleMaterial("");
     setRtResult("Negativo");
     setRtComentarios("");
-    setRtComentariosAutoFilled(false);
     setRtFotoUrl("");
     toast.success("Teste adicionado.");
   };
@@ -1647,10 +1648,7 @@ const AddExamPage = () => {
                       <Textarea
                         placeholder="Ex: Leitura feita em 10 minutos, linha controle presente."
                         value={rtComentarios}
-                        onChange={(e) => {
-                          setRtComentarios(e.target.value);
-                          setRtComentariosAutoFilled(false);
-                        }}
+                        onChange={(e) => setRtComentarios(e.target.value)}
                         rows={2}
                         className="bg-input"
                       />
@@ -1819,7 +1817,10 @@ const AddExamPage = () => {
                         id="rtNota"
                         placeholder="Ex: Resultado negativo não descarta infecção em fase de incubação — repetir em 2-4 semanas se houver suspeita clínica."
                         value={nota}
-                        onChange={(e) => setNota(e.target.value)}
+                        onChange={(e) => {
+                          setNota(e.target.value);
+                          setRtNotaAutoFilled(false);
+                        }}
                         rows={2}
                         className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200"
                       />
