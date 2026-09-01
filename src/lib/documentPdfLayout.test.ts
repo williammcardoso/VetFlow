@@ -189,4 +189,43 @@ describe("parseCorpoIntoSegments", () => {
   it("não quebra com texto vazio", () => {
     expect(parseCorpoIntoSegments("")).toEqual([]);
   });
+
+  it("mantém cada item de lista com marcador em linha própria, sem juntar num parágrafo justificado — bug real reportado (C2/recusa de exames, item 3)", () => {
+    const texto = [
+      "TÍTULO",
+      "",
+      "3. CONSEQUÊNCIAS DA RECUSA",
+      "Fui expressamente informado(a) de que, sem os exames indicados:",
+      "- o diagnóstico permanecerá PRESUNTIVO, baseado apenas em achados clínicos;",
+      "- a conduta terapêutica será EMPÍRICA, com menor probabilidade de acerto;",
+      "- podem ocorrer complicações evitáveis, sequelas e ÓBITO.",
+    ].join("\n");
+    const segs = parseCorpoIntoSegments(texto);
+    const linhas = segs.filter((s) => s.kind === "linha").map((s) => (s as { texto: string }).texto);
+    expect(linhas).toEqual([
+      "- o diagnóstico permanecerá PRESUNTIVO, baseado apenas em achados clínicos;",
+      "- a conduta terapêutica será EMPÍRICA, com menor probabilidade de acerto;",
+      "- podem ocorrer complicações evitáveis, sequelas e ÓBITO.",
+    ]);
+    // A frase de introdução (não tem marcador) continua como parágrafo comum
+    // — só os itens da lista em si é que precisam virar linha própria.
+    expect(segs.find((s) => s.kind === "paragrafo")).toEqual({
+      kind: "paragrafo",
+      texto: "Fui expressamente informado(a) de que, sem os exames indicados:",
+    });
+  });
+
+  it("também reconhece marcador '•' como item de lista (ex.: autorização cirúrgica)", () => {
+    const segs = parseCorpoIntoSegments("TÍTULO\n\n• A natureza do procedimento cirúrgico proposto;\n• Os riscos inerentes à anestesia.");
+    const linhas = segs.filter((s) => s.kind === "linha").map((s) => (s as { texto: string }).texto);
+    expect(linhas).toEqual(["• A natureza do procedimento cirúrgico proposto;", "• Os riscos inerentes à anestesia."]);
+  });
+
+  it("não confunde travessão decorativo isolado ('── TÍTULO ──') com item de lista", () => {
+    const segs = parseCorpoIntoSegments("TÍTULO\n\n── EM CASO DE RECUSA DE ASSINATURA ──\nTexto normal.");
+    expect(segs.find((s) => s.kind === "subtitulo")).toEqual({
+      kind: "subtitulo",
+      texto: "── EM CASO DE RECUSA DE ASSINATURA ──",
+    });
+  });
 });

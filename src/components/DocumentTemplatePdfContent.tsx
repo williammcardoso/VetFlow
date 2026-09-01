@@ -25,7 +25,13 @@ const WATERMARK_RED = "#DC2626";
 const styles = StyleSheet.create({
   page: {
     padding: 34,
-    paddingBottom: 54,
+    // O rodapé (fixed, position: absolute) tem até ~53pt de altura de
+    // verdade quando tem QR code (imagem de 46pt) + bottom:16 de distância
+    // da borda — mas o padding reservado aqui era só 54, quase sem folga.
+    // Resultado: o texto do corpo podia fluir pra dentro do espaço físico
+    // do rodapé, e a borda superior do rodapé ficava sobreposta em cima da
+    // última frase da página (bug reportado pelo usuário no item 5).
+    paddingBottom: 84,
     fontFamily: "Inter",
     fontSize: 9.5,
     color: DARK,
@@ -46,7 +52,14 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     marginBottom: 10,
   },
-  docTitle: { fontSize: 14, fontWeight: 700, color: TEAL, letterSpacing: 0.5 },
+  // Sem flex/flexShrink nos dois lados, um título comprido (ex.: "TERMO DE
+  // NÃO ACEITE / RECUSA DE EXAMES COMPLEMENTARES") não tinha largura
+  // reservada — o bloco da direita (nº do documento + data) ficava
+  // sobreposto/cortado por baixo do título em vez de manter sua coluna
+  // própria (bug reportado pelo usuário, print do cabeçalho).
+  docMetaLeft: { flex: 1, paddingRight: 12 },
+  docMetaRight: { flexShrink: 0, alignItems: "flex-end" },
+  docTitle: { fontSize: 13, fontWeight: 700, color: TEAL, letterSpacing: 0.4, lineHeight: 1.25 },
   docSub: { fontSize: 7.5, color: SLATE, marginTop: 2 },
   docRef: { fontSize: 8, color: SLATE, textAlign: "right" },
   docDate: { fontSize: 8, color: SLATE, marginTop: 1, textAlign: "right" },
@@ -351,11 +364,11 @@ export default function DocumentTemplatePdfContent({
         <View style={styles.ruleLight} fixed />
 
         <View style={styles.docMeta}>
-          <View>
+          <View style={styles.docMetaLeft}>
             <Text style={styles.docTitle}>{titulo.toUpperCase()}</Text>
             <Text style={styles.docSub}>Modelo {codigo} · Status: {status}</Text>
           </View>
-          <View>
+          <View style={styles.docMetaRight}>
             <Text style={styles.docRef}>Documento nº {numero}</Text>
             <Text style={styles.docDate}>{dataEmissao}</Text>
           </View>

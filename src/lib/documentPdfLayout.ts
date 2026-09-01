@@ -92,6 +92,17 @@ function isLabelValueLine(line: string): boolean {
   return /^[A-ZÀ-Ú][^:]{0,50}:\s+\S/.test(line);
 }
 
+// Item de lista com marcador ("- texto" ou "• texto") — sem isso, uma lista
+// de itens em linhas separadas (ex.: item 3 do modelo C2, cada consequência
+// da recusa numa linha própria terminando em ";") caía no parágrafo comum
+// e virava uma sopa de texto justificado sem quebra nenhuma entre os itens
+// (bug reportado pelo usuário: "falta enter depois de cada ;"). Um "-"
+// isolado (travessão decorativo, ex.: "── TÍTULO ──") não bate aqui porque
+// exige texto de verdade depois do marcador.
+function isBulletLine(line: string): boolean {
+  return /^[-•]\s+\S/.test(line);
+}
+
 function isSpecialLine(line: string): boolean {
   return (
     isSectionHeading(line) ||
@@ -101,6 +112,7 @@ function isSpecialLine(line: string): boolean {
     isCheckboxLine(line) ||
     isLabelValueLine(line) ||
     isAllCapsShort(line) ||
+    isBulletLine(line) ||
     /^-{2,}$/.test(line)
   );
 }
