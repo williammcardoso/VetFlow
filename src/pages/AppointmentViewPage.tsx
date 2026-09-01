@@ -79,6 +79,22 @@ const renderField = (label: string, value: any) => {
   );
 };
 
+// "sim"/"nao" cru (como fica salvo em ConsultationDetails) vira "Sim"/"Não"
+// legível — só usado no bloco do Modelo Antigo, não mexe no Novo Modelo.
+const yn = (v?: string) => (v === "sim" ? "Sim" : v === "nao" ? "Não" : v || undefined);
+
+const ALIMENTACAO_LABELS: Record<string, string> = {
+  racaoSeca: "Ração seca",
+  racaoUmida: "Ração úmida",
+  mista: "Mista",
+  alimentacaoCaseira: "Alimentação caseira",
+};
+
+const LINFONODOS_LABELS: Record<string, string> = {
+  normal: "Normal",
+  infartado: "Infartado",
+};
+
 const typeLabel = (t: AppointmentEntry["type"]) => {
   if (t === "Consulta") return "Consulta Clínica (Novo Modelo)";
   if (t === "Consulta (Modelo Antigo)") return "Consulta Clínica (Modelo Antigo)";
@@ -199,25 +215,184 @@ export default function AppointmentViewPage() {
   };
 
   const renderTypeDetails = () => {
-    if (appointment.type === "Consulta" || appointment.type === "Consulta (Modelo Antigo)") {
+    if (appointment.type === "Consulta (Modelo Antigo)") {
+      // Modelo Antigo (LegacyConsultationForm.tsx) tem ~50 campos que o
+      // Novo Modelo não tem (checklists de anamnese/exame físico por
+      // sistema) — usuário reportou que vários ficavam preenchidos na
+      // consulta mas nunca apareciam aqui ao abrir o "olhinho". Cada seção
+      // abaixo espelha 1:1 uma aba do formulário de lançamento, pra nenhum
+      // campo digitado ficar de fora do prontuário.
+      const d = appointment.details as ConsultationDetails;
+      return (
+        <div className="space-y-4">
+          <Card className="vf-surface-card vf-tone-clinical card-hover rounded-xl border-border/80">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Stethoscope className="h-4 w-4 text-vf-clinical" /> Queixa e Anamnese
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {renderField("Queixa principal", d.queixaPrincipal)}
+              {renderField("História geral", d.historicoClinico)}
+              {renderField("Vacinação do paciente", yn(d.vacinacaoPaciente))}
+              {d.vacinacaoPaciente === "nao" && renderField("Obs. vacinação", d.vacinacaoPacienteObs)}
+              {renderField("Possibilidade de intoxicação", yn(d.possibilidadeIntoxicacao))}
+              {d.possibilidadeIntoxicacao === "sim" && renderField("Suspeita descrita", d.possibilidadeIntoxicacaoObs)}
+              {renderField("Histórico cirúrgico", yn(d.historicoCirurgico))}
+              {d.historicoCirurgico === "sim" && renderField("Cirurgias anteriores", d.historicoCirurgicoQuais)}
+              {renderField("Uso de medicação", yn(d.usoMedicacao))}
+              {d.usoMedicacao === "sim" && renderField("Medicação (quais)", d.usoMedicacaoQuais)}
+              {renderField("Alergias do paciente", yn(d.alergiasPaciente))}
+              {d.alergiasPaciente === "sim" && renderField("Alergias (descrição)", d.alergiasPacienteObs)}
+              {renderField("Alimentação", d.alimentacaoTipo ? ALIMENTACAO_LABELS[d.alimentacaoTipo] || d.alimentacaoTipo : undefined)}
+              {renderField("Obs. alimentação", d.alimentacaoObs)}
+              {renderField("Estado de apetite e deglutição", d.apetiteDegluticao)}
+              {renderField("Obs. apetite e deglutição", d.apetiteDegluticaoObs)}
+              {renderField("Ingestão de água", d.ingestaoAgua)}
+            </CardContent>
+          </Card>
+
+          <Card className="vf-surface-card vf-tone-clinical card-hover rounded-xl border-border/80">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Sinais vitais</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {renderField("Peso (kg)", appointment.pesoAtual)}
+              {renderField("Temperatura (°C)", appointment.temperaturaCorporal)}
+              {renderField("FC", appointment.frequenciaCardiaca)}
+              {renderField("FR", appointment.frequenciaRespiratoria)}
+            </CardContent>
+          </Card>
+
+          <Card className="vf-surface-card vf-tone-clinical card-hover rounded-xl border-border/80">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Sistema Digestório / Urinário</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {renderField("Êmese e regurgitação", yn(d.emeseRegurgitacao))}
+              {d.emeseRegurgitacao === "sim" && renderField("Início", d.emeseRegurgitacaoComplementoInicio)}
+              {d.emeseRegurgitacao === "sim" && renderField("Quantidade", d.emeseRegurgitacaoComplementoQuantidade)}
+              {d.emeseRegurgitacao === "sim" && renderField("Frequência", d.emeseRegurgitacaoComplementoFrequencia)}
+              {d.emeseRegurgitacao === "sim" && renderField("Aspecto", d.emeseRegurgitacaoComplementoAspecto)}
+              {renderField("Micção normal", yn(d.miccaoNormal))}
+              {d.miccaoNormal === "nao" && renderField("Freq. urinária", d.miccaoFrequencia)}
+              {d.miccaoNormal === "nao" && renderField("Aspecto urinário", d.miccaoAspecto)}
+              {d.miccaoNormal === "nao" && renderField("Alterações urinárias", d.miccaoAlteracoes)}
+              {renderField("Fezes e defecações", d.fezesDefecacoes)}
+              {renderField("Obs. fezes e defecações", d.fezesDefecacoesComplemento)}
+            </CardContent>
+          </Card>
+
+          <Card className="vf-surface-card vf-tone-clinical card-hover rounded-xl border-border/80">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Sistema Respiratório</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {renderField("Alterações respiratórias", yn(d.alteracoesRespiratorias))}
+              {d.alteracoesRespiratorias === "sim" && renderField("Tipos", d.alteracoesRespiratoriasTipos)}
+              {renderField("Tosse", yn(d.tosse))}
+              {d.tosse === "sim" && renderField("Período da tosse", d.tossePeriodo)}
+              {d.tosse === "sim" && renderField("Frequência da tosse", d.tosseFrequencia)}
+              {renderField("Espirros", yn(d.espirros))}
+              {d.espirros === "sim" && renderField("Período dos espirros", d.espirrosPeriodo)}
+              {d.espirros === "sim" && renderField("Frequência dos espirros", d.espirrosFrequencia)}
+              {renderField("Intolerância ao exercício", yn(d.intoleranciaExercicio))}
+              {d.intoleranciaExercicio === "sim" && renderField("Tipos", d.intoleranciaExercicioTipos)}
+              {d.intoleranciaExercicio === "sim" && renderField("Obs. intolerância", d.intoleranciaExercicioObs)}
+            </CardContent>
+          </Card>
+
+          <Card className="vf-surface-card vf-tone-clinical card-hover rounded-xl border-border/80">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Exame Físico</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                {renderField("Exame físico realizado?", yn(d.exameFisicoRealizado))}
+                {renderField("Uso de contenção", yn(d.usoContencao))}
+                {d.usoContencao === "sim" && renderField("Forma de contenção", d.usoContencaoQual)}
+                {renderField("Observações do exame físico", d.exameFisicoObs)}
+              </div>
+
+              <div className="space-y-2 border-t border-border/60 pt-3">
+                <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Cabeça e Pescoço</div>
+                {renderField("Secreção nasal", yn(d.secrecaoNasal))}
+                {d.secrecaoNasal === "sim" && renderField("Início (secreção nasal)", d.secrecaoNasalComplementoInicio)}
+                {d.secrecaoNasal === "sim" && renderField("Aspecto/quantidade (secreção nasal)", d.secrecaoNasalComplementoAspectoQuantidade)}
+                {renderField("Secreção ocular", yn(d.secrecaoOcular))}
+                {d.secrecaoOcular === "sim" && renderField("Início (secreção ocular)", d.secrecaoOcularComplementoInicio)}
+                {d.secrecaoOcular === "sim" && renderField("Aspecto/quantidade (secreção ocular)", d.secrecaoOcularComplementoAspectoQuantidade)}
+                {renderField("Olhos", d.olhosEstado)}
+                {renderField("Obs. olhos", d.olhosObs)}
+                {renderField("Orelhas", d.orelhasAlteracoes)}
+                {renderField("Boca e anexos", yn(d.bocaAnexos))}
+                {d.bocaAnexos === "sim" && renderField("Descrição (boca e anexos)", d.bocaAnexosDescricao)}
+                {renderField("Doença periodontal", yn(d.doencaPeriodontal))}
+                {d.doencaPeriodontal === "sim" && renderField("Grau", d.doencaPeriodontalGrau ? `Grau ${d.doencaPeriodontalGrau}` : undefined)}
+                {renderField("Pescoço e coluna", yn(d.pescocoColuna))}
+                {d.pescocoColuna === "sim" && renderField("Descrição (pescoço e coluna)", d.pescocoColunaDescricao)}
+              </div>
+
+              <div className="space-y-2 border-t border-border/60 pt-3">
+                <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Víscera e Abdômen</div>
+                {renderField("Desconforto abdominal", yn(d.desconfortoAbdominal))}
+                {d.desconfortoAbdominal === "sim" && renderField("Região/sensibilidade", d.desconfortoAbdominalRegiaoSensibilidade)}
+                {d.desconfortoAbdominal === "sim" && renderField("Nível de dor", d.desconfortoAbdominalNivelDor)}
+                {renderField("Aumento de volume abdominal", yn(d.aumentoVolumeAbdominal))}
+                {d.aumentoVolumeAbdominal === "sim" && renderField("Região", d.aumentoVolumeAbdominalRegiao)}
+                {renderField("Mucosas", d.mucosasEstado)}
+                {renderField("Obs. ausculta respiratória", d.frequenciaRespiratoriaObsAusculta)}
+                {renderField("Padrão respiratório", d.padraoRespiratorio)}
+                {renderField("Sopro", yn(d.sopro))}
+                {renderField("Obs. ausculta cardíaca", d.frequenciaCardiacaObsAusculta)}
+              </div>
+
+              <div className="space-y-2 border-t border-border/60 pt-3">
+                <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Linfonodos e Pele</div>
+                {renderField("Linfonodos", d.linfonodosEstado ? LINFONODOS_LABELS[d.linfonodosEstado] || d.linfonodosEstado : undefined)}
+                {renderField("Obs. linfonodos", d.linfonodosAlteracaoQualObs)}
+                {renderField("Pele e anexos", d.peleAnexosAlteracoes)}
+                {renderField("Obs. pele e anexos", d.peleAnexosDescricao)}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="vf-surface-card vf-tone-clinical card-hover rounded-xl border-border/80">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Diagnóstico e Conduta</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {renderField("Observações e ocorrências", d.observacoesOcorrencias)}
+              {renderField("Exames solicitados", d.examesSolicitados)}
+              {renderField("Suspeita diagnóstica", d.suspeitaDiagnostica)}
+              {renderField("Diagnóstico presuntivo", d.diagnosticoPresuntivo)}
+              {renderField("Diagnóstico definitivo", d.diagnosticoDefinitivo)}
+              {renderField("Conduta / tratamento", d.condutaTratamento)}
+              {renderField("Próximo acompanhamento (dias)", d.retornoRecomendadoEmDias)}
+              {renderField("Próximos passos", d.proximosPassos)}
+            </CardContent>
+          </Card>
+        </div>
+      );
+    }
+
+    if (appointment.type === "Consulta") {
       const d = appointment.details as ConsultationDetails;
       const vacStatus = d.vacinacaoEmDia || d.vacinacaoPaciente;
       const mucosasFallback = (d.mucosasResumo as any) || (d.mucosas as any);
-      const isOld = appointment.type === "Consulta (Modelo Antigo)";
 
       const showComplete =
-        !isOld &&
-        (!!d.sec_digestorio_status ||
-          !!d.sec_digestorio_obs ||
-          !!d.sec_respiratorio_status ||
-          !!d.sec_respiratorio_obs ||
-          !!d.sec_cabeca_pescoco_status ||
-          !!d.sec_cabeca_pescoco_obs ||
-          !!d.sec_torax_abdomen_status ||
-          !!d.sec_torax_abdomen_obs ||
-          !!d.sec_linfonodos_pele_status ||
-          !!d.sec_linfonodos_pele_obs ||
-          !!d.observacoesComplementares);
+        !!d.sec_digestorio_status ||
+        !!d.sec_digestorio_obs ||
+        !!d.sec_respiratorio_status ||
+        !!d.sec_respiratorio_obs ||
+        !!d.sec_cabeca_pescoco_status ||
+        !!d.sec_cabeca_pescoco_obs ||
+        !!d.sec_torax_abdomen_status ||
+        !!d.sec_torax_abdomen_obs ||
+        !!d.sec_linfonodos_pele_status ||
+        !!d.sec_linfonodos_pele_obs ||
+        !!d.observacoesComplementares;
 
       return (
         <div className="space-y-4">
@@ -231,7 +406,7 @@ export default function AppointmentViewPage() {
               {renderField("Queixa principal", d.queixaPrincipal)}
               {renderField("História / evolução", d.historicoClinico)}
               {renderField("Vacinação", vacStatus)}
-              {!isOld && renderField("Obs. vacinação", (d as any).vacinacaoEmDiaObs)}
+              {renderField("Obs. vacinação", (d as any).vacinacaoEmDiaObs)}
               {renderField("Uso de medicação", d.usoMedicacao)}
               {d.usoMedicacao === "sim" && renderField("Medicação (quais)", d.usoMedicacaoQuais)}
               {renderField("Alergias", d.alergiasPaciente)}
@@ -248,14 +423,13 @@ export default function AppointmentViewPage() {
               {renderField("Temperatura (°C)", appointment.temperaturaCorporal)}
               {renderField("FC", appointment.frequenciaCardiaca)}
               {renderField("FR", appointment.frequenciaRespiratoria)}
-              {!isOld && renderField("Estado geral", d.estadoGeral)}
-              {!isOld && renderField("Mucosas", mucosasFallback)}
-              {!isOld && renderField("Hidratação", d.hidratacao)}
-              {!isOld &&
-                renderField(
-                  "Dor",
-                  d.dor === "escala" ? `Escala ${d.dorEscala ?? 0}/10` : d.dor
-                )}
+              {renderField("Estado geral", d.estadoGeral)}
+              {renderField("Mucosas", mucosasFallback)}
+              {renderField("Hidratação", d.hidratacao)}
+              {renderField(
+                "Dor",
+                d.dor === "escala" ? `Escala ${d.dorEscala ?? 0}/10` : d.dor
+              )}
               {renderField("Observações do exame físico", d.exameFisicoObs)}
             </CardContent>
           </Card>

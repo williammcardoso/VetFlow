@@ -215,6 +215,22 @@ const toDisplay = (value: unknown): string | null => {
   return String(value);
 };
 
+// "sim"/"nao" cru (como fica salvo em ConsultationDetails) vira "Sim"/"Não"
+// legível — só usado no bloco do Modelo Antigo.
+const yn = (v?: string) => (v === "sim" ? "Sim" : v === "nao" ? "Não" : v || undefined);
+
+const ALIMENTACAO_LABELS: Record<string, string> = {
+  racaoSeca: "Ração seca",
+  racaoUmida: "Ração úmida",
+  mista: "Mista",
+  alimentacaoCaseira: "Alimentação caseira",
+};
+
+const LINFONODOS_LABELS: Record<string, string> = {
+  normal: "Normal",
+  infartado: "Infartado",
+};
+
 const StatBox = ({ label, value, unit }: { label: string; value?: number | string; unit?: string }) => {
   const text = toDisplay(value);
   if (text === null) return null;
@@ -282,22 +298,195 @@ export default function AppointmentPdfContent({
   const today = new Date().toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" });
 
   const renderType = () => {
-    if (appointment.type === "Consulta" || appointment.type === "Consulta (Modelo Antigo)") {
+    if (appointment.type === "Consulta (Modelo Antigo)") {
+      // Modelo Antigo tem ~50 campos que o Novo Modelo não tem (checklists
+      // de anamnese/exame físico por sistema, ver LegacyConsultationForm.tsx)
+      // — o PDF só mostrava uma fração deles. Cada seção abaixo espelha 1:1
+      // uma aba do formulário de lançamento, pra nenhum campo digitado ficar
+      // de fora do documento gerado.
       const d = appointment.details as ConsultationDetails;
-      const isOld = appointment.type === "Consulta (Modelo Antigo)";
+      return (
+        <>
+          <SectionCard title="Queixa e Anamnese">
+            <TextField label="Queixa principal" value={d.queixaPrincipal} />
+            <TextField label="História geral" value={d.historicoClinico} />
+            <StatRow>
+              <StatBox label="Vacinação do paciente" value={yn(d.vacinacaoPaciente)} />
+              <StatBox label="Possibilidade de intoxicação" value={yn(d.possibilidadeIntoxicacao)} />
+              <StatBox label="Histórico cirúrgico" value={yn(d.historicoCirurgico)} />
+              <StatBox label="Uso de medicação" value={yn(d.usoMedicacao)} />
+              <StatBox label="Alergias" value={yn(d.alergiasPaciente)} />
+            </StatRow>
+            {d.vacinacaoPaciente === "nao" && <TextField label="Obs. vacinação" value={d.vacinacaoPacienteObs} />}
+            {d.possibilidadeIntoxicacao === "sim" && <TextField label="Suspeita descrita" value={d.possibilidadeIntoxicacaoObs} />}
+            {d.historicoCirurgico === "sim" && <TextField label="Cirurgias anteriores" value={d.historicoCirurgicoQuais} />}
+            {d.usoMedicacao === "sim" && <TextField label="Medicação (quais)" value={d.usoMedicacaoQuais} />}
+            {d.alergiasPaciente === "sim" && (
+              <HighlightField label="⚠ Alergias — descrição" value={d.alergiasPacienteObs} />
+            )}
+            <StatRow>
+              <StatBox label="Alimentação" value={d.alimentacaoTipo ? ALIMENTACAO_LABELS[d.alimentacaoTipo] || d.alimentacaoTipo : undefined} />
+            </StatRow>
+            <TextField label="Obs. alimentação" value={d.alimentacaoObs} />
+            <TextField label="Estado de apetite e deglutição" value={d.apetiteDegluticao} />
+            <TextField label="Obs. apetite e deglutição" value={d.apetiteDegluticaoObs} />
+            <TextField label="Ingestão de água" value={d.ingestaoAgua} />
+          </SectionCard>
+
+          <SectionCard title="Sinais Vitais">
+            <StatRow>
+              <StatBox label="Peso" value={appointment.pesoAtual} unit="kg" />
+              <StatBox label="Temperatura" value={appointment.temperaturaCorporal} unit="°C" />
+              <StatBox label="FC" value={appointment.frequenciaCardiaca} unit="bpm" />
+              <StatBox label="FR" value={appointment.frequenciaRespiratoria} unit="mpm" />
+            </StatRow>
+          </SectionCard>
+
+          <SectionCard title="Sistema Digestório / Urinário">
+            <StatRow>
+              <StatBox label="Êmese e regurgitação" value={yn(d.emeseRegurgitacao)} />
+              <StatBox label="Micção normal" value={yn(d.miccaoNormal)} />
+            </StatRow>
+            {d.emeseRegurgitacao === "sim" && (
+              <StatRow>
+                <StatBox label="Início" value={d.emeseRegurgitacaoComplementoInicio} />
+                <StatBox label="Quantidade" value={d.emeseRegurgitacaoComplementoQuantidade} />
+                <StatBox label="Frequência" value={d.emeseRegurgitacaoComplementoFrequencia} />
+                <StatBox label="Aspecto" value={d.emeseRegurgitacaoComplementoAspecto} />
+              </StatRow>
+            )}
+            {d.miccaoNormal === "nao" && (
+              <>
+                <StatRow>
+                  <StatBox label="Freq. urinária" value={d.miccaoFrequencia} />
+                  <StatBox label="Aspecto urinário" value={d.miccaoAspecto} />
+                </StatRow>
+                <TextField label="Alterações urinárias" value={d.miccaoAlteracoes} />
+              </>
+            )}
+            <TextField label="Fezes e defecações" value={d.fezesDefecacoes} />
+            <TextField label="Obs. fezes e defecações" value={d.fezesDefecacoesComplemento} />
+          </SectionCard>
+
+          <SectionCard title="Sistema Respiratório">
+            <StatRow>
+              <StatBox label="Alterações respiratórias" value={yn(d.alteracoesRespiratorias)} />
+              <StatBox label="Tosse" value={yn(d.tosse)} />
+              <StatBox label="Espirros" value={yn(d.espirros)} />
+              <StatBox label="Intolerância ao exercício" value={yn(d.intoleranciaExercicio)} />
+            </StatRow>
+            {d.alteracoesRespiratorias === "sim" && <TextField label="Tipos de alteração" value={d.alteracoesRespiratoriasTipos} />}
+            {d.tosse === "sim" && (
+              <StatRow>
+                <StatBox label="Período da tosse" value={d.tossePeriodo} />
+                <StatBox label="Frequência da tosse" value={d.tosseFrequencia} />
+              </StatRow>
+            )}
+            {d.espirros === "sim" && (
+              <StatRow>
+                <StatBox label="Período dos espirros" value={d.espirrosPeriodo} />
+                <StatBox label="Frequência dos espirros" value={d.espirrosFrequencia} />
+              </StatRow>
+            )}
+            {d.intoleranciaExercicio === "sim" && (
+              <>
+                <TextField label="Tipos" value={d.intoleranciaExercicioTipos} />
+                <TextField label="Obs. intolerância" value={d.intoleranciaExercicioObs} />
+              </>
+            )}
+          </SectionCard>
+
+          <SectionCard title="Exame Físico">
+            <StatRow>
+              <StatBox label="Exame físico realizado?" value={yn(d.exameFisicoRealizado)} />
+              <StatBox label="Uso de contenção" value={yn(d.usoContencao)} />
+            </StatRow>
+            {d.usoContencao === "sim" && <TextField label="Forma de contenção" value={d.usoContencaoQual} />}
+            <TextField label="Observações do exame físico" value={d.exameFisicoObs} />
+
+            <Text style={styles.subLabel}>Cabeça e Pescoço</Text>
+            <StatRow>
+              <StatBox label="Secreção nasal" value={yn(d.secrecaoNasal)} />
+              <StatBox label="Secreção ocular" value={yn(d.secrecaoOcular)} />
+              <StatBox label="Olhos" value={d.olhosEstado} />
+              <StatBox label="Boca e anexos" value={yn(d.bocaAnexos)} />
+              <StatBox label="Doença periodontal" value={yn(d.doencaPeriodontal)} />
+              <StatBox label="Pescoço e coluna" value={yn(d.pescocoColuna)} />
+            </StatRow>
+            {d.secrecaoNasal === "sim" && (
+              <StatRow>
+                <StatBox label="Início (secreção nasal)" value={d.secrecaoNasalComplementoInicio} />
+                <StatBox label="Aspecto/quantidade (secreção nasal)" value={d.secrecaoNasalComplementoAspectoQuantidade} />
+              </StatRow>
+            )}
+            {d.secrecaoOcular === "sim" && (
+              <StatRow>
+                <StatBox label="Início (secreção ocular)" value={d.secrecaoOcularComplementoInicio} />
+                <StatBox label="Aspecto/quantidade (secreção ocular)" value={d.secrecaoOcularComplementoAspectoQuantidade} />
+              </StatRow>
+            )}
+            <TextField label="Obs. olhos" value={d.olhosObs} />
+            <TextField label="Orelhas" value={d.orelhasAlteracoes} />
+            {d.bocaAnexos === "sim" && <TextField label="Descrição (boca e anexos)" value={d.bocaAnexosDescricao} />}
+            {d.doencaPeriodontal === "sim" && <TextField label="Grau" value={d.doencaPeriodontalGrau ? `Grau ${d.doencaPeriodontalGrau}` : undefined} />}
+            {d.pescocoColuna === "sim" && <TextField label="Descrição (pescoço e coluna)" value={d.pescocoColunaDescricao} />}
+
+            <Text style={styles.subLabel}>Víscera e Abdômen</Text>
+            <StatRow>
+              <StatBox label="Desconforto abdominal" value={yn(d.desconfortoAbdominal)} />
+              <StatBox label="Aumento de volume abdominal" value={yn(d.aumentoVolumeAbdominal)} />
+              <StatBox label="Sopro" value={yn(d.sopro)} />
+            </StatRow>
+            {d.desconfortoAbdominal === "sim" && (
+              <StatRow>
+                <StatBox label="Região/sensibilidade" value={d.desconfortoAbdominalRegiaoSensibilidade} />
+                <StatBox label="Nível de dor" value={d.desconfortoAbdominalNivelDor} />
+              </StatRow>
+            )}
+            {d.aumentoVolumeAbdominal === "sim" && <TextField label="Região" value={d.aumentoVolumeAbdominalRegiao} />}
+            <TextField label="Mucosas" value={d.mucosasEstado} />
+            <TextField label="Obs. ausculta respiratória" value={d.frequenciaRespiratoriaObsAusculta} />
+            <TextField label="Padrão respiratório" value={d.padraoRespiratorio} />
+            <TextField label="Obs. ausculta cardíaca" value={d.frequenciaCardiacaObsAusculta} />
+
+            <Text style={styles.subLabel}>Linfonodos e Pele</Text>
+            <StatRow>
+              <StatBox label="Linfonodos" value={d.linfonodosEstado ? LINFONODOS_LABELS[d.linfonodosEstado] || d.linfonodosEstado : undefined} />
+            </StatRow>
+            <TextField label="Obs. linfonodos" value={d.linfonodosAlteracaoQualObs} />
+            <TextField label="Pele e anexos" value={d.peleAnexosAlteracoes} />
+            <TextField label="Obs. pele e anexos" value={d.peleAnexosDescricao} />
+          </SectionCard>
+
+          <SectionCard title="Diagnóstico e Conduta">
+            <TextField label="Observações e ocorrências" value={d.observacoesOcorrencias} />
+            <TextField label="Exames solicitados" value={d.examesSolicitados} />
+            <TextField label="Suspeita diagnóstica" value={d.suspeitaDiagnostica} />
+            <TextField label="Diagnóstico presuntivo" value={d.diagnosticoPresuntivo} />
+            <TextField label="Diagnóstico definitivo" value={d.diagnosticoDefinitivo} />
+            <TextField label="Conduta / tratamento" value={d.condutaTratamento} />
+            <StatRow>
+              <StatBox label="Próximo acompanhamento" value={d.retornoRecomendadoEmDias} unit="dias" />
+            </StatRow>
+            <TextField label="Próximos passos" value={d.proximosPassos} />
+          </SectionCard>
+        </>
+      );
+    }
+
+    if (appointment.type === "Consulta") {
+      const d = appointment.details as ConsultationDetails;
       const vacStatus = d.vacinacaoEmDia || d.vacinacaoPaciente;
       const mucosas = (d as any).mucosasResumo || (d as any).mucosas;
 
-      const showComplete =
-        !isOld &&
-        !!(
-          d.sec_digestorio_status || d.sec_digestorio_obs ||
-          d.sec_respiratorio_status || d.sec_respiratorio_obs ||
-          d.sec_cabeca_pescoco_status || d.sec_cabeca_pescoco_obs ||
-          d.sec_torax_abdomen_status || d.sec_torax_abdomen_obs ||
-          d.sec_linfonodos_pele_status || d.sec_linfonodos_pele_obs ||
-          d.observacoesComplementares
-        );
+      const showComplete = !!(
+        d.sec_digestorio_status || d.sec_digestorio_obs ||
+        d.sec_respiratorio_status || d.sec_respiratorio_obs ||
+        d.sec_cabeca_pescoco_status || d.sec_cabeca_pescoco_obs ||
+        d.sec_torax_abdomen_status || d.sec_torax_abdomen_obs ||
+        d.sec_linfonodos_pele_status || d.sec_linfonodos_pele_obs ||
+        d.observacoesComplementares
+      );
 
       return (
         <>
@@ -306,10 +495,10 @@ export default function AppointmentPdfContent({
             <TextField label="História / evolução" value={d.historicoClinico} />
             <StatRow>
               {toDisplay(vacStatus) && <StatBox label="Vacinação" value={vacStatus} />}
-              {!isOld && <StatBox label="Uso de medicação" value={d.usoMedicacao} />}
-              {!isOld && <StatBox label="Alergias" value={d.alergiasPaciente} />}
+              <StatBox label="Uso de medicação" value={d.usoMedicacao} />
+              <StatBox label="Alergias" value={d.alergiasPaciente} />
             </StatRow>
-            {!isOld && <TextField label="Obs. vacinação" value={(d as any).vacinacaoEmDiaObs} />}
+            <TextField label="Obs. vacinação" value={(d as any).vacinacaoEmDiaObs} />
             {d.usoMedicacao === "sim" && <TextField label="Medicação (quais)" value={d.usoMedicacaoQuais} />}
             {d.alergiasPaciente === "sim" && (
               <HighlightField label="⚠ Alergias — descrição" value={d.alergiasPacienteObs} />
@@ -320,17 +509,15 @@ export default function AppointmentPdfContent({
             <StatRow>
               <StatBox label="Peso" value={appointment.pesoAtual} unit="kg" />
               <StatBox label="Temperatura" value={appointment.temperaturaCorporal} unit="°C" />
-              {!isOld && <StatBox label="FC" value={appointment.frequenciaCardiaca} unit="bpm" />}
-              {!isOld && <StatBox label="FR" value={appointment.frequenciaRespiratoria} unit="mpm" />}
+              <StatBox label="FC" value={appointment.frequenciaCardiaca} unit="bpm" />
+              <StatBox label="FR" value={appointment.frequenciaRespiratoria} unit="mpm" />
             </StatRow>
-            {!isOld && (
-              <StatRow>
-                <StatBox label="Estado geral" value={d.estadoGeral} />
-                <StatBox label="Mucosas" value={mucosas} />
-                <StatBox label="Hidratação" value={d.hidratacao} />
-                <StatBox label="Dor" value={d.dor === "escala" ? `${d.dorEscala ?? 0}/10` : d.dor} />
-              </StatRow>
-            )}
+            <StatRow>
+              <StatBox label="Estado geral" value={d.estadoGeral} />
+              <StatBox label="Mucosas" value={mucosas} />
+              <StatBox label="Hidratação" value={d.hidratacao} />
+              <StatBox label="Dor" value={d.dor === "escala" ? `${d.dorEscala ?? 0}/10` : d.dor} />
+            </StatRow>
             <TextField label="Observações do exame físico" value={d.exameFisicoObs} />
           </SectionCard>
 
