@@ -221,7 +221,7 @@ const FinancialReportsPage: React.FC = () => {
     return repassesDetalhados.filter((r) => r.provider === providerFilter);
   }, [repassesDetalhados, providerFilter]);
 
-  const { faturamento, recebido, saidas, movimentos, totalEmAberto, chartByDay, receitasPorCategoria, despesasPorCategoria, totalRepasses, lucroReal, margemReal, totalTaxas, liquidoReal, margemLiquida, repassesPorPrestador } =
+  const { faturamento, recebido, saidas, comprasAlmoxarifado, movimentos, totalEmAberto, chartByDay, receitasPorCategoria, despesasPorCategoria, totalRepasses, lucroReal, margemReal, totalTaxas, liquidoReal, margemLiquida, repassesPorPrestador } =
     useMemo(() => {
       const allInPeriod = mockFinancialTransactions.filter((t) =>
         withinRange(t.date, dateFrom, dateTo)
@@ -239,9 +239,17 @@ const FinancialReportsPage: React.FC = () => {
         .filter(t => t.type === 'income' && t.category === 'Recebimento')
         .reduce((s, t) => s + t.amount, 0);
 
-      // Saídas operacionais
+      // Compras de estoque do período (Almoxarifado) — desde 2026-08-07 é daqui
+      // que vem o custo de insumo, agregado por mês. Entra no lucro real, igual
+      // ao Fechamento 50/50.
+      const comprasAlmoxarifado = allInPeriod
+        .filter((t) => t.type === "expense" && t.category === "Estoque")
+        .reduce((s, t) => s + t.amount, 0);
+
+      // Saídas operacionais — despesas que NÃO são compra de almoxarifado.
+      // Exibidas à parte; não entram no lucro real (mesma regra do 50/50).
       const saidas = allInPeriod
-        .filter((t) => t.type === "expense")
+        .filter((t) => t.type === "expense" && t.category !== "Estoque")
         .reduce((s, t) => s + t.amount, 0);
 
       const movimentos = [...allInPeriod].sort((a, b) => {
@@ -314,8 +322,8 @@ const FinancialReportsPage: React.FC = () => {
         .filter((t) => !saleIdsWithItems.has(t.id))
         .reduce((s, t) => s + (t.supplierCost ?? 0), 0);
       const totalRepasses = totalRepassesPorItem + totalRepassesLegado;
-      const lucroReal = faturamento - totalRepasses;
-      const liquidoReal = faturamento - totalRepasses - totalTaxas;
+      const lucroReal = faturamento - totalRepasses - comprasAlmoxarifado;
+      const liquidoReal = faturamento - totalRepasses - comprasAlmoxarifado - totalTaxas;
       const margemReal = faturamento > 0 ? Math.round((lucroReal / faturamento) * 100) : 0;
       const margemLiquida = faturamento > 0 ? Math.round((liquidoReal / faturamento) * 100) : 0;
 
@@ -323,6 +331,7 @@ const FinancialReportsPage: React.FC = () => {
         faturamento,
         recebido,
         saidas,
+        comprasAlmoxarifado,
         movimentos,
         totalEmAberto,
         chartByDay,
@@ -354,6 +363,7 @@ const FinancialReportsPage: React.FC = () => {
           margemReal={margemReal}
           liquidoReal={liquidoReal}
           margemLiquida={margemLiquida}
+          comprasAlmoxarifado={comprasAlmoxarifado}
           saidas={saidas}
           totalEmAberto={totalEmAberto}
           providerFilterLabel={providerFilter !== "all" ? providerFilter : undefined}
@@ -492,6 +502,21 @@ const FinancialReportsPage: React.FC = () => {
             </CardContent>
           </Card>
 
+          {/* Compras do almoxarifado */}
+          <Card className="vf-surface-card vf-tone-finance card-hover rounded-xl border-border/80">
+            <CardContent className="p-4">
+              <div className="text-xs text-amber-700 font-medium uppercase tracking-wide">
+                Compras do Almoxarifado
+              </div>
+              <div className="text-2xl font-bold text-amber-700 mt-1">
+                − {formatCurrencyBRL(comprasAlmoxarifado)}
+              </div>
+              <div className="text-xs text-muted-foreground mt-1">
+                Insumos retirados do estoque (rateio 50/50)
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Lucro líquido real */}
           <Card className="vf-surface-card vf-tone-finance card-hover rounded-xl border-border/80">
             <CardContent className="p-4">
@@ -502,7 +527,7 @@ const FinancialReportsPage: React.FC = () => {
                 {formatCurrencyBRL(liquidoReal)}
               </div>
               <div className="text-xs text-muted-foreground mt-1">
-                Margem líquida: {margemLiquida}%
+                Faturamento − repasses − almoxarifado − taxas · margem {margemLiquida}%
               </div>
             </CardContent>
           </Card>
@@ -517,7 +542,7 @@ const FinancialReportsPage: React.FC = () => {
                 {formatCurrencyBRL(lucroReal)}
               </div>
               <div className="text-xs text-muted-foreground mt-1">
-                Margem: {margemReal}% sobre faturamento
+                Sem as taxas de operadora · margem {margemReal}%
               </div>
             </CardContent>
           </Card>
@@ -529,7 +554,7 @@ const FinancialReportsPage: React.FC = () => {
               <div className="text-2xl font-bold text-red-800 mt-1">
                 {formatCurrencyBRL(saidas)}
               </div>
-              <div className="text-xs text-muted-foreground mt-1">Despesas do período</div>
+              <div className="text-xs text-muted-foreground mt-1">Despesas do período (fora almoxarifado)</div>
             </CardContent>
           </Card>
 

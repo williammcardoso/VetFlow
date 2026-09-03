@@ -202,6 +202,7 @@ export interface FinancialReportPdfContentProps {
   margemReal: number;
   liquidoReal: number;
   margemLiquida: number;
+  comprasAlmoxarifado: number;
   saidas: number;
   totalEmAberto: number;
   providerFilterLabel?: string;
@@ -220,6 +221,7 @@ const FinancialReportPdfContent: React.FC<FinancialReportPdfContentProps> = ({
   margemReal,
   liquidoReal,
   margemLiquida,
+  comprasAlmoxarifado,
   saidas,
   totalEmAberto,
   providerFilterLabel,
@@ -277,11 +279,15 @@ const FinancialReportPdfContent: React.FC<FinancialReportPdfContentProps> = ({
             <Text style={[styles.kpiValue, { color: AMBER }]}>{fmt(totalTaxas)}</Text>
           </View>
           <View style={styles.kpiCard}>
+            <Text style={styles.kpiLabel}>ALMOXARIFADO</Text>
+            <Text style={[styles.kpiValue, { color: AMBER }]}>{fmt(comprasAlmoxarifado)}</Text>
+          </View>
+          <View style={styles.kpiCard}>
             <Text style={styles.kpiLabel}>LUCRO REAL</Text>
             <Text style={[styles.kpiValue, { color: EMERALD }]}>{fmt(lucroReal)} ({margemReal}%)</Text>
           </View>
           <View style={styles.kpiCard}>
-            <Text style={styles.kpiLabel}>SAÍDAS</Text>
+            <Text style={styles.kpiLabel}>SAÍDAS OPERACIONAIS</Text>
             <Text style={[styles.kpiValue, { color: RED }]}>{fmt(saidas)}</Text>
           </View>
           <View style={styles.kpiCard}>
@@ -293,7 +299,7 @@ const FinancialReportPdfContent: React.FC<FinancialReportPdfContentProps> = ({
         <View style={styles.highlight}>
           <View>
             <Text style={styles.highlightLabel}>LUCRO LÍQUIDO REAL</Text>
-            <Text style={styles.highlightSub}>Faturamento − repasses − taxas de operadora</Text>
+            <Text style={styles.highlightSub}>Faturamento − repasses − compras do almoxarifado − taxas de operadora</Text>
           </View>
           <Text style={styles.highlightValue}>{fmt(liquidoReal)} ({margemLiquida}%)</Text>
         </View>
