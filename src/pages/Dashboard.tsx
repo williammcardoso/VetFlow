@@ -55,6 +55,19 @@ const Dashboard = () => {
   // (Brasil, UTC-3) isso volta pro dia anterior. Forcar hora local evita o bug.
   const parseLocalDate = (dateStr: string) => new Date(`${dateStr}T00:00:00`);
 
+  // Rótulo do cabeçalho de grupo na Agenda Imediata: HOJE / AMANHÃ / dia da
+  // semana + data, pra não precisar ler a data completa em cada linha.
+  const scheduleGroupLabel = (itemDate: Date, reference: Date) => {
+    const d0 = new Date(reference.getFullYear(), reference.getMonth(), reference.getDate());
+    const d1 = new Date(itemDate.getFullYear(), itemDate.getMonth(), itemDate.getDate());
+    const diffDays = Math.round((d1.getTime() - d0.getTime()) / oneDayMs);
+    if (diffDays === 0) return "Hoje";
+    if (diffDays === 1) return "Amanhã";
+    return itemDate
+      .toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "2-digit" })
+      .replace(".", "");
+  };
+
   const toScheduleDateTime = (app: ScheduleUI) => {
     const dt = new Date(app.date);
     const [h = 0, m = 0] = (app.time || "00:00").split(":").map(Number);
@@ -378,20 +391,33 @@ const Dashboard = () => {
 
           {upcoming.length > 0 ? (
             <div className="max-h-[420px] space-y-2.5 overflow-y-auto pr-1">
-              {upcoming.map((app) => {
-                return (
-                  <Card key={app.id} className="rounded-xl border border-border/70 bg-card p-3.5 transition-all duration-200 hover:-translate-y-0.5 hover:border-vf-clinical/70">
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-semibold text-foreground">{app.animalName || "Pet"}</p>
-                        <p className="truncate text-sm text-muted-foreground">{app.clientName || "Tutor"} - {app.title}</p>
-                      </div>
-                      <div className="shrink-0 text-right">
-                        <p className="text-xs text-muted-foreground">
-                          {toScheduleDateTime(app).toLocaleDateString("pt-BR")} às {app.time}
-                        </p>
-                        <StatusBadge status={app.status || "scheduled"} className="mt-1 inline-flex" />
-                      </div>
+              {(() => {
+                let lastGroupKey = "";
+                return upcoming.map((app) => {
+                  const itemDate = toScheduleDateTime(app);
+                  const groupKey = itemDate.toDateString();
+                  const showHeader = groupKey !== lastGroupKey;
+                  lastGroupKey = groupKey;
+                  const groupLabel = scheduleGroupLabel(itemDate, now);
+                  return [
+                    showHeader ? (
+                      <p
+                        key={`h-${groupKey}`}
+                        className="sticky top-0 z-10 -mx-1 mb-1.5 mt-3 bg-card px-1 pb-1 pt-1.5 text-xs font-bold uppercase tracking-wider text-vf-clinical first:mt-0"
+                      >
+                        {groupLabel}
+                      </p>
+                    ) : null,
+                    <Card key={app.id} className="rounded-xl border border-border/70 bg-card p-3.5 transition-all duration-200 hover:-translate-y-0.5 hover:border-vf-clinical/70">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-semibold text-foreground">{app.animalName || "Pet"}</p>
+                          <p className="truncate text-sm text-muted-foreground">{app.clientName || "Tutor"} - {app.title}</p>
+                        </div>
+                        <div className="shrink-0 text-right">
+                          <p className="text-lg font-bold tabular-nums text-vf-clinical">{app.time}</p>
+                          <StatusBadge status={app.status || "scheduled"} className="mt-1 inline-flex" />
+                        </div>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button size="icon" variant="outline" className="h-7 w-7 rounded-md border-[hsl(var(--vf-clinical))]/35 hover:bg-[hsl(var(--vf-clinical))]/12" aria-label="Abrir ações de status">
@@ -411,9 +437,10 @@ const Dashboard = () => {
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>
-                  </Card>
-                );
-              })}
+                    </Card>,
+                  ];
+                });
+              })()}
             </div>
           ) : null}
           {upcoming.length > 0 ? (
