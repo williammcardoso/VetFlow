@@ -403,40 +403,38 @@ const Dashboard = () => {
                     showHeader ? (
                       <p
                         key={`h-${groupKey}`}
-                        className="sticky top-0 z-10 -mx-1 mb-1.5 mt-3 bg-card px-1 pb-1 pt-1.5 text-xs font-bold uppercase tracking-wider text-vf-clinical first:mt-0"
+                        className="sticky top-0 z-10 -mx-1 mb-1.5 mt-4 bg-card px-1 pb-0.5 text-2xl font-extrabold tracking-tight text-vf-clinical first:mt-0"
                       >
                         {groupLabel}
                       </p>
                     ) : null,
-                    <Card key={app.id} className="rounded-xl border border-border/70 bg-card p-3.5 transition-all duration-200 hover:-translate-y-0.5 hover:border-vf-clinical/70">
-                      <div className="flex items-center justify-between gap-3">
+                    <Card key={app.id} className="rounded-xl border border-border/70 bg-card px-3 py-2 transition-all duration-200 hover:-translate-y-0.5 hover:border-vf-clinical/70">
+                      <div className="flex items-center gap-3">
+                        <p className="w-[60px] shrink-0 text-xl font-bold tabular-nums text-vf-clinical">{app.time}</p>
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-sm font-semibold text-foreground">{app.animalName || "Pet"}</p>
-                          <p className="truncate text-sm text-muted-foreground">{app.clientName || "Tutor"} - {app.title}</p>
+                          <p className="truncate text-xs text-muted-foreground">{app.clientName || "Tutor"} - {app.title}</p>
                         </div>
-                        <div className="shrink-0 text-right">
-                          <p className="text-lg font-bold tabular-nums text-vf-clinical">{app.time}</p>
-                          <StatusBadge status={app.status || "scheduled"} className="mt-1 inline-flex" />
-                        </div>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button size="icon" variant="outline" className="h-7 w-7 rounded-md border-[hsl(var(--vf-clinical))]/35 hover:bg-[hsl(var(--vf-clinical))]/12" aria-label="Abrir ações de status">
-                            <ChevronDown className="h-3.5 w-3.5" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-52">
-                          <DropdownMenuItem className="text-[11px] text-foreground" onClick={() => handleSendWhatsAppReminder(app)}>
-                            <SiWhatsapp className="mr-2 h-3.5 w-3.5 text-[#25D366]" /> Enviar lembrete por WhatsApp
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem className="text-[11px] text-foreground" onClick={() => void handleStatusChange(app, "scheduled")}>Agendado</DropdownMenuItem>
-                          <DropdownMenuItem className="text-[11px] text-foreground" onClick={() => void handleStatusChange(app, "in_progress")}>Em atendimento</DropdownMenuItem>
-                          <DropdownMenuItem className="text-[11px] text-foreground" onClick={() => void handleStatusChange(app, "attended")}>Atendido</DropdownMenuItem>
-                          <DropdownMenuItem className="text-[11px] text-foreground" onClick={() => void handleStatusChange(app, "no_show")}>Não atendido</DropdownMenuItem>
-                          <DropdownMenuItem className="text-[11px] text-foreground" onClick={() => void handleStatusChange(app, "cancelled")}>Cancelado</DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
+                        <StatusBadge status={app.status || "scheduled"} className="shrink-0 inline-flex" />
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button size="icon" variant="outline" className="h-7 w-7 shrink-0 rounded-md border-[hsl(var(--vf-clinical))]/35 hover:bg-[hsl(var(--vf-clinical))]/12" aria-label="Abrir ações de status">
+                              <ChevronDown className="h-3.5 w-3.5" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-52">
+                            <DropdownMenuItem className="text-[11px] text-foreground" onClick={() => handleSendWhatsAppReminder(app)}>
+                              <SiWhatsapp className="mr-2 h-3.5 w-3.5 text-[#25D366]" /> Enviar lembrete por WhatsApp
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem className="text-[11px] text-foreground" onClick={() => void handleStatusChange(app, "scheduled")}>Agendado</DropdownMenuItem>
+                            <DropdownMenuItem className="text-[11px] text-foreground" onClick={() => void handleStatusChange(app, "in_progress")}>Em atendimento</DropdownMenuItem>
+                            <DropdownMenuItem className="text-[11px] text-foreground" onClick={() => void handleStatusChange(app, "attended")}>Atendido</DropdownMenuItem>
+                            <DropdownMenuItem className="text-[11px] text-foreground" onClick={() => void handleStatusChange(app, "no_show")}>Não atendido</DropdownMenuItem>
+                            <DropdownMenuItem className="text-[11px] text-foreground" onClick={() => void handleStatusChange(app, "cancelled")}>Cancelado</DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
                     </Card>,
                   ];
                 });
