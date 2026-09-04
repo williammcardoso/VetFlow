@@ -410,7 +410,7 @@ const Dashboard = () => {
                     ) : null,
                     <Card key={app.id} className="rounded-xl border border-border/70 bg-card px-3 py-2 transition-all duration-200 hover:-translate-y-0.5 hover:border-vf-clinical/70">
                       <div className="flex items-center gap-3">
-                        <p className="w-[60px] shrink-0 text-xl font-bold tabular-nums text-vf-clinical">{app.time}</p>
+                        <p className="w-[60px] shrink-0 text-xl font-bold tabular-nums text-foreground">{app.time}</p>
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-sm font-semibold text-foreground">{app.animalName || "Pet"}</p>
                           <p className="truncate text-xs text-muted-foreground">{app.clientName || "Tutor"} - {app.title}</p>
