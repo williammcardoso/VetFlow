@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { RotateCcw, Syringe, CalendarDays, ExternalLink } from "lucide-react";
 import { getPatientRecordPath } from "@/utils/patientDisplayId";
 
-type PeriodFilter = "7" | "30" | "90" | "all";
+type PeriodFilter = "7" | "30" | "90" | "all" | "overdue";
 
 interface ReturnAlert {
   kind: "retorno" | "vacina";
@@ -50,12 +50,16 @@ export default function ReturnsForecastPage() {
   }, []);
 
   const cutoff = useMemo(() => {
-    if (period === "all") return null;
+    if (period === "all" || period === "overdue") return null;
     return new Date(today.getTime() + Number(period) * 86400000);
   }, [period, today]);
 
+  const showOverdue = period === "overdue";
+
   const alerts: ReturnAlert[] = useMemo(() => {
     const list: ReturnAlert[] = [];
+    const include = (dueDate: Date) =>
+      showOverdue ? dueDate < today : dueDate >= today && (!cutoff || dueDate <= cutoff);
 
     for (const app of appointments) {
       const d = app.details as Record<string, unknown>;
@@ -65,7 +69,7 @@ export default function ReturnsForecastPage() {
       const days = d?.retornoRecomendadoEmDias as number | undefined;
       if (days) {
         const dueDate = new Date(parseLocalDate(app.date).getTime() + days * 86400000);
-        if (dueDate >= today && (!cutoff || dueDate <= cutoff)) {
+        if (include(dueDate)) {
           const daysUntil = Math.ceil((dueDate.getTime() - today.getTime()) / 86400000);
           list.push({
             kind: "retorno",
@@ -87,7 +91,7 @@ export default function ReturnsForecastPage() {
         const tipoVacina = (d?.tipoVacina as string) || "Vacina";
         if (nextDose) {
           const dueDate = parseLocalDate(nextDose);
-          if (dueDate >= today && (!cutoff || dueDate <= cutoff)) {
+          if (include(dueDate)) {
             const daysUntil = Math.ceil((dueDate.getTime() - today.getTime()) / 86400000);
             list.push({
               kind: "vacina",
@@ -106,7 +110,7 @@ export default function ReturnsForecastPage() {
     }
 
     return list.sort((a, b) => a.dueDate.getTime() - b.dueDate.getTime());
-  }, [appointments, animalMap, today, cutoff]);
+  }, [appointments, animalMap, today, cutoff, showOverdue]);
 
   const retornos = alerts.filter((a) => a.kind === "retorno");
   const vacinas = alerts.filter((a) => a.kind === "vacina");
@@ -116,11 +120,17 @@ export default function ReturnsForecastPage() {
     "30": "30 dias",
     "90": "90 dias",
     "all": "Todos",
+    "overdue": "Atrasados",
   };
 
-  function urgencyColor(days: number) {
-    if (days <= 3) return "text-red-600 bg-red-50 border-red-200";
-    if (days <= 7) return "text-orange-600 bg-orange-50 border-orange-200";
+  function urgencyColor(daysUntil: number) {
+    if (daysUntil < 0) {
+      return Math.abs(daysUntil) <= 3
+        ? "text-orange-600 bg-orange-50 border-orange-200"
+        : "text-red-600 bg-red-50 border-red-200";
+    }
+    if (daysUntil <= 3) return "text-red-600 bg-red-50 border-red-200";
+    if (daysUntil <= 7) return "text-orange-600 bg-orange-50 border-orange-200";
     return "text-slate-600 bg-slate-50 border-slate-200";
   }
 
@@ -164,7 +174,9 @@ export default function ReturnsForecastPage() {
             </div>
             <div className="ml-3 shrink-0 text-right">
               <p className="text-sm font-semibold">{item.dueDate.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit" })}</p>
-              <p className="text-xs opacity-70">em {item.daysUntil}d</p>
+              <p className="text-xs opacity-70">
+                {item.daysUntil < 0 ? `atrasado há ${Math.abs(item.daysUntil)}d` : `em ${item.daysUntil}d`}
+              </p>
             </div>
           </div>
         ))}
@@ -193,6 +205,19 @@ export default function ReturnsForecastPage() {
                 {periodLabel[p]}
               </Button>
             ))}
+            <span className="mx-0.5 h-5 w-px bg-border" aria-hidden="true" />
+            <Button
+              size="sm"
+              variant={showOverdue ? "default" : "outline"}
+              className={`h-8 rounded-full px-3 text-xs ${
+                showOverdue
+                  ? "border-red-600 bg-red-600 text-white hover:bg-red-600/90"
+                  : "border-red-200 text-red-600 hover:bg-red-50"
+              }`}
+              onClick={() => setPeriod("overdue")}
+            >
+              Atrasados
+            </Button>
           </div>
         }
       />
@@ -202,26 +227,38 @@ export default function ReturnsForecastPage() {
           <div className="mb-3 flex items-center justify-between">
             <div>
               <p className="text-xs font-semibold uppercase tracking-wide text-orange-600">Acompanhamentos</p>
-              <h2 className="text-[1.05rem] font-semibold tracking-tight text-foreground">Próximos acompanhamentos</h2>
+              <h2 className="text-[1.05rem] font-semibold tracking-tight text-foreground">{showOverdue ? "Acompanhamentos atrasados" : "Próximos acompanhamentos"}</h2>
             </div>
             <Badge className="bg-orange-100 text-orange-700">
               {retornos.length}
             </Badge>
           </div>
-          {renderList(retornos, <RotateCcw className="h-4 w-4" />, `Nenhum acompanhamento previsto nos próximos ${period === "all" ? "registros" : periodLabel[period]}.`)}
+          {renderList(
+            retornos,
+            <RotateCcw className="h-4 w-4" />,
+            showOverdue
+              ? "Nenhum acompanhamento atrasado."
+              : `Nenhum acompanhamento previsto nos próximos ${period === "all" ? "registros" : periodLabel[period]}.`
+          )}
         </Card>
 
         <Card className="rounded-2xl vf-surface-card vf-tone-clinical p-4 sm:p-5">
           <div className="mb-3 flex items-center justify-between">
             <div>
               <p className="text-xs font-semibold uppercase tracking-wide text-blue-600">Vacinas</p>
-              <h2 className="text-[1.05rem] font-semibold tracking-tight text-foreground">Próximas doses</h2>
+              <h2 className="text-[1.05rem] font-semibold tracking-tight text-foreground">{showOverdue ? "Doses atrasadas" : "Próximas doses"}</h2>
             </div>
             <Badge className="bg-blue-100 text-blue-700">
               {vacinas.length}
             </Badge>
           </div>
-          {renderList(vacinas, <Syringe className="h-4 w-4" />, `Nenhuma vacina prevista nos próximos ${period === "all" ? "registros" : periodLabel[period]}.`)}
+          {renderList(
+            vacinas,
+            <Syringe className="h-4 w-4" />,
+            showOverdue
+              ? "Nenhuma vacina atrasada."
+              : `Nenhuma vacina prevista nos próximos ${period === "all" ? "registros" : periodLabel[period]}.`
+          )}
         </Card>
       </div>
     </PageShell>
