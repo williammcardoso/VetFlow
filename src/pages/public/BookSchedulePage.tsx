@@ -521,59 +521,50 @@ const BookSchedulePage: React.FC = () => {
             <div className="space-y-5">
               {/* Calendário semanal */}
               <div className="relative rounded-xl border border-border p-3">
-                <div className="mb-2 flex items-center justify-between">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    disabled={!canGoPrevWeek}
-                    onClick={() => setWeekOffset((o) => o - 1)}
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </Button>
-                  <p className="text-sm font-medium">
+                <div className="mb-2 flex items-center justify-center">
+                  <p className="text-lg font-bold tracking-tight text-foreground sm:text-xl">
                     {formatDayHeader(weekDays[0])} — {formatDayHeader(weekDays[6])}
                   </p>
-                  <Button type="button" variant="ghost" size="sm" onClick={() => setWeekOffset((o) => o + 1)}>
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
                 </div>
 
-                {loadingWeek ? (
-                  <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
-                    <Loader2 className="h-4 w-4 animate-spin" /> Carregando horários...
-                  </div>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full min-w-[560px] border-collapse text-xs">
-                      <thead>
-                        <tr>
-                          <th className="sticky left-0 z-10 w-12 border-r border-border/60 bg-card p-1 text-left text-muted-foreground"> </th>
-                          {weekDays.map((d) => {
-                            const dISO = toISODate(d);
-                            const isPast = dISO < todayISO;
-                            const isToday = dISO === todayISO;
-                            return (
-                              <th key={dISO} className={`p-1 text-center font-medium ${isPast ? "text-muted-foreground/50" : ""}`}>
-                                <button
-                                  type="button"
-                                  onClick={() => setSummaryDateISO(dISO)}
-                                  title="Ver resumo do dia"
-                                  className={`w-full rounded-md px-1 py-0.5 transition-colors hover:bg-muted ${isToday ? "text-teal-700" : ""}`}
-                                >
-                                  <div>{isToday ? "Hoje" : WEEKDAY_LABELS[d.getDay()]}</div>
-                                  <div className="text-[10px] font-normal">{formatDayHeader(d)}</div>
-                                </button>
-                              </th>
-                            );
-                          })}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {gridHours.map((hour) => (
-                          <tr key={hour}>
-                            <td className="sticky left-0 z-10 border-r border-border/60 bg-card p-1 text-muted-foreground">{hour}</td>
+                {/* Espaço reservado nas laterais pra caber os botões redondos
+                    sem tapar a última/primeira coluna da grade. */}
+                <div className="px-14 sm:px-16">
+                  {loadingWeek ? (
+                    <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
+                      <Loader2 className="h-4 w-4 animate-spin" /> Carregando horários...
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full min-w-[560px] border-collapse text-xs">
+                        <thead>
+                          <tr>
+                            <th className="sticky left-0 z-10 w-12 border-r border-border/60 bg-card p-1 text-left text-muted-foreground"> </th>
                             {weekDays.map((d) => {
+                              const dISO = toISODate(d);
+                              const isPast = dISO < todayISO;
+                              const isToday = dISO === todayISO;
+                              return (
+                                <th key={dISO} className={`p-1 text-center font-medium ${isPast ? "text-muted-foreground/50" : ""}`}>
+                                  <button
+                                    type="button"
+                                    onClick={() => setSummaryDateISO(dISO)}
+                                    title="Ver resumo do dia"
+                                    className={`w-full rounded-md px-1 py-0.5 transition-colors hover:bg-muted ${isToday ? "text-teal-700" : ""}`}
+                                  >
+                                    <div className="text-sm font-bold">{isToday ? "Hoje" : WEEKDAY_LABELS[d.getDay()]}</div>
+                                    <div className="text-xs font-semibold">{formatDayHeader(d)}</div>
+                                  </button>
+                                </th>
+                              );
+                            })}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {gridHours.map((hour) => (
+                            <tr key={hour}>
+                              <td className="sticky left-0 z-10 border-r border-border/60 bg-card p-1 text-sm font-bold text-foreground">{hour}</td>
+                              {weekDays.map((d) => {
                               const dISO = toISODate(d);
                               const isPast = dISO < getTodayLocalISO();
                               const openSlots = getDaySlots(dISO);
@@ -650,23 +641,37 @@ const BookSchedulePage: React.FC = () => {
                       </tbody>
                     </table>
                   </div>
-                )}
+                  )}
+                </div>
                 <p className="mt-2 text-[11px] text-muted-foreground">
                   Clique num horário livre pra preencher o formulário abaixo, num horário ocupado pra editar, ou na data pra ver o resumo do dia.
                 </p>
 
-                {/* Botão redondo grande pra próxima semana — os chevrons
-                    pequenos do cabeçalho passavam despercebidos, e sem ele
-                    dava a impressão de que não tinha mais horário quando o
-                    fim da semana visível ficava todo no passado. */}
+                {/* Botões redondos grandes pra trocar de semana, dentro do
+                    gutter reservado acima — os chevrons pequenos do
+                    cabeçalho passavam despercebidos, e sem eles dava a
+                    impressão de que não tinha mais horário quando o fim da
+                    semana visível ficava todo no passado. O da esquerda só
+                    aparece quando dá pra voltar (não deixa ir antes de hoje). */}
+                {canGoPrevWeek && (
+                  <button
+                    type="button"
+                    onClick={() => setWeekOffset((o) => o - 1)}
+                    title="Ver a semana anterior"
+                    aria-label="Ver a semana anterior"
+                    className="absolute left-0 top-1/2 z-20 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full border border-teal-700/20 bg-teal-600 text-white shadow-lg transition-transform hover:scale-105 hover:bg-teal-700 sm:left-1 sm:h-14 sm:w-14"
+                  >
+                    <ChevronLeft className="h-6 w-6 sm:h-7 sm:w-7" />
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => setWeekOffset((o) => o + 1)}
                   title="Ver a semana seguinte"
                   aria-label="Ver a semana seguinte"
-                  className="absolute right-1 top-1/2 z-20 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-teal-700/20 bg-teal-600 text-white shadow-lg transition-transform hover:scale-105 hover:bg-teal-700 sm:right-2"
+                  className="absolute right-0 top-1/2 z-20 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full border border-teal-700/20 bg-teal-600 text-white shadow-lg transition-transform hover:scale-105 hover:bg-teal-700 sm:right-1 sm:h-14 sm:w-14"
                 >
-                  <ChevronRight className="h-6 w-6" />
+                  <ChevronRight className="h-6 w-6 sm:h-7 sm:w-7" />
                 </button>
               </div>
 
