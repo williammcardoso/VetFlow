@@ -81,13 +81,6 @@ function toISODate(d: Date): string {
   return `${year}-${month}-${day}`;
 }
 
-function mondayOf(dateISO: string): Date {
-  const d = new Date(`${dateISO}T12:00:00`);
-  const diff = (d.getDay() + 6) % 7; // segunda = 0
-  d.setDate(d.getDate() - diff);
-  return d;
-}
-
 function addDays(d: Date, days: number): Date {
   const next = new Date(d);
   next.setDate(next.getDate() + days);
@@ -167,8 +160,20 @@ const BookSchedulePage: React.FC = () => {
     [weeklyHours, exceptions, intervalMinutes]
   );
 
-  const todayMonday = React.useMemo(() => mondayOf(getTodayLocalISO()), []);
-  const [weekStart, setWeekStart] = React.useState<Date>(todayMonday);
+  // Janela de 7 dias "rolando" a partir de hoje (não mais presa a
+  // segunda-feira): antes, no fim da semana (ex.: sexta) a grade mostrava
+  // maioria dos dias já passados e só sobrava 1-2 dias livres, dando a
+  // impressão de que não tinha mais horário — sem perceber que dava pra
+  // clicar em "próxima semana". `todayISO` é recalculado a cada render (a
+  // página já re-renderiza sozinha a cada 10s pelo polling de reservas),
+  // então se o balcão deixar a aba aberta atravessando a virada do dia, a
+  // janela "puxa" sozinha pro dia novo sem precisar de F5.
+  const todayISO = getTodayLocalISO();
+  const [weekOffset, setWeekOffset] = React.useState(0);
+  const weekStart = React.useMemo(
+    () => addDays(new Date(`${todayISO}T12:00:00`), weekOffset * 7),
+    [todayISO, weekOffset]
+  );
   const weekDays = React.useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)), [weekStart]);
   const [bookings, setBookings] = React.useState<ScheduleTimeSummary[]>([]);
   const [loadingWeek, setLoadingWeek] = React.useState(true);
@@ -483,7 +488,7 @@ const BookSchedulePage: React.FC = () => {
   const timeOptions = date ? withCurrentOption(getDaySlots(date), time) : [];
   const editTimeOptions = editDate ? withCurrentOption(getDaySlots(editDate), editTime) : [];
 
-  const canGoPrevWeek = toISODate(weekStart) > toISODate(todayMonday);
+  const canGoPrevWeek = weekOffset > 0;
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-muted/40 p-4">
@@ -515,21 +520,21 @@ const BookSchedulePage: React.FC = () => {
           ) : (
             <div className="space-y-5">
               {/* Calendário semanal */}
-              <div className="rounded-xl border border-border p-3">
+              <div className="relative rounded-xl border border-border p-3">
                 <div className="mb-2 flex items-center justify-between">
                   <Button
                     type="button"
                     variant="ghost"
                     size="sm"
                     disabled={!canGoPrevWeek}
-                    onClick={() => setWeekStart(addDays(weekStart, -7))}
+                    onClick={() => setWeekOffset((o) => o - 1)}
                   >
                     <ChevronLeft className="h-4 w-4" />
                   </Button>
                   <p className="text-sm font-medium">
                     {formatDayHeader(weekDays[0])} — {formatDayHeader(weekDays[6])}
                   </p>
-                  <Button type="button" variant="ghost" size="sm" onClick={() => setWeekStart(addDays(weekStart, 7))}>
+                  <Button type="button" variant="ghost" size="sm" onClick={() => setWeekOffset((o) => o + 1)}>
                     <ChevronRight className="h-4 w-4" />
                   </Button>
                 </div>
@@ -546,16 +551,17 @@ const BookSchedulePage: React.FC = () => {
                           <th className="sticky left-0 z-10 w-12 border-r border-border/60 bg-card p-1 text-left text-muted-foreground"> </th>
                           {weekDays.map((d) => {
                             const dISO = toISODate(d);
-                            const isPast = dISO < getTodayLocalISO();
+                            const isPast = dISO < todayISO;
+                            const isToday = dISO === todayISO;
                             return (
                               <th key={dISO} className={`p-1 text-center font-medium ${isPast ? "text-muted-foreground/50" : ""}`}>
                                 <button
                                   type="button"
                                   onClick={() => setSummaryDateISO(dISO)}
                                   title="Ver resumo do dia"
-                                  className="w-full rounded-md px-1 py-0.5 transition-colors hover:bg-muted"
+                                  className={`w-full rounded-md px-1 py-0.5 transition-colors hover:bg-muted ${isToday ? "text-teal-700" : ""}`}
                                 >
-                                  <div>{WEEKDAY_LABELS[d.getDay()]}</div>
+                                  <div>{isToday ? "Hoje" : WEEKDAY_LABELS[d.getDay()]}</div>
                                   <div className="text-[10px] font-normal">{formatDayHeader(d)}</div>
                                 </button>
                               </th>
@@ -648,6 +654,20 @@ const BookSchedulePage: React.FC = () => {
                 <p className="mt-2 text-[11px] text-muted-foreground">
                   Clique num horário livre pra preencher o formulário abaixo, num horário ocupado pra editar, ou na data pra ver o resumo do dia.
                 </p>
+
+                {/* Botão redondo grande pra próxima semana — os chevrons
+                    pequenos do cabeçalho passavam despercebidos, e sem ele
+                    dava a impressão de que não tinha mais horário quando o
+                    fim da semana visível ficava todo no passado. */}
+                <button
+                  type="button"
+                  onClick={() => setWeekOffset((o) => o + 1)}
+                  title="Ver a semana seguinte"
+                  aria-label="Ver a semana seguinte"
+                  className="absolute right-1 top-1/2 z-20 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-teal-700/20 bg-teal-600 text-white shadow-lg transition-transform hover:scale-105 hover:bg-teal-700 sm:right-2"
+                >
+                  <ChevronRight className="h-6 w-6" />
+                </button>
               </div>
 
               {/* Formulário */}
