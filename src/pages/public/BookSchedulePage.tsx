@@ -539,13 +539,13 @@ const BookSchedulePage: React.FC = () => {
                       <table className="w-full min-w-[560px] border-collapse text-xs">
                         <thead>
                           <tr>
-                            <th className="sticky left-0 z-10 w-12 border-r border-border/60 bg-card p-1 text-left text-muted-foreground"> </th>
+                            <th className="sticky left-0 z-10 w-12 border-b border-r border-border/60 bg-card p-1 text-left text-muted-foreground"> </th>
                             {weekDays.map((d) => {
                               const dISO = toISODate(d);
                               const isPast = dISO < todayISO;
                               const isToday = dISO === todayISO;
                               return (
-                                <th key={dISO} className={`p-1 text-center font-medium ${isPast ? "text-muted-foreground/50" : ""}`}>
+                                <th key={dISO} className={`border-b border-r border-border/40 p-1 text-center font-medium last:border-r-0 ${isPast ? "text-muted-foreground/50" : ""}`}>
                                   <button
                                     type="button"
                                     onClick={() => setSummaryDateISO(dISO)}
@@ -563,21 +563,21 @@ const BookSchedulePage: React.FC = () => {
                         <tbody>
                           {gridHours.map((hour) => (
                             <tr key={hour}>
-                              <td className="sticky left-0 z-10 border-r border-border/60 bg-card p-1 text-sm font-bold text-foreground">{hour}</td>
+                              <td className="sticky left-0 z-10 border-b border-r border-border/60 bg-card p-1 text-sm font-bold text-foreground">{hour}</td>
                               {weekDays.map((d) => {
                               const dISO = toISODate(d);
                               const isPast = dISO < getTodayLocalISO();
                               const openSlots = getDaySlots(dISO);
                               const isOpen = openSlots.includes(hour);
                               if (!isOpen) {
-                                return <td key={dISO} className="p-1 text-center text-muted-foreground/30">—</td>;
+                                return <td key={dISO} className="border-b border-r border-border/40 p-1 text-center text-muted-foreground/30 last:border-r-0">—</td>;
                               }
                               const cellBookings = bookingsBySlot.get(`${dISO}|${hour}`) || [];
                               const isSelected = date === dISO && time === hour && cellBookings.length === 0;
 
                               if (cellBookings.length === 0) {
                                 return (
-                                  <td key={dISO} className="p-1 text-center">
+                                  <td key={dISO} className="border-b border-r border-border/40 p-1 text-center last:border-r-0">
                                     <button
                                       type="button"
                                       disabled={isPast}
@@ -597,7 +597,7 @@ const BookSchedulePage: React.FC = () => {
                               }
 
                               return (
-                                <td key={dISO} className="p-1 text-center align-top">
+                                <td key={dISO} className="border-b border-r border-border/40 p-1 text-center align-top last:border-r-0">
                                   <div className="flex flex-col gap-0.5">
                                     {cellBookings.map((b) => {
                                       const isEncaixe = encaixeIds.has(b.id);
