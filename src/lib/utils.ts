@@ -144,3 +144,23 @@ export const parseItemQty = (text: string): { name: string; qty?: number } => {
   if (!m) return { name: text };
   return { name: m[1], qty: Number(m[2]) };
 };
+
+/**
+ * Nome de arquivo limpo (sem acento, espaço ou símbolo) pra PDFs
+ * gerados (receita, laudo, documento...) — usado tanto pro download quanto
+ * pro link mandado por WhatsApp. Sem isso, nomes com espaço/acento viram um
+ * link cheio de %20/%C3%A9 no WhatsApp, e nomes com UUID (ex.: id do exame)
+ * ficam ilegíveis no download. Junte as partes já sem extensão e passe
+ * `.pdf` por fora: `\`${slugifyFileName(...)}.pdf\``.
+ */
+export function slugifyFileName(...parts: Array<string | undefined | null>): string {
+  const joined = parts.filter(Boolean).join("-");
+  return joined
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "") // remove acentos (á -> a, ç -> c...)
+    .replace(/[^a-zA-Z0-9-_ ]/g, "") // remove símbolos que não formam nome de arquivo
+    .trim()
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .toLowerCase();
+}

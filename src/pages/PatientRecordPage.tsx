@@ -39,7 +39,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
 import { PrescriptionEntry } from "@/types/medication";
-import { cn, formatAgeLong, formatDateTime, formatItemQty, parseLocalDate } from "@/lib/utils";
+import { cn, formatAgeLong, formatDateTime, formatItemQty, parseLocalDate, slugifyFileName } from "@/lib/utils";
+import { displayAppointmentType } from "@/lib/appointmentDisplay";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -913,7 +914,7 @@ const PatientRecordPage = () => {
     const blob = await createPdfBlob(<BudgetReportPdfContent budget={b} userProfile={currentUserProfile} catalogItems={catalogItems} />);
     await openPdf({
       blob,
-      fileName: `orcamento_${b.id}.pdf`,
+      fileName: `${slugifyFileName("orcamento", b.animalName || currentAnimal?.name, b.date)}.pdf`,
       persistOptions: { folder: "budgets" },
     });
   };
@@ -923,7 +924,7 @@ const PatientRecordPage = () => {
       const blob = await createPdfBlob(<BudgetReportPdfContent budget={b} userProfile={currentUserProfile} catalogItems={catalogItems} />);
       await sendPdfViaWhatsApp({
         blob,
-        fileName: `orcamento_${b.id}.pdf`,
+        fileName: `${slugifyFileName("orcamento", b.animalName || currentAnimal?.name, b.date)}.pdf`,
         folder: "budgets",
         title: "Orçamento",
         intro: `Olá! Segue o orçamento de *${b.animalName || currentAnimal?.name || "seu pet"}*.`,
@@ -1096,13 +1097,13 @@ const PatientRecordPage = () => {
 
   animalAppointments.forEach(app => {
     const appDetails = app.details as BaseAppointmentDetails;
-    const description = appDetails.suspeitaDiagnostica || appDetails.condutaTratamento || app.observacoesGerais || `Atendimento de ${app.type}`;
+    const description = appDetails.suspeitaDiagnostica || appDetails.condutaTratamento || app.observacoesGerais || `Atendimento de ${displayAppointmentType(app.type)}`;
     allTimelineEvents.push({
       id: `app-${app.id}`,
       date: app.date,
       time: app.time,
       type: 'Atendimento',
-      description: `${app.type}: ${description}`,
+      description: `${displayAppointmentType(app.type)}: ${description}`,
       summary: app.observacoesGerais || description,
       icon: FaStethoscope,
       link: subPath(`/view-appointment/${app.id}`),
@@ -2025,7 +2026,7 @@ const PatientRecordPage = () => {
                                       />
                                     ).then((blob) => openPdf({
                                       blob,
-                                      fileName: `laudo_${exam.id || exam.date}.pdf`,
+                                      fileName: `${slugifyFileName("laudo", exam.type, currentAnimal.name, exam.date)}.pdf`,
                                       persistOptions: { folder: "exams" },
                                     })).then(() => {
                                       toast.success("Laudo de exame enviado para impressão!");
@@ -2053,7 +2054,7 @@ const PatientRecordPage = () => {
                                       />
                                     ).then((blob) => openPdf({
                                       blob,
-                                      fileName: `laudo_${exam.id || exam.date}.pdf`,
+                                      fileName: `${slugifyFileName("laudo", exam.type, currentAnimal.name, exam.date)}.pdf`,
                                       persistOptions: { folder: "exams" },
                                     })).then(() => {
                                       toast.success("Laudo de exame enviado para impressão!");
@@ -2077,7 +2078,7 @@ const PatientRecordPage = () => {
                                     />
                                   ).then((blob) => openPdf({
                                     blob,
-                                    fileName: `laudo_${exam.id || exam.date}.pdf`,
+                                    fileName: `${slugifyFileName("laudo", exam.type, currentAnimal.name, exam.date)}.pdf`,
                                     persistOptions: { folder: "exams" },
                                   })).then(() => {
                                     toast.success("Laudo de exame enviado para impressão!");
@@ -2114,7 +2115,7 @@ const PatientRecordPage = () => {
                                       />
                                     ).then((blob) => openPdf({
                                       blob,
-                                      fileName: `laudo_compacto_${exam.id || exam.date}.pdf`,
+                                      fileName: `${slugifyFileName("laudo-compacto", exam.type, currentAnimal.name, exam.date)}.pdf`,
                                       persistOptions: { folder: "exams" },
                                     })).then(() => {
                                       toast.success("Laudo compacto (hemograma) gerado!");
@@ -2150,7 +2151,7 @@ const PatientRecordPage = () => {
                                       />
                                     ).then((blob) => openPdf({
                                       blob,
-                                      fileName: `laudo_compacto_${exam.id || exam.date}.pdf`,
+                                      fileName: `${slugifyFileName("laudo-compacto", exam.type, currentAnimal.name, exam.date)}.pdf`,
                                       persistOptions: { folder: "exams" },
                                     })).then(() => {
                                       toast.success("Laudo compacto (bioquímico) gerado!");
@@ -2251,7 +2252,7 @@ const PatientRecordPage = () => {
                                           );
                                     await sendPdfViaWhatsApp({
                                       blob,
-                                      fileName: `laudo_${exam.type || "exame"}_${exam.id || exam.date}.pdf`,
+                                      fileName: `${slugifyFileName("laudo", exam.type || "exame", currentAnimal.name, exam.date)}.pdf`,
                                       folder: "exams",
                                       title: `Resultado de Exame — ${exam.type || "Exame"}`,
                                       intro: `Olá! Segue o resultado do exame *${exam.type || "Exame"}* de *${currentAnimal.name}*.`,
@@ -2503,7 +2504,7 @@ const PatientRecordPage = () => {
                                 );
                             await downloadPdf({
                               blob,
-                              fileName: `${doc.name}.pdf`,
+                              fileName: `${slugifyFileName(doc.name)}.pdf`,
                               persistOptions: { folder: "documents/generated" },
                             });
                           } catch (err) {
@@ -2516,6 +2517,55 @@ const PatientRecordPage = () => {
                           a.download = doc.name;
                           a.target = "_blank";
                           a.click();
+                        }
+                      };
+                      // Mesmo PDF do onView/onDownload; pro arquivo avulso (doc.fileUrl)
+                      // decodifica o data: URI (upload local) ou busca a URL (já
+                      // hospedado) pra virar Blob — sendPdfViaWhatsApp precisa de Blob,
+                      // não de link, pra poder subir e gerar o link curto do WhatsApp.
+                      const buildDocumentBlob = async (): Promise<Blob | null> => {
+                        if (doc.source === "editor" && doc.content) {
+                          return examRequestData
+                            ? await createPdfBlob(<ExamRequestPdfContent data={examRequestData} />)
+                            : await createPdfBlob(
+                                <DocumentPdfContent
+                                  documentName={doc.name}
+                                  content={replaceTemplateVariables(doc.content || "", currentAnimal, currentClient, currentUserProfile)}
+                                />
+                              );
+                        }
+                        if (doc.fileUrl) {
+                          if (doc.fileUrl.startsWith("data:")) {
+                            const [header, base64] = doc.fileUrl.split(",");
+                            const mime = header.match(/:(.*?);/)?.[1] || "application/octet-stream";
+                            const binary = atob(base64);
+                            const arr = new Uint8Array(binary.length);
+                            for (let i = 0; i < binary.length; i++) arr[i] = binary.charCodeAt(i);
+                            return new Blob([arr], { type: mime });
+                          }
+                          const resp = await fetch(doc.fileUrl);
+                          return await resp.blob();
+                        }
+                        return null;
+                      };
+                      const onSendWhatsApp = async () => {
+                        try {
+                          const blob = await buildDocumentBlob();
+                          if (!blob) {
+                            toast.error("Não consegui carregar este documento para enviar.");
+                            return;
+                          }
+                          await sendPdfViaWhatsApp({
+                            blob,
+                            fileName: `${slugifyFileName(doc.name)}.pdf`,
+                            folder: "documents/generated",
+                            title: doc.name,
+                            intro: `Olá! Segue o documento *${doc.name}* de *${currentAnimal.name}*.`,
+                            dateLabel: formatDateTime(doc.date, doc.time),
+                          });
+                        } catch (err) {
+                          console.error("[Enviar documento por WhatsApp] falhou ao gerar o PDF", doc.name, err);
+                          toast.error("Não consegui gerar o PDF deste documento para enviar por WhatsApp.");
                         }
                       };
                       return (
@@ -2556,6 +2606,15 @@ const PatientRecordPage = () => {
                                 title={doc.source === "editor" ? "Imprimir / PDF" : "Visualizar"}
                               >
                                 {doc.source === "editor" ? <FaPrint className="h-4 w-4" /> : <FaEye className="h-4 w-4" />}
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={onSendWhatsApp}
+                                className="rounded-md hover:bg-muted hover:text-foreground transition-colors duration-200"
+                                title="Enviar documento por WhatsApp (com link do PDF, sem precisar anexar)"
+                              >
+                                <SiWhatsapp className="h-5 w-5 text-[#25D366]" />
                               </Button>
                               {doc.source === "editor" && canEditPrescriptions && (
                                 <Button
@@ -2758,7 +2817,7 @@ const PatientRecordPage = () => {
                                     })
                                   ).then((blob) => openPdf({
                                     blob,
-                                    fileName: `receita_${currentAnimal.name}_${currentClient.name}_${rx.date || "sem-data"}.pdf`,
+                                    fileName: `${slugifyFileName("receita", currentAnimal.name, rx.date || "sem-data")}.pdf`,
                                     persistOptions: { folder: "prescriptions" },
                                   })).then(() => {
                                     toast.success("Receita enviada para impressão!");
@@ -2806,7 +2865,7 @@ const PatientRecordPage = () => {
                                     })
                                   ).then((blob) => downloadPdf({
                                     blob,
-                                    fileName: `receita_${currentAnimal.name}_${currentClient.name}_${rx.date || "sem-data"}.pdf`,
+                                    fileName: `${slugifyFileName("receita", currentAnimal.name, rx.date || "sem-data")}.pdf`,
                                     persistOptions: { folder: "prescriptions" },
                                   })).then(() => {
                                     toast.success("PDF baixado.");
@@ -2858,7 +2917,7 @@ const PatientRecordPage = () => {
                                   );
                                   await sendPdfViaWhatsApp({
                                     blob,
-                                    fileName: `receita_${currentAnimal.name}_${currentClient.name}_${rx.date || "sem-data"}.pdf`,
+                                    fileName: `${slugifyFileName("receita", currentAnimal.name, rx.date || "sem-data")}.pdf`,
                                     folder: "prescriptions",
                                     title: "Receita Veterinária",
                                     intro: `Olá! Segue a receita de *${currentAnimal.name}*.`,
@@ -3192,7 +3251,7 @@ const PatientRecordPage = () => {
                                     </p>
                                     <span className="text-xs text-muted-foreground inline-flex items-center gap-1">
                                       <StethoscopeIcon className="h-3 w-3 text-teal-500" />
-                                      {app ? `Atendimento: ${app.type} · ${app.vet}` : "Atendimento não vinculado"}
+                                      {app ? `Atendimento: ${displayAppointmentType(app.type)} · ${app.vet}` : "Atendimento não vinculado"}
                                     </span>
                                   </div>
                                   <div className="flex items-center gap-4 shrink-0 text-right">
@@ -3268,7 +3327,7 @@ const PatientRecordPage = () => {
                                       const app = linkedId ? animalAppointments.find(a => a.id === linkedId) : undefined;
                                       return (
                                         <SelectItem key={s.id} value={s.id}>
-                                          {app ? `${app.type} • ${app.vet}` : formatDateTime(s.date, s.time)} — Total {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(s.amount)} • Saldo {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(saldo)}
+                                          {app ? `${displayAppointmentType(app.type)} • ${app.vet}` : formatDateTime(s.date, s.time)} — Total {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(s.amount)} • Saldo {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(saldo)}
                                         </SelectItem>
                                       );
                                     })}
@@ -3369,7 +3428,7 @@ const PatientRecordPage = () => {
                                       const { appointmentId: linkedId } = parseSaleObservations(sale?.observations);
                                       const appointment = linkedId ? animalAppointments.find((a) => a.id === linkedId) : undefined;
                                       const saleLabel = appointment
-                                        ? `${appointment.type} • ${appointment.vet}`
+                                        ? `${displayAppointmentType(appointment.type)} • ${appointment.vet}`
                                         : sale
                                           ? formatDateTime(sale.date, sale.time)
                                           : r.description || "Venda";
@@ -3531,7 +3590,7 @@ const PatientRecordPage = () => {
                       <SelectTrigger className="bg-input border border-border rounded-md h-9"><SelectValue placeholder="Selecione" /></SelectTrigger>
                       <SelectContent>
                         {animalAppointments.map(a => (
-                          <SelectItem key={a.id} value={a.id}>{a.type} • {formatDateTime(a.date, a.time)}</SelectItem>
+                          <SelectItem key={a.id} value={a.id}>{displayAppointmentType(a.type)} • {formatDateTime(a.date, a.time)}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
@@ -3652,7 +3711,7 @@ const PatientRecordPage = () => {
                     <SelectItem value="none">Nenhum / não informado</SelectItem>
                     {animalAppointments.map((a) => (
                       <SelectItem key={a.id} value={a.id}>
-                        {formatDateTime(a.date, a.time)} — {a.type || "Atendimento"}
+                        {formatDateTime(a.date, a.time)} — {displayAppointmentType(a.type) || "Atendimento"}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -3911,7 +3970,7 @@ const PatientRecordPage = () => {
                 <SelectContent>
                   <SelectItem value="__none__">Nenhum</SelectItem>
                   {animalAppointments.map(a => (
-                    <SelectItem key={a.id} value={a.id}>{a.type} • {formatDateTime(a.date, a.time)}</SelectItem>
+                    <SelectItem key={a.id} value={a.id}>{displayAppointmentType(a.type)} • {formatDateTime(a.date, a.time)}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>

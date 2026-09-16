@@ -16,6 +16,7 @@ import PrescriptionManipulatedForm from "@/components/PrescriptionManipulatedFor
 import { toast } from "sonner";
 import { PrescriptionPdfContent } from "@/components/PrescriptionPdfContent";
 import { PrescriptionEntry, ManipulatedPrescriptionData } from "@/types/medication";
+import { slugifyFileName, getTodayLocalISO } from "@/lib/utils";
 import { usePrescriptions } from "@/hooks/usePrescriptions";
 import { useClientWithAnimals } from "@/hooks/useSupabaseClients";
 import { usePatientRouteParams } from "@/hooks/usePatientRouteParams";
@@ -294,7 +295,7 @@ const AddPrescriptionPage = () => {
       );
       await openPdf({
         blob,
-        fileName: `receita_${animal.name}_${client.name}_${new Date().toISOString().split("T")[0]}.pdf`,
+        fileName: `${slugifyFileName("receita", animal.name, getTodayLocalISO())}.pdf`,
         persistOptions: { folder: "prescriptions" },
       });
     } catch (error) {
@@ -343,7 +344,7 @@ const AddPrescriptionPage = () => {
       );
       await downloadPdf({
         blob,
-        fileName: `receita_${animal.name}_${client.name}_${new Date().toISOString().split("T")[0]}.pdf`,
+        fileName: `${slugifyFileName("receita", animal.name, getTodayLocalISO())}.pdf`,
         persistOptions: { folder: "prescriptions" },
       });
 
