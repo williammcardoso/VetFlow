@@ -169,6 +169,13 @@ const BookSchedulePage: React.FC = () => {
   // então se o balcão deixar a aba aberta atravessando a virada do dia, a
   // janela "puxa" sozinha pro dia novo sem precisar de F5.
   const todayISO = getTodayLocalISO();
+  // Minuto atual (recalculado a cada render, mesmo tick do todayISO acima) —
+  // usado pra apagar visualmente os horários de HOJE que já passaram (antes
+  // só o dia inteiro ficava "passado"; um horário das 8h continuava
+  // aparecendo "Livre" e clicável às 16h). Usuários reclamaram que a grade
+  // tem informação demais e se perdem — reaproveita a mesma cor já usada
+  // pros dias passados em vez de inventar mais uma.
+  const nowMinutes = new Date().getHours() * 60 + new Date().getMinutes();
   const [weekOffset, setWeekOffset] = React.useState(0);
   const weekStart = React.useMemo(
     () => addDays(new Date(`${todayISO}T12:00:00`), weekOffset * 7),
@@ -318,6 +325,10 @@ const BookSchedulePage: React.FC = () => {
     const requestedMinutes = toMinutes(time);
     if (requestedMinutes === null) {
       toast.error("Horário inválido.");
+      return;
+    }
+    if (date === getTodayLocalISO() && requestedMinutes < new Date().getHours() * 60 + new Date().getMinutes()) {
+      toast.error("Esse horário já passou hoje. Escolha um horário mais adiante.");
       return;
     }
     if (!isMinutesOpen(date, requestedMinutes, weeklyHours, exceptions)) {
@@ -566,7 +577,10 @@ const BookSchedulePage: React.FC = () => {
                               <td className="sticky left-0 z-10 border-b border-r border-border/60 bg-card p-1 text-sm font-bold text-foreground">{hour}</td>
                               {weekDays.map((d) => {
                               const dISO = toISODate(d);
-                              const isPast = dISO < getTodayLocalISO();
+                              const slotMinutes = toMinutes(hour);
+                              const isPast =
+                                dISO < todayISO ||
+                                (dISO === todayISO && slotMinutes !== null && slotMinutes < nowMinutes);
                               const openSlots = getDaySlots(dISO);
                               const isOpen = openSlots.includes(hour);
                               if (!isOpen) {
@@ -612,7 +626,7 @@ const BookSchedulePage: React.FC = () => {
                                                 isEncaixe
                                                   ? "border-amber-300 bg-amber-100 text-amber-900 hover:bg-amber-200"
                                                   : "border-slate-300 bg-slate-100 text-slate-700 hover:bg-slate-200"
-                                              }`}
+                                              } ${isPast ? "opacity-50" : ""}`}
                                             >
                                               {shortName}
                                             </button>
