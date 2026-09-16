@@ -48,7 +48,12 @@ async function tryPersistPdf(blob: Blob, options?: PersistOptions): Promise<stri
     const bucket = options?.bucket || DEFAULT_BUCKET;
     const folder = (options?.folder || "generated_pdfs").replace(/^\/+|\/+$/g, "");
     const fileName = ensurePdfName(options?.fileName || `documento_${Date.now()}.pdf`);
-    const path = `${folder}/${Date.now()}_${Math.random().toString(36).slice(2, 10)}_${fileName}`;
+    // O identificador único vira subpasta, não prefixo do nome — evita
+    // colisão no Storage sem sujar o nome que o navegador mostra (a URL
+    // pública termina no nome do arquivo; era esse prefixo que aparecia
+    // feio no download e virava o título da aba ao abrir o PDF direto).
+    const uniqueDir = `${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+    const path = `${folder}/${uniqueDir}/${fileName}`;
     const file = new File([blob], fileName, { type: "application/pdf" });
 
     const { error: uploadError } = await supabase.storage.from(bucket).upload(path, file, {
