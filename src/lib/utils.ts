@@ -160,6 +160,19 @@ export const parseItemQty = (text: string): { name: string; qty?: number } => {
  * ficam ilegíveis no download. Junte as partes já sem extensão e passe
  * `.pdf` por fora: `\`${slugifyFileName(...)}.pdf\``.
  */
+/**
+ * Data ISO ("2026-09-16") em formato BR pra nome de arquivo ("16-09-2026")
+ * — traço em vez de barra, porque "/" no path do Storage criaria uma
+ * subpasta sem querer. Passe o resultado pro slugifyFileName junto com o
+ * resto do nome.
+ */
+export function formatDateBRForFileName(dateISO: string): string {
+  if (!dateISO) return "";
+  const [year, month, day] = dateISO.split("-");
+  if (!year || !month || !day) return dateISO;
+  return `${day}-${month}-${year}`;
+}
+
 export function slugifyFileName(...parts: Array<string | undefined | null>): string {
   const joined = parts.filter(Boolean).join("-");
   return joined

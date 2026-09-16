@@ -19,7 +19,7 @@ import { useRegistryList } from "@/hooks/useRegistryList";
 import AutocompleteSelect from "@/components/AutocompleteSelect";
 import ClientCombobox from "@/components/ClientCombobox";
 import { getPatientRecordPath } from "@/utils/patientDisplayId";
-import { formatAgeLong, formatCurrencyBRL, formatDateTime, formatItemQty, slugifyFileName } from "@/lib/utils";
+import { formatAgeLong, formatCurrencyBRL, formatDateBRForFileName, formatDateTime, formatItemQty, slugifyFileName } from "@/lib/utils";
 import BudgetReportPdfContent from "@/components/BudgetReportPdfContent";
 import { useClientsList } from "@/hooks/useSupabaseClients";
 import { Link } from "react-router-dom";
@@ -383,7 +383,7 @@ const BudgetsPage: React.FC = () => {
     const { blob } = await buildBudgetPdfBlob(b);
     await openPdf({
       blob,
-      fileName: `${slugifyFileName("orcamento", b.animalName, b.date)}.pdf`,
+      fileName: `${slugifyFileName("orcamento", b.animalName, formatDateBRForFileName(b.date))}.pdf`,
       persistOptions: { folder: "budgets" },
     });
   };
@@ -394,7 +394,7 @@ const BudgetsPage: React.FC = () => {
       await sendPdfViaWhatsApp({
         phone,
         blob,
-        fileName: `${slugifyFileName("orcamento", b.animalName, b.date)}.pdf`,
+        fileName: `${slugifyFileName("orcamento", b.animalName, formatDateBRForFileName(b.date))}.pdf`,
         folder: "budgets",
         title: "Orçamento",
         intro: `Olá! Segue o orçamento de *${b.animalName || "seu pet"}*.`,
