@@ -31,6 +31,13 @@ export function generateUUID(): string {
   });
 }
 
+/** Código curto (8 chars) pra link de redirecionamento (/d/:code) — deriva
+ * de generateUUID() em vez de outro gerador de aleatório do zero, então já
+ * herda o fallback pra contexto inseguro/IP da rede local. */
+export function generateShortCode(length = 8): string {
+  return generateUUID().replace(/-/g, "").slice(0, length);
+}
+
 /**
  * Máscara de telefone brasileiro: (99) 99999-9999 ou (99) 9999-9999.
  * Tolera entrada já formatada, com +55 ou só dígitos.

@@ -39,6 +39,7 @@ import LoginPage from "./pages/auth/LoginPage";
 import ValidateDocumentPage from "./pages/public/ValidateDocumentPage";
 import SignDocumentPage from "./pages/public/SignDocumentPage";
 import BookSchedulePage from "./pages/public/BookSchedulePage";
+import DocumentRedirectPage from "./pages/public/DocumentRedirectPage";
 import UsersManagementPage from "./pages/settings/UsersManagementPage";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
@@ -150,6 +151,7 @@ const App = () => {
                 <Route path="/validar/:hash" element={<ValidateDocumentPage />} />
                 <Route path="/assinar/:documentId" element={<SignDocumentPage />} />
                 <Route path="/agendar-horario" element={<BookSchedulePage />} />
+                <Route path="/d/:code" element={<DocumentRedirectPage />} />
 
                   <Route element={<ProtectedAppShell />}>
                     <Route path="/" element={<Navigate to="/dashboard" replace />} />

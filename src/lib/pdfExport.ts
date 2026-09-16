@@ -1,6 +1,7 @@
 import { pdf } from "@react-pdf/renderer";
 import type { ReactElement } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { createShareLink } from "@/lib/documentShareLinksApi";
 
 const DEFAULT_BUCKET = "documents";
 
@@ -28,10 +29,18 @@ function ensurePdfName(name: string) {
   return clean.toLowerCase().endsWith(".pdf") ? clean : `${clean}.pdf`;
 }
 
-/** Sobe o PDF pro storage e devolve a URL pública — usado quando o PDF
- * precisa virar um link (ex.: mensagem de WhatsApp), não só ser aberto/baixado. */
+/** Sobe o PDF pro storage e devolve um link curto (/d/:code) — usado quando
+ * o PDF precisa virar um link visível pra alguém (ex.: mensagem de
+ * WhatsApp), não só ser aberto/baixado dentro do próprio sistema. A URL
+ * direta do Storage é enorme (domínio do projeto + bucket + pasta + nome);
+ * se não der pra gravar o link curto (ex.: migration do
+ * document_share_links ainda não aplicada), cai pra URL direta em vez de
+ * falhar o envio. */
 export async function persistPdf(blob: Blob, options?: PersistOptions & { fileName: string }): Promise<string | null> {
-  return tryPersistPdf(blob, options);
+  const longUrl = await tryPersistPdf(blob, options);
+  if (!longUrl) return null;
+  const shortUrl = await createShareLink(longUrl);
+  return shortUrl || longUrl;
 }
 
 async function tryPersistPdf(blob: Blob, options?: PersistOptions): Promise<string | null> {
