@@ -28,7 +28,6 @@ import { CalendarPlus, CheckCircle2, ChevronLeft, ChevronRight, Loader2, PawPrin
 import { toast } from "sonner";
 import {
   cancelPublicBooking,
-  computeEncaixeIds,
   createSchedule,
   listScheduleTimesInRange,
   updatePublicBooking,
@@ -109,10 +108,6 @@ function nearestSlot(minutes: number, openSlots: string[]): string {
   return best;
 }
 
-type PendingAction =
-  | { type: "conflict"; message: string }
-  | { type: "cancel" };
-
 // Página pública (sem login) — o link vai pro balcão da agropecuária, pra
 // eles reservarem horário direto na agenda do veterinário (principalmente
 // vacinação a domicílio) sem precisar ligar. `schedules` já tem RLS aberta
@@ -184,7 +179,6 @@ const BookSchedulePage: React.FC = () => {
   const weekDays = React.useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)), [weekStart]);
   const [bookings, setBookings] = React.useState<ScheduleTimeSummary[]>([]);
   const [loadingWeek, setLoadingWeek] = React.useState(true);
-  const encaixeIds = React.useMemo(() => computeEncaixeIds(bookings, intervalMinutes), [bookings, intervalMinutes]);
 
   // Grade da semana: todos os horários que aparecem em pelo menos um dia da
   // semana visível — dias com expediente diferente (ex.: sábado até 12h)
@@ -267,11 +261,6 @@ const BookSchedulePage: React.FC = () => {
     clientNameRef.current?.focus();
   };
 
-  // Se for confirmado um "encaixe" (horário perto de outro já marcado — ex.:
-  // duas vacinas em casas vizinhas), guarda aqui o motivo pra mostrar no
-  // diálogo de confirmação antes de gravar.
-  const [conflictWarning, setConflictWarning] = React.useState<string | null>(null);
-
   const doCreateBooking = async () => {
     setSaving(true);
     try {
@@ -338,18 +327,15 @@ const BookSchedulePage: React.FC = () => {
 
     setSaving(true);
     try {
+      // Antes "encaixe" (horário perto de outro) virava confirmação em vez de
+      // bloqueio -- fazia sentido quando o intervalo era maior. Com a agenda
+      // toda em blocos fixos (ex.: 30 min), dois agendamentos só colidem se
+      // for o exato mesmo horário -- aí é ocupado mesmo, bloqueia direto.
       const existing = await listScheduleTimesInRange(date, date);
-      const conflict = existing.find((b) => {
-        const bMin = toMinutes(b.time);
-        return bMin !== null && Math.abs(bMin - requestedMinutes) < intervalMinutes;
-      });
+      const conflict = existing.some((b) => b.time === time);
       if (conflict) {
-        // Não bloqueia mais — vira um "encaixe" que precisa de confirmação,
-        // pra permitir casos tipo duas vacinas em casas vizinhas (8h e 8h30).
         setSaving(false);
-        setConflictWarning(
-          `Esse horário está perto de outro agendamento: ${[conflict.clientName, conflict.title].filter(Boolean).join(" — ") || "sem nome"} às ${conflict.time}.`
-        );
+        toast.error("Esse horário acabou de ser reservado por outra pessoa. Escolha outro.");
         return;
       }
 
@@ -370,7 +356,7 @@ const BookSchedulePage: React.FC = () => {
   const [editTime, setEditTime] = React.useState("");
   const [editDescription, setEditDescription] = React.useState("");
   const [editSaving, setEditSaving] = React.useState(false);
-  const [pendingAction, setPendingAction] = React.useState<PendingAction | null>(null);
+  const [cancelConfirmOpen, setCancelConfirmOpen] = React.useState(false);
 
   const openEditDialog = (booking: ScheduleTimeSummary) => {
     setEditingBooking(booking);
@@ -384,7 +370,7 @@ const BookSchedulePage: React.FC = () => {
   const closeEditFlow = () => {
     setEditDialogOpen(false);
     setEditingBooking(null);
-    setPendingAction(null);
+    setCancelConfirmOpen(false);
   };
 
   const doUpdateBooking = async () => {
@@ -450,18 +436,10 @@ const BookSchedulePage: React.FC = () => {
     setEditSaving(true);
     try {
       const existing = await listScheduleTimesInRange(editDate, editDate);
-      const conflict = existing.find((b) => {
-        if (b.id === editingBooking.id) return false; // não conflita consigo mesmo
-        const bMin = toMinutes(b.time);
-        return bMin !== null && Math.abs(bMin - requestedMinutes) < intervalMinutes;
-      });
+      const conflict = existing.some((b) => b.id !== editingBooking.id && b.time === editTime);
       if (conflict) {
         setEditSaving(false);
-        setEditDialogOpen(false);
-        setPendingAction({
-          type: "conflict",
-          message: `Esse horário está perto de outro agendamento: ${[conflict.clientName, conflict.title].filter(Boolean).join(" — ") || "sem nome"} às ${conflict.time}.`,
-        });
+        toast.error("Já existe outro agendamento nesse horário. Escolha outro.");
         return;
       }
       await doUpdateBooking();
@@ -473,7 +451,7 @@ const BookSchedulePage: React.FC = () => {
 
   const handleAskCancel = () => {
     setEditDialogOpen(false);
-    setPendingAction({ type: "cancel" });
+    setCancelConfirmOpen(true);
   };
 
   // --- Resumo do dia — clicar na data do cabeçalho da grade abre um modal
@@ -614,7 +592,6 @@ const BookSchedulePage: React.FC = () => {
                                 <td key={dISO} className="border-b border-r border-border/40 p-1 text-center align-top last:border-r-0">
                                   <div className="flex flex-col gap-0.5">
                                     {cellBookings.map((b) => {
-                                      const isEncaixe = encaixeIds.has(b.id);
                                       const shortName = (b.clientName || "Ocupado").split(" ")[0];
                                       return (
                                         <HoverCard key={b.id} openDelay={150} closeDelay={80}>
@@ -622,11 +599,7 @@ const BookSchedulePage: React.FC = () => {
                                             <button
                                               type="button"
                                               onClick={() => openEditDialog(b)}
-                                              className={`h-6 w-full truncate rounded-md border px-1 text-[10px] font-medium transition-colors ${
-                                                isEncaixe
-                                                  ? "border-amber-300 bg-amber-100 text-amber-900 hover:bg-amber-200"
-                                                  : "border-slate-300 bg-slate-100 text-slate-700 hover:bg-slate-200"
-                                              } ${isPast ? "opacity-50" : ""}`}
+                                              className={`h-6 w-full truncate rounded-md border px-1 text-[10px] font-medium transition-colors border-orange-300 bg-orange-100 text-orange-900 hover:bg-orange-200 ${isPast ? "opacity-50" : ""}`}
                                             >
                                               {shortName}
                                             </button>
@@ -636,7 +609,6 @@ const BookSchedulePage: React.FC = () => {
                                             {b.title && <p className="mt-0.5 text-muted-foreground">{b.title}</p>}
                                             <p className="mt-2 text-xs text-muted-foreground">
                                               {formatDayHeader(d)} às {b.time}
-                                              {isEncaixe && " • Encaixe (tem outro agendamento perto)"}
                                             </p>
                                             {b.stationName && (
                                               <p className="mt-1 text-xs text-muted-foreground">Agendado por: {b.stationName}</p>
@@ -767,29 +739,6 @@ const BookSchedulePage: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* Confirmação de encaixe ao criar */}
-      <AlertDialog open={!!conflictWarning} onOpenChange={(open) => !open && setConflictWarning(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Horário perto de outro agendamento</AlertDialogTitle>
-            <AlertDialogDescription>
-              {conflictWarning} Se forem visitas próximas (ex.: casas vizinhas), pode confirmar o encaixe mesmo assim.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setConflictWarning(null)}>Escolher outro horário</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => {
-                setConflictWarning(null);
-                void doCreateBooking();
-              }}
-            >
-              Encaixar mesmo assim
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
       {/* Editar agendamento existente */}
       <Dialog open={editDialogOpen} onOpenChange={(open) => { if (!open) closeEditFlow(); }}>
         <DialogContent className="sm:max-w-md">
@@ -867,50 +816,41 @@ const BookSchedulePage: React.FC = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Confirmação de encaixe ao editar, e confirmação de cancelamento —
-          nunca junto com o Dialog de edição aberto ao mesmo tempo (dois
-          modais empilhados quebram o layout), por isso fecha um pra abrir o
-          outro em vez de sobrepor. */}
+      {/* Confirmação de cancelamento — nunca junto com o Dialog de edição
+          aberto ao mesmo tempo (dois modais empilhados quebram o layout),
+          por isso fecha um pra abrir o outro em vez de sobrepor. */}
       <AlertDialog
-        open={!!pendingAction}
+        open={cancelConfirmOpen}
         onOpenChange={(open) => {
           if (!open) {
-            setPendingAction(null);
+            setCancelConfirmOpen(false);
             if (editingBooking) setEditDialogOpen(true);
           }
         }}
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>
-              {pendingAction?.type === "cancel" ? "Cancelar esse agendamento?" : "Horário perto de outro agendamento"}
-            </AlertDialogTitle>
+            <AlertDialogTitle>Cancelar esse agendamento?</AlertDialogTitle>
             <AlertDialogDescription>
-              {pendingAction?.type === "cancel"
-                ? `O horário de ${editingBooking?.clientName || "esse cliente"} às ${editingBooking?.time} vai ficar livre de novo.`
-                : `${pendingAction?.type === "conflict" ? pendingAction.message : ""} Se forem visitas próximas (ex.: casas vizinhas), pode confirmar o encaixe mesmo assim.`}
+              O horário de {editingBooking?.clientName || "esse cliente"} às {editingBooking?.time} vai ficar livre de novo.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel
               onClick={() => {
-                setPendingAction(null);
+                setCancelConfirmOpen(false);
                 setEditDialogOpen(true);
               }}
             >
-              {pendingAction?.type === "cancel" ? "Voltar" : "Escolher outro horário"}
+              Voltar
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
-                setPendingAction(null);
-                if (pendingAction?.type === "cancel") {
-                  void doCancelBooking();
-                } else {
-                  void doUpdateBooking();
-                }
+                setCancelConfirmOpen(false);
+                void doCancelBooking();
               }}
             >
-              {pendingAction?.type === "cancel" ? "Cancelar horário" : "Encaixar mesmo assim"}
+              Cancelar horário
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -938,7 +878,6 @@ const BookSchedulePage: React.FC = () => {
                   <div className="min-w-0">
                     <p className="truncate font-medium">
                       {b.time} — {b.clientName || "Sem nome"}
-                      {encaixeIds.has(b.id) && <span className="ml-1.5 text-xs font-normal text-amber-700">(encaixe)</span>}
                     </p>
                     {b.title && <p className="truncate text-xs text-muted-foreground">{b.title}</p>}
                     {b.stationName && <p className="truncate text-xs text-muted-foreground">Agendado por: {b.stationName}</p>}

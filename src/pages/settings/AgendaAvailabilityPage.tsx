@@ -237,8 +237,7 @@ const AgendaAvailabilityPage: React.FC = () => {
                     <Clock className="h-5 w-5 text-vf-settings" /> Intervalo entre horários
                   </CardTitle>
                   <CardDescription>
-                    Espaçamento entre um horário e outro na grade de agendamento (ex.: 30 min = 08:00, 08:30, 09:00...). Também é a
-                    distância mínima avisada como "encaixe" quando alguém tenta marcar muito perto de um agendamento já existente.
+                    Espaçamento entre um horário e outro na grade de agendamento (ex.: 30 min = 08:00, 08:30, 09:00...).
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="flex flex-wrap items-end gap-3 pt-0">
