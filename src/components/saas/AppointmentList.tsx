@@ -9,6 +9,7 @@ import { formatDateTime } from "@/lib/utils";
 import { AppointmentEntry } from "@/types/appointment";
 import { cn } from "@/lib/utils";
 import { useClientsList } from "@/hooks/useSupabaseClients";
+import { displayAppointmentType } from "@/lib/appointmentDisplay";
 
 type AppointmentListProps = {
   title?: string;
@@ -87,7 +88,7 @@ const AppointmentList: React.FC<AppointmentListProps> = ({
                   <div className="flex-1 min-w-0">
                     <div className="font-semibold truncate leading-snug">{animalName || "Pet"}</div>
                     <div className="text-sm text-muted-foreground truncate leading-relaxed">
-                      {clientName || "Tutor"} • {app.type}
+                      {clientName || "Tutor"} • {displayAppointmentType(app.type)}
                     </div>
                   </div>
 

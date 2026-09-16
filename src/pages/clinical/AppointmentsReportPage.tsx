@@ -25,6 +25,7 @@ import { PageHeader } from "@/components/saas/PageHeader";
 import { formatDateTime } from "@/lib/utils";
 import type { AppointmentEntry } from "@/types/appointment";
 import { getPatientSubPath } from "@/utils/patientDisplayId";
+import { displayAppointmentType } from "@/lib/appointmentDisplay";
 
 const withinRange = (dateStr: string, from?: string, to?: string) => {
   const dt = new Date(`${dateStr}T00:00`);
@@ -126,7 +127,7 @@ const AppointmentsReportPage: React.FC = () => {
 
   const filtered = useMemo(() => {
     return inPeriod.filter((app) => {
-      if (typeFilter !== "all" && app.type !== typeFilter) return false;
+      if (typeFilter !== "all" && displayAppointmentType(app.type) !== typeFilter) return false;
       if (vetFilter !== "all" && app.vet !== vetFilter) return false;
       return true;
     });
@@ -142,7 +143,7 @@ const AppointmentsReportPage: React.FC = () => {
 
     const typeCounts: Record<string, number> = {};
     filtered.forEach((a) => {
-      const t = a.type || "Não informado";
+      const t = a.type ? displayAppointmentType(a.type) : "Não informado";
       typeCounts[t] = (typeCounts[t] || 0) + 1;
     });
     const byType = Object.entries(typeCounts)
@@ -199,7 +200,7 @@ const AppointmentsReportPage: React.FC = () => {
     const rows = sortedList
       .map((a) => {
         const info = animalMap.get(a.animalId);
-        return `<tr><td>${formatDateTime(a.date, a.time)}</td><td>${info?.animalName || "-"}</td><td>${info?.clientName || "-"}</td><td>${a.type}</td><td>${a.vet || "-"}</td></tr>`;
+        return `<tr><td>${formatDateTime(a.date, a.time)}</td><td>${info?.animalName || "-"}</td><td>${info?.clientName || "-"}</td><td>${displayAppointmentType(a.type)}</td><td>${a.vet || "-"}</td></tr>`;
       })
       .join("");
     popup.document.write(`
@@ -421,7 +422,7 @@ const AppointmentsReportPage: React.FC = () => {
                           <td className="py-2 pr-3">{info?.animalName || "-"}</td>
                           <td className="py-2 pr-3">{info?.clientName || "-"}</td>
                           <td className="py-2 pr-3">
-                            <Badge variant="outline" className="font-normal">{a.type || "-"}</Badge>
+                            <Badge variant="outline" className="font-normal">{displayAppointmentType(a.type) || "-"}</Badge>
                           </td>
                           <td className="py-2 pr-3">{a.vet || "-"}</td>
                           <td className="py-2 pr-3 print:hidden">

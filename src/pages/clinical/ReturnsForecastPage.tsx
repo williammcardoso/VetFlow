@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { RotateCcw, Syringe, CalendarDays, ExternalLink } from "lucide-react";
 import { getPatientRecordPath } from "@/utils/patientDisplayId";
+import { displayAppointmentType } from "@/lib/appointmentDisplay";
 
 type PeriodFilter = "7" | "30" | "90" | "all" | "overdue";
 
@@ -79,7 +80,7 @@ export default function ReturnsForecastPage() {
             clientId: info?.clientId,
             patientCode: info?.patientCode,
             dueDate,
-            label: `Próximo acompanhamento (${app.type} de ${parseLocalDate(app.date).toLocaleDateString("pt-BR")})`,
+            label: `Próximo acompanhamento (${displayAppointmentType(app.type)} de ${parseLocalDate(app.date).toLocaleDateString("pt-BR")})`,
             daysUntil,
           });
         }

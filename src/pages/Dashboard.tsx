@@ -35,6 +35,7 @@ import {
 } from "lucide-react";
 import { useClientsList } from "@/hooks/useSupabaseClients";
 import { useSchedulesList } from "@/hooks/useSchedules";
+import { displayAppointmentType } from "@/lib/appointmentDisplay";
 import { useAppointments } from "@/hooks/useAppointments";
 import { PageShell } from "@/components/saas/PageShell";
 import { Link } from "react-router-dom";
@@ -92,7 +93,7 @@ const Dashboard = () => {
   const monthTypeBreakdown = useMemo(() => {
     const counts: Record<string, number> = {};
     appointmentsThisMonthList.forEach((a) => {
-      const t = a.type || "Outros";
+      const t = displayAppointmentType(a.type);
       counts[t] = (counts[t] || 0) + 1;
     });
     return Object.entries(counts).sort((a, b) => b[1] - a[1]);

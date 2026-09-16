@@ -95,9 +95,11 @@ const LINFONODOS_LABELS: Record<string, string> = {
   infartado: "Infartado",
 };
 
+// Qual modelo de formulário foi usado (Novo/Antigo) é só um detalhe interno
+// de como o atendimento foi lançado (ver LegacyConsultationForm.tsx) — não
+// aparece pro usuário fora da hora de criar a consulta.
 const typeLabel = (t: AppointmentEntry["type"]) => {
-  if (t === "Consulta") return "Consulta Clínica (Novo Modelo)";
-  if (t === "Consulta (Modelo Antigo)") return "Consulta Clínica (Modelo Antigo)";
+  if (t === "Consulta" || t === "Consulta (Modelo Antigo)") return "Consulta Clínica";
   if (t === "Vacina") return "Vacinação";
   return t;
 };
