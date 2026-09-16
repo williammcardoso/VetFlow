@@ -599,7 +599,11 @@ const BookSchedulePage: React.FC = () => {
                                             <button
                                               type="button"
                                               onClick={() => openEditDialog(b)}
-                                              className={`h-6 w-full truncate rounded-md border px-1 text-[10px] font-medium transition-colors border-orange-300 bg-orange-100 text-orange-900 hover:bg-orange-200 ${isPast ? "opacity-50" : ""}`}
+                                              className={`h-6 w-full truncate rounded-md border px-1 text-[10px] font-medium transition-colors ${
+                                                isPast
+                                                  ? "border-transparent bg-muted text-muted-foreground/50"
+                                                  : "border-orange-300 bg-orange-100 text-orange-900 hover:bg-orange-200"
+                                              }`}
                                             >
                                               {shortName}
                                             </button>
