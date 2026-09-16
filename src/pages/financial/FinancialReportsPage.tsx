@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from "react";
+import React, { useMemo, useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -112,6 +112,15 @@ const FinancialReportsPage: React.FC = () => {
   const [periodSaleItems, setPeriodSaleItems] = useState<SaleItem[]>([]);
   const [providerFilter, setProviderFilter] = useState<string>("all");
   const [exportingPdf, setExportingPdf] = useState(false);
+  const detalhamentoRef = useRef<HTMLDivElement>(null);
+
+  // Clique num prestador em "Repasses por prestador" (tabela ou pizza) já
+  // filtra e rola até "Pacientes com serviços externos" — antes só tinha
+  // como descobrir aquele filtro rolando a página e abrindo o Select.
+  const goToProviderDetail = (provider: string) => {
+    setProviderFilter(provider);
+    detalhamentoRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
 
   useEffect(() => {
     const now = new Date();
@@ -598,8 +607,15 @@ const FinancialReportsPage: React.FC = () => {
                     </TableHeader>
                     <TableBody>
                       {repassesPorPrestador.map((row) => (
-                        <TableRow key={row.provider}>
-                          <TableCell className="py-2 font-medium text-amber-800">{row.provider}</TableCell>
+                        <TableRow
+                          key={row.provider}
+                          onClick={() => goToProviderDetail(row.provider)}
+                          title="Ver quais itens vendidos geraram esse repasse"
+                          className="cursor-pointer hover:bg-amber-50"
+                        >
+                          <TableCell className="py-2 font-medium text-amber-800 underline decoration-dotted decoration-amber-400">
+                            {row.provider}
+                          </TableCell>
                           <TableCell className="py-2 text-right font-semibold text-amber-700">
                             {formatCurrencyBRL(row.amount)}
                           </TableCell>
@@ -617,6 +633,9 @@ const FinancialReportsPage: React.FC = () => {
                       </TableRow>
                     </TableBody>
                   </Table>
+                  <p className="mt-2 text-xs text-muted-foreground print:hidden">
+                    Clique num prestador pra ver quais pacientes/serviços geraram aquele repasse.
+                  </p>
                 </div>
                 <ChartContainer
                   config={repassesPorPrestador.reduce(
@@ -634,9 +653,11 @@ const FinancialReportsPage: React.FC = () => {
                       cy="50%"
                       outerRadius={80}
                       label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                      onClick={(entry: { name: string }) => goToProviderDetail(entry.name)}
+                      className="cursor-pointer"
                     >
                       {repassesPorPrestador.map((_, i) => (
-                        <Cell key={i} fill={CHART_COLORS.pie[i % CHART_COLORS.pie.length]} />
+                        <Cell key={i} fill={CHART_COLORS.pie[i % CHART_COLORS.pie.length]} className="cursor-pointer" />
                       ))}
                     </Pie>
                     <ChartTooltip formatter={(v: number) => formatCurrencyBRL(v)} />
@@ -648,7 +669,13 @@ const FinancialReportsPage: React.FC = () => {
         </Card>
 
         {/* Detalhamento: paciente x prestador */}
-        <Card className="vf-surface-card vf-tone-finance card-hover rounded-xl border-border/80 print:break-inside-avoid">
+        <Card
+          ref={detalhamentoRef}
+          className={cn(
+            "vf-surface-card vf-tone-finance card-hover rounded-xl border-border/80 print:break-inside-avoid transition-shadow",
+            providerFilter !== "all" && "ring-2 ring-amber-400/60"
+          )}
+        >
           <CardHeader className="pb-2">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
