@@ -171,14 +171,23 @@ const BookSchedulePage: React.FC = () => {
   // tem informação demais e se perdem — reaproveita a mesma cor já usada
   // pros dias passados em vez de inventar mais uma.
   const nowMinutes = new Date().getHours() * 60 + new Date().getMinutes();
-  const [weekOffset, setWeekOffset] = React.useState(0);
+  // Deslocamento da janela em DIAS a partir de hoje (negativo = passado, pra
+  // acompanhar agendamentos que já aconteceram): setinha ao lado da data anda
+  // 7 dias, botão grande da esquerda anda 1 dia, o da direita anda 7.
+  const [dayOffset, setDayOffset] = React.useState(0);
   const weekStart = React.useMemo(
-    () => addDays(new Date(`${todayISO}T12:00:00`), weekOffset * 7),
-    [todayISO, weekOffset]
+    () => addDays(new Date(`${todayISO}T12:00:00`), dayOffset),
+    [todayISO, dayOffset]
   );
   const weekDays = React.useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)), [weekStart]);
   const [bookings, setBookings] = React.useState<ScheduleTimeSummary[]>([]);
   const [loadingWeek, setLoadingWeek] = React.useState(true);
+  // Só a PRIMEIRA carga troca a grade por "Carregando..."; depois disso a
+  // grade fica no lugar (esmaecida) enquanto busca — com a navegação dia a
+  // dia, trocar por um spinner minúsculo a cada clique fazia a página pular
+  // de altura e o botão redondo (centralizado na caixa) sair de baixo do
+  // cursor.
+  const [everLoaded, setEverLoaded] = React.useState(false);
 
   // Grade da semana: todos os horários que aparecem em pelo menos um dia da
   // semana visível — dias com expediente diferente (ex.: sábado até 12h)
@@ -203,7 +212,11 @@ const BookSchedulePage: React.FC = () => {
     listScheduleTimesInRange(startISO, endISO)
       .then((rows) => { if (!cancelled) setBookings(rows); })
       .catch(() => { if (!cancelled) setBookings([]); })
-      .finally(() => { if (!cancelled) setLoadingWeek(false); });
+      .finally(() => {
+        if (cancelled) return;
+        setLoadingWeek(false);
+        setEverLoaded(true);
+      });
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [weekStart]);
@@ -477,8 +490,6 @@ const BookSchedulePage: React.FC = () => {
   const timeOptions = date ? withCurrentOption(getDaySlots(date), time) : [];
   const editTimeOptions = editDate ? withCurrentOption(getDaySlots(editDate), editTime) : [];
 
-  const canGoPrevWeek = weekOffset > 0;
-
   return (
     <div className="flex min-h-screen items-center justify-center bg-muted/40 p-4">
       <Card className="w-full max-w-3xl rounded-2xl border-border/80">
@@ -510,21 +521,39 @@ const BookSchedulePage: React.FC = () => {
             <div className="space-y-5">
               {/* Calendário semanal */}
               <div className="relative rounded-xl border border-border p-3">
-                <div className="mb-2 flex items-center justify-center">
+                <div className="mb-2 flex items-center justify-center gap-2 sm:gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setDayOffset((o) => o - 7)}
+                    title="Semana anterior"
+                    aria-label="Semana anterior"
+                    className="flex h-8 w-8 items-center justify-center rounded-full border border-border text-foreground transition-colors hover:bg-muted"
+                  >
+                    <ChevronLeft className="h-5 w-5" />
+                  </button>
                   <p className="text-lg font-bold tracking-tight text-foreground sm:text-xl">
                     {formatDayHeader(weekDays[0])} — {formatDayHeader(weekDays[6])}
                   </p>
+                  <button
+                    type="button"
+                    onClick={() => setDayOffset((o) => o + 7)}
+                    title="Semana seguinte"
+                    aria-label="Semana seguinte"
+                    className="flex h-8 w-8 items-center justify-center rounded-full border border-border text-foreground transition-colors hover:bg-muted"
+                  >
+                    <ChevronRight className="h-5 w-5" />
+                  </button>
                 </div>
 
                 {/* Espaço reservado nas laterais pra caber os botões redondos
                     sem tapar a última/primeira coluna da grade. */}
                 <div className="px-14 sm:px-16">
-                  {loadingWeek ? (
+                  {!everLoaded ? (
                     <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
                       <Loader2 className="h-4 w-4 animate-spin" /> Carregando horários...
                     </div>
                   ) : (
-                    <div className="overflow-x-auto">
+                    <div className={`overflow-x-auto transition-opacity ${loadingWeek ? "pointer-events-none opacity-50" : ""}`}>
                       <table className="w-full min-w-[560px] border-collapse text-xs">
                         <thead>
                           <tr>
@@ -637,26 +666,24 @@ const BookSchedulePage: React.FC = () => {
                   Clique num horário livre pra preencher o formulário abaixo, num horário ocupado pra editar, ou na data pra ver o resumo do dia.
                 </p>
 
-                {/* Botões redondos grandes pra trocar de semana, dentro do
-                    gutter reservado acima — os chevrons pequenos do
-                    cabeçalho passavam despercebidos, e sem eles dava a
-                    impressão de que não tinha mais horário quando o fim da
-                    semana visível ficava todo no passado. O da esquerda só
-                    aparece quando dá pra voltar (não deixa ir antes de hoje). */}
-                {canGoPrevWeek && (
-                  <button
-                    type="button"
-                    onClick={() => setWeekOffset((o) => o - 1)}
-                    title="Ver a semana anterior"
-                    aria-label="Ver a semana anterior"
-                    className="absolute left-0 top-1/2 z-20 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full border border-teal-700/20 bg-teal-600 text-white shadow-lg transition-transform hover:scale-105 hover:bg-teal-700 sm:left-1 sm:h-14 sm:w-14"
-                  >
-                    <ChevronLeft className="h-6 w-6 sm:h-7 sm:w-7" />
-                  </button>
-                )}
+                {/* Botões redondos grandes, dentro do gutter reservado acima —
+                    os chevrons pequenos passavam despercebidos, e sem eles
+                    dava a impressão de que não tinha mais horário quando o
+                    fim da semana visível ficava todo no passado. Esquerda
+                    anda 1 dia pra trás (dá pra acompanhar o passado); direita
+                    anda 1 semana pra frente. */}
                 <button
                   type="button"
-                  onClick={() => setWeekOffset((o) => o + 1)}
+                  onClick={() => setDayOffset((o) => o - 1)}
+                  title="Ver o dia anterior"
+                  aria-label="Ver o dia anterior"
+                  className="absolute left-0 top-1/2 z-20 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full border border-teal-700/20 bg-teal-600 text-white shadow-lg transition-transform hover:scale-105 hover:bg-teal-700 sm:left-1 sm:h-14 sm:w-14"
+                >
+                  <ChevronLeft className="h-6 w-6 sm:h-7 sm:w-7" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDayOffset((o) => o + 7)}
                   title="Ver a semana seguinte"
                   aria-label="Ver a semana seguinte"
                   className="absolute right-0 top-1/2 z-20 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full border border-teal-700/20 bg-teal-600 text-white shadow-lg transition-transform hover:scale-105 hover:bg-teal-700 sm:right-1 sm:h-14 sm:w-14"
