@@ -12,6 +12,11 @@ export interface DocumentForSigning {
   jaTemAssinaturaResponsavel: boolean;
   jaTemAssinaturaVeterinario: boolean;
   exigeAssinaturaResponsavel: boolean;
+  /** Testemunhas — só usado pelo painel presencial (Prontuário), não pela página pública de assinatura. */
+  exigeTestemunhas: boolean;
+  /** Nome/CRMV do veterinário que emitiu (payload congelado na emissão) — não é o usuário logado. */
+  vetNome: string;
+  vetCrmvLabel: string;
 }
 
 /**
@@ -27,7 +32,7 @@ export async function getDocumentForSigning(documentId: string): Promise<Documen
   const { data, error } = await supabase
     .from("documents")
     .select(
-      "id, numero, status, payload, corpo_renderizado, document_template_versions(exige_assinatura_responsavel, document_templates(codigo, titulo))"
+      "id, numero, status, payload, corpo_renderizado, document_template_versions(exige_assinatura_responsavel, exige_testemunhas, document_templates(codigo, titulo))"
     )
     .eq("id", documentId)
     .maybeSingle();
@@ -47,7 +52,11 @@ export async function getDocumentForSigning(documentId: string): Promise<Documen
   }
 
   const row = data as any;
-  const payload = (row.payload ?? {}) as { resp?: { nome?: string; cpf?: string } };
+  const payload = (row.payload ?? {}) as {
+    resp?: { nome?: string; cpf?: string };
+    vet?: { nome?: string; crmv?: string; crmv_uf?: string };
+  };
+  const vet = payload.vet;
 
   return {
     id: row.id,
@@ -61,5 +70,8 @@ export async function getDocumentForSigning(documentId: string): Promise<Documen
     jaTemAssinaturaResponsavel: (signatures ?? []).some((s: any) => s.tipo === "responsavel"),
     jaTemAssinaturaVeterinario: (signatures ?? []).some((s: any) => s.tipo === "veterinario"),
     exigeAssinaturaResponsavel: row.document_template_versions?.exige_assinatura_responsavel ?? true,
+    exigeTestemunhas: row.document_template_versions?.exige_testemunhas ?? false,
+    vetNome: vet?.nome || "",
+    vetCrmvLabel: vet?.crmv_uf && vet?.crmv ? `${vet.crmv_uf}/${vet.crmv}` : vet?.crmv || "",
   };
 }

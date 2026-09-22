@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -6,11 +6,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { FileSignature, ExternalLink, Ban, Plus, Link2 } from "lucide-react";
+import { FileSignature, ExternalLink, Ban, Plus, Link2, PenLine, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { usePatientDocuments } from "@/hooks/usePatientDocuments";
 import { getPatientSubPath } from "@/utils/patientDisplayId";
 import { cancelDocument, type EmittedDocumentSummary } from "@/lib/documentEmissionApi";
+import { getDocumentForSigning, type DocumentForSigning } from "@/lib/documentSigningLinkApi";
+import { getMyUserProfile } from "@/lib/authApi";
+import DocumentSignaturePanel from "@/components/DocumentSignaturePanel";
 
 const STATUS_LABEL: Record<string, string> = {
   rascunho: "Rascunho",
@@ -82,6 +85,112 @@ function CancelDialog({ doc, onClose, onCancelled }: { doc: EmittedDocumentSumma
   );
 }
 
+/**
+ * "Revisar e assinar" — abre o documento e o painel de assinatura (vet +
+ * responsável, presencial) sem precisar voltar pra tela de emissão, que só
+ * mostrava esse painel uma vez, logo depois de emitir. Se o vet emitiu e não
+ * assinou na hora, antes só sobrava o link pro responsável assinar sozinho
+ * no celular — sem jeito de os dois assinarem juntos, presencialmente,
+ * depois.
+ */
+function SignInPersonDialog({
+  doc,
+  onClose,
+  onSigned,
+}: {
+  doc: EmittedDocumentSummary;
+  onClose: () => void;
+  onSigned: () => void;
+}) {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [info, setInfo] = useState<DocumentForSigning | null>(null);
+  const [vetImagemSalva, setVetImagemSalva] = useState<string | undefined>(undefined);
+
+  useEffect(() => {
+    let ativo = true;
+    Promise.all([getDocumentForSigning(doc.id), getMyUserProfile().catch(() => null)])
+      .then(([documentInfo, profile]) => {
+        if (!ativo) return;
+        setInfo(documentInfo);
+        setVetImagemSalva(profile?.signature_url || undefined);
+      })
+      .catch(() => {
+        if (ativo) setError("Não foi possível carregar o documento agora.");
+      })
+      .finally(() => {
+        if (ativo) setLoading(false);
+      });
+    return () => {
+      ativo = false;
+    };
+  }, [doc.id]);
+
+  return (
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>Revisar e assinar — nº {doc.numero}</DialogTitle>
+          <DialogDescription>
+            {doc.codigo} — {doc.titulo}. Assine aqui mesmo, na tela: você (veterinário) e o responsável, um logo após o
+            outro no mesmo aparelho.
+          </DialogDescription>
+        </DialogHeader>
+
+        {loading && (
+          <div className="space-y-2 py-2">
+            <Skeleton className="h-32 w-full" />
+            <Skeleton className="h-24 w-full" />
+          </div>
+        )}
+
+        {!loading && (error || !info) && (
+          <Alert variant="destructive">
+            <XCircle className="h-4 w-4" />
+            <AlertTitle>{error || "Documento não encontrado."}</AlertTitle>
+          </Alert>
+        )}
+
+        {!loading && info && info.status === "cancelado" && (
+          <Alert variant="destructive">
+            <XCircle className="h-4 w-4" />
+            <AlertTitle>Este documento foi cancelado — não é possível assinar.</AlertTitle>
+          </Alert>
+        )}
+
+        {!loading && info && info.status !== "cancelado" && (
+          <div className="space-y-4">
+            <pre className="max-h-64 overflow-y-auto whitespace-pre-wrap rounded-lg border border-border bg-muted/30 p-3 text-xs leading-relaxed">
+              {info.corpoRenderizado}
+            </pre>
+
+            <DocumentSignaturePanel
+              documentId={doc.id}
+              exigeAssinaturaResponsavel={info.exigeAssinaturaResponsavel}
+              exigeTestemunhas={info.exigeTestemunhas}
+              respNome={info.respNome}
+              respCpf={info.respCpf}
+              vetNome={info.vetNome}
+              vetCrmvLabel={info.vetCrmvLabel}
+              vetImagemSalva={vetImagemSalva}
+              onSigned={() => {
+                onSigned();
+                onClose();
+              }}
+            />
+          </div>
+        )}
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
+            Fechar
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 interface DocumentTimelineProps {
   pacienteId: string;
   clientId: string;
@@ -93,6 +202,7 @@ const DocumentTimeline: React.FC<DocumentTimelineProps> = ({ pacienteId, clientI
   const { data: docs, isLoading, isError } = usePatientDocuments(pacienteId);
   const queryClient = useQueryClient();
   const [cancelTarget, setCancelTarget] = useState<EmittedDocumentSummary | null>(null);
+  const [signTarget, setSignTarget] = useState<EmittedDocumentSummary | null>(null);
 
   const refetch = () => queryClient.invalidateQueries({ queryKey: ["patient-documents", pacienteId] });
 
@@ -147,20 +257,30 @@ const DocumentTimeline: React.FC<DocumentTimelineProps> = ({ pacienteId, clientI
                   </Button>
                 )}
                 {doc.status === "emitido" && (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    title="Copiar link para o responsável assinar"
-                    onClick={() => {
-                      const link = `${window.location.origin}/assinar/${doc.id}`;
-                      navigator.clipboard.writeText(link).then(
-                        () => toast.success("Link copiado."),
-                        () => toast.error("Não foi possível copiar o link.")
-                      );
-                    }}
-                  >
-                    <Link2 className="h-4 w-4" />
-                  </Button>
+                  <>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      title="Revisar e assinar agora (veterinário e responsável, na tela)"
+                      onClick={() => setSignTarget(doc)}
+                    >
+                      <PenLine className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      title="Copiar link para o responsável assinar"
+                      onClick={() => {
+                        const link = `${window.location.origin}/assinar/${doc.id}`;
+                        navigator.clipboard.writeText(link).then(
+                          () => toast.success("Link copiado."),
+                          () => toast.error("Não foi possível copiar o link.")
+                        );
+                      }}
+                    >
+                      <Link2 className="h-4 w-4" />
+                    </Button>
+                  </>
                 )}
                 {doc.status !== "cancelado" && (
                   <Button variant="ghost" size="icon" title="Cancelar" onClick={() => setCancelTarget(doc)}>
@@ -175,6 +295,17 @@ const DocumentTimeline: React.FC<DocumentTimelineProps> = ({ pacienteId, clientI
 
       {cancelTarget && (
         <CancelDialog doc={cancelTarget} onClose={() => setCancelTarget(null)} onCancelled={refetch} />
+      )}
+
+      {signTarget && (
+        <SignInPersonDialog
+          doc={signTarget}
+          onClose={() => setSignTarget(null)}
+          onSigned={() => {
+            refetch();
+            toast.success("Assinaturas concluídas.");
+          }}
+        />
       )}
     </div>
   );
