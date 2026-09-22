@@ -4,7 +4,7 @@ import React, { useMemo, useState, useEffect, useCallback } from "react";
 import { Link, useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { format } from "date-fns";
 import {
-  FaArrowLeft, FaUsers, FaPaw, FaPlus, FaEye, FaStethoscope, FaCalendarAlt, FaDollarSign, FaSyringe, FaWeightHanging, FaFileAlt, FaClipboardList, FaCommentAlt, FaHeart, FaMale, FaUser, FaPrint, FaDownload, FaTimes, FaSave, FaBalanceScale, FaFileMedical, FaExclamationTriangle, FaFlask, FaTag, FaBox, FaClock, FaMoneyBillWave, FaArrowUp, FaArrowDown, FaTrashAlt, FaPrescriptionBottleAlt, FaEdit, FaIdCard, FaPhone, FaUndo, FaShoppingCart, FaHandHoldingUsd
+  FaArrowLeft, FaUsers, FaPaw, FaPlus, FaEye, FaStethoscope, FaCalendarAlt, FaDollarSign, FaSyringe, FaWeightHanging, FaFileAlt, FaClipboardList, FaCommentAlt, FaHeart, FaMale, FaUser, FaPrint, FaDownload, FaTimes, FaSave, FaBalanceScale, FaFileMedical, FaExclamationTriangle, FaFlask, FaTag, FaBox, FaClock, FaMoneyBillWave, FaArrowUp, FaArrowDown, FaTrashAlt, FaPrescriptionBottleAlt, FaEdit, FaIdCard, FaPhone, FaUndo, FaShoppingCart, FaHandHoldingUsd, FaFileSignature
 } from "react-icons/fa";
 import { SiWhatsapp } from "react-icons/si";
 import { FaMapMarkerAlt } from "react-icons/fa";
@@ -79,6 +79,8 @@ import CurrencyInput from "@/components/CurrencyInput";
 import BudgetReportPdfContent from "@/components/BudgetReportPdfContent";
 import DocumentPdfContent from "@/components/DocumentPdfContent";
 import ExamRequestPdfContent, { type ExamRequestPdfData } from "@/components/ExamRequestPdfContent";
+import PatientDocumentSignDialog from "@/components/PatientDocumentSignDialog";
+import { getPatientDocumentSignatures } from "@/lib/patientDocumentSignatureApi";
 import { EXAM_REQUEST_MARKER } from "@/lib/examRequestMarker";
 import { replaceTemplateVariables } from "@/utils/templateReplacements";
 import { getPatientDisplayId, getPatientSubPath } from "@/utils/patientDisplayId";
@@ -383,6 +385,7 @@ const PatientRecordPage = () => {
   }, [animalId]);
 
   const [documentDeleteId, setDocumentDeleteId] = useState<string | null>(null);
+  const [signDocTarget, setSignDocTarget] = useState<PatientDocumentEntry | null>(null);
 
   const prescriptions = prescriptionsFromHook;
 
@@ -2450,6 +2453,19 @@ const PatientRecordPage = () => {
                   <div className="space-y-3">
                     {documents.map((doc) => {
                       const examRequestData = doc.source === "editor" && doc.content ? extractExamRequestData(doc.content) : null;
+                      // Assinaturas já coletadas (ver "Assinar" abaixo) — esses documentos
+                      // não têm PDF "final" persistido, então cada visualização/download/
+                      // envio busca de novo e já sai com as assinaturas, se houver.
+                      const getAssinaturasForPdf = async () => {
+                        const rows = await getPatientDocumentSignatures(doc.id);
+                        const vet = rows.find((r) => r.tipo === "veterinario");
+                        const resp = rows.find((r) => r.tipo === "responsavel");
+                        if (!vet && !resp) return undefined;
+                        return {
+                          veterinario: vet ? { nome: vet.nome, funcao: vet.funcao || undefined, imagemUrl: vet.imagemUrl } : undefined,
+                          responsavel: resp ? { nome: resp.nome, funcao: resp.funcao || undefined, imagemUrl: resp.imagemUrl } : undefined,
+                        };
+                      };
                       const onView = async () => {
                         if (doc.source === "editor" && doc.content) {
                           try {
@@ -2459,6 +2475,7 @@ const PatientRecordPage = () => {
                                   <DocumentPdfContent
                                     documentName={doc.name}
                                     content={replaceTemplateVariables(doc.content || "", currentAnimal, currentClient, currentUserProfile)}
+                                    assinaturas={await getAssinaturasForPdf()}
                                   />
                                 );
                             await openPdf({
@@ -2500,6 +2517,7 @@ const PatientRecordPage = () => {
                                   <DocumentPdfContent
                                     documentName={doc.name}
                                     content={replaceTemplateVariables(doc.content || "", currentAnimal, currentClient, currentUserProfile)}
+                                    assinaturas={await getAssinaturasForPdf()}
                                   />
                                 );
                             await downloadPdf({
@@ -2531,6 +2549,7 @@ const PatientRecordPage = () => {
                                 <DocumentPdfContent
                                   documentName={doc.name}
                                   content={replaceTemplateVariables(doc.content || "", currentAnimal, currentClient, currentUserProfile)}
+                                  assinaturas={await getAssinaturasForPdf()}
                                 />
                               );
                         }
@@ -2616,6 +2635,17 @@ const PatientRecordPage = () => {
                               >
                                 <SiWhatsapp className="h-5 w-5 text-[#25D366]" />
                               </Button>
+                              {doc.source === "editor" && !examRequestData && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => setSignDocTarget(doc)}
+                                  className="rounded-md hover:bg-muted hover:text-foreground transition-colors duration-200"
+                                  title="Revisar e assinar agora (veterinário e responsável, na tela)"
+                                >
+                                  <FaFileSignature className="h-4 w-4" />
+                                </Button>
+                              )}
                               {doc.source === "editor" && canEditPrescriptions && (
                                 <Button
                                   variant="ghost"
@@ -2663,6 +2693,20 @@ const PatientRecordPage = () => {
 
             {clientId && animalId && (
               <DocumentTimeline pacienteId={animalId} clientId={clientId} animalId={animalId} patientCode={currentAnimal?.patientCode} />
+            )}
+
+            {signDocTarget && currentAnimal && currentClient && (
+              <PatientDocumentSignDialog
+                doc={signDocTarget}
+                previewHtml={replaceTemplateVariables(signDocTarget.content || "", currentAnimal, currentClient, currentUserProfile)}
+                respNome={currentClient.name}
+                respCpf={currentClient.identificationNumber}
+                onClose={() => setSignDocTarget(null)}
+                onSigned={() => {
+                  toast.success("Assinaturas concluídas.");
+                  setSignDocTarget(null);
+                }}
+              />
             )}
           </TabsContent>
 

@@ -1,5 +1,5 @@
 import React from "react";
-import { Document, Page, View, Text, StyleSheet, Font } from "@react-pdf/renderer";
+import { Document, Page, View, Text, Image, StyleSheet, Font } from "@react-pdf/renderer";
 import Html from "react-pdf-html";
 import { mockCompanySettings, mockUserSettings } from "@/mockData/settings";
 
@@ -63,6 +63,12 @@ const styles = StyleSheet.create({
   bodyWrapper: {
     marginTop: 10,
   },
+  sigRow: { flexDirection: "row", justifyContent: "center", gap: 24, marginTop: 28, marginBottom: 4 },
+  sigArea: { flex: 1, maxWidth: 220, alignItems: "center" },
+  sigImage: { height: 36, maxWidth: 180, marginBottom: 2 },
+  sigLine: { height: 1, backgroundColor: "#9AA3AE", width: "100%", marginBottom: 4 },
+  sigName: { fontSize: 8.5, color: "#333", fontWeight: 700, textAlign: "center" },
+  sigFuncao: { fontSize: 7.5, color: "#666", textAlign: "center", marginTop: 1 },
 });
 
 const htmlStyles: Record<string, any> = {
@@ -412,6 +418,12 @@ function estimatePagesFromText(html: string, fontSizePt = 11): number {
 // Export helpers so callers can estimate pages before rendering/probing.
 export { normalizeHtmlForPdf, estimatePagesFromText };
 
+interface DocumentSignatureForPdf {
+  nome: string;
+  funcao?: string;
+  imagemUrl?: string | null;
+}
+
 interface DocumentPdfContentProps {
   documentName: string;
   content: string;
@@ -419,8 +431,10 @@ interface DocumentPdfContentProps {
   forceFontSize?: number;
   // when true, apply a much more aggressive compact rendering (smaller paddings, tighter line-height)
   forceCompact?: boolean;
+  /** Assinaturas já coletadas (documento livre — ver patientDocumentSignatureApi.ts). Sem bloco de assinatura no texto (esses documentos não têm o marcador estruturado que os modelos oficiais têm), então entra fixo no fim da página. */
+  assinaturas?: { veterinario?: DocumentSignatureForPdf; responsavel?: DocumentSignatureForPdf };
 }
-const DocumentPdfContent: React.FC<DocumentPdfContentProps> = ({ documentName, content, forceFontSize, forceCompact }) => {
+const DocumentPdfContent: React.FC<DocumentPdfContentProps> = ({ documentName, content, forceFontSize, forceCompact, assinaturas }) => {
   const normalizedHtml = normalizeHtmlForPdf(content || "");
   const baseFontSize = Number(htmlStyles.body?.fontSize) || 11;
 
@@ -581,6 +595,31 @@ const DocumentPdfContent: React.FC<DocumentPdfContentProps> = ({ documentName, c
             {`<div>${contentHtml}</div>`}
           </Html>
         </View>
+
+        {(assinaturas?.veterinario || assinaturas?.responsavel) && (
+          <View style={styles.sigRow} wrap={false}>
+            {assinaturas?.veterinario && (
+              <View style={styles.sigArea}>
+                {assinaturas.veterinario.imagemUrl && (
+                  <Image src={assinaturas.veterinario.imagemUrl} style={styles.sigImage} />
+                )}
+                <View style={styles.sigLine} />
+                <Text style={styles.sigName}>{assinaturas.veterinario.nome}</Text>
+                {assinaturas.veterinario.funcao && <Text style={styles.sigFuncao}>{assinaturas.veterinario.funcao}</Text>}
+              </View>
+            )}
+            {assinaturas?.responsavel && (
+              <View style={styles.sigArea}>
+                {assinaturas.responsavel.imagemUrl && (
+                  <Image src={assinaturas.responsavel.imagemUrl} style={styles.sigImage} />
+                )}
+                <View style={styles.sigLine} />
+                <Text style={styles.sigName}>{assinaturas.responsavel.nome}</Text>
+                {assinaturas.responsavel.funcao && <Text style={styles.sigFuncao}>{assinaturas.responsavel.funcao}</Text>}
+              </View>
+            )}
+          </View>
+        )}
       </Page>
     </Document>
   );
