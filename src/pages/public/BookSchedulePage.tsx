@@ -24,7 +24,7 @@ import {
 } from "@/components/ui/dialog";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CalendarPlus, CheckCircle2, ChevronLeft, ChevronRight, Loader2, PawPrint, Trash2 } from "lucide-react";
+import { CalendarPlus, CheckCircle2, ChevronLeft, ChevronRight, Loader2, PawPrint, Plus, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import {
   cancelPublicBooking,
@@ -266,7 +266,40 @@ const BookSchedulePage: React.FC = () => {
   }, [bookings, weekDays, getDaySlots]);
 
   const clientNameRef = React.useRef<HTMLInputElement>(null);
+
+  // Mais de um horário pro mesmo cliente (ex.: dois pets, ou vacina +
+  // consulta) numa reserva só — "horário 1" continua nos campos date/time de
+  // sempre; cada linha extra é um horário a mais, criado junto no mesmo
+  // envio, com o mesmo nome/descrição.
+  const [extraSlots, setExtraSlots] = React.useState<Array<{ id: string; date: string; time: string }>>([]);
+  const addExtraSlot = () => {
+    setExtraSlots((prev) => [...prev, { id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, date, time: "" }]);
+  };
+  const removeExtraSlot = (id: string) => {
+    setExtraSlots((prev) => prev.filter((s) => s.id !== id));
+  };
+  const updateExtraSlot = (id: string, patch: Partial<{ date: string; time: string }>) => {
+    setExtraSlots((prev) =>
+      prev.map((s) => {
+        if (s.id !== id) return s;
+        const next = { ...s, ...patch };
+        // Horário escolhido pode não existir mais se a data mudou (ex.: sábado tem menos horário).
+        if (patch.date && next.time && !getDaySlots(patch.date).includes(next.time)) next.time = "";
+        return next;
+      })
+    );
+  };
+
   const handlePickSlot = (dateISO: string, slotTime: string) => {
+    // Se já tem um horário extra pendente (usuário clicou "+ Agendar outro
+    // horário" e ainda não escolheu quando), o clique na grade preenche esse
+    // horário extra em vez de substituir o principal — dá pra ir clicando
+    // vários horários seguidos pro mesmo cliente sem perder o que já tinha.
+    const pendingExtraIndex = extraSlots.findIndex((s) => !s.time);
+    if (pendingExtraIndex !== -1) {
+      setExtraSlots((prev) => prev.map((s, i) => (i === pendingExtraIndex ? { ...s, date: dateISO, time: slotTime } : s)));
+      return;
+    }
     setDate(dateISO);
     setTime(slotTime);
     // Depois de escolher o horário no calendário, já manda o foco pro nome
@@ -274,39 +307,57 @@ const BookSchedulePage: React.FC = () => {
     clientNameRef.current?.focus();
   };
 
-  const doCreateBooking = async () => {
+  const doCreateBookings = async (slots: Array<{ date: string; time: string }>) => {
     setSaving(true);
+    let successCount = 0;
     try {
-      const created = await createSchedule({
-        date: new Date(`${date}T12:00:00`),
-        time,
-        title: description.trim(),
-        clientId: "",
-        clientName: clientName.trim(),
-        animalId: "",
-        animalName: "",
-        status: "scheduled",
-        notes: stationName.trim()
-          ? `Agendado pelo link público (balcão da agropecuária) — computador: ${stationName.trim()}.`
-          : "Agendado pelo link público (balcão da agropecuária).",
-      });
-
-      // Atualiza o calendário na hora, sem precisar recarregar a página —
-      // antes o horário recém-reservado só aparecia como "Ocupado" depois
-      // de um F5, porque `bookings` (carregado uma vez por semana) nunca
-      // era atualizado após salvar.
-      setBookings((prev) => [
-        ...prev,
-        { id: created.id, date, time, clientName: clientName.trim(), title: description.trim(), stationName: stationName.trim() || undefined },
-      ]);
+      for (const slot of slots) {
+        const created = await createSchedule({
+          date: new Date(`${slot.date}T12:00:00`),
+          time: slot.time,
+          title: description.trim(),
+          clientId: "",
+          clientName: clientName.trim(),
+          animalId: "",
+          animalName: "",
+          status: "scheduled",
+          notes: stationName.trim()
+            ? `Agendado pelo link público (balcão da agropecuária) — computador: ${stationName.trim()}.`
+            : "Agendado pelo link público (balcão da agropecuária).",
+        });
+        successCount += 1;
+        // Atualiza o calendário na hora (linha a linha, não só no fim) — antes
+        // o horário recém-reservado só aparecia como "Ocupado" depois de um
+        // F5; agora, mesmo se um horário do meio da lista falhar, os
+        // anteriores já ficam refletidos na grade em vez de sumir até o
+        // próximo polling.
+        setBookings((prev) => [
+          ...prev,
+          {
+            id: created.id,
+            date: slot.date,
+            time: slot.time,
+            clientName: clientName.trim(),
+            title: description.trim(),
+            stationName: stationName.trim() || undefined,
+          },
+        ]);
+      }
 
       setSuccess(true);
-      toast.success("Horário reservado com sucesso!");
+      toast.success(slots.length > 1 ? `${slots.length} horários reservados com sucesso!` : "Horário reservado com sucesso!");
       setClientName("");
       setTime("");
       setDescription("");
+      setExtraSlots([]);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Erro ao reservar o horário.");
+      if (successCount > 0) {
+        toast.warning(
+          `${successCount} de ${slots.length} horário(s) foram reservados antes de um erro. Confira a grade — o(s) que faltou(aram) precisa(m) ser reservado(s) de novo.`
+        );
+      } else {
+        toast.error(err instanceof Error ? err.message : "Erro ao reservar o horário.");
+      }
     } finally {
       setSaving(false);
     }
@@ -316,26 +367,39 @@ const BookSchedulePage: React.FC = () => {
     e.preventDefault();
     if (saving) return;
 
-    if (!clientName.trim() || !date || !time || !description.trim()) {
-      toast.error("Preencha todos os campos.");
+    const allSlots = [{ date, time }, ...extraSlots.map((s) => ({ date: s.date, time: s.time }))];
+
+    if (!clientName.trim() || !description.trim() || allSlots.some((s) => !s.date || !s.time)) {
+      toast.error("Preencha todos os campos (incluindo os horários extras, se adicionou algum).");
       return;
     }
-    if (date < getTodayLocalISO()) {
-      toast.error("A data não pode ser no passado.");
+
+    const chaves = allSlots.map((s) => `${s.date}|${s.time}`);
+    if (new Set(chaves).size !== chaves.length) {
+      toast.error("Você selecionou o mesmo horário mais de uma vez.");
       return;
     }
-    const requestedMinutes = toMinutes(time);
-    if (requestedMinutes === null) {
-      toast.error("Horário inválido.");
-      return;
-    }
-    if (date === getTodayLocalISO() && requestedMinutes < new Date().getHours() * 60 + new Date().getMinutes()) {
-      toast.error("Esse horário já passou hoje. Escolha um horário mais adiante.");
-      return;
-    }
-    if (!isMinutesOpen(date, requestedMinutes, weeklyHours, exceptions)) {
-      toast.error("Esse horário está fora do funcionamento da clínica nesse dia.");
-      return;
+
+    const agora = new Date();
+    const minutosAgora = agora.getHours() * 60 + agora.getMinutes();
+    for (const slot of allSlots) {
+      if (slot.date < getTodayLocalISO()) {
+        toast.error(`A data ${formatDayHeader(new Date(`${slot.date}T12:00:00`))} não pode ser no passado.`);
+        return;
+      }
+      const minutos = toMinutes(slot.time);
+      if (minutos === null) {
+        toast.error("Horário inválido.");
+        return;
+      }
+      if (slot.date === getTodayLocalISO() && minutos < minutosAgora) {
+        toast.error(`O horário ${slot.time} de hoje já passou. Escolha um horário mais adiante.`);
+        return;
+      }
+      if (!isMinutesOpen(slot.date, minutos, weeklyHours, exceptions)) {
+        toast.error(`O horário ${slot.time} está fora do funcionamento da clínica em ${formatDayHeader(new Date(`${slot.date}T12:00:00`))}.`);
+        return;
+      }
     }
 
     setSaving(true);
@@ -344,15 +408,21 @@ const BookSchedulePage: React.FC = () => {
       // bloqueio -- fazia sentido quando o intervalo era maior. Com a agenda
       // toda em blocos fixos (ex.: 30 min), dois agendamentos só colidem se
       // for o exato mesmo horário -- aí é ocupado mesmo, bloqueia direto.
-      const existing = await listScheduleTimesInRange(date, date);
-      const conflict = existing.some((b) => b.time === time);
-      if (conflict) {
-        setSaving(false);
-        toast.error("Esse horário acabou de ser reservado por outra pessoa. Escolha outro.");
-        return;
+      const datasUnicas = Array.from(new Set(allSlots.map((s) => s.date)));
+      for (const d of datasUnicas) {
+        const existing = await listScheduleTimesInRange(d, d);
+        const horariosDesseDia = allSlots.filter((s) => s.date === d).map((s) => s.time);
+        const ocupado = existing.find((b) => horariosDesseDia.includes(b.time));
+        if (ocupado) {
+          setSaving(false);
+          toast.error(
+            `O horário ${ocupado.time} de ${formatDayHeader(new Date(`${d}T12:00:00`))} acabou de ser reservado por outra pessoa. Escolha outro.`
+          );
+          return;
+        }
       }
 
-      await doCreateBooking();
+      await doCreateBookings(allSlots);
     } catch (err) {
       setSaving(false);
       toast.error(err instanceof Error ? err.message : "Erro ao reservar o horário.");
@@ -739,16 +809,79 @@ const BookSchedulePage: React.FC = () => {
                     </Select>
                   </div>
                 </div>
+
+                {/* Mais de um horário pro mesmo cliente (ex.: dois pets, ou
+                    vacina + consulta) — cada linha extra some/edita
+                    independente, e a grade acima preenche a próxima linha
+                    vazia em vez do horário 1 quando tem alguma pendente. */}
+                {extraSlots.length > 0 && (
+                  <div className="space-y-2 rounded-lg border border-dashed border-border p-3">
+                    <p className="text-xs font-medium text-muted-foreground">
+                      Outros horários para {clientName.trim() || "este cliente"}
+                    </p>
+                    {extraSlots.map((slot, idx) => {
+                      const opts = slot.date ? withCurrentOption(getDaySlots(slot.date), slot.time) : [];
+                      return (
+                        <div key={slot.id} className="grid grid-cols-[1fr_1fr_auto] items-end gap-2">
+                          <div className="space-y-1">
+                            <Label className="text-xs text-muted-foreground">Data {idx + 2}</Label>
+                            <Input
+                              type="date"
+                              min={getTodayLocalISO()}
+                              value={slot.date}
+                              onChange={(e) => updateExtraSlot(slot.id, { date: e.target.value })}
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs text-muted-foreground">Horário {idx + 2}</Label>
+                            <Select
+                              value={slot.time}
+                              onValueChange={(v) => updateExtraSlot(slot.id, { time: v })}
+                              disabled={!slot.date}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder={opts.length === 0 ? "Fechado" : "Selecione"} />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {opts.map((t) => (
+                                  <SelectItem key={t} value={t}>
+                                    {t}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => removeExtraSlot(slot.id)}
+                            title="Remover este horário"
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                <Button type="button" variant="outline" size="sm" onClick={addExtraSlot} className="w-full">
+                  <Plus className="mr-2 h-4 w-4" /> Agendar outro horário para este cliente
+                </Button>
+
                 <div className="space-y-1.5">
                   <Label htmlFor="description">Descrição / Observação</Label>
                   <Textarea
                     id="description"
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
-                    placeholder="Ex: Vacina V10, Consulta..."
-                    rows={2}
+                    placeholder={"Ex: Vacina V10, Consulta...\nCONSULTA DEVE MARCAR PELO MENOS 1 HORA (2 horários seguidos)"}
+                    rows={3}
                     required
                   />
+                  <p className="text-xs font-medium text-amber-700">
+                    Consulta demora mais que {intervalMinutes} min — marque pelo menos 1 hora (2 horários seguidos) pra não conflitar com o próximo agendamento.
+                  </p>
                 </div>
                 <Button type="submit" className="w-full" disabled={saving}>
                   {saving ? (
@@ -757,7 +890,8 @@ const BookSchedulePage: React.FC = () => {
                     </>
                   ) : (
                     <>
-                      <CalendarPlus className="mr-2 h-4 w-4" /> Reservar horário
+                      <CalendarPlus className="mr-2 h-4 w-4" />{" "}
+                      {extraSlots.length > 0 ? `Reservar ${1 + extraSlots.length} horários` : "Reservar horário"}
                     </>
                   )}
                 </Button>

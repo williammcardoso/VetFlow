@@ -23,11 +23,20 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { useClientsList } from "@/hooks/useSupabaseClients";
 import { useSchedulesList, useScheduleMutations } from "@/hooks/useSchedules";
-import { computeEncaixeIds, type ScheduleStatus, type ScheduleUI } from "@/lib/schedulesApi";
-import { Badge } from "@/components/ui/badge";
+import { type ScheduleStatus, type ScheduleUI } from "@/lib/schedulesApi";
 import { PageShell } from "@/components/saas/PageShell";
 import { PageHeader } from "@/components/saas/PageHeader";
 import { CalendarDays, ChevronDown } from "lucide-react";
@@ -88,13 +97,6 @@ const AgendaPage = () => {
     [schedules]
   );
 
-  // Marca como "encaixe" agendamentos com menos de 1h de distância de outro
-  // no mesmo dia (ex.: duas vacinas em casas vizinhas) — mesma regra usada
-  // no aviso de confirmação da página pública de agendamento.
-  const encaixeIds = useMemo(
-    () => computeEncaixeIds(schedules.map((s) => ({ id: s.id, date: format(s.date, "yyyy-MM-dd"), time: s.time }))),
-    [schedules]
-  );
 
   const weekDays = useMemo(() => {
     if (!selectedDate) return [];
@@ -150,7 +152,7 @@ const AgendaPage = () => {
     setIsDialogOpen(true);
   };
 
-  const handleEditAppointmentClick = (appointment: ScheduleUI) => {
+  const openEditDialogFor = (appointment: ScheduleUI) => {
     setEditingAppointment(appointment);
     setNewAppointmentTitle(appointment.title);
     setNewAppointmentTime(appointment.time);
@@ -160,6 +162,24 @@ const AgendaPage = () => {
     setNewAppointmentStatus(appointment.status || "scheduled");
     setSelectedDate(appointment.date);
     setIsDialogOpen(true);
+  };
+
+  // Editar um agendamento cujo horário já passou não é bloqueado (às vezes é
+  // exatamente pra corrigir algo depois do fato), mas pede confirmação antes
+  // de abrir — sem isso era fácil alterar um horário antigo sem perceber.
+  const [pastEditConfirm, setPastEditConfirm] = useState<ScheduleUI | null>(null);
+  const isAppointmentPast = (appointment: ScheduleUI) => {
+    const [h, m] = appointment.time.split(":").map(Number);
+    const dt = new Date(appointment.date);
+    dt.setHours(Number.isFinite(h) ? h : 0, Number.isFinite(m) ? m : 0, 0, 0);
+    return dt.getTime() < Date.now();
+  };
+  const handleEditAppointmentClick = (appointment: ScheduleUI) => {
+    if (isAppointmentPast(appointment)) {
+      setPastEditConfirm(appointment);
+      return;
+    }
+    openEditDialogFor(appointment);
   };
 
   const handleSetStatus = async (app: ScheduleUI, status: ScheduleStatus) => {
@@ -401,9 +421,6 @@ const AgendaPage = () => {
                       )}
                       <div className="mt-2 flex flex-wrap items-center gap-1.5">
                         <StatusBadge status={app.status || "scheduled"} className="inline-flex" />
-                        {encaixeIds.has(app.id) && (
-                          <Badge className="border-transparent bg-amber-100 text-amber-800 hover:bg-amber-100">Encaixe</Badge>
-                        )}
                       </div>
                     </div>
                     <div className="flex gap-2">
@@ -473,9 +490,6 @@ const AgendaPage = () => {
                             <p className="mt-0.5 text-xs text-muted-foreground truncate">{app.clientName} • {app.animalName}</p>
                             <div className="mt-1 flex flex-wrap items-center gap-1.5">
                               <StatusBadge status={app.status || "scheduled"} className="inline-flex" />
-                              {encaixeIds.has(app.id) && (
-                                <Badge className="border-transparent bg-amber-100 text-amber-800 hover:bg-amber-100">Encaixe</Badge>
-                              )}
                             </div>
                           </button>
                         ))}
@@ -504,9 +518,6 @@ const AgendaPage = () => {
                             <p className="mt-0.5 text-xs text-muted-foreground truncate">{app.clientName} • {app.animalName}</p>
                             <div className="mt-1 flex flex-wrap items-center gap-1.5">
                               <StatusBadge status={app.status || "scheduled"} className="inline-flex" />
-                              {encaixeIds.has(app.id) && (
-                                <Badge className="border-transparent bg-amber-100 text-amber-800 hover:bg-amber-100">Encaixe</Badge>
-                              )}
                             </div>
                           </button>
                         ))}
@@ -730,6 +741,31 @@ const AgendaPage = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={!!pastEditConfirm} onOpenChange={(open) => !open && setPastEditConfirm(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Este horário já passou</AlertDialogTitle>
+            <AlertDialogDescription>
+              {pastEditConfirm
+                ? `"${pastEditConfirm.title}" em ${format(pastEditConfirm.date, "dd/MM/yyyy")} às ${pastEditConfirm.time} já aconteceu (ou já passou da hora). Deseja realmente alterar este agendamento?`
+                : ""}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setPastEditConfirm(null)}>Não</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                const appointment = pastEditConfirm;
+                setPastEditConfirm(null);
+                if (appointment) openEditDialogFor(appointment);
+              }}
+            >
+              Sim, alterar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </PageShell>
   );
 };
