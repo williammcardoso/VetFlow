@@ -278,20 +278,31 @@ const BookSchedulePage: React.FC = () => {
     clientNameRef.current?.focus();
   };
 
+  function minutesToHHMM(totalMinutes: number): string {
+    const h = Math.floor(totalMinutes / 60) % 24;
+    const m = totalMinutes % 60;
+    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+  }
+
   // "Agendar horário mais longo" — pra consulta/procedimento que passa de 1
   // intervalo (ex.: 30 min): em vez do usuário escolher horários extras um a
-  // um (testado com o balcão — achado pouco prático), marca um checkbox e o
-  // sistema já calcula o próximo horário contíguo como fim; mudar o "até"
-  // pra um horário mais longe estende quantos intervalos forem necessários
-  // no meio, sempre travado nos horários de verdade da grade (não atravessa
-  // buraco de almoço/fechamento). Por baixo continua sendo 1 linha por
-  // intervalo em `schedules` (não existe coluna de duração no sistema) — só
-  // a forma de escolher que fica de um jeito só.
+  // um (testado com o balcão — achado pouco prático), marca um checkbox e
+  // escolhe só o horário de TÉRMINO — o campo "Até" mostra o horário real em
+  // que o cliente sai, não o último intervalo ocupado (isso confundia:
+  // escolher "12:00" fazia ocupar até 12:30, sem ficar óbvio o motivo).
+  // Agora escolher "12:00" reserva só 1 intervalo (igual não marcar o
+  // checkbox) e "12:30" reserva 2 (1h, começando às 11:30) — sem precisar
+  // fazer conta. Sempre travado nos horários de verdade da grade (não
+  // atravessa buraco de almoço/fechamento). Por baixo continua sendo 1 linha
+  // por intervalo em `schedules` (não existe coluna de duração no sistema).
   const [longAppointment, setLongAppointment] = React.useState(false);
   const [endTime, setEndTime] = React.useState("");
 
-  // Horários que dá pra escolher como "até", contíguos a partir do horário
-  // principal (para de oferecer opção assim que bate num intervalo fechado).
+  // Quantos intervalos contíguos dá pra emendar a partir do horário
+  // principal — para assim que bate num intervalo fechado (almoço/fim do
+  // expediente). endTimeOptions[k-1] = horário de término reservando k
+  // intervalos (k=1 é só o próprio horário principal, igual não marcar o
+  // checkbox — mas dá pra escolher explicitamente).
   const endTimeOptions = React.useMemo(() => {
     if (!time) return [];
     const daySlots = getDaySlots(date);
@@ -299,45 +310,36 @@ const BookSchedulePage: React.FC = () => {
     const startMinutes = toMinutes(time);
     if (startIdx === -1 || startMinutes === null) return [];
     const options: string[] = [];
-    let expectedMinutes = startMinutes + intervalMinutes;
-    for (let i = startIdx + 1; i < daySlots.length; i++) {
-      if (toMinutes(daySlots[i]) !== expectedMinutes) break;
-      options.push(daySlots[i]);
-      expectedMinutes += intervalMinutes;
+    for (let k = 1; startIdx + k - 1 < daySlots.length; k++) {
+      if (toMinutes(daySlots[startIdx + k - 1]) !== startMinutes + (k - 1) * intervalMinutes) break;
+      options.push(minutesToHHMM(startMinutes + k * intervalMinutes));
     }
     return options;
   }, [date, time, getDaySlots, intervalMinutes]);
 
   // Quando marca o checkbox (ou muda o horário principal com o checkbox já
-  // marcado), preenche o "até" com o próximo horário contíguo — o mínimo pra
-  // virar "mais longo que 1 intervalo".
+  // marcado), preenche o "até" com a 2ª opção (2 intervalos) — a 1ª seria
+  // igual não ter marcado o checkbox, então não faz sentido como padrão.
   React.useEffect(() => {
     if (!longAppointment) {
       setEndTime("");
       return;
     }
     if (endTime && endTimeOptions.includes(endTime)) return;
-    setEndTime(endTimeOptions[0] ?? "");
+    setEndTime(endTimeOptions[1] ?? endTimeOptions[0] ?? "");
   }, [longAppointment, endTimeOptions]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  function minutesToHHMM(totalMinutes: number): string {
-    const h = Math.floor(totalMinutes / 60) % 24;
-    const m = totalMinutes % 60;
-    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
-  }
 
   // Todos os horários que essa reserva ocupa (1 só, ou vários contíguos se
   // "horário mais longo" estiver marcado e válido).
   const slotsParaReservar = React.useMemo(() => {
-    if (!longAppointment || !endTime || !endTimeOptions.includes(endTime)) return [time];
+    const endIdx = longAppointment ? endTimeOptions.indexOf(endTime) : -1;
+    if (endIdx === -1) return [time];
     const daySlots = getDaySlots(date);
     const startIdx = daySlots.indexOf(time);
-    const endIdx = daySlots.indexOf(endTime);
-    if (startIdx === -1 || endIdx === -1 || endIdx < startIdx) return [time];
-    return daySlots.slice(startIdx, endIdx + 1);
+    if (startIdx === -1) return [time];
+    // endIdx é 0-based (k-1); a reserva ocupa k = endIdx+1 intervalos.
+    return daySlots.slice(startIdx, startIdx + endIdx + 1);
   }, [longAppointment, endTime, endTimeOptions, time, date, getDaySlots]);
-  const horarioOcupaAte =
-    longAppointment && endTime ? minutesToHHMM((toMinutes(endTime) ?? 0) + intervalMinutes) : null;
 
   const doCreateBookings = async (slots: Array<{ date: string; time: string }>) => {
     setSaving(true);
@@ -840,24 +842,24 @@ const BookSchedulePage: React.FC = () => {
                 </div>
 
                 {/* Horário mais longo que 1 intervalo (ex.: consulta de 1h) —
-                    marca e o sistema já sugere o próximo horário contíguo
-                    como fim; mudar o "até" ocupa todos os intervalos do
-                    meio, sem atravessar buraco de almoço/fechamento. */}
-                <label className="flex items-center gap-2 text-sm">
-                  <Checkbox
-                    checked={longAppointment}
-                    onCheckedChange={(v) => setLongAppointment(v === true)}
-                    disabled={!time || endTimeOptions.length === 0}
-                  />
-                  Agendar horário mais longo (consulta, procedimento...)
-                </label>
-
-                {longAppointment && (
-                  <div className="space-y-1.5 rounded-lg border border-dashed border-border p-3">
-                    <Label htmlFor="endTime">Até</Label>
+                    marca e escolhe direto o horário de término real (não o
+                    último intervalo ocupado, pra não precisar fazer conta:
+                    escolher "12:00" reserva só 1 intervalo, "12:30" reserva
+                    2 = 1h). Trava nos horários de verdade da grade, sem
+                    atravessar buraco de almoço/fechamento. */}
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                  <label className="flex items-center gap-2 text-sm">
+                    <Checkbox
+                      checked={longAppointment}
+                      onCheckedChange={(v) => setLongAppointment(v === true)}
+                      disabled={!time || endTimeOptions.length === 0}
+                    />
+                    Horário mais longo, até
+                  </label>
+                  {longAppointment && (
                     <Select value={endTime} onValueChange={setEndTime} disabled={endTimeOptions.length === 0}>
-                      <SelectTrigger id="endTime">
-                        <SelectValue placeholder="Selecione" />
+                      <SelectTrigger className="h-8 w-[88px]">
+                        <SelectValue placeholder="—" />
                       </SelectTrigger>
                       <SelectContent>
                         {endTimeOptions.map((t) => (
@@ -867,14 +869,13 @@ const BookSchedulePage: React.FC = () => {
                         ))}
                       </SelectContent>
                     </Select>
-                    {horarioOcupaAte && (
-                      <p className="text-xs text-muted-foreground">
-                        Ocupa a agenda de <strong>{time}</strong> até <strong>{horarioOcupaAte}</strong> (
-                        {slotsParaReservar.length} horários seguidos), ninguém mais pode marcar nesse intervalo.
-                      </p>
-                    )}
-                  </div>
-                )}
+                  )}
+                  {longAppointment && endTime && slotsParaReservar.length > 1 && (
+                    <span className="text-xs text-muted-foreground">
+                      ({slotsParaReservar.length} horários seguidos — ninguém mais marca nesse intervalo)
+                    </span>
+                  )}
+                </div>
 
                 <div className="space-y-1.5">
                   <Label htmlFor="description">Descrição / Observação</Label>
