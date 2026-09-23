@@ -87,6 +87,17 @@ body,
     line-height: 1.65;
   }
 
+  /* Cursor de texto (caret) explícito — em alguns drivers de vídeo/GPU
+     (relatado por usuário) o caret herda uma cor que pode ficar igual ao
+     fundo do campo (branco em cima de branco), ficando invisível ao
+     digitar. Fixar aqui em vez de deixar herdar "currentColor" evita
+     depender de como o driver decide repintar isso. */
+  input,
+  textarea,
+  [contenteditable="true"] {
+    caret-color: hsl(var(--foreground));
+  }
+
   p {
     line-height: 1.75;
   }
