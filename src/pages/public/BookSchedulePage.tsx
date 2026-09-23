@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -24,7 +25,7 @@ import {
 } from "@/components/ui/dialog";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CalendarPlus, CheckCircle2, ChevronLeft, ChevronRight, Loader2, PawPrint, Plus, Trash2, X } from "lucide-react";
+import { CalendarPlus, CheckCircle2, ChevronLeft, ChevronRight, Loader2, PawPrint, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import {
   cancelPublicBooking,
@@ -267,45 +268,76 @@ const BookSchedulePage: React.FC = () => {
 
   const clientNameRef = React.useRef<HTMLInputElement>(null);
 
-  // Mais de um horário pro mesmo cliente (ex.: dois pets, ou vacina +
-  // consulta) numa reserva só — "horário 1" continua nos campos date/time de
-  // sempre; cada linha extra é um horário a mais, criado junto no mesmo
-  // envio, com o mesmo nome/descrição.
-  const [extraSlots, setExtraSlots] = React.useState<Array<{ id: string; date: string; time: string }>>([]);
-  const addExtraSlot = () => {
-    setExtraSlots((prev) => [...prev, { id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, date, time: "" }]);
-  };
-  const removeExtraSlot = (id: string) => {
-    setExtraSlots((prev) => prev.filter((s) => s.id !== id));
-  };
-  const updateExtraSlot = (id: string, patch: Partial<{ date: string; time: string }>) => {
-    setExtraSlots((prev) =>
-      prev.map((s) => {
-        if (s.id !== id) return s;
-        const next = { ...s, ...patch };
-        // Horário escolhido pode não existir mais se a data mudou (ex.: sábado tem menos horário).
-        if (patch.date && next.time && !getDaySlots(patch.date).includes(next.time)) next.time = "";
-        return next;
-      })
-    );
-  };
-
   const handlePickSlot = (dateISO: string, slotTime: string) => {
-    // Se já tem um horário extra pendente (usuário clicou "+ Agendar outro
-    // horário" e ainda não escolheu quando), o clique na grade preenche esse
-    // horário extra em vez de substituir o principal — dá pra ir clicando
-    // vários horários seguidos pro mesmo cliente sem perder o que já tinha.
-    const pendingExtraIndex = extraSlots.findIndex((s) => !s.time);
-    if (pendingExtraIndex !== -1) {
-      setExtraSlots((prev) => prev.map((s, i) => (i === pendingExtraIndex ? { ...s, date: dateISO, time: slotTime } : s)));
-      return;
-    }
     setDate(dateISO);
     setTime(slotTime);
+    setLongAppointment(false);
+    setEndTime("");
     // Depois de escolher o horário no calendário, já manda o foco pro nome
     // do cliente — próximo passo natural, sem precisar rolar/clicar de novo.
     clientNameRef.current?.focus();
   };
+
+  // "Agendar horário mais longo" — pra consulta/procedimento que passa de 1
+  // intervalo (ex.: 30 min): em vez do usuário escolher horários extras um a
+  // um (testado com o balcão — achado pouco prático), marca um checkbox e o
+  // sistema já calcula o próximo horário contíguo como fim; mudar o "até"
+  // pra um horário mais longe estende quantos intervalos forem necessários
+  // no meio, sempre travado nos horários de verdade da grade (não atravessa
+  // buraco de almoço/fechamento). Por baixo continua sendo 1 linha por
+  // intervalo em `schedules` (não existe coluna de duração no sistema) — só
+  // a forma de escolher que fica de um jeito só.
+  const [longAppointment, setLongAppointment] = React.useState(false);
+  const [endTime, setEndTime] = React.useState("");
+
+  // Horários que dá pra escolher como "até", contíguos a partir do horário
+  // principal (para de oferecer opção assim que bate num intervalo fechado).
+  const endTimeOptions = React.useMemo(() => {
+    if (!time) return [];
+    const daySlots = getDaySlots(date);
+    const startIdx = daySlots.indexOf(time);
+    const startMinutes = toMinutes(time);
+    if (startIdx === -1 || startMinutes === null) return [];
+    const options: string[] = [];
+    let expectedMinutes = startMinutes + intervalMinutes;
+    for (let i = startIdx + 1; i < daySlots.length; i++) {
+      if (toMinutes(daySlots[i]) !== expectedMinutes) break;
+      options.push(daySlots[i]);
+      expectedMinutes += intervalMinutes;
+    }
+    return options;
+  }, [date, time, getDaySlots, intervalMinutes]);
+
+  // Quando marca o checkbox (ou muda o horário principal com o checkbox já
+  // marcado), preenche o "até" com o próximo horário contíguo — o mínimo pra
+  // virar "mais longo que 1 intervalo".
+  React.useEffect(() => {
+    if (!longAppointment) {
+      setEndTime("");
+      return;
+    }
+    if (endTime && endTimeOptions.includes(endTime)) return;
+    setEndTime(endTimeOptions[0] ?? "");
+  }, [longAppointment, endTimeOptions]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function minutesToHHMM(totalMinutes: number): string {
+    const h = Math.floor(totalMinutes / 60) % 24;
+    const m = totalMinutes % 60;
+    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+  }
+
+  // Todos os horários que essa reserva ocupa (1 só, ou vários contíguos se
+  // "horário mais longo" estiver marcado e válido).
+  const slotsParaReservar = React.useMemo(() => {
+    if (!longAppointment || !endTime || !endTimeOptions.includes(endTime)) return [time];
+    const daySlots = getDaySlots(date);
+    const startIdx = daySlots.indexOf(time);
+    const endIdx = daySlots.indexOf(endTime);
+    if (startIdx === -1 || endIdx === -1 || endIdx < startIdx) return [time];
+    return daySlots.slice(startIdx, endIdx + 1);
+  }, [longAppointment, endTime, endTimeOptions, time, date, getDaySlots]);
+  const horarioOcupaAte =
+    longAppointment && endTime ? minutesToHHMM((toMinutes(endTime) ?? 0) + intervalMinutes) : null;
 
   const doCreateBookings = async (slots: Array<{ date: string; time: string }>) => {
     setSaving(true);
@@ -349,7 +381,8 @@ const BookSchedulePage: React.FC = () => {
       setClientName("");
       setTime("");
       setDescription("");
-      setExtraSlots([]);
+      setLongAppointment(false);
+      setEndTime("");
     } catch (err) {
       if (successCount > 0) {
         toast.warning(
@@ -367,16 +400,12 @@ const BookSchedulePage: React.FC = () => {
     e.preventDefault();
     if (saving) return;
 
-    const allSlots = [{ date, time }, ...extraSlots.map((s) => ({ date: s.date, time: s.time }))];
+    const allSlots = slotsParaReservar.map((t) => ({ date, time: t }));
 
     if (!clientName.trim() || !description.trim() || allSlots.some((s) => !s.date || !s.time)) {
-      toast.error("Preencha todos os campos (incluindo os horários extras, se adicionou algum).");
-      return;
-    }
-
-    const chaves = allSlots.map((s) => `${s.date}|${s.time}`);
-    if (new Set(chaves).size !== chaves.length) {
-      toast.error("Você selecionou o mesmo horário mais de uma vez.");
+      toast.error(
+        longAppointment ? "Preencha todos os campos (incluindo o horário 'até')." : "Preencha todos os campos."
+      );
       return;
     }
 
@@ -810,64 +839,42 @@ const BookSchedulePage: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Mais de um horário pro mesmo cliente (ex.: dois pets, ou
-                    vacina + consulta) — cada linha extra some/edita
-                    independente, e a grade acima preenche a próxima linha
-                    vazia em vez do horário 1 quando tem alguma pendente. */}
-                {extraSlots.length > 0 && (
-                  <div className="space-y-2 rounded-lg border border-dashed border-border p-3">
-                    <p className="text-xs font-medium text-muted-foreground">
-                      Outros horários para {clientName.trim() || "este cliente"}
-                    </p>
-                    {extraSlots.map((slot, idx) => {
-                      const opts = slot.date ? withCurrentOption(getDaySlots(slot.date), slot.time) : [];
-                      return (
-                        <div key={slot.id} className="grid grid-cols-[1fr_1fr_auto] items-end gap-2">
-                          <div className="space-y-1">
-                            <Label className="text-xs text-muted-foreground">Data {idx + 2}</Label>
-                            <Input
-                              type="date"
-                              min={getTodayLocalISO()}
-                              value={slot.date}
-                              onChange={(e) => updateExtraSlot(slot.id, { date: e.target.value })}
-                            />
-                          </div>
-                          <div className="space-y-1">
-                            <Label className="text-xs text-muted-foreground">Horário {idx + 2}</Label>
-                            <Select
-                              value={slot.time}
-                              onValueChange={(v) => updateExtraSlot(slot.id, { time: v })}
-                              disabled={!slot.date}
-                            >
-                              <SelectTrigger>
-                                <SelectValue placeholder={opts.length === 0 ? "Fechado" : "Selecione"} />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {opts.map((t) => (
-                                  <SelectItem key={t} value={t}>
-                                    {t}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => removeExtraSlot(slot.id)}
-                            title="Remover este horário"
-                          >
-                            <X className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      );
-                    })}
+                {/* Horário mais longo que 1 intervalo (ex.: consulta de 1h) —
+                    marca e o sistema já sugere o próximo horário contíguo
+                    como fim; mudar o "até" ocupa todos os intervalos do
+                    meio, sem atravessar buraco de almoço/fechamento. */}
+                <label className="flex items-center gap-2 text-sm">
+                  <Checkbox
+                    checked={longAppointment}
+                    onCheckedChange={(v) => setLongAppointment(v === true)}
+                    disabled={!time || endTimeOptions.length === 0}
+                  />
+                  Agendar horário mais longo (consulta, procedimento...)
+                </label>
+
+                {longAppointment && (
+                  <div className="space-y-1.5 rounded-lg border border-dashed border-border p-3">
+                    <Label htmlFor="endTime">Até</Label>
+                    <Select value={endTime} onValueChange={setEndTime} disabled={endTimeOptions.length === 0}>
+                      <SelectTrigger id="endTime">
+                        <SelectValue placeholder="Selecione" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {endTimeOptions.map((t) => (
+                          <SelectItem key={t} value={t}>
+                            {t}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {horarioOcupaAte && (
+                      <p className="text-xs text-muted-foreground">
+                        Ocupa a agenda de <strong>{time}</strong> até <strong>{horarioOcupaAte}</strong> (
+                        {slotsParaReservar.length} horários seguidos), ninguém mais pode marcar nesse intervalo.
+                      </p>
+                    )}
                   </div>
                 )}
-                <Button type="button" variant="outline" size="sm" onClick={addExtraSlot} className="w-full">
-                  <Plus className="mr-2 h-4 w-4" /> Agendar outro horário para este cliente
-                </Button>
 
                 <div className="space-y-1.5">
                   <Label htmlFor="description">Descrição / Observação</Label>
@@ -891,7 +898,7 @@ const BookSchedulePage: React.FC = () => {
                   ) : (
                     <>
                       <CalendarPlus className="mr-2 h-4 w-4" />{" "}
-                      {extraSlots.length > 0 ? `Reservar ${1 + extraSlots.length} horários` : "Reservar horário"}
+                      {slotsParaReservar.length > 1 ? `Reservar ${slotsParaReservar.length} horários` : "Reservar horário"}
                     </>
                   )}
                 </Button>
