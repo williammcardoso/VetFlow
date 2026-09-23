@@ -91,11 +91,15 @@ body,
      (relatado por usuário) o caret herda uma cor que pode ficar igual ao
      fundo do campo (branco em cima de branco), ficando invisível ao
      digitar. Fixar aqui em vez de deixar herdar "currentColor" evita
-     depender de como o driver decide repintar isso. */
+     depender de como o driver decide repintar isso. !important porque a
+     1ª tentativa (sem !important) não resolveu no computador do usuário
+     mesmo com o valor certo computado — se ainda falhar mesmo assim, o
+     problema está abaixo do CSS (composição de vídeo do driver), fora do
+     que uma folha de estilo consegue controlar. */
   input,
   textarea,
   [contenteditable="true"] {
-    caret-color: hsl(var(--foreground));
+    caret-color: hsl(var(--foreground)) !important;
   }
 
   p {
