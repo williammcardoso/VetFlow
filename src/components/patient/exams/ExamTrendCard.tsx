@@ -165,12 +165,14 @@ export default function ExamTrendCard({
 
   return (
     <Card className="vf-surface-card vf-tone-clinical card-hover rounded-md border border-border/80">
-      <CardHeader className="flex flex-row items-center justify-between gap-3 pb-3">
+      {/* Celular: seletor embaixo do título, largura total (220px fixos ao
+          lado do título passavam da tela). */}
+      <CardHeader className="flex flex-col gap-3 space-y-0 p-4 pb-3 sm:flex-row sm:items-center sm:justify-between sm:p-6 sm:pb-3">
         <CardTitle className="flex items-center gap-2 text-lg font-semibold text-foreground">
           <TrendingUp className="h-5 w-5 text-primary" /> Evolução dos exames
         </CardTitle>
         <Select value={activeTrend.name} onValueChange={setSelected}>
-          <SelectTrigger className="w-[220px] bg-input rounded-md border-border">
+          <SelectTrigger className="w-full sm:w-[220px] bg-input rounded-md border-border">
             <SelectValue placeholder="Selecione um analito" />
           </SelectTrigger>
           <SelectContent>
@@ -197,7 +199,7 @@ export default function ExamTrendCard({
           </SelectContent>
         </Select>
       </CardHeader>
-      <CardContent className="pt-0">
+      <CardContent className="px-3 pb-4 pt-0 sm:px-6 sm:pb-6">
         {referenceLabel && (
           <p className="mb-2 text-sm text-muted-foreground">{referenceLabel}</p>
         )}

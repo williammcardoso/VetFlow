@@ -283,11 +283,13 @@ export default function PatientAppointmentsTab({
   return (
     <div className="space-y-4">
       <Card className="premium-card rounded-xl">
-        <CardHeader className="pb-3">
+        <CardHeader className="p-4 pb-3 sm:p-6 sm:pb-3">
           <CardTitle className="text-lg font-semibold text-foreground">Novo atendimento</CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+        {/* 5 colunas só a partir de lg: no tablet em pé (~700px úteis) os 5
+            botões ficavam com ~100px e "Emergência"/"Vacinação" vazavam do botão. */}
+        <CardContent className="p-3 pt-0 sm:p-6 sm:pt-0">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
             <SaasButton
               saasVariant="outline"
               className={cn(
@@ -385,7 +387,7 @@ export default function PatientAppointmentsTab({
       </Dialog>
 
       <Card className="premium-card rounded-xl">
-        <CardHeader className="flex flex-row items-center justify-between pb-3">
+        <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 p-4 pb-3 sm:p-6 sm:pb-3">
           <CardTitle className="text-lg font-semibold text-foreground">
             Histórico de atendimentos
           </CardTitle>
@@ -398,7 +400,7 @@ export default function PatientAppointmentsTab({
             <Plus className="h-4 w-4" /> Novo
           </SaasButton>
         </CardHeader>
-        <CardContent className="pt-0">
+        <CardContent className="px-3 pb-4 pt-0 sm:px-6 sm:pb-6">
           {sorted.length > 0 ? (
             <div className="space-y-3">
               {sorted.map((app) => {
@@ -414,25 +416,27 @@ export default function PatientAppointmentsTab({
                   <div
                     key={app.id}
                     className={cn(
-                      "rounded-xl border bg-white p-4 transition-all duration-200",
+                      "rounded-xl border bg-white p-3 sm:p-4 transition-all duration-200",
                       "hover:shadow-lg hover:-translate-y-0.5",
                       meta.cardHoverShadowClass,
                       meta.cardBorderClass
                     )}
                   >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex items-start gap-3 min-w-0">
+                    {/* Celular: ações numa faixa embaixo do conteúdo, igual às
+                        outras abas do prontuário. */}
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
+                      <div className="flex min-w-0 flex-1 items-start gap-3">
                         <div
                           className={cn(
-                            "h-12 w-12 shrink-0 rounded-2xl flex items-center justify-center",
+                            "h-10 w-10 sm:h-12 sm:w-12 shrink-0 rounded-2xl flex items-center justify-center",
                             meta.iconWrapBgClass
                           )}
                         >
-                          <Icon className={cn("h-6 w-6", meta.iconClass)} />
+                          <Icon className={cn("h-5 w-5 sm:h-6 sm:w-6", meta.iconClass)} />
                         </div>
 
                         <div className="min-w-0">
-                          <div className={cn("flex items-center gap-2 text-base font-bold", meta.iconClass)}>
+                          <div className={cn("flex flex-wrap items-center gap-2 text-base font-bold", meta.iconClass)}>
                             <span>{meta.label}</span>
                             {isDraft ? (
                               <span className="rounded-full border border-border bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
@@ -441,24 +445,24 @@ export default function PatientAppointmentsTab({
                             ) : null}
                           </div>
 
-                          <div className="mt-1 text-sm text-muted-foreground leading-relaxed">
+                          <div className="mt-1 break-words text-sm text-muted-foreground leading-relaxed">
                             {summary}
                           </div>
 
-                          <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+                          <div className="mt-2 sm:mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
                             <span className="inline-flex items-center gap-1.5 text-foreground/80 font-medium">
-                              <Calendar className="h-4 w-4 text-muted-foreground" />
+                              <Calendar className="h-4 w-4 shrink-0 text-muted-foreground" />
                               {dateLabel}
                             </span>
-                            <span className="inline-flex items-center gap-1.5 text-muted-foreground font-medium">
-                              <UserRound className="h-4 w-4" />
-                              {app.vet}
+                            <span className="inline-flex min-w-0 items-center gap-1.5 text-muted-foreground font-medium">
+                              <UserRound className="h-4 w-4 shrink-0" />
+                              <span className="min-w-0 break-words">{app.vet}</span>
                             </span>
                           </div>
                         </div>
                       </div>
 
-                      <div className="flex gap-2">
+                      <div className="flex flex-wrap items-center justify-end gap-1 border-t border-border/60 pt-2 sm:shrink-0 sm:flex-nowrap sm:gap-2 sm:border-0 sm:pt-0">
                         {isDraft ? (
                           <SaasButton
                             saasVariant="ghost"

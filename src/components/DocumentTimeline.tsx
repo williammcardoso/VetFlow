@@ -208,11 +208,11 @@ const DocumentTimeline: React.FC<DocumentTimelineProps> = ({ pacienteId, clientI
 
   return (
     <div className="mt-6 space-y-3">
-      <div className="flex items-center justify-between">
-        <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
-          <FileSignature className="h-4 w-4 text-primary" /> Termos e atestados (modelos oficiais)
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="flex min-w-0 items-center gap-2 text-sm font-semibold text-foreground">
+          <FileSignature className="h-4 w-4 shrink-0 text-primary" /> Termos e atestados (modelos oficiais)
         </h3>
-        <Button size="sm" variant="outline" asChild>
+        <Button size="sm" variant="outline" asChild className="shrink-0">
           <Link to={getPatientSubPath(clientId, animalId, patientCode, "/emit-document")}>
             <Plus className="mr-2 h-4 w-4" /> Emitir novo
           </Link>
@@ -235,16 +235,20 @@ const DocumentTimeline: React.FC<DocumentTimelineProps> = ({ pacienteId, clientI
       ) : (
         <div className="space-y-2">
           {docs.map((doc) => (
-            <div key={doc.id} className="flex items-center justify-between gap-3 rounded-lg border border-border p-3">
+            // Celular: título ocupa a largura toda e status + botões descem
+            // pra uma linha própria — lado a lado (status + 4 ícones, ~230px)
+            // o título virava "C01 — Te…".
+            <div key={doc.id} className="flex flex-col gap-2 rounded-lg border border-border p-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium">
+                <p className="break-words text-sm font-medium lg:truncate">
                   {doc.codigo} — {doc.titulo} <span className="text-muted-foreground">nº {doc.numero}</span>
                 </p>
-                <p className="text-xs text-muted-foreground">
+                <p className="break-words text-xs text-muted-foreground">
                   Emitido em {formatDateTime(doc.emitidoEm)}
                   {doc.status === "cancelado" && doc.motivoCancelamento ? ` · Motivo: ${doc.motivoCancelamento}` : ""}
                 </p>
               </div>
+              <div className="flex items-center justify-between gap-2 sm:contents">
               <span className={`shrink-0 rounded-full border px-2 py-0.5 text-xs font-semibold ${STATUS_CLASS[doc.status] ?? ""}`}>
                 {STATUS_LABEL[doc.status] ?? doc.status}
               </span>
@@ -287,6 +291,7 @@ const DocumentTimeline: React.FC<DocumentTimelineProps> = ({ pacienteId, clientI
                     <Ban className="h-4 w-4 text-destructive" />
                   </Button>
                 )}
+              </div>
               </div>
             </div>
           ))}

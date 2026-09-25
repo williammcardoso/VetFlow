@@ -1298,28 +1298,33 @@ const PatientRecordPage = () => {
   };
 
   return (
-    <div className="flex flex-col min-h-screen layered-bg-warm overflow-x-hidden">
+    // Sem min-h-screen/overflow-x-hidden próprios: o Layout já rola a página
+    // e corta o que passar da largura. Os paddings px-5/p-6 daqui somavam com
+    // o padding do Layout — no celular sobravam ~310px de largura útil (texto
+    // e telefone cortados, botões por cima do texto). Abaixo de lg o
+    // prontuário usa só o padding do Layout; em tela larga fica como antes.
+    <div className="flex flex-col layered-bg-warm">
       {/* CABEÇALHO DO PRONTUÁRIO */}
-      <div className="mx-auto w-full max-w-7xl px-5 pt-4 pb-3">
-        <div className="premium-card rounded-xl border border-border/60 bg-white px-4 py-3">
-          <div className="flex items-start justify-between gap-4">
+      <div className="mx-auto w-full max-w-7xl pb-3 lg:px-5 lg:pt-4">
+        <div className="premium-card rounded-xl border border-border/60 bg-white px-3 py-2.5 sm:px-4 sm:py-3">
+          <div className="flex items-center justify-between gap-3 sm:items-start sm:gap-4">
             <div className="min-w-0">
               <div className="flex items-center gap-3">
-                <div className="h-9 w-9 rounded-xl bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200/60 flex items-center justify-center">
+                <div className="h-9 w-9 shrink-0 rounded-xl bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200/60 flex items-center justify-center">
                   <FileTextIcon className="h-4.5 w-4.5" strokeWidth={1.8} />
                 </div>
                 <div className="min-w-0">
-                  <h1 className="text-lg sm:text-xl leading-tight font-semibold text-foreground">
+                  <h1 className="text-base sm:text-xl leading-tight font-semibold text-foreground">
                     Prontuário Consolidado
                   </h1>
-                  <p className="text-xs text-muted-foreground mt-0.5">
+                  <p className="hidden sm:block text-xs text-muted-foreground mt-0.5">
                     Visão completa do histórico clínico
                   </p>
                 </div>
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex shrink-0 items-center gap-2">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
@@ -1355,27 +1360,27 @@ const PatientRecordPage = () => {
         </div>
       </div>
 
-      <div className="flex-1 p-6 mx-auto w-full max-w-7xl">
+      <div className="flex-1 mx-auto w-full max-w-7xl lg:p-6">
         {/* CARD DO PACIENTE */}
-        <div className="mb-6">
+        <div className="mb-4 sm:mb-6">
           <Card className="premium-card ring-1 ring-border/50">
-            <CardContent className="p-5">
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex items-start gap-4 min-w-0">
+            <CardContent className="p-4 sm:p-5">
+              <div className="flex items-start justify-between gap-3 sm:gap-4">
+                <div className="flex items-start gap-3 sm:gap-4 min-w-0">
                   {/* Avatar */}
-                  <div className="h-12 w-12 rounded-2xl bg-[rgb(240,253,248)] text-[rgb(5,150,105)] ring-1 ring-[rgba(5,150,105,0.12)] flex items-center justify-center">
+                  <div className="h-10 w-10 sm:h-12 sm:w-12 shrink-0 rounded-2xl bg-[rgb(240,253,248)] text-[rgb(5,150,105)] ring-1 ring-[rgba(5,150,105,0.12)] flex items-center justify-center">
                     <FaPaw className="h-5 w-5" />
                   </div>
 
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <h2 className="text-2xl sm:text-[1.9rem] leading-tight font-semibold tracking-tight">
+                      <h2 className="min-w-0 break-words text-2xl sm:text-[1.9rem] leading-tight font-semibold tracking-tight">
                         {currentAnimal.name}
                       </h2>
                       {alertObservations.map((o) => (
                         <span
                           key={o.id}
-                          className="inline-flex items-center rounded-full border border-red-300 bg-red-50 px-3 py-1 text-[11px] font-extrabold tracking-widest text-red-700 uppercase"
+                          className="inline-flex max-w-full items-center break-words rounded-full border border-red-300 bg-red-50 px-3 py-1 text-[11px] font-extrabold tracking-wider sm:tracking-widest text-red-700 uppercase"
                           title={o.observation}
                         >
                           • {o.observation.trim().toUpperCase()}
@@ -1389,7 +1394,7 @@ const PatientRecordPage = () => {
                   variant="ghost"
                   size="icon"
                   onClick={handleEditAnimal}
-                  className="h-9 w-9 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/40"
+                  className="h-9 w-9 shrink-0 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/40"
                 >
                   <FaEdit className="h-4 w-4" />
                   <span className="sr-only">Editar paciente</span>
@@ -1397,38 +1402,38 @@ const PatientRecordPage = () => {
               </div>
 
               {/* CHIPS DO PACIENTE */}
-              <div className="mt-4 flex flex-wrap gap-2">
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-white px-3 py-1 text-[12px] leading-5">
+              <div className="mt-3 sm:mt-4 flex flex-wrap gap-1.5 sm:gap-2">
+                <span className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-border bg-white px-2.5 py-1 text-[12px] leading-5 sm:px-3">
                   <FaIdCard className="h-3 w-3 text-primary" />
                   <span className="text-muted-foreground">ID:</span>
                   <span className="font-semibold text-foreground">{currentClient ? getPatientDisplayId(currentAnimal.id, currentClient.animals) : currentAnimal.id}</span>
                 </span>
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-white px-3 py-1 text-[12px] leading-5">
+                <span className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-border bg-white px-2.5 py-1 text-[12px] leading-5 sm:px-3">
                   <FaPaw className="h-3 w-3 text-teal-600" />
                   <span className="text-muted-foreground">Espécie:</span>
                   <span className="font-semibold text-foreground">{currentAnimal.species || "-"}</span>
                 </span>
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-white px-3 py-1 text-[12px] leading-5">
+                <span className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-border bg-white px-2.5 py-1 text-[12px] leading-5 sm:px-3">
                   <FaTag className="h-3 w-3 text-vf-clinical" />
                   <span className="text-muted-foreground">Raça:</span>
                   <span className="font-semibold text-foreground">{currentAnimal.breed || "-"}</span>
                 </span>
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-white px-3 py-1 text-[12px] leading-5">
+                <span className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-border bg-white px-2.5 py-1 text-[12px] leading-5 sm:px-3">
                   <FaMale className="h-3 w-3 text-amber-600" />
                   <span className="text-muted-foreground">Sexo:</span>
                   <span className="font-semibold text-foreground">{currentAnimal.gender || "-"}</span>
                 </span>
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-white px-3 py-1 text-[12px] leading-5">
+                <span className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-border bg-white px-2.5 py-1 text-[12px] leading-5 sm:px-3">
                   <FaClock className="h-3 w-3 text-emerald-600" />
                   <span className="text-muted-foreground">Idade:</span>
                   <span className="font-semibold text-foreground">{formatAgeYearsMonths(currentAnimal.birthday)}</span>
                 </span>
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-white px-3 py-1 text-[12px] leading-5">
+                <span className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-border bg-white px-2.5 py-1 text-[12px] leading-5 sm:px-3">
                   <FaWeightHanging className="h-3 w-3 text-emerald-600" />
                   <span className="text-muted-foreground">Peso:</span>
                   <span className="font-semibold text-foreground">{formatWeightLabel(latestWeight)}</span>
                 </span>
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-white px-3 py-1 text-[12px] leading-5">
+                <span className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-border bg-white px-2.5 py-1 text-[12px] leading-5 sm:px-3">
                   <FaCalendarAlt className="h-3 w-3 text-[#F79009]" />
                   <span className="text-muted-foreground">Nascimento:</span>
                   <span className="font-semibold text-foreground">
@@ -1446,25 +1451,26 @@ const PatientRecordPage = () => {
                     onOpenChange={setIsTutorExpanded}
                     className="h-full flex flex-col"
                   >
-                    <div className="p-3 flex items-start justify-between gap-3">
-                      <div className="flex items-start gap-3 min-w-0">
-                        <div className="h-9 w-9 rounded-xl bg-[hsl(var(--vf-clinical))]/12 text-vf-clinical ring-1 ring-[hsl(var(--vf-clinical))]/25 flex items-center justify-center shrink-0">
+                    <div className="p-3 flex items-start justify-between gap-2 sm:gap-3">
+                      <div className="flex flex-1 items-start gap-3 min-w-0">
+                        <div className="hidden sm:flex h-9 w-9 rounded-xl bg-[hsl(var(--vf-clinical))]/12 text-vf-clinical ring-1 ring-[hsl(var(--vf-clinical))]/25 items-center justify-center shrink-0">
                           <UserRound className="h-4 w-4" />
                         </div>
 
-                        <div className="min-w-0">
+                        <div className="min-w-0 flex-1">
                           <div className="text-[15px] font-semibold text-foreground">Tutor</div>
-                          <div className="mt-0.5 text-[15px] text-foreground/90 font-medium truncate">
+                          <div className="mt-0.5 text-[15px] text-foreground/90 font-medium break-words">
                             {currentClient.name}
                           </div>
 
                           <div className="mt-2 space-y-1 text-sm text-muted-foreground">
-                            <div className="flex items-center gap-1.5">
-                              <FaPhone className="h-3.5 w-3.5 text-vf-clinical" />
-                              <span className="truncate">
-                                <span className="text-foreground/70 font-medium">Telefone:</span>{" "}
-                                <span className="text-foreground/90">{currentClient.mainPhoneContact || "-"}</span>
-                              </span>
+                            {/* Sem truncate: no celular o número do telefone
+                                saía cortado ("(19) 9..."). O número em si
+                                nunca quebra no meio (whitespace-nowrap). */}
+                            <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+                              <FaPhone className="h-3.5 w-3.5 shrink-0 text-vf-clinical" />
+                              <span className="text-foreground/70 font-medium">Telefone:</span>
+                              <span className="whitespace-nowrap text-foreground/90">{currentClient.mainPhoneContact || "-"}</span>
                               {currentClient.mainPhoneContact && (
                                 <button
                                   type="button"
@@ -1474,15 +1480,15 @@ const PatientRecordPage = () => {
                                   }}
                                   title="Conversar no WhatsApp"
                                   aria-label="Conversar no WhatsApp"
-                                  className="ml-0.5 shrink-0 rounded-md p-1 text-green-600 hover:bg-green-50 hover:text-green-700"
+                                  className="shrink-0 rounded-md p-1.5 -my-1 text-green-600 hover:bg-green-50 hover:text-green-700"
                                 >
-                                  <SiWhatsapp className="h-3.5 w-3.5" />
+                                  <SiWhatsapp className="h-4 w-4" />
                                 </button>
                               )}
                             </div>
                             <div className="flex items-start gap-1.5">
-                              <FaMapMarkerAlt className="mt-0.5 h-3.5 w-3.5 text-vf-clinical" />
-                              <span className={isTutorExpanded ? "" : "line-clamp-1"}>
+                              <FaMapMarkerAlt className="mt-1 h-3.5 w-3.5 shrink-0 text-vf-clinical" />
+                              <span className={cn("min-w-0 break-words", isTutorExpanded ? "" : "line-clamp-2 sm:line-clamp-1")}>
                                 <span className="text-foreground/70 font-medium">Endereço:</span>{" "}
                                 <span className="text-foreground/90">
                                   {currentClient.address?.street ? `${currentClient.address.street}, ${currentClient.address.number}` : "-"}
@@ -1500,13 +1506,14 @@ const PatientRecordPage = () => {
                       <CollapsibleTrigger asChild>
                         <Button
                           variant="ghost"
-                          className="h-8 px-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/40"
+                          className="h-8 shrink-0 px-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/40"
+                          aria-label={isTutorExpanded ? "Mostrar menos dados do tutor" : "Mostrar mais dados do tutor"}
                         >
-                          <span className="text-xs">{isTutorExpanded ? "Menos" : "Mais"}</span>
+                          <span className="hidden sm:inline text-xs">{isTutorExpanded ? "Menos" : "Mais"}</span>
                           {isTutorExpanded ? (
-                            <FaChevronUp className="ml-2 h-3.5 w-3.5" />
+                            <FaChevronUp className="sm:ml-2 h-3.5 w-3.5" />
                           ) : (
-                            <FaChevronDown className="ml-2 h-3.5 w-3.5" />
+                            <FaChevronDown className="sm:ml-2 h-3.5 w-3.5" />
                           )}
                         </Button>
                       </CollapsibleTrigger>
@@ -1611,20 +1618,20 @@ const PatientRecordPage = () => {
                         </div>
 
                         <div className="mt-3 grid grid-cols-2 gap-2">
-                          <div className="rounded-xl border border-border bg-white px-3 py-2.5">
-                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                              <AlertCircle className="h-4 w-4 text-rose-600" strokeWidth={1.6} />
+                          <div className="min-w-0 rounded-xl border border-border bg-white px-2.5 py-2 sm:px-3 sm:py-2.5">
+                            <div className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm text-muted-foreground">
+                              <AlertCircle className="h-4 w-4 shrink-0 text-rose-600" strokeWidth={1.6} />
                               <span className="font-medium text-foreground/70">Pendências</span>
                             </div>
-                            <div className="mt-1 text-base font-semibold text-rose-600">{fmt(pending)}</div>
+                            <div className="mt-1 break-words text-base font-semibold text-rose-600">{fmt(pending)}</div>
                           </div>
 
-                          <div className="rounded-xl border border-border bg-white px-3 py-2.5">
-                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                              <BadgeDollarSign className="h-4 w-4 text-emerald-600" strokeWidth={1.6} />
+                          <div className="min-w-0 rounded-xl border border-border bg-white px-2.5 py-2 sm:px-3 sm:py-2.5">
+                            <div className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm text-muted-foreground">
+                              <BadgeDollarSign className="h-4 w-4 shrink-0 text-emerald-600" strokeWidth={1.6} />
                               <span className="font-medium text-foreground/70">Saldo financeiro</span>
                             </div>
-                            <div className="mt-1 text-base font-semibold text-emerald-700">{fmt(net)}</div>
+                            <div className="mt-1 break-words text-base font-semibold text-emerald-700">{fmt(net)}</div>
                           </div>
                         </div>
                       </div>
@@ -1637,77 +1644,77 @@ const PatientRecordPage = () => {
         </div>
 
         {/* ABAS (hierarquia melhor: ativo evidente e inativos discretos) */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full mt-6">
-          <TabsList className="flex flex-wrap items-center border-b border-border/40 bg-transparent p-0 rounded-none gap-x-1 gap-y-1.5 w-full h-auto min-h-9 pb-2">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full mt-4 sm:mt-6">
+          <TabsList className="grid grid-cols-3 gap-1 sm:flex sm:flex-wrap sm:items-center sm:gap-x-1 sm:gap-y-1.5 border-b border-border/40 bg-transparent p-0 rounded-none w-full h-auto min-h-9 pb-2">
               <TabsTrigger
                 value="timeline"
                 title="Linha do Tempo"
                 style={{ ["--tab-accent" as any]: "#d97706" }}
-                className="tab-prontuario-trigger tab-active-line relative -mb-px pb-1.5 px-2 md:px-2.5 shrink-0 text-xs md:text-sm text-slate-600 hover:text-foreground rounded-md transition-colors data-[state=active]:text-foreground data-[state=active]:font-semibold"
+                className="tab-prontuario-trigger tab-active-line relative -mb-px min-w-0 py-2 sm:py-1.5 px-1.5 sm:px-2 md:px-2.5 shrink-0 text-xs md:text-sm text-slate-600 hover:text-foreground rounded-md transition-colors data-[state=active]:text-foreground data-[state=active]:font-semibold"
               >
                 <FaClock className="h-3.5 w-3.5 mr-1 md:mr-1.5 text-amber-600" />
                 <span className="max-w-[9.5rem] md:max-w-none truncate">Timeline</span>
-                <span className="ml-1.5 inline-flex items-center justify-center h-4 min-w-4 px-1.5 rounded-full text-[9px] bg-muted text-foreground/70">{sortedTimelineEvents.length}</span>
+                <span className="ml-1 sm:ml-1.5 shrink-0 inline-flex items-center justify-center h-4 min-w-4 px-1 sm:px-1.5 rounded-full text-[9px] bg-muted text-foreground/70">{sortedTimelineEvents.length}</span>
               </TabsTrigger>
               <TabsTrigger
                 value="appointments"
                 title="Atendimento"
                 style={{ ["--tab-accent" as any]: "#0d9488" }}
-                className="tab-prontuario-trigger tab-active-line relative -mb-px pb-1.5 px-2 md:px-2.5 shrink-0 text-xs md:text-sm text-slate-600 hover:text-foreground rounded-md transition-colors data-[state=active]:text-foreground data-[state=active]:font-semibold"
+                className="tab-prontuario-trigger tab-active-line relative -mb-px min-w-0 py-2 sm:py-1.5 px-1.5 sm:px-2 md:px-2.5 shrink-0 text-xs md:text-sm text-slate-600 hover:text-foreground rounded-md transition-colors data-[state=active]:text-foreground data-[state=active]:font-semibold"
               >
                 <FaStethoscope className="h-3.5 w-3.5 mr-1 md:mr-1.5 text-teal-600" />
                 <span className="max-w-[9.5rem] md:max-w-none truncate">Atend.</span>
-                <span className="ml-1.5 inline-flex items-center justify-center h-4 min-w-4 px-1.5 rounded-full text-[9px] bg-muted text-foreground/70">{animalAppointments.length}</span>
+                <span className="ml-1 sm:ml-1.5 shrink-0 inline-flex items-center justify-center h-4 min-w-4 px-1 sm:px-1.5 rounded-full text-[9px] bg-muted text-foreground/70">{animalAppointments.length}</span>
               </TabsTrigger>
             <TabsTrigger
               value="prescriptions"
               title="Receitas"
               style={{ ["--tab-accent" as any]: "#047857" }}
-              className="tab-prontuario-trigger tab-active-line relative -mb-px pb-1.5 px-2 md:px-2.5 shrink-0 text-xs md:text-sm text-slate-600 hover:text-foreground rounded-md transition-colors data-[state=active]:text-foreground data-[state=active]:font-semibold"
+              className="tab-prontuario-trigger tab-active-line relative -mb-px min-w-0 py-2 sm:py-1.5 px-1.5 sm:px-2 md:px-2.5 shrink-0 text-xs md:text-sm text-slate-600 hover:text-foreground rounded-md transition-colors data-[state=active]:text-foreground data-[state=active]:font-semibold"
             >
               <FaPrescriptionBottleAlt className="h-3.5 w-3.5 mr-1 md:mr-1.5 text-emerald-700" />
               <span className="max-w-[9.5rem] md:max-w-none truncate">Receitas</span>
-              <span className="ml-1.5 inline-flex items-center justify-center h-4 min-w-4 px-1.5 rounded-full text-[9px] bg-muted text-foreground/70">{prescriptions.length}</span>
+              <span className="ml-1 sm:ml-1.5 shrink-0 inline-flex items-center justify-center h-4 min-w-4 px-1 sm:px-1.5 rounded-full text-[9px] bg-muted text-foreground/70">{prescriptions.length}</span>
             </TabsTrigger>
               <TabsTrigger
                 value="exams"
                 title="Exames"
                 style={{ ["--tab-accent" as any]: "hsl(var(--vf-clinical))" }}
-                className="tab-prontuario-trigger tab-active-line relative -mb-px pb-1.5 px-2 md:px-2.5 shrink-0 text-xs md:text-sm text-slate-600 hover:text-foreground rounded-md transition-colors data-[state=active]:text-foreground data-[state=active]:font-semibold"
+                className="tab-prontuario-trigger tab-active-line relative -mb-px min-w-0 py-2 sm:py-1.5 px-1.5 sm:px-2 md:px-2.5 shrink-0 text-xs md:text-sm text-slate-600 hover:text-foreground rounded-md transition-colors data-[state=active]:text-foreground data-[state=active]:font-semibold"
               >
                 <FaFlask className="h-3.5 w-3.5 mr-1 md:mr-1.5 text-vf-clinical" />
                 <span className="max-w-[9.5rem] md:max-w-none truncate">Exames</span>
-                <span className="ml-1.5 inline-flex items-center justify-center h-4 min-w-4 px-1.5 rounded-full text-[9px] bg-muted text-foreground/70">{examsList.length}</span>
+                <span className="ml-1 sm:ml-1.5 shrink-0 inline-flex items-center justify-center h-4 min-w-4 px-1 sm:px-1.5 rounded-full text-[9px] bg-muted text-foreground/70">{examsList.length}</span>
               </TabsTrigger>
               <TabsTrigger
                 value="vaccines"
                 title="Vacinas"
                 style={{ ["--tab-accent" as any]: "hsl(var(--vf-clinical))" }}
-                className="tab-prontuario-trigger tab-active-line relative -mb-px pb-1.5 px-2 md:px-2.5 shrink-0 text-xs md:text-sm text-slate-600 hover:text-foreground rounded-md transition-colors data-[state=active]:text-foreground data-[state=active]:font-semibold"
+                className="tab-prontuario-trigger tab-active-line relative -mb-px min-w-0 py-2 sm:py-1.5 px-1.5 sm:px-2 md:px-2.5 shrink-0 text-xs md:text-sm text-slate-600 hover:text-foreground rounded-md transition-colors data-[state=active]:text-foreground data-[state=active]:font-semibold"
               >
                 <FaSyringe className="h-3.5 w-3.5 mr-1 md:mr-1.5 text-vf-clinical" />
                 <span className="max-w-[9.5rem] md:max-w-none truncate">Vacinas</span>
-                <span className="ml-1.5 inline-flex items-center justify-center h-4 min-w-4 px-1.5 rounded-full text-[9px] bg-muted text-foreground/70">{vaccineAppointmentsCount}</span>
+                <span className="ml-1 sm:ml-1.5 shrink-0 inline-flex items-center justify-center h-4 min-w-4 px-1 sm:px-1.5 rounded-full text-[9px] bg-muted text-foreground/70">{vaccineAppointmentsCount}</span>
               </TabsTrigger>
               <TabsTrigger
                 value="weight"
                 title="Peso"
                 style={{ ["--tab-accent" as any]: "#059669" }}
-                className="tab-prontuario-trigger tab-active-line relative -mb-px pb-1.5 px-2 md:px-2.5 shrink-0 text-xs md:text-sm text-slate-600 hover:text-foreground rounded-md transition-colors data-[state=active]:text-foreground data-[state=active]:font-semibold"
+                className="tab-prontuario-trigger tab-active-line relative -mb-px min-w-0 py-2 sm:py-1.5 px-1.5 sm:px-2 md:px-2.5 shrink-0 text-xs md:text-sm text-slate-600 hover:text-foreground rounded-md transition-colors data-[state=active]:text-foreground data-[state=active]:font-semibold"
               >
                 <FaWeightHanging className="h-3.5 w-3.5 mr-1 md:mr-1.5 text-emerald-600" />
                 <span className="max-w-[9.5rem] md:max-w-none truncate">Peso</span>
-                <span className="ml-1.5 inline-flex items-center justify-center h-4 min-w-4 px-1.5 rounded-full text-[9px] bg-muted text-foreground/70">{weightHistory.length}</span>
+                <span className="ml-1 sm:ml-1.5 shrink-0 inline-flex items-center justify-center h-4 min-w-4 px-1 sm:px-1.5 rounded-full text-[9px] bg-muted text-foreground/70">{weightHistory.length}</span>
               </TabsTrigger>
               <TabsTrigger
                 value="documents"
                 title="Documentos"
                 style={{ ["--tab-accent" as any]: "#475569" }}
-                className="tab-prontuario-trigger tab-active-line relative -mb-px pb-1.5 px-2 md:px-2.5 shrink-0 text-xs md:text-sm text-slate-600 hover:text-foreground rounded-md transition-colors data-[state=active]:text-foreground data-[state=active]:font-semibold"
+                className="tab-prontuario-trigger tab-active-line relative -mb-px min-w-0 py-2 sm:py-1.5 px-1.5 sm:px-2 md:px-2.5 shrink-0 text-xs md:text-sm text-slate-600 hover:text-foreground rounded-md transition-colors data-[state=active]:text-foreground data-[state=active]:font-semibold"
               >
                 <FaFileAlt className="h-3.5 w-3.5 mr-1 md:mr-1.5 text-slate-600" />
                 <span className="max-w-[9.5rem] md:max-w-none truncate">Docs</span>
-                <span className="ml-1.5 inline-flex items-center justify-center h-4 min-w-4 px-1.5 rounded-full text-[9px] bg-muted text-foreground/70">{documents.length}</span>
+                <span className="ml-1 sm:ml-1.5 shrink-0 inline-flex items-center justify-center h-4 min-w-4 px-1 sm:px-1.5 rounded-full text-[9px] bg-muted text-foreground/70">{documents.length}</span>
               </TabsTrigger>
 
               {/* Separador visual: Clínico | Comercial */}
@@ -1720,37 +1727,37 @@ const PatientRecordPage = () => {
                 value="observations"
                 title="Observações"
                 style={{ ["--tab-accent" as any]: "#e11d48" }}
-                className="tab-prontuario-trigger tab-active-line relative -mb-px pb-1.5 px-2 md:px-2.5 shrink-0 text-xs md:text-sm text-slate-600 hover:text-foreground rounded-md transition-colors data-[state=active]:text-foreground data-[state=active]:font-semibold"
+                className="tab-prontuario-trigger tab-active-line relative -mb-px min-w-0 py-2 sm:py-1.5 px-1.5 sm:px-2 md:px-2.5 shrink-0 text-xs md:text-sm text-slate-600 hover:text-foreground rounded-md transition-colors data-[state=active]:text-foreground data-[state=active]:font-semibold"
               >
                 <FaCommentAlt className="h-3.5 w-3.5 mr-1 md:mr-1.5 text-rose-600" />
                 <span className="max-w-[9.5rem] md:max-w-none truncate">Observ.</span>
-                <span className="ml-1.5 inline-flex items-center justify-center h-4 min-w-4 px-1.5 rounded-full text-[9px] bg-muted text-foreground/70">{observations.length}</span>
+                <span className="ml-1 sm:ml-1.5 shrink-0 inline-flex items-center justify-center h-4 min-w-4 px-1 sm:px-1.5 rounded-full text-[9px] bg-muted text-foreground/70">{observations.length}</span>
               </TabsTrigger>
               <TabsTrigger
                 value="financial"
                 title="Financeiro"
                 style={{ ["--tab-accent" as any]: "#F79009" }}
-                className="tab-prontuario-trigger tab-active-line relative -mb-px pb-1.5 px-2 md:px-2.5 shrink-0 text-xs md:text-sm text-slate-600 hover:text-foreground rounded-md transition-colors data-[state=active]:text-foreground data-[state=active]:font-semibold"
+                className="tab-prontuario-trigger tab-active-line relative -mb-px min-w-0 py-2 sm:py-1.5 px-1.5 sm:px-2 md:px-2.5 shrink-0 text-xs md:text-sm text-slate-600 hover:text-foreground rounded-md transition-colors data-[state=active]:text-foreground data-[state=active]:font-semibold"
               >
                 <FaMoneyBillWave className="h-3.5 w-3.5 mr-1 md:mr-1.5 text-[#F79009]" />
                 <span className="max-w-[9.5rem] md:max-w-none truncate">Financeiro</span>
-                <span className="ml-1.5 inline-flex items-center justify-center h-4 min-w-4 px-1.5 rounded-full text-[9px] bg-muted text-foreground/70">{animalSalesTransactions.length}</span>
+                <span className="ml-1 sm:ml-1.5 shrink-0 inline-flex items-center justify-center h-4 min-w-4 px-1 sm:px-1.5 rounded-full text-[9px] bg-muted text-foreground/70">{animalSalesTransactions.length}</span>
               </TabsTrigger>
           </TabsList>
 
           <TabsContent value="timeline" className="mt-4">
             <Card className="premium-card">
-              <CardHeader className="pb-4">
+              <CardHeader className="p-4 pb-3 sm:p-6 sm:pb-4">
                 <CardTitle className="flex items-center gap-2 text-base font-semibold text-foreground">
                   <FaClock className="h-4 w-4 text-muted-foreground" /> Linha do Tempo
                 </CardTitle>
                 <p className="text-sm text-muted-foreground">Eventos clínicos em ordem cronológica (escaneável)</p>
               </CardHeader>
-              <CardContent className="pt-0">
+              <CardContent className="px-3 pb-4 pt-0 sm:px-6 sm:pb-6">
                 {sortedTimelineEvents.length > 0 ? (
                   <div className="relative">
                     <div className="absolute left-4 sm:left-5 top-0 bottom-0 w-px bg-border/70" />
-                    <div className="space-y-5">
+                    <div className="space-y-3 sm:space-y-5">
                       {sortedTimelineEvents.map((event) => {
                         const styles = getEventStyle(event.type);
                         const iconClass = getEventIconClass(event.type);
@@ -1852,17 +1859,19 @@ const PatientRecordPage = () => {
                         const markerColor = getTimelineMarkerColor(dotClass);
 
                         return (
-                          <div key={event.id} className="relative pl-9 sm:pl-11">
-                            {/* Container maior, ícone no mesmo tamanho */}
-                            <span className="absolute left-2.5 sm:left-3.5 top-4 h-10 w-10 rounded-full bg-white ring-1 ring-border flex items-center justify-center">
+                          <div key={event.id} className="relative pl-10 sm:pl-11">
+                            {/* Container maior, ícone no mesmo tamanho. No celular
+                                o marcador encolhe e fica centrado na linha, fora do
+                                card (antes ficava por cima da borda do card). */}
+                            <span className="absolute left-0 top-3 h-8 w-8 sm:left-3.5 sm:top-4 sm:h-10 sm:w-10 rounded-full bg-white ring-1 ring-border flex items-center justify-center">
                               <MarkerIcon className="h-4 w-4" strokeWidth={1.6} style={{ color: markerColor }} />
                             </span>
 
-                            <Card className="premium-card p-4 sm:p-5">
-                              <div className="flex items-start justify-between gap-4">
-                                <div className="min-w-0">
-                                  <div className="flex items-center gap-2">
-                                    <span className={cn("chip-soft", badgeClass)}>
+                            <Card className="premium-card p-3 sm:p-5">
+                              <div className="flex items-start justify-between gap-2 sm:gap-4">
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                                    <span className={cn("chip-soft shrink-0", badgeClass)}>
                                       {isAlertObs
                                         ? "Alerta"
                                         : isCancelledAgenda
@@ -1873,16 +1882,18 @@ const PatientRecordPage = () => {
                                             : 'Receita Simples')
                                           : event.type}
                                     </span>
-                                    <span className="text-xs text-muted-foreground truncate">{meta}</span>
+                                    <span className="min-w-0 max-w-full break-words text-xs text-muted-foreground lg:truncate">{meta}</span>
                                   </div>
 
                                   <div className="mt-2 flex items-start gap-3">
-                                    <div className={cn("h-9 w-9 rounded-xl flex items-center justify-center bg-muted/30", iconColorClass)}>
+                                    {/* No celular o marcador da linha já mostra o ícone —
+                                        esconder este devolve ~50px pro título. */}
+                                    <div className={cn("hidden sm:flex h-9 w-9 shrink-0 rounded-xl items-center justify-center bg-muted/30", iconColorClass)}>
                                       {React.createElement(event.icon, { className: "h-4 w-4" })}
                                     </div>
 
                                     <div className="min-w-0">
-                                      <div className="text-[15px] sm:text-base font-semibold text-foreground leading-snug truncate">
+                                      <div className="text-[15px] sm:text-base font-semibold text-foreground leading-snug break-words lg:truncate">
                                         {title}
                                       </div>
                                       {subtitle && (
@@ -1899,7 +1910,7 @@ const PatientRecordPage = () => {
                                     variant="ghost"
                                     size="icon"
                                     onClick={onView}
-                                    className="h-9 w-9 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/40"
+                                    className="h-9 w-9 shrink-0 -mr-1 -mt-1 sm:m-0 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/40"
                                   >
                                     <FaEye className="h-4 w-4" />
                                     <span className="sr-only">Ver</span>
@@ -1932,29 +1943,31 @@ const PatientRecordPage = () => {
           <TabsContent value="exams" className="mt-4 space-y-4">
             <ExamTrendCard exams={examsList} species={currentAnimal.species} />
             <Card className="vf-surface-card vf-tone-clinical card-hover rounded-md border border-border/80">
-              <CardHeader className="flex flex-row items-center justify-between pb-3">
+              {/* flex-col no celular: título + 2 botões numa linha só passavam
+                  da largura da tela (arrasto lateral / botão por cima do título). */}
+              <CardHeader className="flex flex-col gap-3 space-y-0 p-4 pb-3 sm:flex-row sm:items-center sm:justify-between sm:p-6 sm:pb-3">
                 <CardTitle className="flex items-center gap-2 text-lg font-semibold text-foreground">
                   <FaFlask className="h-5 w-5 text-primary" /> Histórico de Exames
                 </CardTitle>
-                <div className="flex gap-2">
+                <div className="flex w-full flex-wrap gap-2 sm:w-auto sm:justify-end">
                   {examsList.length > 0 && (
                     <Button
                       size="sm"
                       variant="outline"
                       onClick={openExamInterpretation}
-                      className="rounded-md border-primary/25 shadow-sm transition-colors hover:border-primary/40"
+                      className="flex-1 sm:flex-none rounded-md border-primary/25 shadow-sm transition-colors hover:border-primary/40"
                     >
                       <Sparkles className="h-4 w-4 mr-2 text-primary" /> Pedir interpretação de IA
                     </Button>
                   )}
-                  <Link to={subPath("/add-exam")}>
-                    <Button size="sm" className="rounded-md bg-[hsl(var(--vf-clinical))] font-semibold text-white transition-all duration-200 shadow-md hover:bg-[hsl(var(--vf-clinical)/0.9)] hover:shadow-lg">
+                  <Button asChild size="sm" className="flex-1 sm:flex-none rounded-md bg-[hsl(var(--vf-clinical))] font-semibold text-white transition-all duration-200 shadow-md hover:bg-[hsl(var(--vf-clinical)/0.9)] hover:shadow-lg">
+                    <Link to={subPath("/add-exam")}>
                       <FaPlus className="h-4 w-4 mr-2" /> Adicionar Exame
-                    </Button>
-                  </Link>
+                    </Link>
+                  </Button>
                 </div>
               </CardHeader>
-              <CardContent className="pt-0">
+              <CardContent className="px-3 pb-4 pt-0 sm:px-6 sm:pb-6">
                 {examsList.length > 0 ? (
                   <div className="space-y-3">
                     {examsList.map((exam) => {
@@ -1973,37 +1986,39 @@ const PatientRecordPage = () => {
                         <div
                           key={exam.id}
                           className={cn(
-                            "rounded-xl border bg-white p-4 transition-all duration-200",
+                            "rounded-xl border bg-white p-3 sm:p-4 transition-all duration-200",
                             "hover:shadow-lg hover:-translate-y-0.5",
                             "border-[hsl(var(--vf-clinical))]/35 hover:shadow-[hsl(var(--vf-clinical))]/20"
                           )}
                         >
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="flex items-start gap-3 min-w-0">
-                              <div className="h-12 w-12 shrink-0 rounded-2xl bg-[hsl(var(--vf-clinical))]/12 flex items-center justify-center">
-                                <FaFlask className="h-6 w-6 text-vf-clinical" />
+                          {/* Celular: botões numa faixa embaixo do conteúdo (antes
+                              4 ícones de 40px ao lado espremiam o título pra ~100px). */}
+                          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
+                            <div className="flex min-w-0 flex-1 items-start gap-3">
+                              <div className="h-10 w-10 sm:h-12 sm:w-12 shrink-0 rounded-2xl bg-[hsl(var(--vf-clinical))]/12 flex items-center justify-center">
+                                <FaFlask className="h-5 w-5 sm:h-6 sm:w-6 text-vf-clinical" />
                               </div>
 
                               <div className="min-w-0">
-                                <div className="text-base font-bold text-vf-clinical truncate">{title}</div>
+                                <div className="text-base font-bold text-vf-clinical break-words lg:truncate">{title}</div>
                                 <div className="mt-1 text-sm text-muted-foreground leading-relaxed line-clamp-2">
                                   {subtitle}
                                 </div>
 
-                                <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+                                <div className="mt-2 sm:mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
                                   <span className="inline-flex items-center gap-1.5 text-foreground/80 font-medium">
-                                    <Calendar className="h-4 w-4 text-muted-foreground" />
+                                    <Calendar className="h-4 w-4 shrink-0 text-muted-foreground" />
                                     {formatDateTime(exam.date, exam.time)}
                                   </span>
-                                  <span className="inline-flex items-center gap-1.5 text-muted-foreground font-medium">
-                                    <FaStethoscope className="h-4 w-4" />
-                                    {exam.vet}
+                                  <span className="inline-flex min-w-0 items-center gap-1.5 text-muted-foreground font-medium">
+                                    <FaStethoscope className="h-4 w-4 shrink-0" />
+                                    <span className="min-w-0 break-words">{exam.vet}</span>
                                   </span>
                                 </div>
                               </div>
                             </div>
 
-                            <div className="flex gap-2">
+                            <div className="flex flex-wrap items-center justify-end gap-1 border-t border-border/60 pt-2 sm:shrink-0 sm:flex-nowrap sm:gap-2 sm:border-0 sm:pt-0">
                               {/* Botão: Laudo padrão (modelo atual) */}
                               <Button
                                 variant="ghost"
@@ -2305,22 +2320,22 @@ const PatientRecordPage = () => {
 
           <TabsContent value="weight" className="mt-4">
             <Card className="vf-surface-card vf-tone-clinical card-hover rounded-md border border-border/80">
-              <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between pb-3 gap-2">
+              <CardHeader className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between space-y-0 p-4 pb-3 sm:p-6 sm:pb-3 gap-3">
                 <CardTitle className="flex items-center gap-2 text-lg font-semibold text-foreground">
                   <FaWeightHanging className="h-5 w-5 text-primary" /> Histórico de Peso
                 </CardTitle>
-                <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
+                <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-row sm:items-center">
                   <Input
                     type="date"
                     value={newWeightDate}
                     onChange={(e) => setNewWeightDate(e.target.value)}
-                    className="w-full sm:w-[150px] bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200"
+                    className="min-w-0 w-full sm:w-[150px] bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200"
                   />
                   <WeightInput
                     placeholder="Peso (kg)"
                     value={newWeight}
                     onChange={(v) => setNewWeight(v)}
-                    className="w-full sm:w-[120px] bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200"
+                    className="min-w-0 w-full sm:w-[120px] bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200"
                   />
                   <Button size="sm" onClick={async () => {
                     if (newWeight !== "" && newWeightDate) {
@@ -2340,12 +2355,12 @@ const PatientRecordPage = () => {
                         toast.error("Erro ao adicionar peso.");
                       }
                     }
-                  }} disabled={newWeight === ""} className="w-full sm:w-auto rounded-md bg-[hsl(var(--vf-clinical))] font-semibold text-white transition-all duration-200 shadow-md hover:bg-[hsl(var(--vf-clinical)/0.9)] hover:shadow-lg">
+                  }} disabled={newWeight === ""} className="col-span-2 w-full sm:w-auto rounded-md bg-[hsl(var(--vf-clinical))] font-semibold text-white transition-all duration-200 shadow-md hover:bg-[hsl(var(--vf-clinical)/0.9)] hover:shadow-lg">
                     <FaPlus className="h-4 w-4 mr-2" /> Adicionar Peso
                   </Button>
                 </div>
               </CardHeader>
-              <CardContent className="pt-0">
+              <CardContent className="px-3 pb-4 pt-0 sm:px-6 sm:pb-6">
                 {sortedWeightHistory.length > 0 ? (
                   <div className="space-y-3">
                     {sortedWeightHistory.map((entry, idx) => {
@@ -2358,12 +2373,12 @@ const PatientRecordPage = () => {
                       return (
                         <div
                           key={entry.id}
-                          className="premium-card rounded-xl p-4 transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5 border-emerald-200 hover:shadow-emerald-200/60"
+                          className="premium-card rounded-xl p-3 sm:p-4 transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5 border-emerald-200 hover:shadow-emerald-200/60"
                         >
                           <div className="flex items-start justify-between gap-3">
                             <div className="flex items-start gap-3 min-w-0">
-                              <div className="h-12 w-12 shrink-0 rounded-2xl bg-emerald-50/70 flex items-center justify-center">
-                                <FaWeightHanging className="h-6 w-6 text-emerald-600" />
+                              <div className="h-10 w-10 sm:h-12 sm:w-12 shrink-0 rounded-2xl bg-emerald-50/70 flex items-center justify-center">
+                                <FaWeightHanging className="h-5 w-5 sm:h-6 sm:w-6 text-emerald-600" />
                               </div>
 
                               <div className="min-w-0">
@@ -2423,12 +2438,12 @@ const PatientRecordPage = () => {
 
           <TabsContent value="documents" className="mt-4">
             <Card className="vf-surface-card vf-tone-clinical card-hover rounded-md border border-border/80">
-              <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between pb-3 gap-2">
+              <CardHeader className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between space-y-0 p-4 pb-3 sm:p-6 sm:pb-3 gap-3">
                 <CardTitle className="flex items-center gap-2 text-lg font-semibold text-foreground">
                   <FaFileAlt className="h-5 w-5 text-primary" /> Documentos
                 </CardTitle>
                 {canEditPrescriptions ? (
-                  <div className="flex w-full flex-wrap gap-2 sm:w-auto">
+                  <div className="grid w-full grid-cols-1 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:justify-end">
                     <Button size="sm" asChild className="rounded-md bg-[hsl(var(--vf-clinical))] font-semibold text-white transition-all duration-200 shadow-md hover:bg-[hsl(var(--vf-clinical)/0.9)] hover:shadow-lg">
                       <Link to={subPath("/emit-document")}>
                         <FaFileAlt className="h-4 w-4 mr-2" /> Emitir termo/atestado
@@ -2448,7 +2463,7 @@ const PatientRecordPage = () => {
                   </div>
                 ) : null}
               </CardHeader>
-              <CardContent className="pt-0">
+              <CardContent className="px-3 pb-4 pt-0 sm:px-6 sm:pb-6">
                 {documents.length > 0 ? (
                   <div className="space-y-3">
                     {documents.map((doc) => {
@@ -2591,32 +2606,34 @@ const PatientRecordPage = () => {
                         <div
                           key={doc.id}
                           className={cn(
-                            "rounded-xl border bg-white p-4 transition-all duration-200",
+                            "rounded-xl border bg-white p-3 sm:p-4 transition-all duration-200",
                             "hover:shadow-lg hover:-translate-y-0.5",
                             "border-slate-200 hover:shadow-slate-200/60"
                           )}
                         >
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="flex items-start gap-3 min-w-0">
-                              <div className="h-12 w-12 shrink-0 rounded-2xl bg-slate-50/70 flex items-center justify-center">
-                                <FaFileAlt className="h-6 w-6 text-slate-600" />
+                          {/* Celular: até 6 botões numa faixa embaixo — ao lado do
+                              nome eles ocupavam ~280px e o nome sumia. */}
+                          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
+                            <div className="flex min-w-0 flex-1 items-start gap-3">
+                              <div className="h-10 w-10 sm:h-12 sm:w-12 shrink-0 rounded-2xl bg-slate-50/70 flex items-center justify-center">
+                                <FaFileAlt className="h-5 w-5 sm:h-6 sm:w-6 text-slate-600" />
                               </div>
                               <div className="min-w-0">
-                                <div className="flex items-center gap-2 text-base font-bold text-slate-900">
-                                  <span className="truncate">{doc.name}</span>
+                                <div className="flex flex-wrap items-center gap-x-2 text-base font-bold text-slate-900">
+                                  <span className="min-w-0 break-words lg:truncate">{doc.name}</span>
                                   {doc.source === "editor" && (
                                     <span className="text-xs font-normal text-muted-foreground">(editor)</span>
                                   )}
                                 </div>
-                                <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+                                <div className="mt-2 sm:mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
                                   <span className="inline-flex items-center gap-1.5 text-foreground/80 font-medium">
-                                    <Calendar className="h-4 w-4 text-muted-foreground" />
+                                    <Calendar className="h-4 w-4 shrink-0 text-muted-foreground" />
                                     {formatDateTime(doc.date, doc.time)}
                                   </span>
                                 </div>
                               </div>
                             </div>
-                            <div className="flex gap-2">
+                            <div className="flex flex-wrap items-center justify-end gap-1 border-t border-border/60 pt-2 sm:shrink-0 sm:flex-nowrap sm:gap-2 sm:border-0 sm:pt-0">
                               <Button
                                 variant="ghost"
                                 size="icon"
@@ -2712,26 +2729,29 @@ const PatientRecordPage = () => {
 
           <TabsContent value="prescriptions" className="mt-4">
             {canEditPrescriptions ? (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                <Link to={subPath("/add-prescription?type=simple")}>
-                  <Card className="vf-surface-card vf-tone-clinical card-hover flex h-full flex-col items-center justify-center rounded-md border border-border/80 p-6 text-center">
-                    <FaFileMedical className="h-12 w-12 text-primary mb-3" />
-                    <CardTitle className="text-lg font-semibold text-foreground">Receita Simples</CardTitle>
-                    <p className="text-sm text-muted-foreground mt-1">Medicamentos de uso comum</p>
+              // 3 colunas desde o celular: empilhados, os 3 cartões grandes
+              // (p-6, ícone de 48px) ocupavam uma tela inteira antes da lista de
+              // receitas. No celular viram botões compactos (ícone + nome).
+              <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-4 sm:mb-6">
+                <Link to={subPath("/add-prescription?type=simple")} className="min-w-0">
+                  <Card className="vf-surface-card vf-tone-clinical card-hover flex h-full flex-col items-center justify-center rounded-md border border-border/80 p-3 sm:p-6 text-center">
+                    <FaFileMedical className="h-7 w-7 sm:h-12 sm:w-12 text-primary mb-2 sm:mb-3" />
+                    <CardTitle className="text-sm sm:text-lg leading-tight font-semibold text-foreground">Receita Simples</CardTitle>
+                    <p className="hidden sm:block text-sm text-muted-foreground mt-1">Medicamentos de uso comum</p>
                   </Card>
                 </Link>
-                <Link to={subPath("/add-prescription?type=controlled")}>
-                  <Card className="vf-surface-card vf-tone-clinical card-hover flex h-full flex-col items-center justify-center rounded-md border border-border/80 p-6 text-center">
-                    <FaExclamationTriangle className="h-12 w-12 text-destructive mb-3" />
-                    <CardTitle className="text-lg font-semibold text-foreground">Receita Controlada</CardTitle>
-                    <p className="text-sm text-muted-foreground mt-1">Medicamentos controlados</p>
+                <Link to={subPath("/add-prescription?type=controlled")} className="min-w-0">
+                  <Card className="vf-surface-card vf-tone-clinical card-hover flex h-full flex-col items-center justify-center rounded-md border border-border/80 p-3 sm:p-6 text-center">
+                    <FaExclamationTriangle className="h-7 w-7 sm:h-12 sm:w-12 text-destructive mb-2 sm:mb-3" />
+                    <CardTitle className="text-sm sm:text-lg leading-tight font-semibold text-foreground">Receita Controlada</CardTitle>
+                    <p className="hidden sm:block text-sm text-muted-foreground mt-1">Medicamentos controlados</p>
                   </Card>
                 </Link>
-                <Link to={subPath("/add-prescription?type=manipulated")}>
-                  <Card className="vf-surface-card vf-tone-clinical card-hover flex h-full flex-col items-center justify-center rounded-md border border-border/80 p-6 text-center">
-                    <FaFlask className="h-12 w-12 text-vf-clinical mb-3" />
-                    <CardTitle className="text-lg font-semibold text-foreground">Receita Manipulada</CardTitle>
-                    <p className="text-sm text-muted-foreground mt-1">Medicamentos manipulados</p>
+                <Link to={subPath("/add-prescription?type=manipulated")} className="min-w-0">
+                  <Card className="vf-surface-card vf-tone-clinical card-hover flex h-full flex-col items-center justify-center rounded-md border border-border/80 p-3 sm:p-6 text-center">
+                    <FaFlask className="h-7 w-7 sm:h-12 sm:w-12 text-vf-clinical mb-2 sm:mb-3" />
+                    <CardTitle className="text-sm sm:text-lg leading-tight font-semibold text-foreground">Receita Manipulada</CardTitle>
+                    <p className="hidden sm:block text-sm text-muted-foreground mt-1">Medicamentos manipulados</p>
                   </Card>
                 </Link>
               </div>
@@ -2742,12 +2762,12 @@ const PatientRecordPage = () => {
             )}
 
             <Card className="vf-surface-card vf-tone-clinical card-hover rounded-md border border-border/80">
-              <CardHeader className="flex flex-row items-center justify-between pb-3">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 p-4 pb-3 sm:p-6 sm:pb-3">
                 <CardTitle className="flex items-center gap-2 text-lg font-semibold text-foreground">
                   <FaPrescriptionBottleAlt className="h-5 w-5 text-primary" /> Prescrições Recentes
                 </CardTitle>
               </CardHeader>
-              <CardContent className="pt-0">
+              <CardContent className="px-3 pb-4 pt-0 sm:px-6 sm:pb-6">
                 {prescriptions.length > 0 ? (
                   <div className="space-y-3">
                     {sortedPrescriptions.map((rx) => {
@@ -2786,21 +2806,21 @@ const PatientRecordPage = () => {
                         <div
                           key={rx.id}
                           className={cn(
-                            "rounded-xl border bg-white p-4 transition-all duration-200",
+                            "rounded-xl border bg-white p-3 sm:p-4 transition-all duration-200",
                             "hover:shadow-lg hover:-translate-y-0.5",
                             borderClass
                           )}
                         >
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="flex items-start gap-3 min-w-0">
-                              <div className={cn("h-12 w-12 shrink-0 rounded-2xl flex items-center justify-center", iconWrapClass)}>
-                                <FaPrescriptionBottleAlt className={cn("h-6 w-6", iconClass)} />
+                          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
+                            <div className="flex min-w-0 flex-1 items-start gap-3">
+                              <div className={cn("h-10 w-10 sm:h-12 sm:w-12 shrink-0 rounded-2xl flex items-center justify-center", iconWrapClass)}>
+                                <FaPrescriptionBottleAlt className={cn("h-5 w-5 sm:h-6 sm:w-6", iconClass)} />
                               </div>
 
                               <div className="min-w-0">
-                                <div className="flex items-center gap-2">
+                                <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                                   <span className={cn(
-                                    "inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-extrabold tracking-widest",
+                                    "inline-flex shrink-0 items-center rounded-full px-2.5 py-1 text-[11px] font-extrabold tracking-wider sm:tracking-widest",
                                     isControlled
                                       ? "bg-destructive/15 text-destructive"
                                       : isManipulated
@@ -2812,7 +2832,7 @@ const PatientRecordPage = () => {
                                   <span className="text-xs text-muted-foreground">{formatDateTime(rx.date, rx.time)}</span>
                                 </div>
 
-                                <div className={cn("mt-2 text-[15px] sm:text-base font-semibold leading-snug", iconClass)}>
+                                <div className={cn("mt-2 break-words text-[15px] sm:text-base font-semibold leading-snug", iconClass)}>
                                   {title}
                                 </div>
                                 {subtitle ? (
@@ -2823,7 +2843,7 @@ const PatientRecordPage = () => {
                               </div>
                             </div>
 
-                            <div className="flex flex-wrap gap-2">
+                            <div className="flex flex-wrap items-center justify-end gap-1 border-t border-border/60 pt-2 sm:shrink-0 sm:flex-nowrap sm:gap-2 sm:border-0 sm:pt-0">
                               <Button
                                 variant="ghost"
                                 size="icon"
@@ -2993,7 +3013,7 @@ const PatientRecordPage = () => {
 
           <TabsContent value="observations" className="mt-4">
             <Card className="vf-surface-card vf-tone-clinical card-hover rounded-md border border-border/80">
-              <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between pb-3 gap-2">
+              <CardHeader className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between space-y-0 p-4 pb-3 sm:p-6 sm:pb-3 gap-3">
                 <CardTitle className="flex items-center gap-2 text-lg font-semibold text-foreground">
                   <FaCommentAlt className="h-5 w-5 text-primary" /> Observações Gerais
                 </CardTitle>
@@ -3012,11 +3032,11 @@ const PatientRecordPage = () => {
                     setNewObservation("");
                     setNewObservationAlert(false);
                   }
-                }} disabled={isObservationEmpty} className="rounded-md bg-[hsl(var(--vf-clinical))] font-semibold text-white transition-all duration-200 shadow-md hover:bg-[hsl(var(--vf-clinical)/0.9)] hover:shadow-lg">
+                }} disabled={isObservationEmpty} className="w-full sm:w-auto rounded-md bg-[hsl(var(--vf-clinical))] font-semibold text-white transition-all duration-200 shadow-md hover:bg-[hsl(var(--vf-clinical)/0.9)] hover:shadow-lg">
                   <FaPlus className="h-4 w-4 mr-2" /> Adicionar Observação
                 </Button>
               </CardHeader>
-              <CardContent className="pt-0">
+              <CardContent className="px-3 pb-4 pt-0 sm:px-6 sm:pb-6">
                 <div className="mb-4 space-y-3">
                   <Textarea
                     placeholder="Adicione uma nova observação..."
@@ -3046,26 +3066,26 @@ const PatientRecordPage = () => {
                         <div
                           key={obs.id}
                           className={cn(
-                            "rounded-xl border bg-white p-4 transition-all duration-200",
+                            "rounded-xl border bg-white p-3 sm:p-4 transition-all duration-200",
                             "hover:shadow-lg hover:-translate-y-0.5",
                             isAlert
                               ? "border-red-200 hover:shadow-red-200/60"
                               : "border-slate-200 hover:shadow-slate-200/60"
                           )}
                         >
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="flex items-start gap-3 min-w-0">
+                          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
+                            <div className="flex min-w-0 flex-1 items-start gap-3">
                               <div
                                 className={cn(
-                                  "h-12 w-12 shrink-0 rounded-2xl flex items-center justify-center",
+                                  "h-10 w-10 sm:h-12 sm:w-12 shrink-0 rounded-2xl flex items-center justify-center",
                                   isAlert ? "bg-red-50/70" : "bg-slate-50/70"
                                 )}
                               >
-                                <FaCommentAlt className={cn("h-6 w-6", isAlert ? "text-red-600" : "text-slate-600")} />
+                                <FaCommentAlt className={cn("h-5 w-5 sm:h-6 sm:w-6", isAlert ? "text-red-600" : "text-slate-600")} />
                               </div>
 
                               <div className="min-w-0">
-                                <div className="flex items-center gap-2">
+                                <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                                   {isAlert ? (
                                     <span className="inline-flex items-center rounded-full bg-red-100 px-2.5 py-1 text-[11px] font-extrabold tracking-widest text-red-800">
                                       ALERTA
@@ -3074,13 +3094,13 @@ const PatientRecordPage = () => {
                                   <span className="text-xs text-muted-foreground">{formatDateTime(obs.date, obs.time)}</span>
                                 </div>
 
-                                <div className={cn("mt-2 whitespace-pre-wrap text-[15px] sm:text-base font-semibold leading-snug", isAlert ? "text-red-900" : "text-foreground")}>
+                                <div className={cn("mt-2 whitespace-pre-wrap break-words text-[15px] sm:text-base font-semibold leading-snug", isAlert ? "text-red-900" : "text-foreground")}>
                                   {obs.observation}
                                 </div>
                               </div>
                             </div>
 
-                            <div className="flex gap-2">
+                            <div className="flex flex-wrap items-center justify-end gap-1 border-t border-border/60 pt-2 sm:shrink-0 sm:flex-nowrap sm:gap-2 sm:border-0 sm:pt-0">
                               <Button
                                 variant="ghost"
                                 size="icon"
@@ -3125,51 +3145,53 @@ const PatientRecordPage = () => {
 
           <TabsContent value="financial" className="mt-4">
             <Card className="vf-surface-card vf-tone-finance rounded-[12px]">
-              <CardHeader className="flex flex-row items-center justify-between pb-3">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 p-4 pb-3 sm:p-6 sm:pb-3">
                 <CardTitle className="flex items-center gap-2 text-lg font-semibold text-foreground">
                   <FaMoneyBillWave className="h-5 w-5 text-primary" /> Financeiro
                 </CardTitle>
               </CardHeader>
-              <CardContent className="pt-0">
+              <CardContent className="px-3 pb-4 pt-0 sm:px-6 sm:pb-6">
                 <Tabs value={financeTab} onValueChange={(v) => setFinanceTab(v as any)} className="w-full">
-                  <TabsList className="inline-flex h-9 rounded-lg bg-muted/60 p-1 mb-4">
-                    <TabsTrigger value="orcamentos" className="flex items-center gap-1.5 px-4 text-sm font-medium rounded-md">
-                      📋 Orçamentos
+                  {/* Celular: as 3 sub-abas dividem a largura (grid) — em linha
+                      com px-4 cada uma passavam da tela. */}
+                  <TabsList className="grid h-auto w-full grid-cols-3 rounded-lg bg-muted/60 p-1 mb-3 sm:mb-4 sm:inline-flex sm:h-9 sm:w-auto">
+                    <TabsTrigger value="orcamentos" className="flex min-w-0 items-center gap-1 sm:gap-1.5 px-1.5 sm:px-4 text-xs sm:text-sm font-medium rounded-md">
+                      <span className="hidden sm:inline">📋</span> Orçamentos
                       {patientBudgets.length > 0 && (
-                        <span className="ml-1 rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-bold">
+                        <span className="sm:ml-1 rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-bold">
                           {patientBudgets.length}
                         </span>
                       )}
                     </TabsTrigger>
-                    <TabsTrigger value="vendas" className="flex items-center gap-1.5 px-4 text-sm font-medium rounded-md">
-                      🛒 Vendas
+                    <TabsTrigger value="vendas" className="flex min-w-0 items-center gap-1 sm:gap-1.5 px-1.5 sm:px-4 text-xs sm:text-sm font-medium rounded-md">
+                      <span className="hidden sm:inline">🛒</span> Vendas
                       {animalSalesTransactions.length > 0 && (
-                        <span className="ml-1 rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-bold">
+                        <span className="sm:ml-1 rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-bold">
                           {animalSalesTransactions.length}
                         </span>
                       )}
                     </TabsTrigger>
-                    <TabsTrigger value="financeiro" className="flex items-center gap-1.5 px-4 text-sm font-medium rounded-md">
-                      💰 Financeiro
+                    <TabsTrigger value="financeiro" className="flex min-w-0 items-center gap-1 sm:gap-1.5 px-1.5 sm:px-4 text-xs sm:text-sm font-medium rounded-md">
+                      <span className="hidden sm:inline">💰</span> Financeiro
                     </TabsTrigger>
                   </TabsList>
 
                   <TabsContent value="orcamentos">
-                    <div className="bg-muted/40 p-4 rounded-[12px]">
+                    <div className="bg-muted/40 p-2 sm:p-4 rounded-[12px]">
                       <div className="flex justify-end mb-3">
                         <Button
                           size="sm"
                           onClick={() => { resetBudgetForm(); setBudgetModalOpen(true); }}
-                          className="rounded-md font-semibold transition-all duration-200 shadow-sm hover:shadow-md"
+                          className="w-full sm:w-auto rounded-md font-semibold transition-all duration-200 shadow-sm hover:shadow-md"
                         >
                           <FaPlus className="h-4 w-4 mr-2" /> Novo Orçamento
                         </Button>
                       </div>
                       <Card className="vf-surface-card vf-tone-finance rounded-[12px]">
-                        <CardHeader className="pb-2">
+                        <CardHeader className="p-3 pb-2 sm:p-6 sm:pb-2">
                           <CardTitle className="text-base">Orçamentos</CardTitle>
                         </CardHeader>
-                        <CardContent>
+                        <CardContent className="p-3 pt-0 sm:p-6 sm:pt-0">
                           {patientBudgets.length === 0 ? (
                             <p className="text-muted-foreground">Nenhum orçamento registrado.</p>
                           ) : (
@@ -3190,8 +3212,8 @@ const PatientRecordPage = () => {
                                   statusDisplay === "cancelled" ? "bg-gray-300 text-gray-900" :
                                   "bg-[hsl(var(--vf-clinical))] text-white";
                                 return (
-                                  <Card key={b.id} className="p-4 vf-surface-card vf-tone-finance rounded-[12px]">
-                                    <div className="flex items-center justify-between">
+                                  <Card key={b.id} className="p-3 sm:p-4 vf-surface-card vf-tone-finance rounded-[12px]">
+                                    <div className="flex items-center justify-between gap-2">
                                       <div className="flex items-center gap-2">
                                         <Badge className={`px-2 py-0.5 text-xs rounded-full ${badgeClass}`}>
                                           {statusLabel[statusDisplay] || statusDisplay}
@@ -3201,12 +3223,14 @@ const PatientRecordPage = () => {
                                         {new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(total)}
                                       </div>
                                     </div>
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mt-2 text-sm text-muted-foreground">
-                                      <div className="flex items-center gap-1"><FaCalendarAlt className="h-3 w-3" /> {formatDateTime(b.date)}</div>
-                                      <div className="flex items-center gap-1"><FaTag className="h-3 w-3" /> Validade: {BUDGET_VALIDITY_DAYS} dia(s)</div>
-                                      {b.notes && <div className="flex items-center gap-1"><FaTag className="h-3 w-3" /> Obs.: {b.notes}</div>}
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-1 sm:gap-2 mt-2 text-sm text-muted-foreground">
+                                      <div className="flex items-center gap-1"><FaCalendarAlt className="h-3 w-3 shrink-0" /> {formatDateTime(b.date)}</div>
+                                      <div className="flex items-center gap-1"><FaTag className="h-3 w-3 shrink-0" /> Validade: {BUDGET_VALIDITY_DAYS} dia(s)</div>
+                                      {b.notes && <div className="flex min-w-0 items-start gap-1"><FaTag className="mt-1 h-3 w-3 shrink-0" /> <span className="min-w-0 break-words">Obs.: {b.notes}</span></div>}
                                     </div>
-                                    <div className="flex justify-end gap-2 mt-2">
+                                    {/* flex-wrap: 6 botões numa linha sem quebra passavam da tela
+                                        no celular (o motivo da página "arrastar pros lados"). */}
+                                    <div className="flex flex-wrap justify-end gap-2 mt-3">
                                       <Button variant="outline" size="sm" onClick={()=>startEditBudget(b)} disabled={statusDisplay==="converted" || statusDisplay==="cancelled"}>Editar</Button>
                                       <Button variant="outline" size="sm" onClick={()=>void approveBudget(b.id)} disabled={statusDisplay==="converted" || statusDisplay==="cancelled"}>Aprovar</Button>
                                       <Button variant="outline" size="sm" onClick={()=>void cancelBudget(b.id)} disabled={statusDisplay==="converted" || statusDisplay==="cancelled"}>Cancelar</Button>
@@ -3219,7 +3243,7 @@ const PatientRecordPage = () => {
                                       >
                                         <SiWhatsapp className="h-4 w-4 text-[#25D366]" />
                                       </Button>
-                                      <Button size="sm" onClick={()=>openConvertModal(b.id)} disabled={!canConvert} className="rounded-md">
+                                      <Button size="sm" onClick={()=>openConvertModal(b.id)} disabled={!canConvert} className="w-full sm:w-auto rounded-md">
                                         Converter em venda
                                       </Button>
                                     </div>
@@ -3234,12 +3258,12 @@ const PatientRecordPage = () => {
                   </TabsContent>
 
                   <TabsContent value="vendas">
-                    <div className="bg-muted/40 p-4 rounded-[12px]">
+                    <div className="bg-muted/40 p-2 sm:p-4 rounded-[12px]">
                       <div className="flex justify-end mb-3">
                         <Button
                           size="sm"
                           onClick={() => { setSaleResponsible(""); setSaleModalOpen(true); }}
-                          className="rounded-md font-semibold transition-all duration-200 shadow-sm hover:shadow-md"
+                          className="w-full sm:w-auto rounded-md font-semibold transition-all duration-200 shadow-sm hover:shadow-md"
                         >
                           <FaPlus className="h-4 w-4 mr-2" /> Adicionar Venda
                         </Button>
@@ -3260,8 +3284,11 @@ const PatientRecordPage = () => {
                             const { appointmentId: linkedAppointmentId } = parseSaleObservations(t.observations);
                             const app = linkedAppointmentId ? animalAppointments.find(a => a.id === linkedAppointmentId) : undefined;
                             return (
-                              <Card key={t.id} className="p-4 vf-surface-card vf-tone-finance rounded-xl">
-                                <div className="flex items-start justify-between gap-3">
+                              <Card key={t.id} className="p-3 sm:p-4 vf-surface-card vf-tone-finance rounded-xl">
+                                {/* Celular: Total/Pago/Saldo descem pra uma faixa de 3
+                                    colunas embaixo — lado a lado com a descrição (~290px
+                                    fixos) empurravam o card pra fora da tela. */}
+                                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                                   <div className="flex flex-col gap-1 min-w-0">
                                     <div className="flex items-center gap-2 flex-wrap">
                                       <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${st.className}`}>
@@ -3281,7 +3308,7 @@ const PatientRecordPage = () => {
                                         </span>
                                       )}
                                     </div>
-                                    <p className="text-sm font-semibold text-foreground truncate max-w-[400px]">
+                                    <p className="text-sm font-semibold text-foreground truncate sm:max-w-[400px]">
                                       {(() => {
                                         const colonIdx = t.description.indexOf(": ");
                                         if (colonIdx === -1) return t.description;
@@ -3293,27 +3320,27 @@ const PatientRecordPage = () => {
                                         return `${items.slice(0, 2).join(" · ")} +${items.length - 2} item${items.length - 2 > 1 ? "s" : ""}`;
                                       })()}
                                     </p>
-                                    <span className="text-xs text-muted-foreground inline-flex items-center gap-1">
-                                      <StethoscopeIcon className="h-3 w-3 text-teal-500" />
-                                      {app ? `Atendimento: ${displayAppointmentType(app.type)} · ${app.vet}` : "Atendimento não vinculado"}
+                                    <span className="text-xs text-muted-foreground inline-flex items-start gap-1">
+                                      <StethoscopeIcon className="mt-0.5 h-3 w-3 shrink-0 text-teal-500" />
+                                      <span className="min-w-0 break-words">{app ? `Atendimento: ${displayAppointmentType(app.type)} · ${app.vet}` : "Atendimento não vinculado"}</span>
                                     </span>
                                   </div>
-                                  <div className="flex items-center gap-4 shrink-0 text-right">
+                                  <div className="grid grid-cols-3 gap-2 rounded-lg bg-muted/40 px-2 py-1.5 sm:flex sm:items-center sm:gap-4 sm:shrink-0 sm:bg-transparent sm:p-0 sm:text-right">
                                     <div>
                                       <div className="text-xs text-muted-foreground">Total</div>
-                                      <div className="text-base font-bold text-green-600">
+                                      <div className="whitespace-nowrap text-sm sm:text-base font-bold text-green-600">
                                         {new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(t.amount)}
                                       </div>
                                     </div>
                                     <div>
                                       <div className="text-xs text-muted-foreground">Pago</div>
-                                      <div className="text-base font-bold">
+                                      <div className="whitespace-nowrap text-sm sm:text-base font-bold">
                                         {new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(t.paidAmount || 0)}
                                       </div>
                                     </div>
                                     <div>
                                       <div className="text-xs text-muted-foreground">Saldo</div>
-                                      <div className={`text-base font-bold ${saldo > 0 ? 'text-amber-600' : 'text-gray-400'}`}>
+                                      <div className={`whitespace-nowrap text-sm sm:text-base font-bold ${saldo > 0 ? 'text-amber-600' : 'text-gray-400'}`}>
                                         {new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(saldo)}
                                       </div>
                                     </div>
@@ -3348,15 +3375,15 @@ const PatientRecordPage = () => {
                   </TabsContent>
 
                   <TabsContent value="financeiro">
-                    <div className="bg-muted/40 p-4 rounded-[12px] space-y-4">
-                      <div className="grid grid-cols-1 lg:grid-cols-[35%_65%] gap-4">
+                    <div className="bg-muted/40 p-2 sm:p-4 rounded-[12px] space-y-4">
+                      <div className="grid grid-cols-1 lg:grid-cols-[35%_65%] gap-3 sm:gap-4">
                         <Card className="min-w-0 vf-surface-card vf-tone-finance rounded-xl transition-all duration-200 hover:shadow-md">
-                          <CardHeader className="pb-2">
+                          <CardHeader className="p-3 pb-2 sm:p-6 sm:pb-2">
                             <CardTitle className="text-base flex items-center gap-2">
                               <FaHandHoldingUsd className="h-4 w-4 text-emerald-600" /> Registrar pagamento
                             </CardTitle>
                           </CardHeader>
-                          <CardContent className="space-y-3">
+                          <CardContent className="space-y-3 p-3 pt-0 sm:p-6 sm:pt-0">
                             <div>
                               <Label className="flex items-center gap-1"><FaShoppingCart className="h-3 w-3 text-muted-foreground" /> Venda</Label>
                               <Select value={paymentSaleId || ""} onValueChange={(v) => setPaymentSaleId(v)}>
@@ -3417,7 +3444,7 @@ const PatientRecordPage = () => {
                               <Textarea value={paymentObservations} onChange={(e)=>setPaymentObservations(e.target.value)} className="bg-input border border-border rounded-md mt-1" />
                             </div>
                             <div className="flex justify-end pt-1">
-                              <Button onClick={handleAddPayment} disabled={savingPayment} className="rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 font-semibold transition-all duration-200 shadow-sm hover:shadow-md">
+                              <Button onClick={handleAddPayment} disabled={savingPayment} className="w-full sm:w-auto rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 font-semibold transition-all duration-200 shadow-sm hover:shadow-md">
                                 <FaHandHoldingUsd className="h-4 w-4 mr-2" />
                                 {savingPayment ? "Salvando..." : "Registrar pagamento"}
                               </Button>
@@ -3446,12 +3473,12 @@ const PatientRecordPage = () => {
                         </AlertDialog>
 
                         <Card className="min-w-0 vf-surface-card vf-tone-finance rounded-xl transition-all duration-200 hover:shadow-md">
-                          <CardHeader className="pb-2">
+                          <CardHeader className="p-3 pb-2 sm:p-6 sm:pb-2">
                             <CardTitle className="text-base flex items-center gap-2">
                               <FaMoneyBillWave className="h-4 w-4 text-emerald-600" /> Pagamentos registrados
                             </CardTitle>
                           </CardHeader>
-                          <CardContent>
+                          <CardContent className="p-3 pt-0 sm:p-6 sm:pt-0">
                             {animalReceipts.length === 0 ? (
                               <p className="text-muted-foreground">Nenhum pagamento registrado.</p>
                             ) : (
@@ -4039,7 +4066,7 @@ const PatientRecordPage = () => {
                 <CurrencyInput value={saleUnitPrice} onValueChange={setSaleUnitPrice} className="h-9 w-full border border-border rounded-md" />
               </div>
               <div>
-                <Button onClick={addItemToSale} className="h-9 px-4">Adicionar</Button>
+                <Button onClick={addItemToSale} className="h-9 w-full px-4 sm:w-auto">Adicionar</Button>
               </div>
             </div>
             {saleItems.length > 0 && (

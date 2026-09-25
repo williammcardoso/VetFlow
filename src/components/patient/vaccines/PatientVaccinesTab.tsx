@@ -69,7 +69,7 @@ export default function PatientVaccinesTab({
   return (
     <div className="space-y-4">
       <Card className="premium-card rounded-xl">
-        <CardHeader className="flex flex-row items-center justify-between pb-3">
+        <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 p-4 pb-3 sm:p-6 sm:pb-3">
           <CardTitle className="text-lg font-semibold text-foreground flex items-center gap-2">
             <Syringe className="h-5 w-5 text-primary" /> Vacinação
           </CardTitle>
@@ -84,7 +84,7 @@ export default function PatientVaccinesTab({
             <Plus className="h-4 w-4" /> Registrar vacina
           </SaasButton>
         </CardHeader>
-        <CardContent className="pt-0">
+        <CardContent className="px-3 pb-4 pt-0 sm:px-6 sm:pb-6">
           {vaccines.length > 0 ? (
             <div className="space-y-3">
               {vaccines.map((v) => {
@@ -97,20 +97,21 @@ export default function PatientVaccinesTab({
                   <div
                     key={v.id}
                     className={cn(
-                      "rounded-xl border bg-white p-4 transition-all duration-200",
+                      "rounded-xl border bg-white p-3 sm:p-4 transition-all duration-200",
                       "hover:shadow-lg hover:-translate-y-0.5",
                       "border-[hsl(var(--vf-clinical))]/35 hover:shadow-[hsl(var(--vf-clinical))]/20"
                     )}
                   >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex items-start gap-3 min-w-0">
-                        <div className="h-12 w-12 shrink-0 rounded-2xl bg-[hsl(var(--vf-clinical))]/12 flex items-center justify-center">
-                          <Syringe className="h-6 w-6 text-vf-clinical" />
+                    {/* Celular: ações numa faixa embaixo, igual às outras abas. */}
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
+                      <div className="flex min-w-0 flex-1 items-start gap-3">
+                        <div className="h-10 w-10 sm:h-12 sm:w-12 shrink-0 rounded-2xl bg-[hsl(var(--vf-clinical))]/12 flex items-center justify-center">
+                          <Syringe className="h-5 w-5 sm:h-6 sm:w-6 text-vf-clinical" />
                         </div>
 
                         <div className="min-w-0">
                           <div className="flex items-center gap-2 text-base font-bold text-vf-clinical">
-                            <span>{titulo}</span>
+                            <span className="min-w-0 break-words">{titulo}</span>
                           </div>
 
                           <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
@@ -121,7 +122,7 @@ export default function PatientVaccinesTab({
                           </div>
 
                           {(d.nomeComercial || d.lote) && (
-                            <div className="mt-2 text-sm text-muted-foreground">
+                            <div className="mt-2 break-words text-sm text-muted-foreground">
                               {d.nomeComercial ? `Comercial: ${d.nomeComercial}` : ""}
                               {d.nomeComercial && d.lote ? " • " : ""}
                               {d.lote ? `Lote: ${d.lote}` : ""}
@@ -142,7 +143,7 @@ export default function PatientVaccinesTab({
                         </div>
                       </div>
 
-                      <div className="flex gap-2">
+                      <div className="flex flex-wrap items-center justify-end gap-1 border-t border-border/60 pt-2 sm:shrink-0 sm:flex-nowrap sm:gap-2 sm:border-0 sm:pt-0">
                         <SaasButton
                           saasVariant="ghost"
                           size="icon"
