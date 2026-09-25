@@ -145,6 +145,10 @@ const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, onCloseMobile, isDeskto
   const { session, canAccessPath } = useAuth();
   const [openCollapsedMenu, setOpenCollapsedMenu] = React.useState<string | null>(null);
   const isAdmin = session?.role === "admin";
+  // A gaveta do celular sempre mostra o menu completo (com os nomes), mesmo
+  // que o menu fixo (tablet/computador) esteja recolhido só com ícones —
+  // senão, no celular, a gaveta abriria só com ícones, sem texto nenhum.
+  const showExpanded = isDesktopOpen || isMobileOpen;
 
   const navItems = React.useMemo(() => {
     const canSee = (item: NavItem) => {
@@ -194,14 +198,14 @@ const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, onCloseMobile, isDeskto
         aria-modal={isMobileOpen}
         aria-label="Menu de navegação"
         className={cn(
-          "vf-sidebar-shell h-screen fixed left-0 top-0 flex flex-col border-r",
+          "vf-sidebar-shell vf-viewport-h fixed left-0 top-0 flex flex-col border-r",
           "px-3 py-4 shadow-sm transition-all duration-300 ease-in-out z-50",
           isMobileOpen ? "translate-x-0 w-64" : "-translate-x-full",
           isDesktopOpen ? "md:translate-x-0 md:w-[var(--vf-sidebar-w)]" : "md:translate-x-0 md:w-[var(--vf-sidebar-w-collapsed)]"
         )}
       >
-        <div className={cn("h-12 flex shrink-0 items-center", isDesktopOpen ? "px-2" : "px-0 justify-center")}>
-          {isDesktopOpen ? (
+        <div className={cn("h-12 flex shrink-0 items-center", showExpanded ? "px-2" : "px-0 justify-center")}>
+          {showExpanded ? (
             <SystemVetLogo />
           ) : (
             <Stethoscope className="h-[18px] w-[18px] vf-sidebar-text" strokeWidth={1.55} />
@@ -209,7 +213,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, onCloseMobile, isDeskto
         </div>
 
         <nav className="mt-4 flex-1 space-y-2 overflow-y-auto hide-scrollbar">
-          {isDesktopOpen ? (
+          {showExpanded ? (
             <Accordion type="multiple" className="w-full">
               {navItems.map((item, index) => {
                 const isActive = !!item.href && location.pathname === item.href;
@@ -360,11 +364,11 @@ const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, onCloseMobile, isDeskto
             title="Abrir agenda pública em nova aba"
             className={cn(
               "vf-nav-hover group flex min-h-11 items-center rounded-xl transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
-              isDesktopOpen ? "justify-start gap-3 px-3" : "justify-center"
+              showExpanded ? "justify-start gap-3 px-3" : "justify-center"
             )}
           >
             <NavIcon icon={ExternalLink} />
-            {isDesktopOpen && (
+            {showExpanded && (
               <span className="text-[13.5px] font-normal vf-sidebar-text-soft relative top-[0.5px]">
                 Agenda pública
               </span>

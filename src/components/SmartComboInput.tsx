@@ -177,7 +177,9 @@ const SmartComboInput = forwardRef<SmartComboInputHandle, SmartComboInputProps>(
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => handleSelect(opt)}
                 className={cn(
-                  "cursor-pointer rounded-sm px-2 py-1.5 text-sm",
+                  // py maior no celular: item de 28px de altura era fácil de
+                  // errar com o dedo (tocava o de cima/baixo).
+                  "cursor-pointer rounded-sm px-2 py-2.5 text-sm sm:py-1.5",
                   i === activeIndex ? "bg-accent text-accent-foreground" : "hover:bg-muted"
                 )}
               >

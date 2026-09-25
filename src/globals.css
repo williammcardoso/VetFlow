@@ -102,6 +102,36 @@ body,
     caret-color: hsl(var(--foreground)) !important;
   }
 
+  /* Celular: campo com fonte menor que 16px faz o iPhone dar zoom sozinho ao
+     tocar (e não desfazer depois — a tela fica arrastando pros lados). O
+     script do index.html já trava esse zoom no iOS; isto é a segunda camada,
+     e deixa o texto digitado mais legível no celular. `[class]` e os
+     `:not()` só sobem a especificidade acima de utilitários como `text-sm`
+     passados por className; nenhum campo do sistema usa fonte maior que 16px,
+     então não encolhe nada. */
+  @media (max-width: 767px) {
+    input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="color"]),
+    textarea,
+    textarea[class],
+    select,
+    select[class] {
+      font-size: 16px;
+    }
+  }
+
+  /* Toque: tira o atraso/zoom de toque duplo nos controles (o zoom com dois
+     dedos continua funcionando). */
+  a,
+  button,
+  input,
+  select,
+  textarea,
+  label,
+  [role="button"],
+  [role="tab"] {
+    touch-action: manipulation;
+  }
+
   p {
     line-height: 1.75;
   }
@@ -117,11 +147,23 @@ body,
   /*
    * Hover global verde: substitui hovers cinza comuns (hover:bg-muted...)
    * por accentSoft, mantendo o layout e evitando ajustes por página.
+   *
+   * Só em aparelho com mouse (@media hover): no celular/tablet o "hover" de
+   * um toque fica grudado no elemento até tocar em outro lugar — o mesmo
+   * motivo do `hoverOnlyWhenSupported` no tailwind.config.ts.
    */
-  [class*="hover:bg-muted"]:hover,
-  [class*="hover:bg-muted/"]:hover,
-  [class*="hover:bg-sidebar-accent"]:hover {
-    background-color: hsl(var(--accent));
+  @media (hover: hover) and (pointer: fine) {
+    [class*="hover:bg-muted"]:hover,
+    [class*="hover:bg-muted/"]:hover,
+    [class*="hover:bg-sidebar-accent"]:hover {
+      background-color: hsl(var(--accent));
+    }
+
+    /* Dropdowns/combobox: hover em itens Radix */
+    :where([role="menuitem"], [role="option"], [data-radix-collection-item]):hover {
+      background-color: hsl(var(--accent));
+      color: hsl(var(--accent-foreground));
+    }
   }
 
   [class*="hover:bg-muted"]:active,
@@ -129,12 +171,20 @@ body,
   [class*="hover:bg-sidebar-accent"]:active {
     background-color: hsl(var(--sv-accent-active));
   }
+}
 
-  /* Dropdowns/combobox: hover em itens Radix */
-  :where([role="menuitem"], [role="option"], [data-radix-collection-item]):hover {
-    background-color: hsl(var(--accent));
-    color: hsl(var(--accent-foreground));
-  }
+/* Altura "da tela" que respeita as barras do navegador no celular: 100vh no
+   Safari/Chrome mobile conta a área ESCONDIDA atrás da barra de endereço/
+   abas, então o fim da página (e o último botão) ficava atrás da barra.
+   100dvh é a área visível de verdade; 100vh fica de reserva pra navegador
+   antigo que não entende dvh. */
+.vf-viewport-h {
+  height: 100vh;
+  height: 100dvh;
+}
+.vf-viewport-min-h {
+  min-height: 100vh;
+  min-height: 100dvh;
 }
 
 /* Estilos para ocultar a barra de rolagem */
@@ -183,15 +233,11 @@ body,
     0 10px 22px rgba(16, 24, 40, 0.05);
 }
 
+/* Sem `will-change: transform` (existia aqui): virava uma camada de GPU por
+   card — no prontuário são dezenas — e deixava a rolagem pesada no tablet/
+   celular, pra um efeito que só existe com mouse. */
 .card-hover {
   transition: box-shadow 200ms ease, transform 200ms ease;
-  will-change: transform;
-}
-.card-hover:hover {
-  transform: translateY(-2px);
-  box-shadow:
-    0 1px 2px rgba(16, 24, 40, 0.04),
-    0 18px 34px rgba(16, 24, 40, 0.08);
 }
 
 .no-card-lift.card-hover,
@@ -199,12 +245,23 @@ body,
   transition: box-shadow 180ms ease, border-color 180ms ease;
 }
 
-.no-card-lift.card-hover:hover,
-.no-card-lift:hover {
-  transform: none;
-  box-shadow:
-    0 1px 2px rgba(16, 24, 40, 0.04),
-    0 10px 22px rgba(16, 24, 40, 0.05);
+/* Efeitos de passar o mouse só com mouse: no toque o card ficava "levantado"
+   e com borda colorida depois de um simples toque/rolagem. */
+@media (hover: hover) and (pointer: fine) {
+  .card-hover:hover {
+    transform: translateY(-2px);
+    box-shadow:
+      0 1px 2px rgba(16, 24, 40, 0.04),
+      0 18px 34px rgba(16, 24, 40, 0.08);
+  }
+
+  .no-card-lift.card-hover:hover,
+  .no-card-lift:hover {
+    transform: none;
+    box-shadow:
+      0 1px 2px rgba(16, 24, 40, 0.04),
+      0 10px 22px rgba(16, 24, 40, 0.05);
+  }
 }
 
 .vf-sidebar-shell {
@@ -218,7 +275,12 @@ body,
   border-bottom-color: var(--vf-topbar-border-color, hsl(var(--border)));
 }
 
-.vf-nav-hover:hover {
+@media (hover: hover) and (pointer: fine) {
+  .vf-nav-hover:hover {
+    background-color: var(--vf-nav-hover-color, hsl(var(--primary) / 0.1));
+  }
+}
+.vf-nav-hover:active {
   background-color: var(--vf-nav-hover-color, hsl(var(--primary) / 0.1));
 }
 
@@ -268,12 +330,9 @@ body,
   border-color: hsl(var(--border));
 }
 
-.line-clamp-2 {
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
+/* `.line-clamp-2` própria removida daqui (2026-09-25): o Tailwind 3.4 já gera
+   a mesma regra no core, e esta cópia — por vir depois dos utilitários no
+   CSS final — anulava variantes responsivas como `sm:line-clamp-1`. */
 
 /* --- Compatibilidade: estilos usados na ficha do paciente (mantidos e suavizados) --- */
 
@@ -434,11 +493,13 @@ body,
     box-shadow 0.2s ease;
 }
 
-.vf-surface-card:hover {
-  border-color: hsl(var(--primary) / 0.32);
-  box-shadow:
-    0 1px 2px rgb(15 23 42 / 0.04),
-    0 8px 22px rgb(15 23 42 / 0.08);
+@media (hover: hover) and (pointer: fine) {
+  .vf-surface-card:hover {
+    border-color: hsl(var(--primary) / 0.32);
+    box-shadow:
+      0 1px 2px rgb(15 23 42 / 0.04),
+      0 8px 22px rgb(15 23 42 / 0.08);
+  }
 }
 
 /* Cards tonais por módulo (modo neutro premium: apenas acento sutil) */

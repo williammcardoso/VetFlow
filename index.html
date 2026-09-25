@@ -3,6 +3,21 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- iPhone/iPad: o Safari dá zoom sozinho ao tocar num campo com fonte
+         menor que 16px e não desfaz o zoom depois — a página fica "solta",
+         arrastando pros lados. maximum-scale=1 desliga só esse zoom
+         automático; o zoom com dois dedos continua funcionando no iOS (o
+         Safari ignora essa trava pra gesto do usuário desde o iOS 10). Só no
+         iOS: no Android a mesma trava bloquearia o zoom com os dedos. -->
+    <script>
+      (function () {
+        var ua = navigator.userAgent || "";
+        var isIOS = /iPad|iPhone|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+        if (!isIOS) return;
+        var meta = document.querySelector('meta[name="viewport"]');
+        if (meta) meta.setAttribute("content", "width=device-width, initial-scale=1.0, maximum-scale=1.0");
+      })();
+    </script>
     <!-- Evita que o Chrome ofereça/ative tradução automática — quando isso
          acontece durante o carregamento, a extensão mexe no HTML por fora do
          React e causa erros de "removeChild" na hora de re-renderizar. -->

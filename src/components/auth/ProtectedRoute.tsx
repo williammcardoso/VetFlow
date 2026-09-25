@@ -16,7 +16,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requireRole, 
 
   if (loading || permissionsLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
+      <div className="flex vf-viewport-min-h items-center justify-center bg-background">
         <p className="text-sm text-muted-foreground">Carregando sessão...</p>
       </div>
     );

@@ -58,9 +58,9 @@ export function PageHeader({
   return (
     <div
       className={cn(
-        "vf-page-hero mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between",
+        "vf-page-hero mb-4 flex flex-col gap-3 sm:mb-6 sm:flex-row sm:items-start sm:justify-between",
         stripClass[module],
-        "px-5 py-5 sm:px-6 sm:py-6",
+        "px-4 py-4 sm:px-6 sm:py-6",
         className
       )}
     >
@@ -68,20 +68,22 @@ export function PageHeader({
         {breadcrumb ? (
           <div className={cn("mb-1.5 text-xs text-muted-foreground sm:text-sm", breadcrumbClassName)}>{breadcrumb}</div>
         ) : null}
-        <div className="flex flex-wrap items-center gap-3">
+        {/* flex-nowrap + min-w-0 no título: no celular o ícone ficava numa
+            linha e o título quebrava sozinho pra linha de baixo. */}
+        <div className="flex items-center gap-3">
           {Icon ? (
             <span
               className={cn(
-                "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ring-1 ring-border/60",
+                "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ring-1 ring-border/60 sm:h-11 sm:w-11",
                 iconClass[module],
                 iconWrapperClassName
               )}
               aria-hidden
             >
-              <Icon className={cn("h-6 w-6", iconClassName)} strokeWidth={2} />
+              <Icon className={cn("h-5 w-5 sm:h-6 sm:w-6", iconClassName)} strokeWidth={2} />
             </span>
           ) : null}
-          <h1 className={cn("text-2xl font-semibold tracking-tight text-foreground", titleClassName)}>{title}</h1>
+          <h1 className={cn("min-w-0 break-words text-xl font-semibold tracking-tight text-foreground sm:text-2xl", titleClassName)}>{title}</h1>
         </div>
         {description ? (
           <p className={cn("mt-2 max-w-3xl text-sm leading-relaxed text-muted-foreground", descriptionClassName)}>
@@ -89,8 +91,11 @@ export function PageHeader({
           </p>
         ) : null}
       </div>
+      {/* [&>div]:flex-wrap: várias telas passam os botões já embrulhados num
+          <div className="flex ..."> próprio, sem quebra de linha — no celular
+          3 botões lado a lado passavam da tela (Lista de Preços, Catálogo). */}
       {actions ? (
-        <div className="flex shrink-0 flex-wrap items-center gap-2 pt-1 sm:pt-0">{actions}</div>
+        <div className="flex max-w-full shrink-0 flex-wrap items-center gap-2 pt-1 sm:pt-0 [&>div]:flex-wrap">{actions}</div>
       ) : null}
     </div>
   );

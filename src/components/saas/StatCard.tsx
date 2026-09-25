@@ -46,7 +46,7 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, subtitle, icon: Icon,
   return (
     <div
       className={cn(
-        "premium-card premium-card--soft card-hover rounded-xl border border-border p-6",
+        "premium-card premium-card--soft card-hover rounded-xl border border-border p-4 sm:p-6",
         "hover:-translate-y-[2px]",
         colors.frame,
         className
@@ -55,7 +55,7 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, subtitle, icon: Icon,
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
           <div className="text-sm font-semibold text-muted-foreground leading-relaxed">{title}</div>
-          <div className="mt-2 text-[34px] leading-none font-bold tracking-tight">{value}</div>
+          <div className="mt-2 break-words text-[28px] leading-none font-bold tracking-tight sm:text-[34px]">{value}</div>
           {subtitle && <div className="mt-2 text-sm text-muted-foreground leading-relaxed">{subtitle}</div>}
         </div>
 

@@ -1,6 +1,13 @@
 import type { Config } from "tailwindcss";
 
 export default {
+  // `hover:` só vale em aparelho com mouse. No celular/tablet o toque
+  // "gruda" o hover no elemento (card levantado, botão colorido) até tocar em
+  // outro lugar — parecia bug. Nenhuma tela esconde controle atrás de hover
+  // (conferido: sem `group-hover:opacity-100` e afins), então nada some no toque.
+  future: {
+    hoverOnlyWhenSupported: true,
+  },
   content: [
     "./pages/**/*.{ts,tsx}",
     "./components/**/*.{ts,tsx}",

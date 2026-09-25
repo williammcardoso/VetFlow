@@ -84,11 +84,11 @@ const LoginPage: React.FC = () => {
   };
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[hsl(var(--background))]">
+    <div className="relative vf-viewport-min-h overflow-hidden bg-[hsl(var(--background))]">
       <div className="pointer-events-none absolute inset-0 opacity-[0.008] [background-image:linear-gradient(to_right,hsl(var(--foreground))_1px,transparent_1px),linear-gradient(to_bottom,hsl(var(--foreground))_1px,transparent_1px)] [background-size:64px_64px]" />
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(120%_95%_at_50%_120%,hsl(var(--foreground)/0.04),transparent_74%)]" />
 
-      <div className="relative mx-auto flex min-h-screen w-full max-w-7xl items-center justify-center px-4 py-8 sm:px-6 sm:py-10">
+      <div className="relative mx-auto flex vf-viewport-min-h w-full max-w-7xl items-center justify-center px-4 py-8 sm:px-6 sm:py-10">
         <Card className="premium-card premium-card--soft relative w-full max-w-[540px] animate-in fade-in zoom-in-95 overflow-hidden border border-border/65 bg-card shadow-[0_26px_56px_-40px_hsl(var(--foreground)/0.44),0_14px_24px_-22px_hsl(var(--foreground)/0.24)] duration-300">
           <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-[hsl(var(--vf-clinical)/0.38)]" />
 

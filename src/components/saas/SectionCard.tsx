@@ -80,18 +80,20 @@ export function SectionCard({ title, description, icon: Icon, tone, children, cl
         className
       )}
     >
-      <div className="border-b border-border/70 px-4 py-3.5">
+      <div className="border-b border-border/70 px-3 py-3 sm:px-4 sm:py-3.5">
         <div className="flex items-start gap-2">
           <div className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ring-1 ring-border/50", style.chipBg)}>
             <Icon className={cn("h-5 w-5", style.icon, style.chipFg)} />
           </div>
-          <div>
+          <div className="min-w-0">
             <h2 className={cn("text-base font-semibold", style.title)}>{title}</h2>
             {description ? <p className="text-xs text-muted-foreground">{description}</p> : null}
           </div>
         </div>
       </div>
-      <div className="p-4">{children}</div>
+      {/* p-3 no celular: telas que põem um Card dentro do SectionCard somavam
+          3 camadas de padding e sobrava pouca largura pro conteúdo. */}
+      <div className="p-3 sm:p-4">{children}</div>
     </Card>
   );
 }

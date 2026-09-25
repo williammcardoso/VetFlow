@@ -65,7 +65,7 @@ const QuickActionCard: React.FC<QuickActionCardProps> = ({
     <Link to={to} className="block">
       <div
         className={cn(
-          "premium-card premium-card--soft card-hover rounded-xl border border-border px-6 py-5",
+          "premium-card premium-card--soft card-hover rounded-xl border border-border px-4 py-4 sm:px-6 sm:py-5",
           "transition-all hover:-translate-y-[2px]",
           colors.frame,
           className

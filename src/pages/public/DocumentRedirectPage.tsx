@@ -33,7 +33,7 @@ const DocumentRedirectPage: React.FC = () => {
 
   if (!error) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-muted/40 p-4">
+      <div className="flex vf-viewport-min-h items-center justify-center bg-muted/40 p-4">
         <div className="flex flex-col items-center gap-2 text-muted-foreground">
           <Loader2 className="h-6 w-6 animate-spin" />
           <p className="text-sm">Abrindo documento...</p>
@@ -43,7 +43,7 @@ const DocumentRedirectPage: React.FC = () => {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted/40 p-4">
+    <div className="flex vf-viewport-min-h items-center justify-center bg-muted/40 p-4">
       <Card className="w-full max-w-md rounded-2xl border-border/80">
         <CardHeader className="text-center">
           <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-teal-50">
