@@ -170,7 +170,7 @@ export default function ReturnsForecastPage() {
                     </Link>
                   )}
                 </div>
-                <p className="truncate text-xs opacity-70">{item.clientName} · {item.label}</p>
+                <p className="break-words text-xs opacity-70 sm:truncate">{item.clientName} · {item.label}</p>
               </div>
             </div>
             <div className="ml-3 shrink-0 text-right">
@@ -223,7 +223,7 @@ export default function ReturnsForecastPage() {
         }
       />
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card className="rounded-2xl vf-surface-card vf-tone-clinical p-4 sm:p-5">
           <div className="mb-3 flex items-center justify-between">
             <div>

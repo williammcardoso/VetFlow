@@ -100,7 +100,10 @@ export default function SurgeryForm({
   return (
     <div className="space-y-4">
       <Tabs defaultValue="basicos" className="w-full">
-        <TabsList className="grid grid-cols-2 md:grid-cols-5 w-full">
+        {/* h-auto + texto quebrando: a lista tinha altura fixa (h-10) e quebrava em
+            3 linhas no celular, com as abas vazando por cima do formulário; no
+            tablet os nomes longos ("Digestório / Urinário") passavam da aba. */}
+        <TabsList className="grid h-auto w-full grid-cols-2 gap-1 sm:grid-cols-3 lg:grid-cols-5 [&>button]:min-w-0 [&>button]:whitespace-normal [&>button]:leading-tight [&>button]:text-center [&>button]:min-h-8">
           <TabsTrigger value="basicos">Dados básicos</TabsTrigger>
           <TabsTrigger value="preop">Pré-operatório</TabsTrigger>
           <TabsTrigger value="procedimento">Procedimento</TabsTrigger>

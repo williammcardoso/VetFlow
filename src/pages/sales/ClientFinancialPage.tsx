@@ -166,7 +166,7 @@ const ClientFinancialPage = () => {
                               )}
                             </div>
                             <div className="min-w-0">
-                              <span className="block truncate text-sm font-medium">{r.name}</span>
+                              <span className="block break-words text-sm font-medium sm:truncate">{r.name}</span>
                               <span className="text-xs text-muted-foreground">{idx + 1}º lugar</span>
                             </div>
                           </div>
@@ -210,7 +210,7 @@ const ClientFinancialPage = () => {
                           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[hsl(var(--vf-sales)/0.12)] text-xs font-bold text-vf-sales">
                             {getInitials(b.name)}
                           </div>
-                          <span className="truncate text-sm font-medium">{b.name}</span>
+                          <span className="min-w-0 break-words text-sm font-medium sm:truncate">{b.name}</span>
                         </div>
                         <span className="shrink-0 text-sm font-semibold text-green-600">{fmt(b.totalPurchases)}</span>
                       </div>

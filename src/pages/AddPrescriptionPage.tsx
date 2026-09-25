@@ -526,11 +526,13 @@ const AddPrescriptionPage = () => {
         </div>
       </div>
 
-      <div className="flex flex-col sm:flex-row justify-end gap-2 mt-6 p-4 bg-card/80 backdrop-blur-sm border-t border-border sticky bottom-0 z-10">
-        <Button variant="outline" onClick={() => navigate(getPatientRecordPath(clientId, animalId, animal?.patientCode))} className="bg-card border border-border text-foreground hover:bg-muted rounded-md transition-all duration-200 shadow-sm hover:shadow-md">
+      {/* Celular: Cancelar + Salvar numa linha só (empilhados, o rodapé fixo
+          ocupava ~120px da tela enquanto se preenchia a receita). */}
+      <div className="flex flex-row justify-end gap-2 mt-6 p-3 sm:p-4 bg-card/80 backdrop-blur-sm border-t border-border sticky bottom-0 z-10">
+        <Button variant="outline" onClick={() => navigate(getPatientRecordPath(clientId, animalId, animal?.patientCode))} className="shrink-0 bg-card border border-border text-foreground hover:bg-muted rounded-md transition-all duration-200 shadow-sm hover:shadow-md">
           <FaTimes className="mr-2 h-4 w-4" /> Cancelar
         </Button>
-        <Button onClick={handleSavePrescription} disabled={isPrintSaveDisabled} className="rounded-md bg-[hsl(var(--vf-clinical))] font-semibold text-white transition-all duration-200 shadow-md hover:bg-[hsl(var(--vf-clinical)/0.9)] hover:shadow-lg">
+        <Button onClick={handleSavePrescription} disabled={isPrintSaveDisabled} className="min-w-0 flex-1 sm:flex-none rounded-md bg-[hsl(var(--vf-clinical))] font-semibold text-white transition-all duration-200 shadow-md hover:bg-[hsl(var(--vf-clinical)/0.9)] hover:shadow-lg">
           <FaSave className="mr-2 h-4 w-4" /> Salvar Receita
         </Button>
       </div>

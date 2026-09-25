@@ -127,7 +127,10 @@ const ExamFieldWithReference = React.memo(({
   placeholder = "",
   getReference,
 }: ExamFieldWithReferenceProps) => (
-  <div className="flex items-center gap-x-2 w-full flex-nowrap">
+  // Celular: a faixa de referência desce pra linha de baixo, largura toda —
+  // numa linha só (rótulo + campo + unidade + referência, ~390px fixos) ela
+  // saía cortada ("175.000 - 50…") e o card inteiro passava da tela.
+  <div className="flex flex-wrap items-center gap-x-2 gap-y-1 w-full sm:flex-nowrap">
     <Label htmlFor={id} className="w-[90px] text-left text-muted-foreground font-medium flex-shrink-0">
       {label}
     </Label>
@@ -141,7 +144,7 @@ const ExamFieldWithReference = React.memo(({
       className="w-[90px] bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200 flex-shrink-0"
     />
     <span className="text-xs text-muted-foreground w-[50px] text-left flex-shrink-0 whitespace-nowrap">{unit}</span>
-    <div className="flex-1 flex items-center p-1 border border-border rounded-md bg-background text-xs text-foreground overflow-hidden whitespace-nowrap text-ellipsis">
+    <div className="basis-full sm:basis-auto flex-1 min-w-0 flex items-center p-1 border border-border rounded-md bg-background text-xs text-foreground overflow-hidden whitespace-nowrap text-ellipsis">
       {getReference(referenceKey, 'full')}
     </div>
   </div>
@@ -177,7 +180,9 @@ const LeukocyteFieldWithReference = React.memo(({
     <Input id={`${idPrefix}-absolute`} type="text" value={absoluteValue} onChange={onAbsoluteChange} onBlur={onAbsoluteBlur} className="w-[70px] bg-input flex-shrink-0" />
     <span className="text-xs text-muted-foreground flex-shrink-0">/µL</span>
 
-    <div className="flex-1 flex flex-wrap gap-1 justify-end">
+    {/* basis-full no celular: as caixas Relativo/Absoluto ficavam com ~34px
+        no fim da linha, com o texto da referência cortado. */}
+    <div className="basis-full sm:basis-auto flex-1 min-w-0 flex flex-wrap gap-1 justify-end">
       <div className="flex-1 flex flex-col items-start p-1 border border-border rounded-md bg-background text-xs text-foreground overflow-hidden">
         <span className="font-medium flex-shrink-0">Relativo:</span>
         <span className="flex-1 whitespace-nowrap overflow-hidden text-ellipsis">
@@ -915,7 +920,7 @@ const AddExamPage = () => {
         }
       />
         <Card className="vf-surface-card vf-tone-clinical card-hover rounded-2xl border border-border/80">
-          <CardContent className="grid gap-4 py-4">
+          <CardContent className="grid grid-cols-1 gap-4 py-4">
             {/* Passo 1: Data, Hora, Tipo, Veterinário - na mesma linha */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="space-y-2">
@@ -1022,7 +1027,7 @@ const AddExamPage = () => {
                         <FaFileMedicalAlt className="h-5 w-5 text-vf-clinical" /> Eritrograma
                       </CardTitle>
                     </CardHeader>
-                    <CardContent className="grid gap-4 pt-0 px-2">
+                    <CardContent className="grid grid-cols-1 gap-4 pt-0 px-2">
                       <ExamFieldWithReference getReference={getReference} id="eritrocitos" label="Eritrócitos" value={eritrocitos} onChange={(e) => setEritrocitos(e.target.value)} referenceKey="eritrocitos" unit="M/µL" />
                       <ExamFieldWithReference getReference={getReference} id="hemoglobina" label="Hemoglobina" value={hemoglobina} onChange={(e) => setHemoglobina(e.target.value)} referenceKey="hemoglobina" unit="g/dL" />
                       <ExamFieldWithReference getReference={getReference} id="hematocrito" label="Hematócrito" value={hematocrito} onChange={(e) => setHematocrito(e.target.value)} referenceKey="hematocrito" unit="%" />
@@ -1046,7 +1051,7 @@ const AddExamPage = () => {
                         <FaUserMd className="h-5 w-5 text-vf-clinical" /> Leucograma
                       </CardTitle>
                     </CardHeader>
-                    <CardContent className="grid gap-4 pt-0 px-2">
+                    <CardContent className="grid grid-cols-1 gap-4 pt-0 px-2">
                       <ExamFieldWithReference getReference={getReference} id="leucocitosTotais" label="Leucócitos totais" value={leucocitosTotais} onChange={(e) => setLeucocitosTotais(e.target.value)} onBlur={recomputeLeukocyteRelatives} referenceKey="leucocitosTotais" unit="/µL" />
                       <LeukocyteFieldWithReference getReference={getReference} idPrefix="mielocitos" label="Mielócitos" relativeValue={mielocitosRelativo} onRelativeChange={(e) => setMielocitosRelativo(e.target.value)} absoluteValue={mielocitosAbsoluto} onAbsoluteChange={(e) => setMielocitosAbsoluto(e.target.value)} onAbsoluteBlur={recomputeLeukocyteRelatives} referenceKey="mielocitos" />
                       <LeukocyteFieldWithReference getReference={getReference} idPrefix="metamielocitos" label="Metamielócitos" relativeValue={metamielocitosRelativo} onRelativeChange={(e) => setMetamielocitosRelativo(e.target.value)} absoluteValue={metamielocitosAbsoluto} onAbsoluteChange={(e) => setMetamielocitosAbsoluto(e.target.value)} onAbsoluteBlur={recomputeLeukocyteRelatives} referenceKey="metamielocitos" />
@@ -1072,7 +1077,7 @@ const AddExamPage = () => {
                       <FaFileMedicalAlt className="h-5 w-5 text-vf-clinical" /> Plaquetas
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-0 px-2">
+                  <CardContent className="grid grid-cols-1 lg:grid-cols-2 gap-4 pt-0 px-2">
                     <ExamFieldWithReference getReference={getReference} id="contagemPlaquetaria" label="Contagem plaquetária" value={contagemPlaquetaria} onChange={(e) => setContagemPlaquetaria(e.target.value)} referenceKey="contagemPlaquetaria" unit="/µL" />
                     <div className="space-y-2 col-span-full">
                       <Label htmlFor="avaliacaoPlaquetaria" className="text-muted-foreground font-medium">Avaliação plaquetária</Label>
@@ -1115,7 +1120,7 @@ const AddExamPage = () => {
                       <FaMicroscope className="h-5 w-5 text-vf-clinical" /> Adicionar analito bioquímico
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="grid gap-4 pt-0 px-2">
+                  <CardContent className="grid grid-cols-1 gap-4 pt-0 px-2">
                     {/* Enzima, Resultado, Mínimo, Máximo, Unidade - na mesma linha */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
                       <div className="space-y-2 col-span-full lg:col-span-1">
@@ -1207,7 +1212,7 @@ const AddExamPage = () => {
                         <CardHeader className="pb-2">
                           <CardTitle className="text-base">{entry.enzyme}</CardTitle>
                         </CardHeader>
-                        <CardContent className="grid gap-3 pt-0">
+                        <CardContent className="grid grid-cols-1 gap-3 pt-0">
                           <div className="grid grid-cols-2 gap-3">
                             <div className="space-y-1">
                               <Label>Material</Label>
@@ -1378,7 +1383,7 @@ const AddExamPage = () => {
                       <FaMicroscope className="h-5 w-5 text-vf-clinical" /> Adicionar Lesão/Nódulo
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="grid gap-4 pt-0 px-2">
+                  <CardContent className="grid grid-cols-1 gap-4 pt-0 px-2">
                     <div className="space-y-2">
                       <Label>Localização da lesão</Label>
                       <Input
@@ -1441,7 +1446,7 @@ const AddExamPage = () => {
                         <CardHeader className="pb-2">
                           <CardTitle className="text-base">{entry.localLesao}</CardTitle>
                         </CardHeader>
-                        <CardContent className="grid gap-3 pt-0">
+                        <CardContent className="grid grid-cols-1 gap-3 pt-0">
                           {entry.fotoUrl && (
                             <img src={entry.fotoUrl} alt={`Lâmina — ${entry.localLesao}`} className="h-32 w-full rounded-md border border-border object-cover" />
                           )}
@@ -1574,7 +1579,7 @@ const AddExamPage = () => {
                       <FaFlask className="h-5 w-5 text-vf-clinical" /> Adicionar Teste
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="grid gap-4 pt-0 px-2">
+                  <CardContent className="grid grid-cols-1 gap-4 pt-0 px-2">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label>Qual teste</Label>
@@ -1693,7 +1698,7 @@ const AddExamPage = () => {
                             </span>
                           </CardTitle>
                         </CardHeader>
-                        <CardContent className="grid gap-3 pt-0">
+                        <CardContent className="grid grid-cols-1 gap-3 pt-0">
                           {entry.fotoUrl && (
                             <img src={entry.fotoUrl} alt={`Teste — ${entry.testName}`} className="h-32 w-full rounded-md border border-border object-cover" />
                           )}

@@ -237,7 +237,7 @@ const BreedsPage: React.FC = () => {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 gap-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
                 {list
                   .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"))
                   .map((r) => (
@@ -249,9 +249,9 @@ const BreedsPage: React.FC = () => {
                           className="mr-2 h-8 text-sm"
                         />
                       ) : (
-                        <span className="truncate text-sm font-medium">{r.name}</span>
+                        <span className="min-w-0 truncate text-sm font-medium" title={r.name}>{r.name}</span>
                       )}
-                      <div className="ml-2 flex items-center gap-1">
+                      <div className="ml-2 flex shrink-0 items-center gap-1">
                         {editingId === r.id ? (
                           <>
                             <Button variant="ghost" size="sm" onClick={() => void saveEdit()} className="text-emerald-700 hover:bg-emerald-50">

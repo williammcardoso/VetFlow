@@ -144,7 +144,7 @@ const ClientsPage = () => {
         tone="clinical"
       >
         <ToolbarRow>
-          <div className="relative min-w-[150px] max-w-xs flex-1">
+          <div className="relative min-w-[140px] flex-1 sm:max-w-xs">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-vf-clinical" />
             <Input
               placeholder="Responsável"
@@ -154,7 +154,7 @@ const ClientsPage = () => {
               onKeyDown={handleKeyDown}
             />
           </div>
-          <div className="relative min-w-[150px] max-w-xs flex-1">
+          <div className="relative min-w-[140px] flex-1 sm:max-w-xs">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-vf-clinical" />
             <Input
               placeholder="Animal"
@@ -168,7 +168,7 @@ const ClientsPage = () => {
             <Search className="h-4 w-4" />
           </Button>
           <Select value={sortOrder} onValueChange={(v) => setSortOrder(v as typeof sortOrder)}>
-            <SelectTrigger className="vf-toolbar-control w-[200px] rounded-xl border-border bg-input" aria-label="Ordenar lista de clientes">
+            <SelectTrigger className="vf-toolbar-control min-w-[9rem] flex-1 rounded-xl border-border bg-input sm:w-[200px] sm:flex-none" aria-label="Ordenar lista de clientes">
               <ArrowUpDown className="mr-2 h-4 w-4 shrink-0 text-vf-clinical" />
               <SelectValue />
             </SelectTrigger>
@@ -191,12 +191,14 @@ const ClientsPage = () => {
           <Button variant="secondary" size="icon" onClick={handleReset} aria-label="Limpar filtros" title="Limpar">
             <RefreshCw className="h-4 w-4" />
           </Button>
-          <Button asChild className="font-semibold shadow-sm">
+          {/* flex-1 no celular: os dois botões dividem a linha em vez de sobrar
+              um solto no fim da barra. */}
+          <Button asChild className="flex-1 font-semibold shadow-sm sm:flex-none">
             <Link to="/clients/add">
               <Plus className="mr-2 h-4 w-4" /> Adicionar Responsável
             </Link>
           </Button>
-          <Button asChild variant="outline" className="border-primary/25 shadow-sm transition-colors hover:border-primary/40">
+          <Button asChild variant="outline" className="flex-1 border-primary/25 shadow-sm transition-colors hover:border-primary/40 sm:flex-none">
             <Link to="/animals/add">
               <Plus className="mr-2 h-4 w-4" /> Adicionar Animal
             </Link>

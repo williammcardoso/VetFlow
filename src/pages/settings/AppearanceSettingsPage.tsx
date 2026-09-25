@@ -262,7 +262,7 @@ const AppearanceSettingsPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             {FIELDS.map((field) => (
               <div key={field.key} className="rounded-xl border border-border/80 bg-card p-3">
                 <div className="mb-2 flex items-center justify-between gap-2">

@@ -1535,17 +1535,20 @@ export default function AppointmentForm({
         </div>
       )}
 
-      {/* Rodapé fixo de ações */}
-      <div className="sticky bottom-0 z-10 -mx-6 px-6 py-4 border-t border-border bg-background/90 backdrop-blur">
-        <div className="flex flex-col sm:flex-row gap-2 sm:items-center sm:justify-end">
-          <SaasButton type="button" saasVariant="outline" onClick={handleCancelClick} disabled={isSaving} className="w-full sm:w-auto">
+      {/* Rodapé fixo de ações. Margem negativa acompanha o padding do Layout
+          (px-4 no celular, px-6 a partir de sm) — com -mx-6 fixo ele passava
+          8px de cada lado da tela no celular. Celular: os 3 botões numa linha
+          só (antes empilhados, ~170px de rodapé fixo cobrindo o formulário). */}
+      <div className="sticky bottom-0 z-10 -mx-4 px-4 py-3 sm:-mx-6 sm:px-6 sm:py-4 border-t border-border bg-background/90 backdrop-blur">
+        <div className="flex flex-row gap-2 items-center justify-end">
+          <SaasButton type="button" saasVariant="outline" onClick={handleCancelClick} disabled={isSaving} className="shrink-0">
             <X className="h-4 w-4 mr-2" /> Cancelar
           </SaasButton>
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button type="button" variant="outline" disabled={isSaving} className="w-full sm:w-auto">
-                <MoreHorizontal className="h-4 w-4 mr-2" /> Ações
+              <Button type="button" variant="outline" disabled={isSaving} className="shrink-0 px-3 sm:px-4" aria-label="Ações">
+                <MoreHorizontal className="h-4 w-4 sm:mr-2" /> <span className="hidden sm:inline">Ações</span>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
@@ -1555,7 +1558,7 @@ export default function AppointmentForm({
             </DropdownMenuContent>
           </DropdownMenu>
 
-          <SaasButton type="submit" disabled={isSaving} className="w-full sm:w-auto">
+          <SaasButton type="submit" disabled={isSaving} className="min-w-0 flex-1 sm:flex-none">
             {isSaving ? (
               <>
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" /> Salvando...

@@ -469,7 +469,7 @@ const AgendaPage = () => {
                 ))}
               </div>
             ) : viewMode === "week" ? (
-              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
                 {appointmentsByWeekDay.map(({ day, items }) => (
                   <div key={day.toISOString()} className="rounded-xl border border-border/80 bg-input/60 p-3">
                     <p className="text-sm font-semibold text-foreground">

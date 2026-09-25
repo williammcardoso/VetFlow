@@ -191,7 +191,7 @@ const SalesPage = () => {
         tone="sales"
       >
         <Card className="vf-surface-card vf-tone-sales rounded-2xl border-border/80">
-          <CardHeader className="flex flex-row items-center justify-between pb-3">
+          <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 space-y-0 p-3 pb-3 sm:p-6 sm:pb-3">
             <CardTitle className="flex items-center gap-2 text-lg font-semibold text-foreground">
               <FaDollarSign className="h-5 w-5 text-vf-sales" /> Transações de Venda
             </CardTitle>
@@ -201,7 +201,7 @@ const SalesPage = () => {
               </Button>
             </Link>
           </CardHeader>
-          <CardContent className="pt-0">
+          <CardContent className="px-3 pb-3 pt-0 sm:px-6 sm:pb-6">
             {loading ? (
               <p className="text-muted-foreground py-4">Carregando vendas...</p>
             ) : salesTransactions.length > 0 ? (
@@ -209,9 +209,9 @@ const SalesPage = () => {
                 {salesTransactions.map((transaction) => {
                   const saldo = Math.max(0, transaction.amount - (transaction.paidAmount || 0));
                   return (
-                    <Card key={transaction.id} className="vf-surface-card vf-tone-sales card-hover rounded-xl border border-border/80 bg-card p-4 shadow-sm">
+                    <Card key={transaction.id} className="vf-surface-card vf-tone-sales card-hover rounded-xl border border-border/80 bg-card p-3 sm:p-4 shadow-sm">
                       {/* Linha 1: badge status + descrição resumida + valores */}
-                      <div className="flex items-start justify-between gap-3 mb-3">
+                      <div className="flex flex-col gap-3 mb-3 sm:flex-row sm:items-start sm:justify-between">
                         <div className="flex flex-col gap-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
@@ -234,11 +234,11 @@ const SalesPage = () => {
                             <span className="inline-flex items-center rounded-md bg-[hsl(var(--vf-sales)/0.1)] px-2 py-0.5 text-xs font-semibold text-[hsl(var(--vf-sales))]">
                               PDV
                             </span>
-                            <p className="text-sm font-semibold text-foreground truncate max-w-[380px]">
+                            <p className="min-w-0 break-words text-sm font-semibold text-foreground lg:truncate lg:max-w-[380px]">
                               {getSaleItemsSummary(transaction.description)}
                             </p>
                           </div>
-                          <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
+                          <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground mt-0.5">
                             <span className="inline-flex items-center gap-1"><Calendar className="h-3 w-3" /> {formatDateTime(transaction.date, transaction.time)}</span>
                             {transaction.paymentMethod && (
                               <span className="inline-flex items-center gap-1">
@@ -252,22 +252,22 @@ const SalesPage = () => {
                         </div>
 
                         {/* Valores */}
-                        <div className="flex items-center gap-4 shrink-0">
-                          <div className="text-right">
+                        <div className="grid grid-cols-3 gap-2 rounded-lg bg-muted/40 px-2 py-1.5 sm:flex sm:items-center sm:gap-4 sm:shrink-0 sm:bg-transparent sm:p-0">
+                          <div className="sm:text-right">
                             <div className="text-xs text-muted-foreground">Total</div>
-                            <div className="text-base font-bold text-[hsl(var(--vf-sales))]">
+                            <div className="text-sm sm:text-base font-bold text-[hsl(var(--vf-sales))]">
                               {formatCurrencyBRL(transaction.amount)}
                             </div>
                           </div>
-                          <div className="text-right">
+                          <div className="sm:text-right">
                             <div className="text-xs text-muted-foreground">Pago</div>
-                            <div className="text-base font-bold text-emerald-600">
+                            <div className="text-sm sm:text-base font-bold text-emerald-600">
                               {formatCurrencyBRL(transaction.paidAmount || 0)}
                             </div>
                           </div>
-                          <div className="text-right">
+                          <div className="sm:text-right">
                             <div className="text-xs text-muted-foreground">Saldo</div>
-                            <div className={`text-base font-bold ${saldo > 0 ? 'text-amber-600' : 'text-gray-400'}`}>
+                            <div className={`text-sm sm:text-base font-bold ${saldo > 0 ? 'text-amber-600' : 'text-gray-400'}`}>
                               {formatCurrencyBRL(saldo)}
                             </div>
                           </div>
@@ -275,7 +275,7 @@ const SalesPage = () => {
                       </div>
 
                       {/* Linha 2: ações */}
-                      <div className="flex justify-end gap-2 pt-2 border-t border-border/50">
+                      <div className="flex flex-wrap justify-end gap-2 pt-2 border-t border-border/50">
                         <Button
                           variant="ghost"
                           size="sm"

@@ -253,7 +253,7 @@ const Dashboard = () => {
           <BarChart3 className="h-[18px] w-[18px] text-vf-clinical" />
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
           <Link
             to="/clinical/appointments-report?period=this_month"
             className="block min-h-[152px] rounded-2xl border border-emerald-200/80 bg-emerald-50/50 p-[18px] transition-all duration-200 hover:-translate-y-1 hover:border-emerald-400/70 hover:shadow-md"
@@ -325,7 +325,7 @@ const Dashboard = () => {
               <p className="text-xs text-muted-foreground">Acompanhamentos e vacinas nos próximos 7 dias.</p>
             </div>
           </div>
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             {returnsThisWeek.length > 0 && (
               <div>
                 <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-orange-600">
@@ -364,7 +364,7 @@ const Dashboard = () => {
                         ) : (
                           <p className="truncate text-sm font-semibold text-foreground">{v.animalName}</p>
                         )}
-                        <p className="truncate text-xs text-muted-foreground">{v.clientName} · {v.vaccine}</p>
+                        <p className="break-words text-xs text-muted-foreground sm:truncate">{v.clientName} · {v.vaccine}</p>
                       </div>
                       <span className="ml-2 shrink-0 text-xs font-medium text-blue-700">
                         {v.doseDate.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}
@@ -378,7 +378,7 @@ const Dashboard = () => {
         </Card>
       )}
 
-      <div className="grid gap-4 lg:grid-cols-[1.35fr_1fr]">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.35fr_1fr]">
         <Card className="min-h-[236px] h-full rounded-2xl vf-surface-card vf-tone-clinical p-4 sm:p-5">
           <div className="mb-3 flex items-start justify-between gap-3">
             <div>
@@ -414,7 +414,7 @@ const Dashboard = () => {
                         <p className="w-[60px] shrink-0 text-xl font-bold tabular-nums text-foreground">{app.time}</p>
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-sm font-semibold text-foreground">{app.animalName || "Pet"}</p>
-                          <p className="truncate text-xs text-muted-foreground">{app.clientName || "Tutor"} - {app.title}</p>
+                          <p className="break-words text-xs text-muted-foreground sm:truncate">{app.clientName || "Tutor"} - {app.title}</p>
                         </div>
                         <StatusBadge status={app.status || "scheduled"} className="shrink-0 inline-flex" />
                         <DropdownMenu>

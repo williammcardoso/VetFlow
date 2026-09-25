@@ -20,7 +20,7 @@ export default function DashboardStatusStrip({
 
   return (
     <div className="rounded-2xl border border-border/70 bg-card px-3 py-3 shadow-sm sm:px-4">
-      <div className="grid gap-3 md:grid-cols-6 xl:grid-cols-12">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-6 xl:grid-cols-12">
         <Link
           to="/clinical/appointments-report?period=today"
           className={`${itemBase} border-emerald-200/80 bg-emerald-50/55 md:col-span-3 xl:col-span-3`}
@@ -77,7 +77,7 @@ export default function DashboardStatusStrip({
         </Link>
 
         <div className={`${itemBase} border-border/70 bg-card md:col-span-3 xl:col-span-3`}>
-          <div className="grid w-full gap-2 sm:grid-cols-2">
+          <div className="grid w-full grid-cols-1 gap-2 sm:grid-cols-2">
             <Button asChild className="h-8 rounded-lg px-3 text-xs font-medium">
               <Link to="/agenda">
                 Abrir agenda

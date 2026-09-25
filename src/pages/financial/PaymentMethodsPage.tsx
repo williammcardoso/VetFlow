@@ -172,8 +172,8 @@ const FinancialPaymentMethodsPage = () => {
               return (
                 <div key={item.id} className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
                   {/* Linha principal */}
-                  <div className="grid grid-cols-2 md:grid-cols-6 gap-3 p-4 items-end">
-                    <div className="md:col-span-2">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3 p-3 sm:p-4 items-end">
+                    <div className="col-span-2 sm:col-span-4 lg:col-span-2">
                       <Label className="text-xs text-muted-foreground">Nome</Label>
                       <Input value={item.name ?? ""} onChange={e => handleUpdate(item, "name", e.target.value)}
                         className="mt-1 h-8 text-sm border border-border bg-card" />
@@ -214,7 +214,7 @@ const FinancialPaymentMethodsPage = () => {
                         }}
                         className="mt-1 h-8 text-sm border border-border bg-card" type="number" />
                     </div>
-                    <div className="flex items-end justify-between gap-2">
+                    <div className="flex min-w-0 flex-wrap items-end justify-between gap-2">
                       <div className="flex items-center gap-2">
                         <button type="button"
                           onClick={() => handleUpdate(item, "installments", !hasInstallments)}

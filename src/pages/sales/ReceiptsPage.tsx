@@ -166,9 +166,11 @@ const ReceiptsPage = () => {
                 const saldo = sale.amount - (sale.paidAmount || 0);
                 const clientName = clients.find(c => c.id === sale.relatedClientId)?.name;
                 return (
-                  <div key={sale.id} className="flex items-center justify-between rounded-lg bg-white border border-amber-100 px-3 py-2">
+                  // Celular: valor + botão descem pra baixo da descrição (lado a
+                  // lado, a descrição ficava com ~85px e cortada).
+                  <div key={sale.id} className="flex flex-col gap-2 rounded-lg bg-white border border-amber-100 px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
                     <div className="min-w-0">
-                      <p className="text-sm font-medium text-foreground truncate max-w-[300px]">
+                      <p className="break-words text-sm font-medium text-foreground lg:truncate lg:max-w-[300px]">
                         {clientName ? `${clientName} — ` : ""}{sale.description}
                       </p>
                       <p className="text-xs text-muted-foreground">
@@ -176,7 +178,7 @@ const ReceiptsPage = () => {
                         {" · "}Pago: {formatCurrencyBRL(sale.paidAmount || 0)}
                       </p>
                     </div>
-                    <div className="flex items-center gap-3 shrink-0">
+                    <div className="flex items-center justify-between gap-3 sm:shrink-0 sm:justify-start">
                       <span className="text-sm font-bold text-amber-700">
                         {formatCurrencyBRL(saldo)} a receber
                       </span>
@@ -206,11 +208,11 @@ const ReceiptsPage = () => {
         icon={Banknote}
         tone="sales"
       >
-        <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
-          <div className="flex flex-wrap items-end gap-3">
+        <div className="rounded-xl border border-border bg-card p-3 sm:p-5 shadow-sm">
+          <div className="grid grid-cols-2 gap-3 sm:flex sm:flex-wrap sm:items-end">
 
             {/* Venda relacionada */}
-            <div className="min-w-[220px] flex-1">
+            <div className="col-span-2 min-w-0 sm:min-w-[220px] sm:flex-1">
               <label className="text-xs font-medium text-muted-foreground">
                 Venda relacionada (opcional)
               </label>
@@ -254,7 +256,7 @@ const ReceiptsPage = () => {
             </div>
 
             {/* Valor */}
-            <div className="w-40 shrink-0">
+            <div className="min-w-0 sm:w-40 sm:shrink-0">
               <label className="text-xs font-medium text-muted-foreground">
                 Valor recebido (R$)
               </label>
@@ -266,7 +268,7 @@ const ReceiptsPage = () => {
             </div>
 
             {/* Data */}
-            <div className="w-40 shrink-0">
+            <div className="min-w-0 sm:w-40 sm:shrink-0">
               <label className="text-xs font-medium text-muted-foreground">
                 Data
               </label>
@@ -279,7 +281,7 @@ const ReceiptsPage = () => {
             </div>
 
             {/* Hora */}
-            <div className="w-28 shrink-0">
+            <div className="min-w-0 sm:w-28 sm:shrink-0">
               <label className="text-xs font-medium text-muted-foreground">
                 Hora
               </label>
@@ -291,7 +293,7 @@ const ReceiptsPage = () => {
             </div>
 
             {/* Forma de pagamento */}
-            <div className="w-48 shrink-0">
+            <div className="min-w-0 sm:w-48 sm:shrink-0">
               <label className="text-xs font-medium text-muted-foreground">
                 Forma de pagamento
               </label>
@@ -314,7 +316,7 @@ const ReceiptsPage = () => {
             </div>
 
             {/* Observações */}
-            <div className="min-w-[220px] flex-1">
+            <div className="col-span-2 min-w-0 sm:min-w-[220px] sm:flex-1">
               <label className="text-xs font-medium text-muted-foreground">
                 Observações
               </label>
@@ -326,11 +328,11 @@ const ReceiptsPage = () => {
             </div>
 
             {/* Botão */}
-            <div className="shrink-0 self-end">
+            <div className="col-span-2 sm:shrink-0 sm:self-end">
               <Button
                 onClick={() => void handleAddReceipt()}
                 disabled={savingReceipt}
-                className="h-10 px-6 bg-emerald-600 text-white font-semibold rounded-xl shadow-md hover:bg-emerald-700 transition-all"
+                className="h-10 w-full sm:w-auto px-6 bg-emerald-600 text-white font-semibold rounded-xl shadow-md hover:bg-emerald-700 transition-all"
               >
                 <Banknote className="h-4 w-4 mr-2" /> {savingReceipt ? "Registrando..." : "Registrar"}
               </Button>
@@ -396,17 +398,17 @@ const ReceiptsPage = () => {
             {receipts.map(rec => {
               const isReversal = rec.amount < 0;
               return (
-              <div key={rec.id} className="flex items-center justify-between rounded-xl border border-border bg-card px-4 py-3 shadow-sm hover:shadow-md transition-shadow">
+              <div key={rec.id} className="flex flex-col gap-2 rounded-xl border border-border bg-card px-3 py-3 shadow-sm hover:shadow-md transition-shadow sm:flex-row sm:items-center sm:justify-between sm:px-4">
                 <div className="flex items-center gap-3 min-w-0">
                   <div className={`h-9 w-9 shrink-0 rounded-xl flex items-center justify-center ${isReversal ? "bg-red-50" : "bg-emerald-50"}`}>
                     <Banknote className={`h-4 w-4 ${isReversal ? "text-red-600" : "text-emerald-600"}`} />
                   </div>
                   <div className="min-w-0">
-                    <p className="text-sm font-semibold text-foreground truncate max-w-[320px]">
+                    <p className="break-words text-sm font-semibold text-foreground lg:truncate lg:max-w-[320px]">
                       {rec.description}
                     </p>
                     {(getClientName(rec.relatedClientId) || getAnimalName(rec.relatedClientId, rec.relatedAnimalId)) && (
-                      <div className="flex items-center gap-2 mt-0.5 text-xs text-muted-foreground">
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5 text-xs text-muted-foreground">
                         {getClientName(rec.relatedClientId) && (
                           <span className="inline-flex items-center gap-1"><User className="h-3 w-3" /> {getClientName(rec.relatedClientId)}</span>
                         )}
@@ -415,7 +417,7 @@ const ReceiptsPage = () => {
                         )}
                       </div>
                     )}
-                    <div className="flex items-center gap-3 mt-0.5 text-xs text-muted-foreground">
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-0.5 text-xs text-muted-foreground">
                       <span className="flex items-center gap-1">
                         <Calendar className="h-3 w-3" />
                         {formatDateTime(rec.date, rec.time)}
@@ -428,7 +430,7 @@ const ReceiptsPage = () => {
                     </div>
                   </div>
                 </div>
-                <div className="flex items-center gap-3 shrink-0">
+                <div className="flex items-center justify-between gap-3 border-t border-border/60 pt-2 sm:shrink-0 sm:justify-start sm:border-0 sm:pt-0">
                   <span className={`text-base font-bold ${isReversal ? "text-red-600" : "text-emerald-600"}`}>
                     {formatCurrencyBRL(rec.amount)}
                   </span>

@@ -390,7 +390,7 @@ const ClientFormPage = () => {
 
       <div className="flex-1">
         <Tabs defaultValue="general" className="w-full">
-          <TabsList className="vf-surface-card vf-tone-clinical grid w-full grid-cols-3 rounded-md border border-border/80 p-2 shadow-sm">
+          <TabsList className="vf-surface-card vf-tone-clinical grid h-auto w-full grid-cols-3 rounded-md border border-border/80 p-2 shadow-sm">
             <TabsTrigger value="general" className="rounded-md text-muted-foreground transition-colors duration-200 data-[state=active]:bg-[hsl(var(--vf-clinical))] data-[state=active]:text-white">Geral</TabsTrigger>
             <TabsTrigger value="address" className="rounded-md text-muted-foreground transition-colors duration-200 data-[state=active]:bg-[hsl(var(--vf-clinical))] data-[state=active]:text-white">Endereço</TabsTrigger>
             <TabsTrigger value="extras" className="rounded-md text-muted-foreground transition-colors duration-200 data-[state=active]:bg-[hsl(var(--vf-clinical))] data-[state=active]:text-white">Extras</TabsTrigger>
