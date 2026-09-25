@@ -322,16 +322,30 @@ const FinancialPage: React.FC = () => {
       })
       .join(" ");
 
+    // viewBox + preserveAspectRatio="none": o desenho (480x140) estica pra
+    // largura real do card. Sem viewBox, no celular (~320px) a parte direita
+    // do gráfico — os dias mais recentes — simplesmente ficava cortada.
+    // non-scaling-stroke mantém a espessura da linha; os pontos são traços de
+    // comprimento zero com ponta redonda (um <circle> viraria elipse ao esticar).
     return (
-      <svg width={width} height={height} className="w-full h-[140px]">
+      <svg viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" className="w-full h-[140px]">
         <rect x={0} y={0} width={width} height={height} className="fill-muted/45" rx={12} />
         {/* Linha de tendência */}
-        <path d={linePath} stroke="hsl(var(--vf-finance))" strokeWidth={2} fill="none" />
+        <path d={linePath} stroke="hsl(var(--vf-finance))" strokeWidth={2} fill="none" vectorEffect="non-scaling-stroke" />
         {/* Pontos */}
         {points.map((p, i) => {
           const x = padding + i * step;
           const y = height - padding - (p.value / max) * (height - padding * 2);
-          return <circle key={i} cx={x} cy={y} r={3} fill="hsl(var(--vf-finance))" />;
+          return (
+            <path
+              key={i}
+              d={`M ${x} ${y} h 0.01`}
+              stroke="hsl(var(--vf-finance))"
+              strokeWidth={6}
+              strokeLinecap="round"
+              vectorEffect="non-scaling-stroke"
+            />
+          );
         })}
       </svg>
     );

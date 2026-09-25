@@ -28,11 +28,27 @@ const SignatureCanvas = React.forwardRef<SignatureCanvasHandle, SignatureCanvasP
     useEffect(() => {
       const canvas = canvasRef.current;
       if (!canvas) return;
+      let lastW = 0;
+      let lastH = 0;
       const resize = () => {
-        const rect = canvas.getBoundingClientRect();
+        // offsetWidth/offsetHeight = tamanho de layout, sem o transform da
+        // animação de abertura do Dialog (zoom 95%→100%) — getBoundingClientRect
+        // pegava o tamanho no meio da animação e o traço saía deslocado.
+        const w = canvas.offsetWidth;
+        const h = canvas.offsetHeight;
+        if (!w || !h) return;
+        // Celular/tablet disparam "resize" da janela quando a barra do
+        // navegador aparece/some ao rolar ou quando o teclado abre (ex.: digitar
+        // o nome da testemunha) — só a ALTURA da janela muda, o canvas continua
+        // do mesmo tamanho. Redimensionar mesmo assim apagava a assinatura já
+        // feita. Só refaz (e apaga) quando o tamanho do próprio canvas mudou,
+        // como ao girar o aparelho.
+        if (Math.abs(w - lastW) < 1 && Math.abs(h - lastH) < 1) return;
+        lastW = w;
+        lastH = h;
         const dpr = window.devicePixelRatio || 1;
-        canvas.width = rect.width * dpr;
-        canvas.height = rect.height * dpr;
+        canvas.width = w * dpr;
+        canvas.height = h * dpr;
         const ctx = getContext();
         if (ctx) {
           ctx.scale(dpr, dpr);
@@ -51,8 +67,16 @@ const SignatureCanvas = React.forwardRef<SignatureCanvasHandle, SignatureCanvasP
         }
       };
       resize();
+      // ResizeObserver: pega também o canvas que nasce escondido/sem largura
+      // (aba fechada, modal ainda montando) e ganha tamanho depois — antes
+      // ficava com a resolução padrão de 300x150 até alguém girar a tela.
+      const observer = typeof ResizeObserver !== "undefined" ? new ResizeObserver(() => resize()) : null;
+      observer?.observe(canvas);
       window.addEventListener("resize", resize);
-      return () => window.removeEventListener("resize", resize);
+      return () => {
+        observer?.disconnect();
+        window.removeEventListener("resize", resize);
+      };
     }, []);
 
     useImperativeHandle(ref, () => ({
