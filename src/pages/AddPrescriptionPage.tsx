@@ -484,8 +484,10 @@ const AddPrescriptionPage = () => {
           </div>
 
           {prescriptionType !== 'manipulated' && (
-            <aside className="hidden lg:block lg:w-[35%] lg:pl-2 lg:ml-2">
-              <Card className="vf-surface-card vf-tone-clinical card-hover sticky top-2 rounded-xl border border-border/80">
+            // Prévia também no celular/tablet (antes só em tela grande): fica
+            // embaixo dos medicamentos, sem o sticky da coluna lateral.
+            <aside className="mt-3 lg:mt-0 lg:w-[35%] lg:pl-2 lg:ml-2">
+              <Card className="vf-surface-card vf-tone-clinical card-hover rounded-xl border border-border/80 lg:sticky lg:top-2">
             <CardHeader>
               <CardTitle className="text-sm">Prévia da Receita</CardTitle>
             </CardHeader>

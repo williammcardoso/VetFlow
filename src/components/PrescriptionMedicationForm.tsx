@@ -1,17 +1,25 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
 import { FaPlus, FaTrashAlt, FaChevronDown, FaChevronUp } from "react-icons/fa";
+import { RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { parseDosePerAdministration } from "@/utils/parseDose";
 import { MedicationData } from "@/types/medication";
+import {
+  buildPosology,
+  formsForUse,
+  sitesForUse,
+  FREQUENCIES,
+  PERIODS,
+  PHARMACY_TYPES,
+  USE_TYPES,
+} from "@/lib/posology";
 
 export type { MedicationData };
 
@@ -23,11 +31,26 @@ interface PrescriptionMedicationFormProps {
   onToggleCollapse: (id: string) => void;
 }
 
-const mockUseTypes = ["Uso Oral", "Uso Tópico", "Uso Oftalmológico", "Uso Auricular", "Uso Injetável"];
-const mockPharmacyTypes = ["Farmácia Veterinária", "Farmácia Humana"];
-const mockPharmaceuticalForms = ["Comprimido", "Cápsula", "Líquido (ml)", "Gotas", "Aplicação", "Spray", "Pomada", "Outro"];
-const mockFrequencies = ["6 horas", "8 horas", "12 horas", "24 horas (1x/dia)", "Outro"];
-const mockPeriods = ["3 dias", "5 dias", "7 dias", "10 dias", "14 dias", "21 dias", "Outro"];
+// Receita antiga gravava o texto livre direto no campo (ex.: frequency =
+// "a cada 48 horas") — ao abrir pra editar, vira "Outro" + o texto, em vez
+// de o select aparecer vazio e o texto sumir.
+function splitOption(value: string | undefined, custom: string | undefined, options: string[]) {
+  const v = (value || "").trim();
+  if (!v) return { value: "", custom: custom || "" };
+  if (options.includes(v)) return { value: v, custom: v === "Outro" ? custom || "" : "" };
+  return { value: "Outro", custom: custom || v };
+}
+
+const DOSE_PLACEHOLDER: Record<string, string> = {
+  "Líquido (mL)": "Ex: 5 (mL por vez)",
+  Gotas: "Ex: 4 (gotas por vez)",
+  Spray: "Ex: 1 (borrifada por vez)",
+  Pomada: "Opcional — padrão: uma fina camada",
+  Shampoo: "Opcional",
+  Pipeta: "Ex: 1",
+  "Ração (g)": "Ex: 70 (g por dia)",
+  Sachê: "Ex: 1",
+};
 
 const PrescriptionMedicationForm: React.FC<PrescriptionMedicationFormProps> = ({
   medication,
@@ -36,32 +59,69 @@ const PrescriptionMedicationForm: React.FC<PrescriptionMedicationFormProps> = ({
   onDelete,
   onToggleCollapse,
 }) => {
+  const initialForm = medication.pharmaceuticalForm === "Líquido (ml)" ? "Líquido (mL)" : medication.pharmaceuticalForm;
+  const formInit = splitOption(initialForm, medication.customPharmaceuticalForm, [...formsForUse(""), "Outro"]);
+  const freqInit = splitOption(medication.frequency, medication.customFrequency, FREQUENCIES);
+  const periodInit = splitOption(medication.period, medication.customPeriod, PERIODS);
+  const siteInit = splitOption(medication.applicationSite, medication.customApplicationSite, [
+    ...sitesForUse(medication.useType),
+    "Outro",
+  ]);
+
   const [useType, setUseType] = useState<string>(medication.useType);
   const [pharmacyType, setPharmacyType] = useState<string>(medication.pharmacyType);
   const [medicationName, setMedicationName] = useState<string>(medication.medicationName);
   const [concentration, setConcentration] = useState<string>(medication.concentration);
-  const [pharmaceuticalForm, setPharmaceuticalForm] = useState<string>(medication.pharmaceuticalForm);
-  const [customPharmaceuticalForm, setCustomPharmaceuticalForm] = useState<string>(medication.customPharmaceuticalForm || "");
+  const [pharmaceuticalForm, setPharmaceuticalForm] = useState<string>(formInit.value);
+  const [customPharmaceuticalForm, setCustomPharmaceuticalForm] = useState<string>(formInit.custom);
   const [dosePerAdministration, setDosePerAdministration] = useState<string>(medication.dosePerAdministration);
-  const [frequency, setFrequency] = useState<string>(medication.frequency);
-  const [customFrequency, setCustomFrequency] = useState<string>(medication.customFrequency || "");
-  const [period, setPeriod] = useState<string>(medication.period);
-  const [customPeriod, setCustomPeriod] = useState<string>(medication.customPeriod || "");
-  const [useCustomInstructions, setUseCustomInstructions] = useState<boolean>(medication.useCustomInstructions);
-  const [customInstructionInput, setCustomInstructionInput] = useState<string>(
-    medication.useCustomInstructions ? medication.generatedInstructions : ""
-  );
+  const [frequency, setFrequency] = useState<string>(freqInit.value);
+  const [customFrequency, setCustomFrequency] = useState<string>(freqInit.custom);
+  const [period, setPeriod] = useState<string>(periodInit.value);
+  const [customPeriod, setCustomPeriod] = useState<string>(periodInit.custom);
+  const [applicationSite, setApplicationSite] = useState<string>(siteInit.value);
+  const [customApplicationSite, setCustomApplicationSite] = useState<string>(siteInit.custom);
   const [generalObservations, setGeneralObservations] = useState<string>(medication.generalObservations);
-  const [totalQuantity, setTotalQuantity] = useState<string>(medication.totalQuantity);
-  const [totalQuantityDisplay, setTotalQuantityDisplay] = useState<string>(medication.totalQuantityDisplay || "");
   const [isCollapsed, setIsCollapsed] = useState<boolean>(medication.isCollapsed ?? false);
+
+  // Texto de uso e quantidade: sugeridos pelo motor (lib/posology) enquanto o
+  // veterinário não mexer; depois de editados, ficam como ele escreveu até ele
+  // pedir "voltar ao automático". Substitui o antigo liga/desliga de
+  // "instrução personalizada", que obrigava a reescrever tudo do zero.
+  //
+  // Receita antiga cujos campos não geram frase/quantidade no motor novo
+  // (ex.: dose em branco, período livre) começa como "editada": mantém o
+  // texto que já estava gravado em vez de apagá-lo ao abrir pra editar.
+  const [initialPosology] = useState(() =>
+    buildPosology({
+      useType: medication.useType,
+      form: formInit.value,
+      customForm: formInit.custom,
+      dose: medication.dosePerAdministration,
+      frequency: freqInit.value,
+      customFrequency: freqInit.custom,
+      period: periodInit.value,
+      customPeriod: periodInit.custom,
+      site: siteInit.value,
+      customSite: siteInit.custom,
+    })
+  );
+  const [instructionsEdited, setInstructionsEdited] = useState<boolean>(
+    Boolean(medication.useCustomInstructions) ||
+      (!initialPosology.text && Boolean(medication.generatedInstructions?.trim()))
+  );
+  const [instructionText, setInstructionText] = useState<string>(medication.generatedInstructions || "");
+  const [quantityEdited, setQuantityEdited] = useState<boolean>(
+    Boolean(medication.quantityEdited) ||
+      (!initialPosology.quantityDisplay && Boolean(medication.totalQuantityDisplay?.trim()))
+  );
+  const [quantityText, setQuantityText] = useState<string>(medication.totalQuantityDisplay || "");
 
   useEffect(() => {
     setIsCollapsed(medication.isCollapsed ?? false);
   }, [medication.id, medication.isCollapsed]);
 
   const useTypeRef = useRef<HTMLButtonElement>(null);
-  const customInstructionInputRef = useRef<HTMLTextAreaElement>(null); // Ref para o campo de instrução personalizada
 
   // Foco no campo Tipo de Uso quando o formulário é expandido (novo ou editado)
   useEffect(() => {
@@ -70,89 +130,64 @@ const PrescriptionMedicationForm: React.FC<PrescriptionMedicationFormProps> = ({
     }
   }, [isCollapsed]);
 
-  // Foco no campo de instrução personalizada quando o switch é ativado
-  useEffect(() => {
-    if (useCustomInstructions && customInstructionInputRef.current) {
-      customInstructionInputRef.current.focus();
-    }
-  }, [useCustomInstructions]);
-
-  const generateAutoInstructions = () => {
-    let instructions = "";
-    const doseText = dosePerAdministration.trim();
-    let formText = pharmaceuticalForm === "Outro" && customPharmaceuticalForm.trim() ? customPharmaceuticalForm.trim() : pharmaceuticalForm.trim();
-    const freqText = frequency === "Outro" && customFrequency.trim() ? customFrequency.trim() : frequency.trim();
-    const periodText = period === "Outro" && customPeriod.trim() ? customPeriod.trim() : period.trim();
-
-    const displayFormText = formText.toLowerCase(); 
-    const pluralFormText = (displayFormText.includes("comprimido") || displayFormText.includes("cápsula"))
-        ? `${displayFormText}(s)`
-        : displayFormText;
-
-    if (doseText && formText && freqText && periodText) {
-      instructions = `Dê ${doseText} ${pluralFormText}, a cada ${freqText}, durante ${periodText}.`;
-    } else if (doseText && formText && freqText) {
-      instructions = `Dê ${doseText} ${pluralFormText}, a cada ${freqText}.`;
-    } else if (doseText && formText) {
-      instructions = `Dê ${doseText} ${pluralFormText}.`;
-    } else if (doseText) {
-      instructions = `Dê ${doseText}.`;
-    }
-    return instructions;
-  };
+  const posology = useMemo(
+    () =>
+      buildPosology({
+        useType,
+        form: pharmaceuticalForm,
+        customForm: customPharmaceuticalForm,
+        dose: dosePerAdministration,
+        frequency,
+        customFrequency,
+        period,
+        customPeriod,
+        site: applicationSite,
+        customSite: customApplicationSite,
+      }),
+    [
+      useType,
+      pharmaceuticalForm,
+      customPharmaceuticalForm,
+      dosePerAdministration,
+      frequency,
+      customFrequency,
+      period,
+      customPeriod,
+      applicationSite,
+      customApplicationSite,
+    ]
+  );
 
   useEffect(() => {
-    let calculatedQuantity = 0;
-    const doseNum = parseDosePerAdministration(dosePerAdministration);
-    const periodValue = period === "Outro" && customPeriod.trim() ? customPeriod.trim() : period.trim();
-    const periodNum = parseFloat(periodValue.split(' ')[0]);
+    if (!instructionsEdited) setInstructionText(posology.text);
+  }, [posology.text, instructionsEdited]);
 
-    if (!isNaN(doseNum) && !isNaN(periodNum)) {
-      let freqMultiplier = 1;
-      if (frequency.includes("24 horas")) freqMultiplier = 1;
-      else if (frequency.includes("12 horas")) freqMultiplier = 2;
-      else if (frequency.includes("8 horas")) freqMultiplier = 3;
-      else if (frequency.includes("6 horas")) freqMultiplier = 4;
-      
-      const rawTotal = doseNum * freqMultiplier * periodNum;
-      calculatedQuantity = rawTotal;
-    }
+  useEffect(() => {
+    if (!quantityEdited) setQuantityText(posology.quantityDisplay);
+  }, [posology.quantityDisplay, quantityEdited]);
 
-    let formUnitForRound = (pharmaceuticalForm === "Outro" && customPharmaceuticalForm.trim()) ? customPharmaceuticalForm.trim() : pharmaceuticalForm.trim();
-    formUnitForRound = formUnitForRound.toLowerCase();
-    const isWholeUnit = formUnitForRound.includes("comprimido") || formUnitForRound.includes("cápsula") || formUnitForRound.includes("gota") || formUnitForRound.includes("aplicacao");
-    const quantityToStore = calculatedQuantity > 0
-      ? (isWholeUnit ? Math.round(calculatedQuantity) : Math.round(calculatedQuantity * 100) / 100)
-      : 0;
-    setTotalQuantity(quantityToStore > 0 ? String(quantityToStore) : "");
+  // A forma atual continua na lista mesmo se o tipo de uso mudar (senão o
+  // select ficaria em branco com um valor escondido).
+  const formOptions = useMemo(() => {
+    const list = formsForUse(useType);
+    return pharmaceuticalForm && !list.includes(pharmaceuticalForm)
+      ? [...list.filter((f) => f !== "Outro"), pharmaceuticalForm, "Outro"]
+      : list;
+  }, [useType, pharmaceuticalForm]);
 
-    let formattedTotalQuantity = "";
-    if (quantityToStore > 0) {
-      if (isWholeUnit) {
-        formattedTotalQuantity = `${quantityToStore} ${formUnitForRound}(s)`;
-      } else if (formUnitForRound.includes("ml")) {
-        formattedTotalQuantity = `${quantityToStore} mL`;
-      } else {
-        formattedTotalQuantity = `${quantityToStore} ${formUnitForRound}`;
-      }
-    }
-    setTotalQuantityDisplay(formattedTotalQuantity);
-
-  }, [dosePerAdministration, pharmaceuticalForm, customPharmaceuticalForm, frequency, customFrequency, period, customPeriod]);
+  const siteOptions = useMemo(() => {
+    const list = sitesForUse(useType);
+    return applicationSite && applicationSite !== "Outro" && !list.includes(applicationSite)
+      ? [...list, applicationSite]
+      : list;
+  }, [useType, applicationSite]);
+  const showSite = siteOptions.length > 0 || applicationSite === "Outro";
 
   const handleSave = () => {
-    if (
-      !useType ||
-      !pharmacyType ||
-      !medicationName.trim() ||
-      (!useCustomInstructions && (!pharmaceuticalForm || !dosePerAdministration.trim() || !frequency || !period)) ||
-      (useCustomInstructions && !customInstructionInput.trim())
-    ) {
-      toast.error("Por favor, preencha todos os campos obrigatórios.");
+    if (!useType || !pharmacyType || !medicationName.trim() || !instructionText.trim()) {
+      toast.error("Preencha tipo de uso, farmácia, nome do medicamento e a instrução de uso.");
       return;
     }
-
-    const currentAutoGeneratedInstructions = generateAutoInstructions();
 
     const updatedMedication: MedicationData = {
       ...medication,
@@ -160,18 +195,21 @@ const PrescriptionMedicationForm: React.FC<PrescriptionMedicationFormProps> = ({
       pharmacyType,
       medicationName: medicationName.trim(),
       concentration: concentration.trim(),
-      pharmaceuticalForm: useCustomInstructions ? "" : (pharmaceuticalForm === "Outro" ? customPharmaceuticalForm.trim() : pharmaceuticalForm),
-      customPharmaceuticalForm: useCustomInstructions ? undefined : (pharmaceuticalForm === "Outro" ? customPharmaceuticalForm.trim() : undefined),
-      dosePerAdministration: useCustomInstructions ? "" : dosePerAdministration.trim(),
-      frequency: useCustomInstructions ? "" : (frequency === "Outro" ? customFrequency.trim() : frequency),
-      customFrequency: useCustomInstructions ? undefined : (frequency === "Outro" ? customFrequency.trim() : undefined),
-      period: useCustomInstructions ? "" : (period === "Outro" ? customPeriod.trim() : period),
-      customPeriod: useCustomInstructions ? undefined : (period === "Outro" ? customPeriod.trim() : undefined),
-      useCustomInstructions,
-      generatedInstructions: useCustomInstructions ? customInstructionInput.trim() : currentAutoGeneratedInstructions,
+      pharmaceuticalForm,
+      customPharmaceuticalForm: pharmaceuticalForm === "Outro" ? customPharmaceuticalForm.trim() : undefined,
+      dosePerAdministration: dosePerAdministration.trim(),
+      frequency,
+      customFrequency: frequency === "Outro" ? customFrequency.trim() : undefined,
+      period,
+      customPeriod: period === "Outro" ? customPeriod.trim() : undefined,
+      applicationSite: showSite ? applicationSite : "",
+      customApplicationSite: showSite && applicationSite === "Outro" ? customApplicationSite.trim() : undefined,
+      useCustomInstructions: instructionsEdited,
+      generatedInstructions: instructionText.trim(),
       generalObservations: generalObservations.trim(),
-      totalQuantity: useCustomInstructions ? "" : totalQuantity,
-      totalQuantityDisplay: useCustomInstructions ? "" : totalQuantityDisplay,
+      totalQuantity: !quantityEdited && posology.quantityNumber != null ? String(posology.quantityNumber) : "",
+      totalQuantityDisplay: quantityText.trim(),
+      quantityEdited,
       isCollapsed: true,
     };
     onSave(updatedMedication);
@@ -179,8 +217,8 @@ const PrescriptionMedicationForm: React.FC<PrescriptionMedicationFormProps> = ({
   };
 
   const displayMedicationName = medicationName.trim() || "Medicamento sem nome";
-  const displayPharmacyType = pharmacyType === "Farmácia Veterinária" ? "Vet" : "Humana";
-  const currentAutoGeneratedInstructionsForDisplay = generateAutoInstructions();
+  const selectClass =
+    "bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200";
 
   return (
     <div className="rounded-xl border border-border bg-white p-3 sm:p-4 space-y-4 shadow-lg">
@@ -212,10 +250,12 @@ const PrescriptionMedicationForm: React.FC<PrescriptionMedicationFormProps> = ({
           </Button>
         </div>
       </div>
-      {/* Mostrar instrução gerada automaticamente também no cartão (atualiza enquanto digita) */}
-      { (medication.generatedInstructions || (!useCustomInstructions && (dosePerAdministration || pharmaceuticalForm || frequency || period))) && (
-        <div className="mt-2 text-sm text-muted-foreground">
-          {useCustomInstructions ? (customInstructionInput || medication.generatedInstructions) : (generateAutoInstructions() || medication.generatedInstructions)}
+
+      {/* Recolhido: mostra a instrução e a quantidade como vão sair na receita. */}
+      {isCollapsed && (instructionText || quantityText) && (
+        <div className="mt-2 space-y-1 text-sm text-muted-foreground">
+          {instructionText && <p>{instructionText}</p>}
+          {quantityText && <p className="font-medium text-foreground/80">Quantidade: {quantityText}</p>}
         </div>
       )}
 
@@ -225,11 +265,11 @@ const PrescriptionMedicationForm: React.FC<PrescriptionMedicationFormProps> = ({
             <div className="space-y-2">
               <Label htmlFor={`useType-${medication.id}`}>Tipo de Uso *</Label>
               <Select onValueChange={setUseType} value={useType}>
-                <SelectTrigger ref={useTypeRef} id={`useType-${medication.id}`} className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200">
+                <SelectTrigger ref={useTypeRef} id={`useType-${medication.id}`} className={selectClass}>
                   <SelectValue placeholder="Selecionar tipo" />
                 </SelectTrigger>
                 <SelectContent>
-                  {mockUseTypes.map((type) => (
+                  {USE_TYPES.map((type) => (
                     <SelectItem key={type} value={type}>
                       {type}
                     </SelectItem>
@@ -240,11 +280,11 @@ const PrescriptionMedicationForm: React.FC<PrescriptionMedicationFormProps> = ({
             <div className="space-y-2">
               <Label htmlFor={`pharmacyType-${medication.id}`}>Tipo de Farmácia *</Label>
               <Select onValueChange={setPharmacyType} value={pharmacyType}>
-                <SelectTrigger id={`pharmacyType-${medication.id}`} className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200">
+                <SelectTrigger id={`pharmacyType-${medication.id}`} className={selectClass}>
                   <SelectValue placeholder="Selecionar farmácia" />
                 </SelectTrigger>
                 <SelectContent>
-                  {mockPharmacyTypes.map((type) => (
+                  {PHARMACY_TYPES.map((type) => (
                     <SelectItem key={type} value={type}>
                       {type}
                     </SelectItem>
@@ -262,7 +302,7 @@ const PrescriptionMedicationForm: React.FC<PrescriptionMedicationFormProps> = ({
                 placeholder="Ex: Carprofeno"
                 value={medicationName}
                 onChange={(e) => setMedicationName(e.target.value)}
-                className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200"
+                className={selectClass}
               />
             </div>
             <div className="space-y-2">
@@ -272,134 +312,195 @@ const PrescriptionMedicationForm: React.FC<PrescriptionMedicationFormProps> = ({
                 placeholder="Ex: 75mg, 100mg/ml"
                 value={concentration}
                 onChange={(e) => setConcentration(e.target.value)}
-                className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200"
+                className={selectClass}
               />
             </div>
           </div>
 
-          {useCustomInstructions ? (
-            <div className="space-y-2 mt-4">
-              <Label htmlFor={`customInstructionInput-${medication.id}`}>Instrução Personalizada *</Label>
-              <Textarea
-                ref={customInstructionInputRef} // Adicionando a ref aqui
-                id={`customInstructionInput-${medication.id}`}
-                placeholder="Digite a instrução de uso personalizada..."
-                rows={3}
-                value={customInstructionInput}
-                onChange={(e) => setCustomInstructionInput(e.target.value)}
-                className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200"
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor={`pharmaceuticalForm-${medication.id}`}>Forma Farmacêutica</Label>
+              <Select onValueChange={setPharmaceuticalForm} value={pharmaceuticalForm}>
+                <SelectTrigger id={`pharmaceuticalForm-${medication.id}`} className={selectClass}>
+                  <SelectValue placeholder="Selecionar forma" />
+                </SelectTrigger>
+                <SelectContent>
+                  {formOptions.map((form) => (
+                    <SelectItem key={form} value={form}>
+                      {form}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {pharmaceuticalForm === "Outro" && (
+                <Input
+                  placeholder="Digite a forma (ex.: pasta oral)"
+                  value={customPharmaceuticalForm}
+                  onChange={(e) => setCustomPharmaceuticalForm(e.target.value)}
+                  className={cn("mt-2", selectClass)}
+                />
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor={`dosePerAdministration-${medication.id}`}>
+                {pharmaceuticalForm === "Ração (g)" ? "Quantidade (g)" : "Dose por Administração"}
+              </Label>
+              <Input
+                id={`dosePerAdministration-${medication.id}`}
+                placeholder={DOSE_PLACEHOLDER[pharmaceuticalForm] ?? "Ex: 1, 1/2, 1 + 1/2"}
+                value={dosePerAdministration}
+                onChange={(e) => setDosePerAdministration(e.target.value)}
+                className={selectClass}
               />
             </div>
-          ) : (
-            <>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor={`pharmaceuticalForm-${medication.id}`}>Forma Farmacêutica *</Label>
-                  <Select onValueChange={setPharmaceuticalForm} value={pharmaceuticalForm}>
-                    <SelectTrigger id={`pharmaceuticalForm-${medication.id}`} className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200">
-                      <SelectValue placeholder="Selecionar forma" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {mockPharmaceuticalForms.map((form) => (
-                        <SelectItem key={form} value={form}>
-                          {form}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {pharmaceuticalForm === "Outro" && (
-                    <Input
-                      placeholder="Ou digite forma personalizada"
-                      value={customPharmaceuticalForm}
-                      onChange={(e) => setCustomPharmaceuticalForm(e.target.value)}
-                      className="mt-2 bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200"
-                    />
-                  )}
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor={`dosePerAdministration-${medication.id}`}>Dose por Administração *</Label>
-                  <Input
-                    id={`dosePerAdministration-${medication.id}`}
-                    placeholder="Ex: 1, 0.5, 2"
-                    value={dosePerAdministration}
-                    onChange={(e) => setDosePerAdministration(e.target.value)}
-                    className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200"
-                  />
-                </div>
-              </div>
+          </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
-                <div className="space-y-2">
-                  <Label htmlFor={`frequency-${medication.id}`}>Frequência *</Label>
-                  <Select onValueChange={setFrequency} value={frequency}>
-                    <SelectTrigger id={`frequency-${medication.id}`} className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200">
-                      <SelectValue placeholder="A cada..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {mockFrequencies.map((freq) => (
-                        <SelectItem key={freq} value={freq}>
-                          {freq}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor={`period-${medication.id}`}>Período *</Label>
-                  <Select onValueChange={setPeriod} value={period}>
-                    <SelectTrigger id={`period-${medication.id}`} className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200">
-                      <SelectValue placeholder="Por..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {mockPeriods.map((p) => (
-                        <SelectItem key={p} value={p}>
-                          {p}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor={`totalQuantity-${medication.id}`}>Quantidade Total</Label>
-                  <Input id={`totalQuantity-${medication.id}`} placeholder="Auto calculado" value={totalQuantityDisplay} disabled className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200" />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {frequency === "Outro" && (
-                  <Input
-                    placeholder="Ou digite frequência personalizada"
-                    value={customFrequency}
-                    onChange={(e) => setCustomFrequency(e.target.value)}
-                    className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200"
-                  />
-                )}
-                {period === "Outro" && (
-                  <Input
-                    placeholder="Ou digite período personalizado"
-                    value={customPeriod}
-                    onChange={(e) => setCustomPeriod(e.target.value)}
-                    className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200"
-                  />
-                )}
-              </div>
-
-              {currentAutoGeneratedInstructionsForDisplay && (
-                <div className="bg-muted/50 border border-border text-foreground p-3 rounded-md text-sm mt-4">
-                  <p className="font-semibold mb-1">Instrução Gerada:</p>
-                  <p>{currentAutoGeneratedInstructionsForDisplay}</p>
-                </div>
+          <div className={cn("grid grid-cols-1 gap-4", showSite ? "md:grid-cols-3" : "md:grid-cols-2")}>
+            <div className="space-y-2">
+              <Label htmlFor={`frequency-${medication.id}`}>Frequência</Label>
+              <Select onValueChange={setFrequency} value={frequency}>
+                <SelectTrigger id={`frequency-${medication.id}`} className={selectClass}>
+                  <SelectValue placeholder="A cada..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {FREQUENCIES.map((freq) => (
+                    <SelectItem key={freq} value={freq}>
+                      {freq}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {frequency === "Outro" && (
+                <Input
+                  placeholder="Ex: a cada 48 horas, 2x ao dia"
+                  value={customFrequency}
+                  onChange={(e) => setCustomFrequency(e.target.value)}
+                  className={selectClass}
+                />
               )}
-            </>
-          )}
-          
-          <div className="flex items-center space-x-2 mt-4">
-            <Switch
-              id={`custom-instructions-${medication.id}`}
-              checked={useCustomInstructions}
-              onCheckedChange={setUseCustomInstructions}
-            />
-            <Label htmlFor={`custom-instructions-${medication.id}`}>Usar instrução personalizada</Label>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor={`period-${medication.id}`}>Período</Label>
+              <Select onValueChange={setPeriod} value={period}>
+                <SelectTrigger id={`period-${medication.id}`} className={selectClass}>
+                  <SelectValue placeholder="Por..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {PERIODS.map((p) => (
+                    <SelectItem key={p} value={p}>
+                      {p}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {period === "Outro" && (
+                <Input
+                  placeholder="Ex: 2 semanas, até voltar o apetite"
+                  value={customPeriod}
+                  onChange={(e) => setCustomPeriod(e.target.value)}
+                  className={selectClass}
+                />
+              )}
+            </div>
+            {showSite && (
+              <div className="space-y-2">
+                <Label htmlFor={`applicationSite-${medication.id}`}>Local de aplicação</Label>
+                <Select
+                  onValueChange={(v) => setApplicationSite(v === "__none__" ? "" : v)}
+                  value={applicationSite || "__none__"}
+                >
+                  <SelectTrigger id={`applicationSite-${medication.id}`} className={selectClass}>
+                    <SelectValue placeholder="Onde aplicar" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">Não informar</SelectItem>
+                    {siteOptions.map((s) => (
+                      <SelectItem key={s} value={s}>
+                        {s}
+                      </SelectItem>
+                    ))}
+                    <SelectItem value="Outro">Outro</SelectItem>
+                  </SelectContent>
+                </Select>
+                {applicationSite === "Outro" && (
+                  <Input
+                    placeholder="Ex: após a limpeza do ouvido"
+                    value={customApplicationSite}
+                    onChange={(e) => setCustomApplicationSite(e.target.value)}
+                    className={selectClass}
+                  />
+                )}
+              </div>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-[1fr_220px]">
+            <div className="space-y-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <Label htmlFor={`instruction-${medication.id}`}>Instrução de uso *</Label>
+                {instructionsEdited ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2 text-xs text-primary"
+                    onClick={() => {
+                      setInstructionsEdited(false);
+                      setInstructionText(posology.text);
+                    }}
+                    title="Descartar a edição e usar o texto gerado pelos campos acima"
+                  >
+                    <RotateCcw className="mr-1 h-3.5 w-3.5" /> Voltar ao texto automático
+                  </Button>
+                ) : (
+                  <span className="text-xs text-muted-foreground">Gerada pelos campos acima — pode editar</span>
+                )}
+              </div>
+              <Textarea
+                id={`instruction-${medication.id}`}
+                placeholder="Preencha forma, dose, frequência e período — ou escreva a instrução aqui."
+                rows={3}
+                value={instructionText}
+                onChange={(e) => {
+                  setInstructionText(e.target.value);
+                  setInstructionsEdited(true);
+                }}
+                className={selectClass}
+              />
+            </div>
+            <div className="space-y-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <Label htmlFor={`totalQuantity-${medication.id}`}>Quantidade</Label>
+                {quantityEdited && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2 text-xs text-primary"
+                    onClick={() => {
+                      setQuantityEdited(false);
+                      setQuantityText(posology.quantityDisplay);
+                    }}
+                    title="Voltar à quantidade calculada"
+                  >
+                    <RotateCcw className="mr-1 h-3.5 w-3.5" /> Recalcular
+                  </Button>
+                )}
+              </div>
+              <Input
+                id={`totalQuantity-${medication.id}`}
+                placeholder="Ex: 1 caixa"
+                value={quantityText}
+                onChange={(e) => {
+                  setQuantityText(e.target.value);
+                  setQuantityEdited(true);
+                }}
+                className={selectClass}
+              />
+              {!quantityEdited && (
+                <p className="text-xs text-muted-foreground">Calculada automaticamente — pode editar.</p>
+              )}
+            </div>
           </div>
 
           <div className="space-y-2 mt-6">
@@ -410,12 +511,12 @@ const PrescriptionMedicationForm: React.FC<PrescriptionMedicationFormProps> = ({
               rows={3}
               value={generalObservations}
               onChange={(e) => setGeneralObservations(e.target.value)}
-              className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200"
+              className={selectClass}
             />
           </div>
 
           <div className="flex justify-end mt-6">
-            <Button onClick={handleSave} className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-md font-semibold transition-all duration-200 shadow-md hover:shadow-lg">
+            <Button onClick={handleSave} className="w-full sm:w-auto bg-primary text-primary-foreground hover:bg-primary/90 rounded-md font-semibold transition-all duration-200 shadow-md hover:shadow-lg">
               <FaPlus className="h-4 w-4 mr-2" /> Salvar Medicamento
             </Button>
           </div>

@@ -11,11 +11,17 @@ export interface MedicationData {
   customFrequency?: string;
   period: string;
   customPeriod?: string;
+  /** Local de aplicação (ex.: "em ambos os olhos"); "Outro" usa customApplicationSite. */
+  applicationSite?: string;
+  customApplicationSite?: string;
+  /** true = o veterinário editou a instrução à mão (não é mais regerada pelos campos). */
   useCustomInstructions: boolean;
   generatedInstructions: string; // This will store the final instruction (auto or custom)
   generalObservations: string; // This is for the separate 'Observações Gerais' at the bottom
   totalQuantity: string; // Numeric string for calculation
   totalQuantityDisplay?: string; // Formatted string for display in PDF
+  /** true = o veterinário editou a quantidade à mão (não é mais recalculada). */
+  quantityEdited?: boolean;
   isCollapsed?: boolean; // To control collapse state in the form
 }
 
