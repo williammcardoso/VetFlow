@@ -1,7 +1,7 @@
 import { pdf } from "@react-pdf/renderer";
 import type { ReactElement } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { createShareLink } from "@/lib/documentShareLinksApi";
+import { createShareLink, type ShareLinkPreview } from "@/lib/documentShareLinksApi";
 
 const DEFAULT_BUCKET = "documents";
 
@@ -36,10 +36,13 @@ function ensurePdfName(name: string) {
  * se não der pra gravar o link curto (ex.: migration do
  * document_share_links ainda não aplicada), cai pra URL direta em vez de
  * falhar o envio. */
-export async function persistPdf(blob: Blob, options?: PersistOptions & { fileName: string }): Promise<string | null> {
+export async function persistPdf(
+  blob: Blob,
+  options?: PersistOptions & { fileName: string; sharePreview?: ShareLinkPreview }
+): Promise<string | null> {
   const longUrl = await tryPersistPdf(blob, options);
   if (!longUrl) return null;
-  const shortUrl = await createShareLink(longUrl);
+  const shortUrl = await createShareLink(longUrl, options?.sharePreview);
   return shortUrl || longUrl;
 }
 

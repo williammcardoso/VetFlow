@@ -932,6 +932,10 @@ const PatientRecordPage = () => {
         title: "Orçamento",
         intro: `Olá! Segue o orçamento de *${b.animalName || currentAnimal?.name || "seu pet"}*.`,
         dateLabel: formatDateTime(b.date),
+        preview: {
+          title: [`Orçamento`, b.animalName || currentAnimal?.name].filter(Boolean).join(" — "),
+          description: `Orçamento · ${formatDateTime(b.date)}`,
+        },
       });
     } catch (err) {
       console.error("[Enviar orçamento por WhatsApp] falhou ao gerar o PDF", err);
@@ -1057,6 +1061,7 @@ const PatientRecordPage = () => {
     title: string;
     intro: string;
     dateLabel: string;
+    preview?: { title?: string; description?: string };
   }) => sendPdfViaWhatsAppShared({ ...opts, phone: currentClient?.mainPhoneContact });
 
   // ADDED: Navegar para a edição do animal
@@ -2275,6 +2280,10 @@ const PatientRecordPage = () => {
                                       title: `Resultado de Exame — ${exam.type || "Exame"}`,
                                       intro: `Olá! Segue o resultado do exame *${exam.type || "Exame"}* de *${currentAnimal.name}*.`,
                                       dateLabel: formatDateTime(exam.date, exam.time),
+                                      preview: {
+                                        title: `${exam.type || "Exame"} — ${currentAnimal.name}`,
+                                        description: `Resultado de exame · ${formatDateTime(exam.date, exam.time)}`,
+                                      },
                                     });
                                   } catch (err) {
                                     console.error("[Enviar exame por WhatsApp] falhou ao gerar o PDF", err);
@@ -2596,6 +2605,10 @@ const PatientRecordPage = () => {
                             title: doc.name,
                             intro: `Olá! Segue o documento *${doc.name}* de *${currentAnimal.name}*.`,
                             dateLabel: formatDateTime(doc.date, doc.time),
+                            preview: {
+                              title: `${doc.name} — ${currentAnimal.name}`,
+                              description: `Documento · ${formatDateTime(doc.date, doc.time)}`,
+                            },
                           });
                         } catch (err) {
                           console.error("[Enviar documento por WhatsApp] falhou ao gerar o PDF", doc.name, err);
@@ -2986,6 +2999,10 @@ const PatientRecordPage = () => {
                                     title: "Receita Veterinária",
                                     intro: `Olá! Segue a receita de *${currentAnimal.name}*.`,
                                     dateLabel: formatDateTime(rx.date, rx.time),
+                                    preview: {
+                                      title: `${rx.type === "controlled" ? "Receita controlada" : rx.type === "manipulated" ? "Receita manipulada" : "Receita"} — ${currentAnimal.name}`,
+                                      description: `Receita veterinária · ${formatDateTime(rx.date, rx.time)}`,
+                                    },
                                   });
                                 }}
                               >

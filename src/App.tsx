@@ -151,7 +151,13 @@ const App = () => {
                 <Route path="/validar/:hash" element={<ValidateDocumentPage />} />
                 <Route path="/assinar/:documentId" element={<SignDocumentPage />} />
                 <Route path="/agendar-horario" element={<BookSchedulePage />} />
+                {/* Em produção o /d/:code é respondido pela função
+                    api/share-link.ts (prévia do WhatsApp com título); esta
+                    rota da SPA vale no `npm run dev` e como reserva:
+                    /documento/:code é pra onde a função manda se não
+                    conseguir resolver o link sozinha. */}
                 <Route path="/d/:code" element={<DocumentRedirectPage />} />
+                <Route path="/documento/:code" element={<DocumentRedirectPage />} />
 
                   <Route element={<ProtectedAppShell />}>
                     <Route path="/" element={<Navigate to="/dashboard" replace />} />

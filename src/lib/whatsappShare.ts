@@ -1,5 +1,8 @@
 import { toast } from "sonner";
 import { persistPdf, downloadPdf } from "@/lib/pdfExport";
+// `export let` atualizado por getCompanySettings() na abertura do app —
+// o import é uma ligação viva, então já vem com o nome real da clínica.
+import { mockCompanySettings } from "@/mockData/settings";
 
 /** Normaliza telefone brasileiro pro formato que o WhatsApp espera (55 + DDD + número). */
 function normalizeBrazilPhone(phone: string | undefined | null): string | null {
@@ -75,6 +78,10 @@ export async function sendPdfViaWhatsApp(opts: {
   title: string;
   intro: string;
   dateLabel: string;
+  /** Prévia do link no WhatsApp (o cartão com título que aparece acima da
+   * mensagem). Sem isso, usa o `title` e a data. O nome da clínica entra no
+   * fim da descrição automaticamente. */
+  preview?: { title?: string; description?: string };
 }): Promise<void> {
   const num = normalizeBrazilPhone(opts.phone);
   if (!num) {
@@ -102,7 +109,12 @@ export async function sendPdfViaWhatsApp(opts: {
   // %F0%9F%90%BE certo em wa.me virava %EF%BF%BD no api.whatsapp.com/send
   // gerado por eles ~1s depois). Indo direto no endpoint final, pula essa
   // conversão que estava mastigando os emoji.
-  const pdfUrl = await persistPdf(opts.blob, { folder: opts.folder, fileName: opts.fileName });
+  const clinicName = (mockCompanySettings.companyName || "").trim();
+  const sharePreview = {
+    title: opts.preview?.title?.trim() || opts.title,
+    description: [opts.preview?.description?.trim() || opts.dateLabel, clinicName].filter(Boolean).join(" · "),
+  };
+  const pdfUrl = await persistPdf(opts.blob, { folder: opts.folder, fileName: opts.fileName, sharePreview });
   if (pdfUrl) {
     window.open(`https://api.whatsapp.com/send?phone=${num}&text=${buildMsg(pdfUrl)}`, "_blank");
     toast.success("WhatsApp aberto com o link do documento.");

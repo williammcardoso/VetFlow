@@ -399,6 +399,10 @@ const BudgetsPage: React.FC = () => {
         title: "Orçamento",
         intro: `Olá! Segue o orçamento de *${b.animalName || "seu pet"}*.`,
         dateLabel: formatDateTime(b.date),
+        preview: {
+          title: [`Orçamento`, b.animalName].filter(Boolean).join(" — "),
+          description: `Orçamento · ${formatDateTime(b.date)}`,
+        },
       });
     } catch (err) {
       console.error("[Enviar orçamento por WhatsApp] falhou ao gerar o PDF", err);
