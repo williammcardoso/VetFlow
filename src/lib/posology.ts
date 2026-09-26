@@ -1,4 +1,5 @@
 import { parseDosePerAdministration } from "@/utils/parseDose";
+import type { MedicationData } from "@/types/medication";
 
 /**
  * Motor da posologia da receita simples/controlada: monta a frase de uso e a
@@ -8,12 +9,20 @@ import { parseDosePerAdministration } from "@/utils/parseDose";
  * no ouvido, spray e pomada saíam com verbo errado, spray/colírio contavam
  * aplicações em vez de frasco ("120 spray", "600 gotas(s)"), "48 horas"
  * contava como 1x/dia e fração arredondava pra baixo (faltava remédio).
- * Agora cada forma farmacêutica tem sua regra: verbo, singular/plural, local
- * de aplicação e como a quantidade é contada.
+ * Agora cada forma farmacêutica tem sua regra: verbo, singular/plural,
+ * gênero (fração: "meio comprimido" / "meia cápsula"), local de aplicação e
+ * como a quantidade é contada.
  *
- * Decisões do usuário (2026-09-25): verbo no infinitivo ("Administrar",
- * "Instilar", "Aplicar", "Oferecer"); comprimido/cápsula contados em
- * unidades; líquido e gotas como "1 frasco (mín. X mL)", com 1 mL = 20 gotas.
+ * Decisões do usuário (2026-09-25):
+ * - verbo no infinitivo ("Administrar", "Instilar", "Aplicar", "Oferecer");
+ * - intervalo sempre "a cada N horas/dias" — "a cada 24 horas", nunca
+ *   "1 vez ao dia": o tutor que lê "1x ao dia" dá um dia cedo, outro à noite;
+ * - fração por extenso: "1/2 (meio) comprimido", "1/4 (um quarto) do
+ *   comprimido", "1 comprimido e meio";
+ * - vírgula separando cada parte, inclusive o local de aplicação:
+ *   "Instilar 4 gotas, em ambos os ouvidos, a cada 12 horas, durante 15 dias.";
+ * - comprimido/cápsula contados em unidades; líquido e gotas só "1 frasco"
+ *   (o "(mín. X mL)" foi testado e descartado).
  */
 
 export const USE_TYPES = [
@@ -117,37 +126,40 @@ type FormKind =
   | "medida"
   | "outro";
 
-type QuantityMode = "units" | "volume" | "drops" | "package" | "weight" | "none";
+type QuantityMode = "units" | "package" | "weight" | "none";
+type Gender = "m" | "f";
 
 interface FormRule {
   unit?: [string, string];
+  gender?: Gender;
+  /** Fração vira extenso ("1/4 (um quarto) do comprimido") — só pra unidade que se parte. */
+  fractionWords?: boolean;
   qty: QuantityMode;
-  pkg?: [string, string];
+  pkg?: string;
 }
 
 const RULES: Record<FormKind, FormRule> = {
-  comprimido: { unit: ["comprimido", "comprimidos"], qty: "units" },
-  capsula: { unit: ["cápsula", "cápsulas"], qty: "units" },
-  liquido: { unit: ["mL", "mL"], qty: "volume" },
-  gotas: { unit: ["gota", "gotas"], qty: "drops" },
-  spray: { unit: ["borrifada", "borrifadas"], qty: "package", pkg: ["frasco", "frascos"] },
-  pomada: { qty: "package", pkg: ["bisnaga", "bisnagas"] },
-  shampoo: { qty: "package", pkg: ["frasco", "frascos"] },
-  pipeta: { unit: ["pipeta", "pipetas"], qty: "units" },
-  aplicacao: { unit: ["aplicação", "aplicações"], qty: "units" },
+  comprimido: { unit: ["comprimido", "comprimidos"], gender: "m", fractionWords: true, qty: "units" },
+  capsula: { unit: ["cápsula", "cápsulas"], gender: "f", fractionWords: true, qty: "units" },
+  liquido: { unit: ["mL", "mL"], qty: "package", pkg: "frasco" },
+  gotas: { unit: ["gota", "gotas"], gender: "f", qty: "package", pkg: "frasco" },
+  spray: { unit: ["borrifada", "borrifadas"], gender: "f", qty: "package", pkg: "frasco" },
+  pomada: { qty: "package", pkg: "bisnaga" },
+  shampoo: { qty: "package", pkg: "frasco" },
+  pipeta: { unit: ["pipeta", "pipetas"], gender: "f", qty: "units" },
+  aplicacao: { unit: ["aplicação", "aplicações"], gender: "f", qty: "units" },
   racao: { unit: ["g", "g"], qty: "weight" },
-  sache: { unit: ["sachê", "sachês"], qty: "units" },
-  medida: { unit: ["medida", "medidas"], qty: "package", pkg: ["embalagem", "embalagens"] },
+  sache: { unit: ["sachê", "sachês"], gender: "m", fractionWords: true, qty: "units" },
+  medida: { unit: ["medida", "medidas"], gender: "f", fractionWords: true, qty: "package", pkg: "embalagem" },
   outro: { qty: "none" },
 };
 
-/** 1 mL ≈ 20 gotas (média padrão informada pelo usuário). */
-export const DROPS_PER_ML = 20;
-
+// \p{M} = marcas combinantes (acentos) depois do NFD — sem escrever os
+// caracteres invisíveis direto no código.
 const normalize = (s: string) =>
   (s || "")
     .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
+    .replace(/\p{M}/gu, "")
     .toLowerCase()
     .trim();
 
@@ -193,16 +205,56 @@ function verbFor(kind: FormKind, useType: string): string {
   }
 }
 
-/** "1/2 (meio)" → "1/2"; "1 + 1/2" / "1 1/2" → "1 e 1/2"; resto como digitado. */
-function doseDisplay(dose: string): string {
-  let s = (dose || "").replace(/\s*\([^)]*\)\s*/g, " ").replace(/\s+/g, " ").trim();
-  s = s.replace(/^(\d+)\s*\+\s*(\d+\s*\/\s*\d+)$/, "$1 e $2");
-  s = s.replace(/^(\d+)\s+(\d+\s*\/\s*\d+)$/, "$1 e $2");
-  return s.replace(/\s*\/\s*/g, "/");
-}
-
 // Dose que não vira número ("meio") fica no singular: "meio comprimido".
 const pluralize = (n: number, [one, many]: [string, string]) => (Number.isFinite(n) && n >= 2 ? many : one);
+
+const FRACTION_WORDS: Record<string, string> = {
+  "1/3": "um terço",
+  "2/3": "dois terços",
+  "1/4": "um quarto",
+  "3/4": "três quartos",
+  "1/8": "um oitavo",
+};
+
+/** "1/2 (meio)" → "1/2"; espaços normalizados; resto como digitado. */
+function cleanDose(dose: string): string {
+  return (dose || "")
+    .replace(/\s*\([^)]*\)\s*/g, " ")
+    .replace(/\s+/g, " ")
+    .replace(/\s*\/\s*/g, "/")
+    .trim();
+}
+
+/**
+ * Dose + unidade na forma que o tutor entende:
+ * "1/2 (meio) comprimido", "1/4 (um quarto) do comprimido",
+ * "1 comprimido e meio", "1/2 (meia) cápsula", "2 comprimidos", "5 mL".
+ */
+function dosePhraseFor(dose: string, rule: FormRule): string {
+  const raw = cleanDose(dose);
+  if (!raw || !rule.unit) return raw;
+  const [one] = rule.unit;
+  const female = rule.gender === "f";
+
+  if (rule.fractionWords) {
+    const pure = raw.match(/^(\d+)\/(\d+)$/);
+    if (pure && Number(pure[1]) < Number(pure[2])) {
+      const key = `${Number(pure[1])}/${Number(pure[2])}`;
+      if (key === "1/2") return `1/2 (${female ? "meia" : "meio"}) ${one}`;
+      const words = FRACTION_WORDS[key];
+      return `${key}${words ? ` (${words})` : ""} ${female ? "da" : "do"} ${one}`;
+    }
+    const mixed = raw.match(/^(\d+)\s*(?:\+\s*|e\s+|\s)(\d+)\/(\d+)$/i);
+    if (mixed && Number(mixed[2]) < Number(mixed[3])) {
+      const whole = Number(mixed[1]);
+      const key = `${Number(mixed[2])}/${Number(mixed[3])}`;
+      const tail = key === "1/2" ? (female ? "meia" : "meio") : FRACTION_WORDS[key] ?? key;
+      return `${whole} ${pluralize(whole, rule.unit)} e ${tail}`;
+    }
+  }
+
+  return `${raw} ${pluralize(parseDosePerAdministration(raw), rule.unit)}`;
+}
 
 interface FrequencyInfo {
   phrase: string;
@@ -217,7 +269,7 @@ function parseCustomFrequency(text: string): FrequencyInfo {
   const hoursOnly = t.match(/^(\d+(?:[.,]\d+)?)\s*(h|hs|hora|horas)$/);
   if (hoursOnly) {
     const h = parseFloat(hoursOnly[1].replace(",", "."));
-    return { phrase: `a cada ${hoursOnly[1]} horas`, perDay: h > 0 ? 24 / h : null };
+    return { phrase: `a cada ${hoursOnly[1]} horas`, perDay: h > 0 ? 24 / h : null, daily: h === 24 };
   }
   const everyHours = t.match(/(\d+(?:[.,]\d+)?)\s*(h\b|hs\b|hora)/);
   if (everyHours) {
@@ -247,13 +299,13 @@ function frequencyInfo(frequency: string, customFrequency?: string): FrequencyIn
       return { phrase: "a cada 12 horas", perDay: 2 };
     case "24 horas (1x/dia)":
     case "24 horas":
-      return { phrase: "1 vez ao dia", perDay: 1, daily: true };
+      return { phrase: "a cada 24 horas", perDay: 1, daily: true };
     case "48 horas":
       return { phrase: "a cada 48 horas", perDay: 1 / 2 };
     case "72 horas":
       return { phrase: "a cada 72 horas", perDay: 1 / 3 };
     case "1x por semana":
-      return { phrase: "1 vez por semana", perDay: 1 / 7 };
+      return { phrase: "a cada 7 dias", perDay: 1 / 7 };
     case "a cada 15 dias":
       return { phrase: "a cada 15 dias", perDay: 1 / 15 };
     case "1x por mes":
@@ -327,7 +379,7 @@ export interface PosologyInput {
 export interface PosologyResult {
   /** Frase de uso, ex.: "Administrar 1 comprimido, a cada 12 horas, durante 7 dias." */
   text: string;
-  /** Quantidade sugerida pra receita, ex.: "14 comprimidos", "1 frasco (mín. 30 mL)". */
+  /** Quantidade sugerida pra receita, ex.: "14 comprimidos", "1 frasco". */
   quantityDisplay: string;
   /** Parte numérica quando a quantidade é contada em unidades (senão null). */
   quantityNumber: number | null;
@@ -335,45 +387,44 @@ export interface PosologyResult {
 
 export function buildPosology(input: PosologyInput): PosologyResult {
   const isOtherForm = normalize(input.form) === "outro";
-  const formLabel = isOtherForm ? (input.customForm || "").trim() : input.form;
+  const formLabel = isOtherForm ? (input.customForm || "").trim() : (input.form || "").trim();
   const kind = isOtherForm ? "outro" : formKind(input.form);
   const rule = RULES[kind];
   const dose = (input.dose || "").trim();
-  const doseNum = parseDosePerAdministration(dose);
-  const shownDose = doseDisplay(dose);
+  // parseDose entende "1 + 1/2" e "1 1/2", mas não "1 e 1/2" (virava 1).
+  const doseNum = parseDosePerAdministration(dose.replace(/(\d)\s+e\s+(\d)/i, "$1 + $2"));
   const isFood = normalize(input.useType).includes("alimentar");
 
-  // Dose + unidade ("1 comprimido", "4 gotas", "5 mL", "uma fina camada").
-  // Sem forma escolhida ainda não há frase ("Administrar 1/2." não diz nada).
+  // Dose + unidade ("1/2 (meio) comprimido", "4 gotas", "5 mL",
+  // "uma fina camada"). Sem forma escolhida ainda não há frase
+  // ("Administrar 1/2." não diz nada).
   let dosePhrase = "";
-  if (!formLabel.trim()) {
+  if (!formLabel) {
     dosePhrase = "";
   } else if (kind === "pomada") {
-    dosePhrase = dose ? shownDose : "uma fina camada";
+    dosePhrase = dose ? cleanDose(dose) : "uma fina camada";
   } else if (kind === "shampoo") {
-    dosePhrase = dose ? shownDose : "o shampoo";
+    dosePhrase = dose ? cleanDose(dose) : "o shampoo";
   } else if (kind === "outro") {
-    dosePhrase = [shownDose, formLabel.toLowerCase()].filter(Boolean).join(" ");
-  } else if (dose && rule.unit) {
-    dosePhrase = `${shownDose} ${pluralize(doseNum, rule.unit)}`;
+    dosePhrase = [cleanDose(dose), formLabel.toLowerCase()].filter(Boolean).join(" ");
+  } else if (dose) {
+    dosePhrase = dosePhraseFor(dose, rule);
   }
 
   const site = (normalize(input.site || "") === "outro" ? input.customSite : input.site)?.trim() || "";
   const freq = frequencyInfo(input.frequency, input.customFrequency);
   const duration = durationInfo(input.period, input.customPeriod);
 
-  // ---- Frase ----
+  // ---- Frase: cada parte separada por vírgula, como o veterinário escreve ----
   let text = "";
   if (dosePhrase) {
-    let head = `${verbFor(kind, input.useType)} ${dosePhrase}${site ? ` ${site}` : ""}`;
-    const parts: string[] = [];
-    if (freq) {
-      // Ração: "Oferecer 70 g por dia" lê melhor que "70 g, 1 vez ao dia".
-      if (isFood && freq.daily) head += " por dia";
-      else parts.push(freq.phrase);
-    }
+    // Ração: "Oferecer 70 g por dia" (quantidade diária), não "a cada 24 horas".
+    const foodDaily = isFood && Boolean(freq?.daily);
+    const parts = [`${verbFor(kind, input.useType)} ${dosePhrase}${foodDaily ? " por dia" : ""}`];
+    if (site) parts.push(site);
+    if (freq && !foodDaily) parts.push(freq.phrase);
     if (duration && !freq?.single) parts.push(duration.phrase);
-    text = `${[head, ...parts].join(", ")}.`;
+    text = `${parts.join(", ")}.`;
   }
 
   // ---- Quantidade ----
@@ -393,17 +444,8 @@ export function buildPosology(input: PosologyInput): PosologyResult {
       }
       break;
     }
-    case "volume": {
-      quantityDisplay = total != null && total > 0 ? `1 frasco (mín. ${Math.ceil(total - 1e-9)} mL)` : "1 frasco";
-      break;
-    }
-    case "drops": {
-      quantityDisplay =
-        total != null && total > 0 ? `1 frasco (mín. ${Math.ceil(total / DROPS_PER_ML - 1e-9)} mL)` : "1 frasco";
-      break;
-    }
     case "package": {
-      quantityDisplay = `1 ${rule.pkg?.[0] ?? "unidade"}`;
+      quantityDisplay = `1 ${rule.pkg ?? "unidade"}`;
       break;
     }
     case "weight": {
@@ -415,4 +457,81 @@ export function buildPosology(input: PosologyInput): PosologyResult {
   }
 
   return { text, quantityDisplay, quantityNumber };
+}
+
+// ---------------------------------------------------------------------------
+// Receita gravada → campos do motor
+
+/**
+ * Valor de select gravado → { valor do select, texto do "Outro" }. Receita
+ * antiga gravava o texto livre direto no campo (ex.: frequency = "a cada 48
+ * horas") — vira "Outro" + o texto, em vez de o select aparecer vazio e o
+ * texto sumir.
+ */
+export function splitOption(value: string | undefined, custom: string | undefined, options: string[]) {
+  const v = (value || "").trim();
+  if (!v) return { value: "", custom: custom || "" };
+  if (options.includes(v)) return { value: v, custom: v === "Outro" ? custom || "" : "" };
+  return { value: "Outro", custom: custom || v };
+}
+
+type MedicationPosologyFields = Pick<
+  MedicationData,
+  | "useType"
+  | "pharmaceuticalForm"
+  | "customPharmaceuticalForm"
+  | "dosePerAdministration"
+  | "frequency"
+  | "customFrequency"
+  | "period"
+  | "customPeriod"
+  | "applicationSite"
+  | "customApplicationSite"
+>;
+
+/** Campos de select de um medicamento gravado, já normalizados (formas/rótulos antigos). */
+export function medicationSelectFields(med: MedicationPosologyFields) {
+  const legacyForm = med.pharmaceuticalForm === "Líquido (ml)" ? "Líquido (mL)" : med.pharmaceuticalForm;
+  return {
+    form: splitOption(legacyForm, med.customPharmaceuticalForm, [...ALL_FORMS]),
+    frequency: splitOption(med.frequency, med.customFrequency, FREQUENCIES),
+    period: splitOption(med.period, med.customPeriod, PERIODS),
+    site: splitOption(med.applicationSite, med.customApplicationSite, [...sitesForUse(med.useType), "Outro"]),
+  };
+}
+
+export function posologyInputFromMedication(med: MedicationPosologyFields): PosologyInput {
+  const f = medicationSelectFields(med);
+  return {
+    useType: med.useType,
+    form: f.form.value,
+    customForm: f.form.custom,
+    dose: med.dosePerAdministration,
+    frequency: f.frequency.value,
+    customFrequency: f.frequency.custom,
+    period: f.period.value,
+    customPeriod: f.period.custom,
+    site: f.site.value,
+    customSite: f.site.custom,
+  };
+}
+
+/**
+ * Regera texto e quantidade de um medicamento gravado com o motor atual —
+ * usado ao abrir uma receita pra editar ou repetir, pra prévia/PDF baterem
+ * com o que o formulário mostra. Texto ou quantidade editados à mão (ou que
+ * o motor não consegue gerar a partir dos campos antigos) ficam como estão.
+ */
+export function refreshMedicationPosology<T extends MedicationData>(med: T): T {
+  const p = buildPosology(posologyInputFromMedication(med));
+  const textEdited = Boolean(med.useCustomInstructions) || (!p.text && Boolean(med.generatedInstructions?.trim()));
+  const qtyEdited = Boolean(med.quantityEdited) || (!p.quantityDisplay && Boolean(med.totalQuantityDisplay?.trim()));
+  return {
+    ...med,
+    useCustomInstructions: textEdited,
+    generatedInstructions: textEdited ? med.generatedInstructions : p.text,
+    quantityEdited: qtyEdited,
+    totalQuantityDisplay: qtyEdited ? med.totalQuantityDisplay : p.quantityDisplay,
+    totalQuantity: qtyEdited ? med.totalQuantity : p.quantityNumber != null ? String(p.quantityNumber) : "",
+  };
 }

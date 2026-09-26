@@ -14,6 +14,8 @@ import { MedicationData } from "@/types/medication";
 import {
   buildPosology,
   formsForUse,
+  medicationSelectFields,
+  posologyInputFromMedication,
   sitesForUse,
   FREQUENCIES,
   PERIODS,
@@ -29,16 +31,6 @@ interface PrescriptionMedicationFormProps {
   onSave: (updatedMedication: MedicationData) => void;
   onDelete: (id: string) => void;
   onToggleCollapse: (id: string) => void;
-}
-
-// Receita antiga gravava o texto livre direto no campo (ex.: frequency =
-// "a cada 48 horas") — ao abrir pra editar, vira "Outro" + o texto, em vez
-// de o select aparecer vazio e o texto sumir.
-function splitOption(value: string | undefined, custom: string | undefined, options: string[]) {
-  const v = (value || "").trim();
-  if (!v) return { value: "", custom: custom || "" };
-  if (options.includes(v)) return { value: v, custom: v === "Outro" ? custom || "" : "" };
-  return { value: "Outro", custom: custom || v };
 }
 
 const DOSE_PLACEHOLDER: Record<string, string> = {
@@ -59,14 +51,14 @@ const PrescriptionMedicationForm: React.FC<PrescriptionMedicationFormProps> = ({
   onDelete,
   onToggleCollapse,
 }) => {
-  const initialForm = medication.pharmaceuticalForm === "Líquido (ml)" ? "Líquido (mL)" : medication.pharmaceuticalForm;
-  const formInit = splitOption(initialForm, medication.customPharmaceuticalForm, [...formsForUse(""), "Outro"]);
-  const freqInit = splitOption(medication.frequency, medication.customFrequency, FREQUENCIES);
-  const periodInit = splitOption(medication.period, medication.customPeriod, PERIODS);
-  const siteInit = splitOption(medication.applicationSite, medication.customApplicationSite, [
-    ...sitesForUse(medication.useType),
-    "Outro",
-  ]);
+  // Receita antiga: forma "Líquido (ml)" e texto livre gravado direto no
+  // campo viram as opções atuais (ver medicationSelectFields).
+  const {
+    form: formInit,
+    frequency: freqInit,
+    period: periodInit,
+    site: siteInit,
+  } = medicationSelectFields(medication);
 
   const [useType, setUseType] = useState<string>(medication.useType);
   const [pharmacyType, setPharmacyType] = useState<string>(medication.pharmacyType);
@@ -92,20 +84,7 @@ const PrescriptionMedicationForm: React.FC<PrescriptionMedicationFormProps> = ({
   // Receita antiga cujos campos não geram frase/quantidade no motor novo
   // (ex.: dose em branco, período livre) começa como "editada": mantém o
   // texto que já estava gravado em vez de apagá-lo ao abrir pra editar.
-  const [initialPosology] = useState(() =>
-    buildPosology({
-      useType: medication.useType,
-      form: formInit.value,
-      customForm: formInit.custom,
-      dose: medication.dosePerAdministration,
-      frequency: freqInit.value,
-      customFrequency: freqInit.custom,
-      period: periodInit.value,
-      customPeriod: periodInit.custom,
-      site: siteInit.value,
-      customSite: siteInit.custom,
-    })
-  );
+  const [initialPosology] = useState(() => buildPosology(posologyInputFromMedication(medication)));
   const [instructionsEdited, setInstructionsEdited] = useState<boolean>(
     Boolean(medication.useCustomInstructions) ||
       (!initialPosology.text && Boolean(medication.generatedInstructions?.trim()))
