@@ -20,6 +20,7 @@ import {
 } from "@/types/medication";
 import ManipulatedFormulaComponentForm from "./ManipulatedFormulaComponentForm";
 import { toast } from "sonner";
+import { buildManipulatedPosology } from "@/lib/posology";
 
 interface PrescriptionManipulatedFormProps {
   initialData?: ManipulatedPrescriptionData;
@@ -251,39 +252,29 @@ const PrescriptionManipulatedForm: React.FC<PrescriptionManipulatedFormProps> = 
   }, [productDetails.route, initialData]);
 
 
-  // Auto-generate final description for automatic posology
+  // Descrição automática da posologia — mesmo motor da receita simples
+  // (lib/posology): verbo no infinitivo pela medida/via, plural e fração por
+  // extenso, "a cada N horas". Antes saía "Dar 2 líquido (ml)(s) a cada 12
+  // hora(s), durante 7 dia(s).".
   useEffect(() => {
     const { dosage, measure, frequencyValue, frequencyUnit, durationValue, durationUnit } = posologyAutomatic;
 
-    const finalMeasure = measure === "Outro" ? customPosologyMeasure.trim() : measure.trim();
-    const finalFrequencyValue = frequencyValue === "Outro" ? customPosologyFrequencyValue.trim() : frequencyValue.trim();
-    const finalFrequencyUnit = frequencyUnit === "Outro" ? customPosologyFrequencyUnit.trim() : frequencyUnit.trim();
-    const finalDurationValue = durationValue === "Outro" ? customPosologyDurationValue.trim() : durationValue.trim();
-    const finalDurationUnit = durationUnit === "Outro" ? customPosologyDurationUnit.trim() : durationUnit.trim();
-
-    let description = "";
-
-    const doseText = dosage.trim();
-    const measureText = finalMeasure.toLowerCase();
-    const freqVal = finalFrequencyValue;
-    const freqUnit = finalFrequencyUnit.toLowerCase();
-    const durVal = finalDurationValue;
-    const durUnit = finalDurationUnit.toLowerCase();
-
-    if (doseText && measureText && freqVal && freqUnit && durVal && durUnit) {
-      description = `Dar ${doseText} ${measureText}(s) a cada ${freqVal} ${freqUnit}, durante ${durVal} ${durUnit}.`;
-    } else if (doseText && measureText && freqVal && freqUnit) {
-      description = `Dar ${doseText} ${measureText}(s) a cada ${freqVal} ${freqUnit}.`;
-    } else if (doseText && measureText) {
-      description = `Dar ${doseText} ${measureText}(s).`;
-    } else if (doseText) {
-      description = `Dar ${doseText}.`;
-    }
+    const description = buildManipulatedPosology({
+      route: productDetails.route === "Outra" ? customProductRoute : productDetails.route,
+      measure,
+      customMeasure: customPosologyMeasure,
+      dosage,
+      frequencyValue: frequencyValue === "Outro" ? customPosologyFrequencyValue : frequencyValue,
+      frequencyUnit: frequencyUnit === "Outro" ? customPosologyFrequencyUnit : frequencyUnit,
+      durationValue: durationValue === "Outro" ? customPosologyDurationValue : durationValue,
+      durationUnit: durationUnit === "Outro" ? customPosologyDurationUnit : durationUnit,
+    });
     setPosologyAutomatic(prev => ({ ...prev, finalDescription: description }));
   }, [
     posologyAutomatic.dosage, posologyAutomatic.measure, customPosologyMeasure,
     posologyAutomatic.frequencyValue, customPosologyFrequencyValue, posologyAutomatic.frequencyUnit, customPosologyFrequencyUnit,
-    posologyAutomatic.durationValue, customPosologyDurationValue, posologyAutomatic.durationUnit, customPosologyDurationUnit
+    posologyAutomatic.durationValue, customPosologyDurationValue, posologyAutomatic.durationUnit, customPosologyDurationUnit,
+    productDetails.route, customProductRoute,
   ]);
 
 

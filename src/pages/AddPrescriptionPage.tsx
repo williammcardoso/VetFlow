@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Link, useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { FaArrowLeft, FaPlus, FaTimes, FaEye, FaSave, FaPrint, FaDownload, FaClipboardList } from "@/components/icons/fa";
 import { ClipboardList } from "lucide-react";
@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import PrescriptionMedicationForm, { MedicationData } from "@/components/PrescriptionMedicationForm";
 import PrescriptionManipulatedForm from "@/components/PrescriptionManipulatedForm";
+import { refreshMedicationPosology } from "@/lib/posology";
 import { toast } from "sonner";
 import { PrescriptionPdfContent } from "@/components/PrescriptionPdfContent";
 import { PrescriptionEntry, ManipulatedPrescriptionData } from "@/types/medication";
@@ -72,8 +73,21 @@ const AddPrescriptionPage = () => {
   const [allowMultipleMedications, setAllowMultipleMedications] = useState(false);
 
 
+  // "Repetir receita" (prontuário): ?from=<id> abre uma receita NOVA já
+  // preenchida com os medicamentos da anterior — salvar cria outra receita,
+  // com a data de hoje, sem mexer na original.
+  const copyFromId = searchParams.get("from");
+
+  // Qual receita (editar ou copiar) já foi carregada nos campos. O efeito
+  // roda de novo sempre que a lista de receitas do paciente é recarregada
+  // (ex.: ao voltar pra aba do navegador) e, sem essa trava, sobrescrevia o
+  // que o veterinário já tinha alterado no formulário.
+  const appliedSourceRef = useRef<string | null>(null);
+
   useEffect(() => {
-    if (!prescriptionId) {
+    const sourceId = prescriptionId || copyFromId;
+    if (!sourceId) {
+      appliedSourceRef.current = null;
       setAllowMultipleMedications(false);
       setManipulatedPrescriptionData(undefined);
       setCurrentPrescriptionMedications([]);
@@ -81,35 +95,50 @@ const AddPrescriptionPage = () => {
       setTreatmentDescription("");
       return;
     }
+    if (appliedSourceRef.current === sourceId) return;
+    const isCopy = !prescriptionId;
 
     const applyPrescription = (existingPrescription: import("@/types/medication").PrescriptionEntry) => {
+      appliedSourceRef.current = sourceId;
       setTreatmentDescription(existingPrescription.treatmentDescription || "");
       if (existingPrescription.type === "manipulated" && existingPrescription.manipulatedPrescription) {
         setManipulatedPrescriptionData(existingPrescription.manipulatedPrescription);
         setCurrentPrescriptionGeneralObservations(existingPrescription.manipulatedPrescription.generalObservations ?? "");
       } else if (existingPrescription.medications) {
-        setCurrentPrescriptionMedications(existingPrescription.medications.map((med) => ({ ...med, isCollapsed: true })));
+        // Texto/quantidade regerados com o motor atual (lib/posology), pra
+        // prévia e PDF baterem com o que o formulário mostra; o que foi
+        // editado à mão fica como está.
+        const stamp = Date.now();
+        setCurrentPrescriptionMedications(
+          existingPrescription.medications.map((med, i) => ({
+            ...refreshMedicationPosology(med),
+            id: isCopy ? `med-${stamp}-${i}` : med.id,
+            isCollapsed: true,
+          }))
+        );
         setCurrentPrescriptionGeneralObservations(existingPrescription.instructions ?? "");
         if (existingPrescription.type === "controlled") {
           setAllowMultipleMedications(existingPrescription.medications.length > 1);
         }
       }
+      if (isCopy) toast.info("Receita anterior copiada — revise e salve para criar a nova receita.");
     };
 
-    const fromList = prescriptions.find((p) => p.id === prescriptionId);
+    const fromList = prescriptions.find((p) => p.id === sourceId);
     if (fromList) {
       applyPrescription(fromList);
       return;
     }
 
-    prescriptionsApi.getPrescriptionById(prescriptionId).then((p) => {
+    prescriptionsApi.getPrescriptionById(sourceId).then((p) => {
+      if (appliedSourceRef.current === sourceId) return;
       if (p) applyPrescription(p);
       else {
         toast.error("Receita não encontrada.");
         navigate(getPatientRecordPath(clientId, animalId, animal?.patientCode));
       }
     });
-  }, [prescriptionId, clientId, animalId, navigate, prescriptions]);
+  }, [prescriptionId, copyFromId, clientId, animalId, navigate, prescriptions]);
 
 
   if (!client || !animal) {
@@ -452,6 +481,7 @@ const AddPrescriptionPage = () => {
                     onSave={handleSaveMedication}
                     onDelete={handleDeleteMedication}
                     onToggleCollapse={handleToggleMedicationCollapse}
+                    animalWeight={animal.weight}
                   />
                 ))}
                 <Button onClick={handleAddMedication} className="w-full bg-[hsl(var(--vf-clinical))] font-semibold text-white transition-all duration-200 shadow-md hover:bg-[hsl(var(--vf-clinical)/0.9)] hover:shadow-lg">

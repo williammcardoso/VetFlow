@@ -4,7 +4,7 @@ import React, { useMemo, useState, useEffect, useCallback } from "react";
 import { Link, useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { format } from "date-fns";
 import {
-  FaArrowLeft, FaUsers, FaPaw, FaPlus, FaEye, FaStethoscope, FaCalendarAlt, FaDollarSign, FaSyringe, FaWeightHanging, FaFileAlt, FaClipboardList, FaCommentAlt, FaHeart, FaMale, FaUser, FaPrint, FaDownload, FaTimes, FaSave, FaBalanceScale, FaFileMedical, FaExclamationTriangle, FaFlask, FaTag, FaBox, FaClock, FaMoneyBillWave, FaArrowUp, FaArrowDown, FaTrashAlt, FaPrescriptionBottleAlt, FaEdit, FaIdCard, FaPhone, FaUndo, FaShoppingCart, FaHandHoldingUsd, FaFileSignature
+  FaArrowLeft, FaUsers, FaPaw, FaPlus, FaEye, FaStethoscope, FaCalendarAlt, FaDollarSign, FaSyringe, FaWeightHanging, FaFileAlt, FaClipboardList, FaCommentAlt, FaHeart, FaMale, FaUser, FaPrint, FaDownload, FaTimes, FaSave, FaBalanceScale, FaFileMedical, FaExclamationTriangle, FaFlask, FaTag, FaBox, FaClock, FaMoneyBillWave, FaArrowUp, FaArrowDown, FaTrashAlt, FaPrescriptionBottleAlt, FaEdit, FaIdCard, FaPhone, FaUndo, FaShoppingCart, FaHandHoldingUsd, FaFileSignature, FaCopy
 } from "react-icons/fa";
 import { SiWhatsapp } from "react-icons/si";
 import { FaMapMarkerAlt } from "react-icons/fa";
@@ -3008,6 +3008,15 @@ const PatientRecordPage = () => {
                               >
                                 <SiWhatsapp className="h-5 w-5 text-[#25D366]" />
                               </Button>
+                              {canEditPrescriptions ? (
+                                // Repetir: abre uma receita NOVA já preenchida com estes
+                                // medicamentos (renovação de uso contínuo sem redigitar).
+                                <Button asChild variant="ghost" size="icon" className="rounded-md hover:bg-muted hover:text-foreground transition-colors duration-200" title="Repetir receita (cria uma nova com estes medicamentos)">
+                                  <Link to={subPath(`/add-prescription?type=${rx.type}&from=${rx.id}`)} aria-label="Repetir receita">
+                                    <FaCopy className="h-4 w-4 text-slate-600" />
+                                  </Link>
+                                </Button>
+                              ) : null}
                               {canEditPrescriptions ? (
                                 <Link to={subPath(`/edit-prescription/${rx.id}?type=${rx.type}`)}>
                                   <Button variant="ghost" size="icon" className="rounded-md hover:bg-muted hover:text-foreground transition-colors duration-200" title="Editar">

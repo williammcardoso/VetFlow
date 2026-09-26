@@ -37,6 +37,33 @@ export async function getPrescriptions(animalId?: string): Promise<PrescriptionE
   return (data || []).map((r: Record<string, unknown>) => rowToPrescription(r));
 }
 
+/**
+ * Medicamentos das receitas mais recentes da clínica (todos os pacientes) —
+ * base das sugestões "usar de receita anterior" do formulário
+ * (lib/medicationHistory). Só leitura; manipulada fica de fora (não tem
+ * lista de medicamentos).
+ */
+export async function listRecentPrescriptionMedications(
+  limit = 400
+): Promise<Array<{ med: NonNullable<PrescriptionEntry["medications"]>[number]; date: string }>> {
+  const { data, error } = await supabase
+    .from(TABLE)
+    .select("medications, date")
+    .neq("type", "manipulated")
+    .order("date", { ascending: false })
+    .limit(limit);
+  if (error) {
+    console.error("[listRecentPrescriptionMedications] error", error);
+    return [];
+  }
+  const rows: Array<{ med: NonNullable<PrescriptionEntry["medications"]>[number]; date: string }> = [];
+  for (const r of (data || []) as Array<{ medications?: unknown; date?: string }>) {
+    if (!Array.isArray(r.medications)) continue;
+    for (const med of r.medications) rows.push({ med, date: r.date || "" });
+  }
+  return rows;
+}
+
 export async function getPrescriptionById(id: string): Promise<PrescriptionEntry | null> {
   const { data, error } = await supabase.from(TABLE).select("*").eq("id", id).single();
   if (error || !data) return null;

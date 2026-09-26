@@ -3,6 +3,7 @@ import { Document, Page, View, Text, StyleSheet, Font, Image } from "@react-pdf/
 import { MedicationData, ManipulatedPrescriptionData } from "@/types/medication";
 import { mockCompanySettings } from "@/mockData/settings";
 import type { UserProfile } from "@/lib/authApi";
+import { withQuantityInWords } from "@/lib/numberWords";
 
 // Registrando a fonte Inter com pesos regular, bold, italic e bold-italic
 // Usando os arquivos .ttf disponíveis na pasta public/fonts
@@ -711,7 +712,8 @@ export const PrescriptionPdfContent = ({
                         <View style={styles.lineSeparator}/>
                         <View style={styles.badgeContainer}>
                           {med.pharmacyType ? (<Text style={styles.pharmacyBadge}>{med.pharmacyType === "Farmácia Veterinária" ? "VET" : "HUMANA"}</Text>) : null}
-                          {med.totalQuantityDisplay ? (<Text style={styles.quantityBadge}>{med.totalQuantityDisplay}</Text>) : null}
+                          {/* Controlada: quantidade também por extenso — "28 (vinte e oito) comprimidos". */}
+                          {med.totalQuantityDisplay ? (<Text style={styles.quantityBadge}>{prescriptionType === "controlled" ? withQuantityInWords(med.totalQuantityDisplay) : med.totalQuantityDisplay}</Text>) : null}
                         </View>
                       </View>
                       <Text style={styles.medicationInstructions}>

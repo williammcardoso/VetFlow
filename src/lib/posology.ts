@@ -460,6 +460,178 @@ export function buildPosology(input: PosologyInput): PosologyResult {
 }
 
 // ---------------------------------------------------------------------------
+// Calculadora de dose por peso: mg/kg × peso ÷ concentração → dose sugerida
+// na unidade da forma (fração de 1/4 pro comprimido, cápsula inteira, mL com
+// 1 casa, gotas inteiras com 1 mL = 20 gotas).
+
+const DROPS_PER_ML = 20;
+
+/**
+ * "75mg" → 75 mg por unidade; "50 mg/mL" → 50 mg por mL; "250mg/5mL" → 50 mg
+ * por mL; "1%" → 10 mg/mL; "250mcg" → 0,25 mg.
+ */
+export function parseConcentration(text: string): { mg: number; perMl: boolean } | null {
+  const t = normalize(text).replace(/\s+/g, " ");
+  const num = (s: string) => parseFloat(s.replace(",", "."));
+  const pct = t.match(/(\d+(?:[.,]\d+)?)\s*%/);
+  if (pct) return { mg: num(pct[1]) * 10, perMl: true };
+  const m = t.match(/(\d+(?:[.,]\d+)?)\s*(mcg|µg|ug|mg|g)\b(?:\s*\/\s*(\d+(?:[.,]\d+)?)?\s*(ml)\b)?/);
+  if (!m) {
+    // Só o número ("500"): é como se escreve o comprimido no dia a dia — mg.
+    const bare = t.match(/^(\d+(?:[.,]\d+)?)$/);
+    return bare && num(bare[1]) > 0 ? { mg: num(bare[1]), perMl: false } : null;
+  }
+  const value = num(m[1]);
+  const factor = m[2] === "g" ? 1000 : m[2] === "mg" ? 1 : 0.001;
+  const perVolume = m[3] ? num(m[3]) : 1;
+  if (!(value > 0) || !(perVolume > 0)) return null;
+  return { mg: (value * factor) / perVolume, perMl: Boolean(m[4]) };
+}
+
+const QUARTER_TEXT: Record<number, string> = { 0.25: "1/4", 0.5: "1/2", 0.75: "3/4" };
+
+function quartersToDose(q: number): string {
+  const whole = Math.floor(q + 1e-9);
+  const frac = Math.round((q - whole) * 4) / 4;
+  if (!frac) return String(whole);
+  return whole ? `${whole} + ${QUARTER_TEXT[frac]}` : QUARTER_TEXT[frac];
+}
+
+export interface WeightDoseResult {
+  /** Dose total calculada (mg/kg × peso). */
+  totalMg: number;
+  /** Texto pro campo "Dose por administração" ("1/4", "1 + 1/2", "0,6", "3"). */
+  suggestedDose: string;
+  /** Como fica na receita ("1/4 (um quarto) do comprimido", "0,6 mL", "3 gotas"). */
+  suggestedLabel: string;
+  /** mg/kg que a dose arredondada realmente entrega. */
+  actualMgPerKg: number;
+  note?: string;
+}
+
+export function calculateDoseByWeight(input: {
+  mgPerKg: number;
+  weightKg: number;
+  concentration: string;
+  form: string;
+}): WeightDoseResult | { error: string } {
+  const { mgPerKg, weightKg } = input;
+  if (!(mgPerKg > 0) || !(weightKg > 0)) return { error: "Informe a dose (mg/kg) e o peso do animal." };
+  const conc = parseConcentration(input.concentration);
+  const kind = formKind(input.form);
+  const totalMg = mgPerKg * weightKg;
+
+  if (kind === "comprimido" || kind === "capsula") {
+    if (!conc || conc.perMl) return { error: "Informe a concentração do comprimido/cápsula em mg (ex.: 75mg)." };
+    const exact = totalMg / conc.mg;
+    if (kind === "capsula") {
+      const q = Math.max(1, Math.round(exact));
+      return {
+        totalMg,
+        suggestedDose: String(q),
+        suggestedLabel: dosePhraseFor(String(q), RULES.capsula),
+        actualMgPerKg: (q * conc.mg) / weightKg,
+        note: exact < 0.75 ? "Cápsula não se divide — a dose fica acima do calculado; considere manipular." : undefined,
+      };
+    }
+    const q = Math.max(0.25, Math.round(exact * 4) / 4);
+    const dose = quartersToDose(q);
+    return {
+      totalMg,
+      suggestedDose: dose,
+      suggestedLabel: dosePhraseFor(dose, RULES.comprimido),
+      actualMgPerKg: (q * conc.mg) / weightKg,
+      note: exact < 0.2 ? "Dose menor que 1/4 do comprimido — considere outra apresentação ou manipular." : undefined,
+    };
+  }
+
+  if (kind === "liquido" || kind === "gotas") {
+    if (!conc || !conc.perMl) return { error: "Informe a concentração em mg/mL (ex.: 50mg/mL) ou em % (ex.: 1%)." };
+    const ml = totalMg / conc.mg;
+    if (kind === "gotas") {
+      const drops = Math.max(1, Math.round(ml * DROPS_PER_ML));
+      return {
+        totalMg,
+        suggestedDose: String(drops),
+        suggestedLabel: `${drops} ${drops >= 2 ? "gotas" : "gota"}`,
+        actualMgPerKg: ((drops / DROPS_PER_ML) * conc.mg) / weightKg,
+      };
+    }
+    const q = Math.max(0.1, Math.round(ml * 10) / 10);
+    const dose = formatNumberBR(q);
+    return {
+      totalMg,
+      suggestedDose: dose,
+      suggestedLabel: `${dose} mL`,
+      actualMgPerKg: (q * conc.mg) / weightKg,
+    };
+  }
+
+  return { error: "A calculadora funciona com comprimido, cápsula, líquido (mL) e gotas." };
+}
+
+// ---------------------------------------------------------------------------
+// Receita manipulada: campos próprios (medida + via + "12 Hora(s)" / "7 Dia(s)")
+// traduzidos pro mesmo motor — antes ela tinha gerador próprio que saía
+// "Dar 2 líquido (ml)(s) a cada 12 hora(s), durante 7 dia(s).".
+
+const ROUTE_TO_USE: Record<string, string> = {
+  oral: "Uso Oral",
+  topica: "Uso Tópico",
+  injetavel: "Uso Injetável",
+  oftalmica: "Uso Oftalmológico",
+  auricular: "Uso Auricular",
+};
+
+export interface ManipulatedPosologyParts {
+  /** Via do produto ("Oral", "Tópica"…); a customizada não tem regra de verbo. */
+  route: string;
+  /** Medida da dose ("Cápsula", "Líquido (ml)"…); "Outro" usa customMeasure. */
+  measure: string;
+  customMeasure?: string;
+  dosage: string;
+  /** Já resolvidos (o valor digitado, se o select estava em "Outro"). */
+  frequencyValue: string;
+  frequencyUnit: string;
+  durationValue: string;
+  durationUnit: string;
+}
+
+export function buildManipulatedPosology(p: ManipulatedPosologyParts): string {
+  const useType = ROUTE_TO_USE[normalize(p.route)] ?? "";
+  const measure = p.measure === "Líquido (ml)" ? "Líquido (mL)" : p.measure;
+
+  let frequency = "";
+  const fv = (p.frequencyValue || "").trim();
+  const fu = normalize(p.frequencyUnit);
+  if (fv && fu) {
+    if (fu.startsWith("hora")) frequency = `a cada ${fv} ${fv === "1" ? "hora" : "horas"}`;
+    else if (fu.startsWith("dia")) frequency = fv === "1" ? "a cada 24 horas" : `a cada ${fv} dias`;
+    else frequency = `a cada ${fv} ${p.frequencyUnit.trim()}`;
+  }
+
+  let duration = "";
+  const dv = (p.durationValue || "").trim();
+  const du = normalize(p.durationUnit);
+  if (dv && du) {
+    if (du.startsWith("dia")) duration = `${dv} ${dv === "1" ? "dia" : "dias"}`;
+    else if (du.startsWith("mes")) duration = `${dv} ${dv === "1" ? "mês" : "meses"}`;
+    else duration = `${dv} ${p.durationUnit.trim()}`;
+  }
+
+  return buildPosology({
+    useType,
+    form: measure,
+    customForm: p.customMeasure,
+    dose: p.dosage,
+    frequency: frequency ? "Outro" : "",
+    customFrequency: frequency,
+    period: duration ? "Outro" : "",
+    customPeriod: duration,
+  }).text;
+}
+
+// ---------------------------------------------------------------------------
 // Receita gravada → campos do motor
 
 /**

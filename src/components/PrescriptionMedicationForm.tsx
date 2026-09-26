@@ -8,20 +8,29 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { FaPlus, FaTrashAlt, FaChevronDown, FaChevronUp } from "react-icons/fa";
-import { RotateCcw } from "lucide-react";
+import { Calculator, RotateCcw } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { MedicationData } from "@/types/medication";
 import {
   buildPosology,
+  calculateDoseByWeight,
   formsForUse,
   medicationSelectFields,
   posologyInputFromMedication,
+  refreshMedicationPosology,
   sitesForUse,
   FREQUENCIES,
   PERIODS,
   PHARMACY_TYPES,
   USE_TYPES,
 } from "@/lib/posology";
+import {
+  buildMedicationSuggestions,
+  filterMedicationSuggestions,
+  type MedicationSuggestion,
+} from "@/lib/medicationHistory";
+import { listRecentPrescriptionMedications } from "@/lib/prescriptionsApi";
 
 export type { MedicationData };
 
@@ -31,7 +40,19 @@ interface PrescriptionMedicationFormProps {
   onSave: (updatedMedication: MedicationData) => void;
   onDelete: (id: string) => void;
   onToggleCollapse: (id: string) => void;
+  /** Peso atual do animal (kg) — pré-preenche a calculadora de dose. */
+  animalWeight?: number;
 }
+
+const CALC_FORMS = ["Comprimido", "Cápsula", "Líquido (mL)", "Gotas"];
+
+// "12,5" e "12.5" valem 12,5 (teclado do celular pode trazer qualquer um);
+// com vírgula presente, ponto é separador de milhar ("1.200,5").
+const parseDecimalBR = (s: string) => {
+  const t = (s || "").trim();
+  return parseFloat(t.includes(",") ? t.replace(/\./g, "").replace(",", ".") : t) || 0;
+};
+const formatDecimalBR = (n: number) => n.toLocaleString("pt-BR", { maximumFractionDigits: 2 });
 
 const DOSE_PLACEHOLDER: Record<string, string> = {
   "Líquido (mL)": "Ex: 5 (mL por vez)",
@@ -50,6 +71,7 @@ const PrescriptionMedicationForm: React.FC<PrescriptionMedicationFormProps> = ({
   onSave,
   onDelete,
   onToggleCollapse,
+  animalWeight,
 }) => {
   // Receita antiga: forma "Líquido (ml)" e texto livre gravado direto no
   // campo viram as opções atuais (ver medicationSelectFields).
@@ -153,6 +175,65 @@ const PrescriptionMedicationForm: React.FC<PrescriptionMedicationFormProps> = ({
       ? [...list.filter((f) => f !== "Outro"), pharmaceuticalForm, "Outro"]
       : list;
   }, [useType, pharmaceuticalForm]);
+
+  // ---- Sugestões de receitas anteriores ("favoritos automáticos") ----
+  const { data: history = [] } = useQuery({
+    queryKey: ["prescription-medication-history"],
+    queryFn: async () => buildMedicationSuggestions(await listRecentPrescriptionMedications()),
+    staleTime: 5 * 60 * 1000,
+  });
+  // Abre só enquanto o nome é digitado (não ao focar um medicamento já preenchido).
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [activeSuggestion, setActiveSuggestion] = useState(-1);
+  const suggestions = useMemo(
+    () => (showSuggestions ? filterMedicationSuggestions(history, medicationName) : []),
+    [history, medicationName, showSuggestions]
+  );
+
+  const applySuggestion = (s: MedicationSuggestion) => {
+    const m = s.med;
+    const f = medicationSelectFields(m);
+    setUseType(m.useType || useType);
+    setPharmacyType(m.pharmacyType || pharmacyType);
+    setMedicationName(m.medicationName || "");
+    setConcentration(m.concentration || "");
+    setPharmaceuticalForm(f.form.value);
+    setCustomPharmaceuticalForm(f.form.custom);
+    setDosePerAdministration(m.dosePerAdministration || "");
+    setFrequency(f.frequency.value);
+    setCustomFrequency(f.frequency.custom);
+    setPeriod(f.period.value);
+    setCustomPeriod(f.period.custom);
+    setApplicationSite(f.site.value);
+    setCustomApplicationSite(f.site.custom);
+    setGeneralObservations(m.generalObservations || "");
+    // Instrução/quantidade escritas à mão na receita de origem vêm junto;
+    // senão o motor regera a partir dos campos.
+    const refreshed = refreshMedicationPosology(m);
+    setInstructionsEdited(Boolean(refreshed.useCustomInstructions));
+    if (refreshed.useCustomInstructions) setInstructionText(refreshed.generatedInstructions);
+    setQuantityEdited(Boolean(refreshed.quantityEdited));
+    if (refreshed.quantityEdited) setQuantityText(refreshed.totalQuantityDisplay || "");
+    setShowSuggestions(false);
+  };
+
+  // ---- Calculadora de dose por peso ----
+  const [showCalc, setShowCalc] = useState(false);
+  const [calcMgPerKg, setCalcMgPerKg] = useState("");
+  const [calcWeight, setCalcWeight] = useState(animalWeight ? formatDecimalBR(animalWeight) : "");
+  const canCalc = CALC_FORMS.includes(pharmaceuticalForm);
+  const calc = useMemo(
+    () =>
+      showCalc && canCalc
+        ? calculateDoseByWeight({
+            mgPerKg: parseDecimalBR(calcMgPerKg),
+            weightKg: parseDecimalBR(calcWeight),
+            concentration,
+            form: pharmaceuticalForm,
+          })
+        : null,
+    [showCalc, canCalc, calcMgPerKg, calcWeight, concentration, pharmaceuticalForm]
+  );
 
   const siteOptions = useMemo(() => {
     const list = sitesForUse(useType);
@@ -276,13 +357,79 @@ const PrescriptionMedicationForm: React.FC<PrescriptionMedicationFormProps> = ({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor={`medicationName-${medication.id}`}>Nome do Medicamento *</Label>
-              <Input
-                id={`medicationName-${medication.id}`}
-                placeholder="Ex: Carprofeno"
-                value={medicationName}
-                onChange={(e) => setMedicationName(e.target.value)}
-                className={selectClass}
-              />
+              <div className="relative">
+                <Input
+                  id={`medicationName-${medication.id}`}
+                  placeholder="Ex: Carprofeno"
+                  value={medicationName}
+                  autoComplete="off"
+                  role="combobox"
+                  aria-autocomplete="list"
+                  aria-expanded={suggestions.length > 0}
+                  aria-controls={`medicationSuggestions-${medication.id}`}
+                  onChange={(e) => {
+                    setMedicationName(e.target.value);
+                    setShowSuggestions(true);
+                    setActiveSuggestion(-1);
+                  }}
+                  // Atraso: no celular o blur pode chegar antes do toque na sugestão.
+                  onBlur={() => window.setTimeout(() => setShowSuggestions(false), 150)}
+                  onKeyDown={(e) => {
+                    if (!suggestions.length) return;
+                    if (e.key === "ArrowDown") {
+                      e.preventDefault();
+                      setActiveSuggestion((i) => (i + 1) % suggestions.length);
+                    } else if (e.key === "ArrowUp") {
+                      e.preventDefault();
+                      setActiveSuggestion((i) => (i <= 0 ? suggestions.length - 1 : i - 1));
+                    } else if (e.key === "Enter" && activeSuggestion >= 0) {
+                      e.preventDefault();
+                      applySuggestion(suggestions[activeSuggestion]);
+                    } else if (e.key === "Escape") {
+                      setShowSuggestions(false);
+                    }
+                  }}
+                  className={selectClass}
+                />
+                {suggestions.length > 0 && (
+                  <div
+                    id={`medicationSuggestions-${medication.id}`}
+                    role="listbox"
+                    // mousedown sem default: o campo não perde o foco ao escolher.
+                    onMouseDown={(e) => e.preventDefault()}
+                    className="absolute left-0 right-0 top-full z-20 mt-1 max-h-72 overflow-y-auto rounded-md border border-border bg-white py-1 shadow-lg"
+                  >
+                    <p className="px-3 pb-1 pt-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                      Já prescritos — escolha para preencher
+                    </p>
+                    {suggestions.map((s, i) => (
+                      <button
+                        key={s.key}
+                        type="button"
+                        role="option"
+                        aria-selected={i === activeSuggestion}
+                        onClick={() => applySuggestion(s)}
+                        className={cn(
+                          "block w-full px-3 py-2 text-left text-sm transition-colors hover:bg-muted",
+                          i === activeSuggestion && "bg-muted"
+                        )}
+                      >
+                        <span className="flex items-baseline justify-between gap-2">
+                          <span className="min-w-0 break-words font-medium text-foreground">{s.title}</span>
+                          {s.count > 1 && (
+                            <span className="shrink-0 text-[11px] text-muted-foreground" title={`Prescrito ${s.count} vezes`}>
+                              {s.count}x
+                            </span>
+                          )}
+                        </span>
+                        {s.detail && (
+                          <span className="mt-0.5 block text-xs text-muted-foreground line-clamp-2">{s.detail}</span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
             <div className="space-y-2">
               <Label htmlFor={`concentration-${medication.id}`}>Concentração</Label>
@@ -331,8 +478,88 @@ const PrescriptionMedicationForm: React.FC<PrescriptionMedicationFormProps> = ({
                 onChange={(e) => setDosePerAdministration(e.target.value)}
                 className={selectClass}
               />
+              {canCalc && (
+                <button
+                  type="button"
+                  onClick={() => setShowCalc((v) => !v)}
+                  className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                  aria-expanded={showCalc}
+                >
+                  <Calculator className="h-3.5 w-3.5" />
+                  {showCalc ? "Fechar calculadora" : "Calcular pelo peso"}
+                </button>
+              )}
             </div>
           </div>
+
+          {showCalc && canCalc && (
+            <div className="space-y-3 rounded-lg border border-primary/30 bg-primary/5 p-3">
+              <p className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                <Calculator className="h-4 w-4 text-primary" /> Dose pelo peso
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label htmlFor={`calcMgPerKg-${medication.id}`} className="text-xs">
+                    Dose (mg/kg)
+                  </Label>
+                  <Input
+                    id={`calcMgPerKg-${medication.id}`}
+                    inputMode="decimal"
+                    placeholder="Ex: 2,2"
+                    value={calcMgPerKg}
+                    onChange={(e) => setCalcMgPerKg(e.target.value)}
+                    className={selectClass}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor={`calcWeight-${medication.id}`} className="text-xs">
+                    Peso (kg)
+                  </Label>
+                  <Input
+                    id={`calcWeight-${medication.id}`}
+                    inputMode="decimal"
+                    placeholder="Ex: 12,5"
+                    value={calcWeight}
+                    onChange={(e) => setCalcWeight(e.target.value)}
+                    className={selectClass}
+                  />
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Concentração usada: <span className="font-medium text-foreground">{concentration.trim() || "—"}</span>{" "}
+                (campo Concentração acima)
+              </p>
+              {calc &&
+                ("error" in calc ? (
+                  <p className="text-xs text-amber-700">{calc.error}</p>
+                ) : (
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0 space-y-0.5 text-sm">
+                      <p>
+                        Dose total: <strong>{formatDecimalBR(calc.totalMg)} mg</strong> →{" "}
+                        <strong>{calc.suggestedLabel}</strong> por vez
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Com o arredondamento, entrega {formatDecimalBR(calc.actualMgPerKg)} mg/kg.
+                      </p>
+                      {calc.note && <p className="text-xs text-amber-700">{calc.note}</p>}
+                    </div>
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="w-full shrink-0 sm:w-auto"
+                      onClick={() => {
+                        setDosePerAdministration(calc.suggestedDose);
+                        setShowCalc(false);
+                        toast.success(`Dose preenchida: ${calc.suggestedLabel}`);
+                      }}
+                    >
+                      Usar esta dose
+                    </Button>
+                  </div>
+                ))}
+            </div>
+          )}
 
           <div className={cn("grid grid-cols-1 gap-4", showSite ? "md:grid-cols-3" : "md:grid-cols-2")}>
             <div className="space-y-2">
