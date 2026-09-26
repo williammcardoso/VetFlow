@@ -21,40 +21,27 @@ import {
 import ManipulatedFormulaComponentForm from "./ManipulatedFormulaComponentForm";
 import { toast } from "sonner";
 import { buildManipulatedPosology } from "@/lib/posology";
+import {
+  DURATION_UNITS,
+  FREQUENCY_UNITS,
+  POSOLOGY_MEASURES,
+  VEHICLE_TYPES,
+  VEHICLE_UNITS,
+  formatQuantityWithUnit,
+  normalizeMeasure,
+  vehicleTypeLabel,
+  withSavedOption,
+} from "@/lib/manipulatedUnits";
 
 interface PrescriptionManipulatedFormProps {
   initialData?: ManipulatedPrescriptionData;
   onSave: (data: ManipulatedPrescriptionData) => void;
 }
 
-const mockVehicleUnits = ["%", "grama(s) (g)", "miligrama(s) (mg)", "mililitro(s) (mL)", "micrograma(s) (mcg)", "ufc", "ufc/g", "ufc/kg", "unidade(s)", "outro(s)"];
-
-const mockPosologyMeasures = ["Comprimido", "Cápsula", "Líquido (ml)", "Gotas", "Aplicação", "Spray", "Pomada", "Outro"];
 const mockPosologyFrequencies = ["1", "2", "3", "4", "6", "8", "12", "24", "Outro"]; // Valores numéricos
-const mockPosologyFrequencyUnits = ["Hora(s)", "Dia(s)", "Outro"];
 const mockPosologyDurations = ["1", "3", "5", "7", "10", "14", "21", "30", "Outro"]; // Valores numéricos
-const mockPosologyDurationUnits = ["Dia(s)", "Mês(es)", "Outro"];
 
 const mockProductRoutes = ["Oral", "Tópica", "Injetável", "Oftálmica", "Auricular", "Outra"];
-
-// Helper para abreviar unidades para a prévia
-const getShortUnitAbbreviation = (unit: string): string => {
-  switch (unit) {
-    case "Grama (g)": return "g";
-    case "Miligrama (mg)": return "mg";
-    case "Mililitro (mL)": return "mL";
-    case "Micrograma (mcg)": return "mcg";
-    case "Unidade(s)": return "un";
-    case "Unidade": return "un";
-    case "%": return "%";
-    case "UI (Unidade Internacional)": return "UI";
-    case "Miligrama por mililitro (mg/mL)": return "mg/mL";
-    case "UFC": return "UFC";
-    case "UFC/g": return "UFC/g";
-    case "UFC/kg": return "UFC/kg";
-    default: return unit;
-  }
-};
 
 const PrescriptionManipulatedForm: React.FC<PrescriptionManipulatedFormProps> = ({
   initialData,
@@ -79,7 +66,9 @@ const PrescriptionManipulatedForm: React.FC<PrescriptionManipulatedFormProps> = 
     initialData?.posology.type || 'automatic'
   );
   const [posologyAutomatic, setPosologyAutomatic] = useState<ManipulatedPosologyAutomatic>(
-    (initialData?.posology.type === 'automatic' ? initialData.posology.data : {
+    (initialData?.posology.type === 'automatic'
+      ? { ...initialData.posology.data, measure: normalizeMeasure(initialData.posology.data.measure) }
+      : {
       dosage: "", measure: "", frequencyValue: "", frequencyUnit: "", durationValue: "", durationUnit: "", finalDescription: ""
     })
   );
@@ -308,7 +297,10 @@ const PrescriptionManipulatedForm: React.FC<PrescriptionManipulatedFormProps> = 
       return;
     }
     
-    const finalVehicleType = "Excipiente";
+    if (vehicleExcipient.type === "Outro" && !customVehicleType.trim()) {
+      toast.error("Por favor, digite o tipo do veículo/excipiente (ex.: xarope, creme Lanette).");
+      return;
+    }
     if (!vehicleExcipient.quantity.trim() || !vehicleExcipient.unit.trim()) {
       toast.error("Por favor, preencha todos os campos obrigatórios do veículo/excipiente.");
       return;
@@ -344,8 +336,8 @@ const PrescriptionManipulatedForm: React.FC<PrescriptionManipulatedFormProps> = 
     const dataToSave: ManipulatedPrescriptionData = {
       formulaComponents,
       vehicleExcipient: {
-        type: "Excipiente",
-        customType: undefined,
+        type: vehicleExcipient.type || "Excipiente",
+        customType: vehicleExcipient.type === "Outro" ? customVehicleType.trim() : undefined,
         quantity: vehicleExcipient.quantity,
         unit: vehicleExcipient.unit,
         customUnit: vehicleExcipient.unit === "outro(s)" ? customVehicleUnit.trim() : undefined,
@@ -373,8 +365,7 @@ const PrescriptionManipulatedForm: React.FC<PrescriptionManipulatedFormProps> = 
     onSave(dataToSave);
   };
 
-  const displayVehicleType = "Excipiente";
-  const displayVehicleUnit = vehicleExcipient.unit === "outro(s)" ? customVehicleUnit : vehicleExcipient.unit;
+  const displayVehicleType = vehicleTypeLabel(vehicleExcipient.type, customVehicleType);
   const displayPosologyMeasure = posologyAutomatic.measure === "Outro" ? customPosologyMeasure : posologyAutomatic.measure;
   const displayPosologyFrequencyValue = posologyAutomatic.frequencyValue === "Outro" ? customPosologyFrequencyValue : posologyAutomatic.frequencyValue;
   const displayPosologyFrequencyUnit = posologyAutomatic.frequencyUnit === "Outro" ? customPosologyFrequencyUnit : posologyAutomatic.frequencyUnit;
@@ -420,18 +411,39 @@ const PrescriptionManipulatedForm: React.FC<PrescriptionManipulatedFormProps> = 
           <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-2">
               <Label htmlFor="vehicle-type">Tipo*</Label>
-              <Input
-                id="vehicle-type"
-                value={"Excipiente"}
-                readOnly
-                className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200"
-              />
+              <Select
+                onValueChange={(value) => setVehicleExcipient(prev => ({ ...prev, type: value }))}
+                value={vehicleExcipient.type || "Excipiente"}
+              >
+                <SelectTrigger
+                  id="vehicle-type"
+                  className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring transition-all duration-200 text-left"
+                >
+                  <SelectValue placeholder="Excipiente" />
+                </SelectTrigger>
+                <SelectContent>
+                  {withSavedOption(VEHICLE_TYPES, vehicleExcipient.type).map((type) => (
+                    <SelectItem key={type} value={type}>
+                      {type}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {vehicleExcipient.type === "Outro" && (
+                <Input
+                  ref={customVehicleTypeInputRef}
+                  placeholder="Ex.: xarope, creme Lanette"
+                  value={customVehicleType}
+                  onChange={(e) => setCustomVehicleType(e.target.value)}
+                  className="mt-2 bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200"
+                />
+              )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="vehicle-quantity">Quantidade / q.s.p*</Label>
               <Input
                 id="vehicle-quantity"
-                placeholder="Ex: 30"
+                placeholder="Ex: 60 (cápsulas) ou 30 (mL)"
                 value={vehicleExcipient.quantity}
                 onChange={(e) => setVehicleExcipient(prev => ({ ...prev, quantity: e.target.value }))}
                 className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200"
@@ -444,10 +456,10 @@ const PrescriptionManipulatedForm: React.FC<PrescriptionManipulatedFormProps> = 
                   id="vehicle-unit"
                   className={`bg-input rounded-md border-border focus:ring-2 focus:ring-ring transition-all duration-200 text-left`}
                 >
-                  <SelectValue placeholder="Ex: %, mL, g" />
+                  <SelectValue placeholder="Ex: cápsulas, mL, g" />
                 </SelectTrigger>
                 <SelectContent>
-                  {mockVehicleUnits.map((unit) => (
+                  {withSavedOption(VEHICLE_UNITS, vehicleExcipient.unit).map((unit) => (
                     <SelectItem key={unit} value={unit}>
                       {unit}
                     </SelectItem>
@@ -502,7 +514,7 @@ const PrescriptionManipulatedForm: React.FC<PrescriptionManipulatedFormProps> = 
                         <SelectValue placeholder="Ex: Comprimido" />
                       </SelectTrigger>
                       <SelectContent>
-                        {mockPosologyMeasures.map((measure) => (
+                        {withSavedOption(POSOLOGY_MEASURES, posologyAutomatic.measure).map((measure) => (
                           <SelectItem key={measure} value={measure}>
                             {measure}
                           </SelectItem>
@@ -545,7 +557,7 @@ const PrescriptionManipulatedForm: React.FC<PrescriptionManipulatedFormProps> = 
                         <SelectValue placeholder="Ex: Dia" />
                       </SelectTrigger>
                         <SelectContent>
-                          {mockPosologyFrequencyUnits.map((unit) => (
+                          {withSavedOption(FREQUENCY_UNITS, posologyAutomatic.frequencyUnit).map((unit) => (
                             <SelectItem key={unit} value={unit}>
                               {unit}
                             </SelectItem>
@@ -598,7 +610,7 @@ const PrescriptionManipulatedForm: React.FC<PrescriptionManipulatedFormProps> = 
                           <SelectValue placeholder="Ex: Dia" />
                         </SelectTrigger>
                         <SelectContent>
-                          {mockPosologyDurationUnits.map((unit) => (
+                          {withSavedOption(DURATION_UNITS, posologyAutomatic.durationUnit).map((unit) => (
                             <SelectItem key={unit} value={unit}>
                               {unit}
                             </SelectItem>
@@ -734,7 +746,7 @@ const PrescriptionManipulatedForm: React.FC<PrescriptionManipulatedFormProps> = 
                       <span className="flex-shrink-0">{comp.name}</span>
                       <span className="flex-grow border-b border-dotted border-muted-foreground mx-1 h-3"></span>
                       <span className="flex-shrink-0">
-                        {comp.dosageQuantity} {getShortUnitAbbreviation(comp.dosageUnit === "Outro" ? (comp.customDosageUnit || "") : comp.dosageUnit)}
+                        {formatQuantityWithUnit(comp.dosageQuantity, comp.dosageUnit, comp.customDosageUnit)}
                       </span>
                     </div>
                   ))}
@@ -742,7 +754,9 @@ const PrescriptionManipulatedForm: React.FC<PrescriptionManipulatedFormProps> = 
                     <div className="flex items-end">
                       <span className="flex-shrink-0">{displayVehicleType} q.s.p.</span>
                       <span className="flex-grow border-b border-dotted border-muted-foreground mx-1 h-3"></span>
-                      <span className="flex-shrink-0">{vehicleExcipient.quantity} {getShortUnitAbbreviation(displayVehicleUnit)}</span>
+                      <span className="flex-shrink-0">
+                        {formatQuantityWithUnit(vehicleExcipient.quantity, vehicleExcipient.unit, customVehicleUnit)}
+                      </span>
                     </div>
                   )}
                 </div>

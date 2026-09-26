@@ -123,6 +123,7 @@ type FormKind =
   | "aplicacao"
   | "racao"
   | "sache"
+  | "biscoito"
   | "medida"
   | "outro";
 
@@ -150,6 +151,7 @@ const RULES: Record<FormKind, FormRule> = {
   aplicacao: { unit: ["aplicação", "aplicações"], gender: "f", qty: "units" },
   racao: { unit: ["g", "g"], qty: "weight" },
   sache: { unit: ["sachê", "sachês"], gender: "m", fractionWords: true, qty: "units" },
+  biscoito: { unit: ["biscoito", "biscoitos"], gender: "m", fractionWords: true, qty: "units" },
   medida: { unit: ["medida", "medidas"], gender: "f", fractionWords: true, qty: "package", pkg: "embalagem" },
   outro: { qty: "none" },
 };
@@ -177,6 +179,7 @@ function formKind(form: string): FormKind {
   if (f.startsWith("aplica")) return "aplicacao";
   if (f.startsWith("racao")) return "racao";
   if (f.startsWith("sache")) return "sache";
+  if (f.startsWith("biscoito")) return "biscoito";
   if (f.startsWith("medida")) return "medida";
   return "outro";
 }
@@ -196,6 +199,7 @@ function verbFor(kind: FormKind, useType: string): string {
       return "Realizar";
     case "racao":
     case "sache":
+    case "biscoito":
     case "medida":
       return "Oferecer";
     case "outro":
@@ -607,6 +611,9 @@ export function buildManipulatedPosology(p: ManipulatedPosologyParts): string {
   if (fv && fu) {
     if (fu.startsWith("hora")) frequency = `a cada ${fv} ${fv === "1" ? "hora" : "horas"}`;
     else if (fu.startsWith("dia")) frequency = fv === "1" ? "a cada 24 horas" : `a cada ${fv} dias`;
+    // Semana vira dias, como no "1x por semana" da receita simples ("a cada 7 dias").
+    else if (fu.startsWith("semana") && Number.isFinite(parseFloat(fv.replace(",", "."))))
+      frequency = `a cada ${formatNumberBR(parseFloat(fv.replace(",", ".")) * 7)} dias`;
     else frequency = `a cada ${fv} ${p.frequencyUnit.trim()}`;
   }
 
@@ -615,6 +622,7 @@ export function buildManipulatedPosology(p: ManipulatedPosologyParts): string {
   const du = normalize(p.durationUnit);
   if (dv && du) {
     if (du.startsWith("dia")) duration = `${dv} ${dv === "1" ? "dia" : "dias"}`;
+    else if (du.startsWith("semana")) duration = `${dv} ${dv === "1" ? "semana" : "semanas"}`;
     else if (du.startsWith("mes")) duration = `${dv} ${dv === "1" ? "mês" : "meses"}`;
     else duration = `${dv} ${p.durationUnit.trim()}`;
   }

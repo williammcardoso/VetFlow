@@ -4,6 +4,7 @@ import { MedicationData, ManipulatedPrescriptionData } from "@/types/medication"
 import { mockCompanySettings } from "@/mockData/settings";
 import type { UserProfile } from "@/lib/authApi";
 import { withQuantityInWords } from "@/lib/numberWords";
+import { formatQuantityWithUnit, vehicleTypeLabel } from "@/lib/manipulatedUnits";
 
 // Registrando a fonte Inter com pesos regular, bold, italic e bold-italic
 // Usando os arquivos .ttf disponíveis na pasta public/fonts
@@ -49,25 +50,6 @@ const formatAgeFromBirthday = (birthday?: string): string => {
   if (years === 0) return `${months} ${months === 1 ? "mês" : "meses"}`;
   if (months === 0) return `${years} ${years === 1 ? "ano" : "anos"}`;
   return `${years} ${years === 1 ? "ano" : "anos"} e ${months} ${months === 1 ? "mês" : "meses"}`;
-};
-
-// Helper para formatar unidades para o PDF (formato abreviado)
-const getLongUnitAbbreviation = (unit: string): string => {
-  switch (unit) {
-    case "Grama (g)": return "g";
-    case "Miligrama (mg)": return "mg";
-    case "Mililitro (mL)": return "mL";
-    case "Micrograma (mcg)": return "mcg";
-    case "Unidade(s)": return "un";
-    case "Unidade": return "un";
-    case "%": return "%";
-    case "UI (Unidade Internacional)": return "UI";
-    case "Miligrama por mililitro (mg/mL)": return "mg/mL";
-    case "UFC": return "UFC";
-    case "UFC/g": return "UFC/g";
-    case "UFC/kg": return "UFC/kg";
-    default: return unit;
-  }
 };
 
 interface PrescriptionPdfContentProps {
@@ -649,7 +631,7 @@ export const PrescriptionPdfContent = ({
         <View style={styles.contentWrapper}>
           {prescriptionType === 'manipulated' && manipulatedPrescription ? (
             <>
-              <Text style={styles.manipulatedGroupTitle}>VIA {manipulatedPrescription.productDetails.route.toUpperCase()}</Text>
+              <Text style={styles.manipulatedGroupTitle}>VIA {(manipulatedPrescription.productDetails.route === "Outra" ? manipulatedPrescription.productDetails.customRoute || "" : manipulatedPrescription.productDetails.route).toUpperCase()}</Text>
               <View style={styles.centeringWrapper}>
                 <View style={styles.manipulatedListContainer}>
                   {manipulatedPrescription.formulaComponents.map((comp) => (
@@ -657,15 +639,15 @@ export const PrescriptionPdfContent = ({
                       <View style={styles.manipulatedBullet} /> {/* Bullet point como View */}
                       <Text style={styles.manipulatedItemName}>{comp.name}</Text>
                       <View style={styles.manipulatedDottedLine} />
-                      <Text style={styles.manipulatedDosage}>{comp.dosageQuantity} {getLongUnitAbbreviation(comp.dosageUnit === "Outro" ? (comp.customDosageUnit || "") : comp.dosageUnit)}</Text>
+                      <Text style={styles.manipulatedDosage}>{formatQuantityWithUnit(comp.dosageQuantity, comp.dosageUnit, comp.customDosageUnit)}</Text>
                     </View>
                   ))}
                   {manipulatedPrescription.vehicleExcipient && (
                     <View style={styles.manipulatedListItem}>
                       <View style={styles.manipulatedBullet} /> {/* Bullet point como View */}
-                      <Text style={styles.manipulatedItemName}>{manipulatedPrescription.vehicleExcipient.type} q.s.p.</Text>
+                      <Text style={styles.manipulatedItemName}>{vehicleTypeLabel(manipulatedPrescription.vehicleExcipient.type, manipulatedPrescription.vehicleExcipient.customType)} q.s.p.</Text>
                       <View style={styles.manipulatedDottedLine} />
-                      <Text style={styles.manipulatedDosage}>{manipulatedPrescription.vehicleExcipient.quantity} {getLongUnitAbbreviation(manipulatedPrescription.vehicleExcipient.unit === "outro(s)" ? (manipulatedPrescription.vehicleExcipient.customUnit || "") : manipulatedPrescription.vehicleExcipient.unit)}</Text>
+                      <Text style={styles.manipulatedDosage}>{formatQuantityWithUnit(manipulatedPrescription.vehicleExcipient.quantity, manipulatedPrescription.vehicleExcipient.unit, manipulatedPrescription.vehicleExcipient.customUnit)}</Text>
                     </View>
                   )}
                 </View>

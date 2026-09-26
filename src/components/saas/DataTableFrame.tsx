@@ -3,7 +3,8 @@ import { Inbox } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface DataTableFrameProps {
-  children: React.ReactNode;
+  /** Opcional: com `empty` o frame mostra só o estado vazio. */
+  children?: React.ReactNode;
   stickyHeader?: boolean;
   empty?: boolean;
   emptyTitle?: string;

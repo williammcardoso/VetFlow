@@ -56,15 +56,20 @@ export function PageHeader({
   iconClassName,
 }: PageHeaderProps) {
   return (
+    // flex-wrap em vez de "coluna no celular / linha a partir de sm": a
+    // largura que sobra depende do menu lateral (tablet em pé com o menu
+    // aberto tem ~500px), não só da tela. O título reserva 18rem e os botões
+    // descem pra linha de baixo quando não cabem — antes eles ficavam do lado
+    // e espremiam o título até quebrar letra por letra.
     <div
       className={cn(
-        "vf-page-hero mb-4 flex flex-col gap-3 sm:mb-6 sm:flex-row sm:items-start sm:justify-between",
+        "vf-page-hero mb-4 flex flex-wrap items-start justify-between gap-x-4 gap-y-3 sm:mb-6",
         stripClass[module],
         "px-4 py-4 sm:px-6 sm:py-6",
         className
       )}
     >
-      <div className="min-w-0 flex-1">
+      <div className="min-w-0 flex-[1_1_18rem]">
         {breadcrumb ? (
           <div className={cn("mb-1.5 text-xs text-muted-foreground sm:text-sm", breadcrumbClassName)}>{breadcrumb}</div>
         ) : null}
@@ -95,7 +100,7 @@ export function PageHeader({
           <div className="flex ..."> próprio, sem quebra de linha — no celular
           3 botões lado a lado passavam da tela (Lista de Preços, Catálogo). */}
       {actions ? (
-        <div className="flex max-w-full shrink-0 flex-wrap items-center gap-2 pt-1 sm:pt-0 [&>div]:flex-wrap">{actions}</div>
+        <div className="flex max-w-full flex-wrap items-center gap-2 max-sm:w-full [&>div]:flex-wrap">{actions}</div>
       ) : null}
     </div>
   );

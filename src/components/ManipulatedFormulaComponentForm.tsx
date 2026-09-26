@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button";
 import { FaTrashAlt } from "react-icons/fa";
 import { ManipulatedFormulaComponent } from "@/types/medication";
+import { COMPONENT_UNITS, withSavedOption } from "@/lib/manipulatedUnits";
 
 interface ManipulatedFormulaComponentFormProps {
   component: ManipulatedFormulaComponent;
@@ -15,18 +16,6 @@ interface ManipulatedFormulaComponentFormProps {
   onDelete: (id: string) => void;
   shouldFocus?: boolean; // Nova prop para controlar o foco
 }
-
-const mockDosageUnits = [
-  "Grama (g)",
-  "Miligrama (mg)",
-  "Mililitro (mL)",
-  "Micrograma (mcg)",
-  "Unidade",
-  "%",
-  "UI (Unidade Internacional)",
-  "Miligrama por mililitro (mg/mL)",
-  "Outro",
-];
 
 const ManipulatedFormulaComponentForm: React.FC<ManipulatedFormulaComponentFormProps> = ({
   component,
@@ -91,14 +80,14 @@ const ManipulatedFormulaComponentForm: React.FC<ManipulatedFormulaComponentFormP
           className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200"
         />
       </div>
-      <div className="w-full sm:w-32 space-y-2">
+      <div className="w-full sm:w-48 space-y-2">
         <Label htmlFor={`dosage-unit-${component.id}`}>Unidade*</Label>
         <Select onValueChange={setDosageUnit} value={dosageUnit}>
           <SelectTrigger id={`dosage-unit-${component.id}`} className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200">
-            <SelectValue placeholder="Ex: Unidade" />
+            <SelectValue placeholder="Ex: mg, %, UI" />
           </SelectTrigger>
           <SelectContent>
-            {mockDosageUnits.map((unit) => (
+            {withSavedOption(COMPONENT_UNITS, dosageUnit).map((unit) => (
               <SelectItem key={unit} value={unit}>
                 {unit}
               </SelectItem>

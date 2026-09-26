@@ -410,6 +410,27 @@ describe("buildManipulatedPosology — receita manipulada no mesmo motor", () =>
     );
   });
 
+  it("biscoito e sachê: oferecer, com plural e fração", () => {
+    expect(buildManipulatedPosology({ ...parts, measure: "Biscoito", dosage: "1", frequencyValue: "24" })).toBe(
+      "Oferecer 1 biscoito, a cada 24 horas, durante 7 dias."
+    );
+    expect(buildManipulatedPosology({ ...parts, measure: "Biscoito", dosage: "1/2" })).toBe(
+      "Oferecer 1/2 (meio) biscoito, a cada 12 horas, durante 7 dias."
+    );
+    expect(buildManipulatedPosology({ ...parts, measure: "Sachê", dosage: "2" })).toBe(
+      "Oferecer 2 sachês, a cada 12 horas, durante 7 dias."
+    );
+  });
+
+  it("semanas: frequência vira dias ('a cada 7 dias'), duração fica em semanas", () => {
+    expect(
+      buildManipulatedPosology({ ...parts, frequencyValue: "1", frequencyUnit: "Semana(s)", durationValue: "8", durationUnit: "Semana(s)" })
+    ).toBe("Administrar 1 cápsula, a cada 7 dias, durante 8 semanas.");
+    expect(buildManipulatedPosology({ ...parts, frequencyValue: "2", frequencyUnit: "Semana(s)", durationValue: "1", durationUnit: "Semana(s)" })).toBe(
+      "Administrar 1 cápsula, a cada 14 dias, durante 1 semana."
+    );
+  });
+
   it("verbo pela via: tópica aplica, oftálmica instila gotas", () => {
     expect(buildManipulatedPosology({ ...parts, route: "Tópica", measure: "Pomada", dosage: "" })).toMatch(/^Aplicar /);
     expect(buildManipulatedPosology({ ...parts, route: "Oftálmica", measure: "Gotas", dosage: "2" })).toMatch(
