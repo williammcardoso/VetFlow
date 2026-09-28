@@ -26,7 +26,8 @@ export function FormSection({
 }) {
   return (
     <section className={cn("grid grid-cols-1 gap-3 xl:grid-cols-[15rem_minmax(0,1fr)] xl:gap-8", className)}>
-      <div className="xl:pt-2">
+      {/* xl:pt-6 = o mesmo respiro interno do cartão: o título fica na altura da primeira linha de campos. */}
+      <div className="xl:pt-6">
         <h2 className="text-base font-semibold text-foreground">{title}</h2>
         {description ? <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{description}</p> : null}
       </div>
@@ -40,17 +41,16 @@ export function FormSection({
 }
 
 /**
- * Grade dos campos dentro da seção: 2 no celular, 6 "fatias" no tablet e 12
- * no computador — cada campo diz quantas ocupa em cada uma (`sm:col-span-*`
- * e `lg:col-span-*`). No celular o campo ocupa a linha toda (col-span-2, o
- * padrão do Field); pares curtos e ligados (CPF/RG, Cidade/UF) usam
- * `col-span-1` e ficam lado a lado. Com 12 fatias no computador os campos
- * curtos (CEP, número, UF) ficam do tamanho do conteúdo.
+ * Grade dos campos: 2 colunas iguais no celular/tablet e 4 no computador —
+ * sempre as mesmas linhas verticais, então todo campo começa alinhado com os
+ * das outras linhas e das outras seções (antes, com 12 fatias, cada linha
+ * dividia de um jeito e nada batia).
+ * O Field ocupa a linha toda por padrão (col-span-2); `col-span-1` = metade
+ * no celular/tablet e 1/4 no computador; `lg:col-span-2` = metade no
+ * computador; `sm:col-span-1` = linha toda só no celular.
  */
 export function FieldGrid({ children, className }: { children: React.ReactNode; className?: string }) {
-  return (
-    <div className={cn("grid grid-cols-2 gap-x-3 gap-y-4 sm:grid-cols-6 sm:gap-x-4 lg:grid-cols-12", className)}>{children}</div>
-  );
+  return <div className={cn("grid grid-cols-2 gap-x-3 gap-y-4 sm:gap-x-4 lg:grid-cols-4", className)}>{children}</div>;
 }
 
 export function Field({
@@ -141,7 +141,7 @@ export function ChoiceGroup<T extends string>({
             if (allowDeselect && optionValue === value) onChange(undefined);
           }}
           className={cn(
-            "inline-flex h-10 items-center gap-2 rounded-xl border border-border bg-card px-3.5 text-sm font-medium text-foreground shadow-sm transition-colors",
+            "inline-flex h-10 items-center gap-2 rounded-xl border border-border bg-card px-3 text-sm font-medium text-foreground shadow-sm transition-colors",
             "hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1",
             "data-[state=checked]:border-primary data-[state=checked]:bg-primary/[0.07] data-[state=checked]:text-primary data-[state=checked]:shadow-none data-[state=checked]:ring-1 data-[state=checked]:ring-primary"
           )}
@@ -206,14 +206,16 @@ export function focusField(id: string) {
 }
 
 /**
- * Rodapé fixo com as ações do formulário. A margem negativa acompanha o
- * padding do Layout (px-4 no celular, px-6 a partir de sm).
+ * Rodapé fixo com as ações do formulário. No celular/tablet vai de ponta a
+ * ponta (margem negativa = padding do Layout: px-4, px-6 a partir de sm); no
+ * computador fica exatamente na largura do conteúdo — as páginas de cadastro
+ * têm largura máxima e a barra passava 24px pra cada lado dos cartões.
  */
 export function StickyActionBar({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
     <div
       className={cn(
-        "sticky bottom-0 z-10 -mx-4 border-t border-border bg-background/90 px-4 py-3 backdrop-blur sm:-mx-6 sm:px-6",
+        "sticky bottom-0 z-10 -mx-4 border-t border-border bg-background/90 px-4 py-3 backdrop-blur sm:-mx-6 sm:px-6 lg:mx-0 lg:px-0",
         className
       )}
     >

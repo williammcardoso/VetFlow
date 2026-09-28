@@ -31,8 +31,9 @@ import { addClient, updateClient } from "@/lib/clientsApi";
 // e telefone são obrigatórios. O antigo "Adicionar outro telefone" (lista sem
 // coluna no banco — o número sumia) virou um segundo telefone de verdade,
 // com colunas próprias (migration 20260928120000).
-// Grade de 12 colunas no computador: campos curtos (CEP, número, UF) do
-// tamanho do conteúdo, mais campos por linha, e a página com largura máxima.
+// Grade de 4 colunas no computador (2 no celular/tablet): campos curtos (CEP,
+// número, UF) num quarto, todos começando nas mesmas linhas verticais, e a
+// página com largura máxima.
 
 const applyCpfMask = (value: string) =>
   value
@@ -319,16 +320,19 @@ const ClientFormPage = () => {
   }
 
   const cancelPath = isEditing ? `/clients/${clientId}` : "/clients";
+  // Curtas (cabem numa linha embaixo do CEP, que ocupa 1/4 da largura) e só
+  // quando há algo a dizer — sem dica fixa, a linha do endereço não fica mais
+  // alta só na coluna do CEP.
   const cepHint =
     cepStatus === "loading"
-      ? "Buscando endereço…"
+      ? "Buscando…"
       : cepStatus === "found"
-        ? "Endereço preenchido pelo CEP — confira o número."
+        ? "Endereço preenchido."
         : cepStatus === "not-found"
-          ? "CEP não encontrado. Preencha o endereço à mão."
+          ? "CEP não encontrado."
           : cepStatus === "error"
-            ? "Não deu para buscar o CEP agora. Preencha à mão."
-            : "Não sabe o CEP? Use o Buscar.";
+            ? "Busca indisponível agora."
+            : undefined;
 
   return (
     <PageShell className="mx-auto w-full max-w-6xl space-y-5 sm:space-y-6">
@@ -359,7 +363,7 @@ const ClientFormPage = () => {
       >
         <FormSection title="Dados pessoais" description="Quem é o responsável pelo animal.">
           <FieldGrid>
-            <Field label="Tipo de cadastro" labelId="clientType-label" className="sm:col-span-6 lg:col-span-5">
+            <Field label="Tipo de cadastro" labelId="clientType-label" className="lg:col-span-2">
               <ChoiceGroup
                 labelledBy="clientType-label"
                 value={clientType}
@@ -371,7 +375,7 @@ const ClientFormPage = () => {
               />
             </Field>
 
-            <Field label={isPerson ? "Nome completo" : "Nome ou razão social"} htmlFor="fullName" required error={errors.fullName} className="sm:col-span-6 lg:col-span-7">
+            <Field label={isPerson ? "Nome completo" : "Nome ou razão social"} htmlFor="fullName" required error={errors.fullName} className="lg:col-span-2">
               <Input
                 id="fullName"
                 value={fullName}
@@ -385,7 +389,7 @@ const ClientFormPage = () => {
               />
             </Field>
 
-            <Field label={docLabel} htmlFor="identificationNumber" error={errors.identificationNumber} className="col-span-1 sm:col-span-3 lg:col-span-3">
+            <Field label={docLabel} htmlFor="identificationNumber" error={errors.identificationNumber} className="col-span-1">
               <Input
                 id="identificationNumber"
                 inputMode="numeric"
@@ -402,7 +406,7 @@ const ClientFormPage = () => {
               />
             </Field>
 
-            <Field label={isPerson ? "RG" : "Inscrição estadual"} htmlFor="secondaryIdentification" className="col-span-1 sm:col-span-3 lg:col-span-3">
+            <Field label={isPerson ? "RG" : "Inscrição estadual"} htmlFor="secondaryIdentification" className="col-span-1">
               <Input
                 id="secondaryIdentification"
                 inputMode={isPerson ? "text" : "numeric"}
@@ -415,18 +419,18 @@ const ClientFormPage = () => {
               />
             </Field>
 
-            <Field label={isPerson ? "Nascimento" : "Fundação"} htmlFor="birthday" className="col-span-1 sm:col-span-3 lg:col-span-3">
+            <Field label={isPerson ? "Nascimento" : "Fundação"} htmlFor="birthday" className="col-span-1">
               <Input id="birthday" type="date" value={birthday} onChange={(e) => setBirthday(e.target.value)} />
             </Field>
 
             {isPerson && (
-              <Field label="Profissão" htmlFor="profession" className="col-span-1 sm:col-span-3 lg:col-span-3">
+              <Field label="Profissão" htmlFor="profession" className="col-span-1">
                 <Input id="profession" value={profession} onChange={(e) => setProfession(e.target.value)} placeholder="Ex.: Professora" />
               </Field>
             )}
 
             {isPerson && (
-              <Field label="Sexo" labelId="gender-label" className="sm:col-span-3 lg:col-span-6">
+              <Field label="Sexo" labelId="gender-label" className="lg:col-span-2">
                 <ChoiceGroup
                   labelledBy="gender-label"
                   value={gender}
@@ -441,7 +445,7 @@ const ClientFormPage = () => {
               </Field>
             )}
 
-            <Field label="Nacionalidade" labelId="nationality-label" className="sm:col-span-3 lg:col-span-6">
+            <Field label="Nacionalidade" labelId="nationality-label" className="lg:col-span-2">
               <ChoiceGroup
                 labelledBy="nationality-label"
                 value={nationality}
@@ -457,7 +461,7 @@ const ClientFormPage = () => {
 
         <FormSection title="Contato" description="Usado nos lembretes e para enviar receitas e exames pelo WhatsApp.">
           <FieldGrid>
-            <Field label="Telefone (WhatsApp)" htmlFor="mainPhoneContact" required error={errors.mainPhoneContact} className="sm:col-span-3 lg:col-span-4">
+            <Field label="Telefone (WhatsApp)" htmlFor="mainPhoneContact" required error={errors.mainPhoneContact} className="lg:col-span-1">
               <Input
                 id="mainPhoneContact"
                 type="tel"
@@ -474,7 +478,7 @@ const ClientFormPage = () => {
               />
             </Field>
 
-            <Field label="Outro telefone" htmlFor="secondaryPhoneContact" error={errors.secondaryPhoneContact} className="col-span-1 sm:col-span-3 lg:col-span-4">
+            <Field label="Outro telefone" htmlFor="secondaryPhoneContact" error={errors.secondaryPhoneContact} className="col-span-1">
               <Input
                 id="secondaryPhoneContact"
                 type="tel"
@@ -491,7 +495,7 @@ const ClientFormPage = () => {
               />
             </Field>
 
-            <Field label="De quem é" htmlFor="secondaryPhoneLabel" className="col-span-1 sm:col-span-3 lg:col-span-4">
+            <Field label="De quem é" htmlFor="secondaryPhoneLabel" className="col-span-1">
               <Input
                 id="secondaryPhoneLabel"
                 autoComplete="off"
@@ -501,7 +505,7 @@ const ClientFormPage = () => {
               />
             </Field>
 
-            <Field label="E-mail" htmlFor="mainEmailContact" className="sm:col-span-3 lg:col-span-6">
+            <Field label="E-mail" htmlFor="mainEmailContact" className="lg:col-span-2">
               <Input
                 id="mainEmailContact"
                 type="email"
@@ -513,7 +517,7 @@ const ClientFormPage = () => {
               />
             </Field>
 
-            <Field label="Aceita receber mensagens por" labelId="accept-label" className="sm:col-span-6 lg:col-span-6">
+            <Field label="Aceita receber mensagens por" labelId="accept-label" className="lg:col-span-2">
               <div role="group" aria-labelledby="accept-label" className="flex flex-wrap gap-2">
                 <ToggleChip pressed={acceptWhatsapp === "yes"} onPressedChange={(on) => setAcceptWhatsapp(on ? "yes" : "no")}>
                   WhatsApp
@@ -531,9 +535,9 @@ const ClientFormPage = () => {
 
         <FormSection title="Endereço" description="Digite o CEP e o resto é preenchido sozinho.">
           <FieldGrid>
-            <Field label="CEP" htmlFor="zipCode" hint={cepHint} className="sm:col-span-3 lg:col-span-4">
-              <div className="flex gap-2">
-                <div className="relative min-w-0 flex-1">
+            <Field label="CEP" htmlFor="zipCode" hint={cepHint} className="sm:col-span-1">
+              {/* "Buscar" dentro do campo, à direita: o CEP cabe em 1/4 da linha e fica alinhado com o resto. */}
+              <div className="relative">
                 <Input
                   id="zipCode"
                   inputMode="numeric"
@@ -543,45 +547,46 @@ const ClientFormPage = () => {
                   maxLength={9}
                   onChange={handleCepChange}
                   onBlur={() => void fetchAddressByCep(cep)}
-                  className="pr-9"
+                  className="pr-[5.5rem]"
                 />
-                {cepStatus === "loading" && (
-                  <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" aria-hidden />
-                )}
-                </div>
-                <Button
+                <button
                   type="button"
-                  variant="outline"
-                  className="shrink-0 px-3"
                   onClick={() => setCepDialogOpen(true)}
+                  disabled={cepStatus === "loading"}
                   title="Não sabe o CEP? Buscar pelo nome da rua"
+                  className="absolute right-1 top-1/2 inline-flex h-8 -translate-y-1/2 items-center gap-1 rounded-md px-2 text-xs font-medium text-primary transition-colors hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
                 >
-                  <Search className="mr-1.5 h-4 w-4" aria-hidden /> Buscar
-                </Button>
+                  {cepStatus === "loading" ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+                  ) : (
+                    <Search className="h-3.5 w-3.5" aria-hidden />
+                  )}
+                  Buscar
+                </button>
               </div>
             </Field>
 
-            <Field label="Rua" htmlFor="street" className="sm:col-span-3 lg:col-span-6">
+            <Field label="Rua" htmlFor="street" className="sm:col-span-1 lg:col-span-2">
               <Input id="street" value={street} onChange={(e) => setStreet(e.target.value)} placeholder="Rua, avenida…" />
             </Field>
 
-            <Field label="Número" htmlFor="number" className="col-span-1 sm:col-span-2 lg:col-span-2">
+            <Field label="Número" htmlFor="number" className="col-span-1">
               <Input id="number" ref={numberInputRef} value={number} onChange={(e) => setNumber(e.target.value)} placeholder="Ex.: 120" />
             </Field>
 
-            <Field label="Complemento" htmlFor="complement" className="col-span-1 sm:col-span-4 lg:col-span-3">
+            <Field label="Complemento" htmlFor="complement" className="col-span-1">
               <Input id="complement" value={complement} onChange={(e) => setComplement(e.target.value)} placeholder="Apto, bloco, fundos…" />
             </Field>
 
-            <Field label="Bairro" htmlFor="neighborhood" className="sm:col-span-3 lg:col-span-4">
+            <Field label="Bairro" htmlFor="neighborhood" className="lg:col-span-1">
               <Input id="neighborhood" value={neighborhood} onChange={(e) => setNeighborhood(e.target.value)} />
             </Field>
 
-            <Field label="Cidade" htmlFor="city" className="col-span-1 sm:col-span-2 lg:col-span-3">
+            <Field label="Cidade" htmlFor="city" className="col-span-1">
               <Input id="city" value={city} onChange={(e) => setCity(e.target.value)} />
             </Field>
 
-            <Field label="UF" htmlFor="state" className="col-span-1 sm:col-span-1 lg:col-span-2">
+            <Field label="UF" htmlFor="state" className="col-span-1">
               <Select value={state} onValueChange={setState}>
                 <SelectTrigger id="state">
                   {/* Campo estreito: mostra só a sigla; a lista tem o nome inteiro. */}

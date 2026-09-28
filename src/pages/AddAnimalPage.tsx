@@ -372,7 +372,7 @@ const AddAnimalPage = () => {
 
         <FormSection title="Dados do animal" description="Nome, espécie, idade e peso atual.">
           <FieldGrid>
-            <Field label="Nome" htmlFor="animalName" required error={errors.animalName} className="sm:col-span-6 lg:col-span-4">
+            <Field label="Nome" htmlFor="animalName" required error={errors.animalName} className="lg:col-span-1">
               <Input
                 id="animalName"
                 value={animalName}
@@ -386,7 +386,7 @@ const AddAnimalPage = () => {
               />
             </Field>
 
-            <Field label="Espécie" labelId="species-label" required error={errors.species} className="sm:col-span-6 lg:col-span-8">
+            <Field label="Espécie" labelId="species-label" required error={errors.species} className="lg:col-span-3">
               <ChoiceGroup
                 id="species"
                 labelledBy="species-label"
@@ -397,7 +397,7 @@ const AddAnimalPage = () => {
             </Field>
 
             {speciesId === "other" && (
-              <Field label="Qual espécie?" htmlFor="customSpecies" required error={errors.customSpecies} className="sm:col-span-6 lg:col-span-4">
+              <Field label="Qual espécie?" htmlFor="customSpecies" required error={errors.customSpecies} className="sm:col-span-1">
                 <Input
                   id="customSpecies"
                   value={customSpecies}
@@ -410,7 +410,7 @@ const AddAnimalPage = () => {
               </Field>
             )}
 
-            <Field label="Raça" htmlFor={showCustomBreed ? "breed" : undefined} error={errors.breed} className="sm:col-span-3 lg:col-span-4">
+            <Field label="Raça" htmlFor={showCustomBreed ? "breed" : undefined} error={errors.breed} className="sm:col-span-1">
               {speciesId !== "other" && (
                 <AutocompleteSelect
                   disabled={!speciesId}
@@ -443,7 +443,7 @@ const AddAnimalPage = () => {
               )}
             </Field>
 
-            <Field label="Sexo" labelId="gender-label" required error={errors.gender} className="sm:col-span-3 lg:col-span-4">
+            <Field label="Sexo" labelId="gender-label" required error={errors.gender} className="sm:col-span-1">
               <ChoiceGroup
                 id="gender"
                 labelledBy="gender-label"
@@ -462,59 +462,64 @@ const AddAnimalPage = () => {
               required
               error={errors.birthday}
               hint={ageLabel ? `Idade: ${ageLabel}${approxAge.open ? " (aproximada)" : ""}` : undefined}
-              className="sm:col-span-3 lg:col-span-4"
+              className="lg:col-span-2"
             >
-              <Input
-                id="birthday"
-                type="date"
-                max={getTodayLocalISO()}
-                value={birthday}
-                aria-invalid={Boolean(errors.birthday)}
-                onChange={(e) => {
-                  setBirthday(e.target.value);
-                  clearError("birthday");
-                }}
-              />
-              {approxAge.open ? (
-                <div className="flex flex-wrap items-end gap-2 rounded-xl bg-muted/50 p-2.5">
-                  <div className="w-20 space-y-1">
-                    <Label htmlFor="approxYears" className="text-xs">
+              {/* Data e idade aproximada na mesma linha, todos com a altura dos outros campos. */}
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                <Input
+                  id="birthday"
+                  type="date"
+                  max={getTodayLocalISO()}
+                  value={birthday}
+                  aria-invalid={Boolean(errors.birthday)}
+                  className="w-44 shrink-0"
+                  onChange={(e) => {
+                    setBirthday(e.target.value);
+                    clearError("birthday");
+                  }}
+                />
+                {approxAge.open ? (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Label htmlFor="approxYears" className="sr-only">
                       Anos
                     </Label>
                     <Input
                       id="approxYears"
                       inputMode="numeric"
+                      className="w-14 text-center"
                       value={approxAge.years}
                       onChange={(e) => applyApproxAge(e.target.value.replace(/\D/g, "").slice(0, 2), approxAge.months)}
                     />
-                  </div>
-                  <div className="w-20 space-y-1">
-                    <Label htmlFor="approxMonths" className="text-xs">
+                    anos
+                    <Label htmlFor="approxMonths" className="sr-only">
                       Meses
                     </Label>
                     <Input
                       id="approxMonths"
                       inputMode="numeric"
+                      className="w-14 text-center"
                       value={approxAge.months}
                       onChange={(e) => applyApproxAge(approxAge.years, e.target.value.replace(/\D/g, "").slice(0, 2))}
                     />
+                    meses
+                    <Button type="button" variant="ghost" size="sm" onClick={() => setApproxAge({ open: false, years: "", months: "" })}>
+                      Fechar
+                    </Button>
                   </div>
-                  <Button type="button" variant="ghost" size="sm" onClick={() => setApproxAge({ open: false, years: "", months: "" })}>
-                    Fechar
-                  </Button>
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  className="text-xs font-medium text-primary hover:underline"
-                  onClick={() => setApproxAge((p) => ({ ...p, open: true }))}
-                >
-                  Não sabe a data? Informe a idade aproximada
-                </button>
-              )}
+                ) : (
+                  <button
+                    type="button"
+                    className="text-left text-xs font-medium text-primary hover:underline"
+                    title="Não sabe a data de nascimento? Informe a idade aproximada em anos e meses"
+                    onClick={() => setApproxAge((p) => ({ ...p, open: true }))}
+                  >
+                    Não sabe? Informar idade
+                  </button>
+                )}
+              </div>
             </Field>
 
-            <Field label="Peso (kg)" htmlFor="weight" required error={errors.weight} hint="Só números: 5500 = 5,500 kg." className="col-span-1 sm:col-span-3 lg:col-span-4">
+            <Field label="Peso (kg)" htmlFor="weight" required error={errors.weight} hint="Só números: 5500 = 5,500 kg." className="col-span-1">
               <WeightInput
                 id="weight"
                 placeholder="0,000"
@@ -526,7 +531,7 @@ const AddAnimalPage = () => {
               />
             </Field>
 
-            <Field label="Pelagem" htmlFor="coatColor" error={errors.coatColor} className="col-span-1 sm:col-span-3 lg:col-span-4">
+            <Field label="Pelagem" htmlFor="coatColor" error={errors.coatColor} className="col-span-1">
               <Select
                 value={coatInList ? coatColor : showCustomCoat ? OTHER : undefined}
                 onValueChange={(value) => {
@@ -566,7 +571,7 @@ const AddAnimalPage = () => {
               )}
             </Field>
 
-            <Field label="Microchip" htmlFor="microchip" className="sm:col-span-3 lg:col-span-4">
+            <Field label="Microchip" htmlFor="microchip" className="sm:col-span-1">
               <Input id="microchip" inputMode="numeric" value={microchip} placeholder="Número do microchip, se tiver" onChange={(e) => setMicrochip(e.target.value)} />
             </Field>
           </FieldGrid>
