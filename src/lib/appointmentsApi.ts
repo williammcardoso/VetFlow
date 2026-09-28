@@ -52,6 +52,24 @@ export async function getAppointments(): Promise<AppointmentEntry[]> {
   return (data || []).map((r: Record<string, unknown>) => rowToAppointment(r));
 }
 
+/**
+ * Data do último atendimento de cada animal ({ animal_id: "aaaa-mm-dd" }) —
+ * só as duas colunas, pra lista de clientes e a ficha mostrarem "última
+ * visita" sem carregar os atendimentos inteiros.
+ */
+export async function listLastAppointmentDates(): Promise<Record<string, string>> {
+  const { data, error } = await supabase.from(TABLE).select("animal_id, date").order("date", { ascending: false });
+  if (error) {
+    console.error("[listLastAppointmentDates] error", error);
+    return {};
+  }
+  const last: Record<string, string> = {};
+  for (const r of (data || []) as Array<{ animal_id?: string | null; date?: string | null }>) {
+    if (r.animal_id && r.date && !last[r.animal_id]) last[r.animal_id] = r.date;
+  }
+  return last;
+}
+
 export async function getAppointmentsByAnimal(animalId: string): Promise<AppointmentEntry[]> {
   if (!isLikelyUuid(animalId)) {
     return readLocalAppointments(animalId);

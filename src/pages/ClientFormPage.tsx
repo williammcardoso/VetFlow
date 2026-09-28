@@ -1,3 +1,8 @@
+import React, { useEffect, useRef, useState } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import { Loader2, Save, UserPlus, Users } from "lucide-react";
+import { toast } from "sonner";
+import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
@@ -10,92 +15,84 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { FaArrowLeft, FaPlus, FaTimes, FaSave, FaTrashAlt } from "@/components/icons/fa";
-import React, { useState, useEffect } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom"; // Importar useParams
-import { toast } from "sonner"; // Importar toast para mensagens
-import { Client, DynamicContact } from "@/types/client"; // Importar a interface Client
-import { useClientWithAnimals } from "@/hooks/useSupabaseClients";
-import { addClient, updateClient } from "@/lib/clientsApi";
-import { useQueryClient } from "@tanstack/react-query";
 import { PageShell } from "@/components/saas/PageShell";
 import { PageHeader } from "@/components/saas/PageHeader";
-import { Users } from "lucide-react";
+import { ChoiceGroup, Field, FieldGrid, FormSection, StickyActionBar, ToggleChip, focusField } from "@/components/forms/FormLayout";
+import { Client } from "@/types/client";
+import { useClientWithAnimals } from "@/hooks/useSupabaseClients";
+import { addClient, updateClient } from "@/lib/clientsApi";
 
-// Helper functions for masks
-const applyCpfMask = (value: string) => {
-  value = value.replace(/\D/g, ""); // Remove non-digits
-  value = value.replace(/(\d{3})(\d)/, "$1.$2");
-  value = value.replace(/(\d{3})(\d)/, "$1.$2");
-  value = value.replace(/(\d{3})(\d{1,2})$/, "$1-$2");
+// Cadastro de cliente numa página só, em seções (antes: 3 abas — Endereço e
+// Observações ficavam escondidas e o "Salvar" repetido em cada aba). Só nome
+// e telefone são obrigatórios. O antigo "Adicionar outro telefone" saiu: não
+// existe coluna no banco pra ele e o número digitado sumia ao salvar.
+
+const applyCpfMask = (value: string) =>
+  value
+    .replace(/\D/g, "")
+    .replace(/(\d{3})(\d)/, "$1.$2")
+    .replace(/(\d{3})(\d)/, "$1.$2")
+    .replace(/(\d{3})(\d{1,2})$/, "$1-$2");
+
+const applyCnpjMask = (value: string) =>
+  value
+    .replace(/\D/g, "")
+    .replace(/^(\d{2})(\d)/, "$1.$2")
+    .replace(/^(\d{2})\.(\d{3})(\d)/, "$1.$2.$3")
+    .replace(/\.(\d{3})(\d)/, ".$1/$2")
+    .replace(/(\d{4})(\d)/, "$1-$2");
+
+const applyRgMask = (value: string) =>
+  value
+    .replace(/\D/g, "")
+    .replace(/(\d{2})(\d)/, "$1.$2")
+    .replace(/(\d{3})(\d)/, "$1.$2")
+    .replace(/(\d{3})(\d{1})$/, "$1-$2");
+
+const applyPhoneMask = (raw: string) => {
+  const value = raw.replace(/\D/g, "");
+  if (value.length > 10) return value.replace(/^(\d\d)(\d{5})(\d{4}).*/, "($1) $2-$3");
+  if (value.length > 6) return value.replace(/^(\d\d)(\d{4})(\d{0,4}).*/, "($1) $2-$3");
+  if (value.length > 2) return value.replace(/^(\d*)/, "($1) ");
+  if (value.length > 0) return value.replace(/^(\d*)/, "($1");
   return value;
 };
 
-const applyCnpjMask = (value: string) => {
-  value = value.replace(/\D/g, ""); // Remove non-digits
-  value = value.replace(/^(\d{2})(\d)/, "$1.$2");
-  value = value.replace(/^(\d{2})\.(\d{3})(\d)/, "$1.$2.$3");
-  value = value.replace(/\.(\d{3})(\d)/, ".$1/$2");
-  value = value.replace(/(\d{4})(\d)/, "$1-$2");
-  return value;
-};
+const STATES: Array<[string, string]> = [
+  ["AC", "Acre"], ["AL", "Alagoas"], ["AP", "Amapá"], ["AM", "Amazonas"], ["BA", "Bahia"], ["CE", "Ceará"],
+  ["DF", "Distrito Federal"], ["ES", "Espírito Santo"], ["GO", "Goiás"], ["MA", "Maranhão"], ["MT", "Mato Grosso"],
+  ["MS", "Mato Grosso do Sul"], ["MG", "Minas Gerais"], ["PA", "Pará"], ["PB", "Paraíba"], ["PR", "Paraná"],
+  ["PE", "Pernambuco"], ["PI", "Piauí"], ["RJ", "Rio de Janeiro"], ["RN", "Rio Grande do Norte"],
+  ["RS", "Rio Grande do Sul"], ["RO", "Rondônia"], ["RR", "Roraima"], ["SC", "Santa Catarina"], ["SP", "São Paulo"],
+  ["SE", "Sergipe"], ["TO", "Tocantins"],
+];
 
-const applyRgMask = (value: string) => {
-  value = value.replace(/\D/g, ""); // Remove non-digits
-  value = value.replace(/(\d{2})(\d)/, "$1.$2");
-  value = value.replace(/(\d{3})(\d)/, "$1.$2");
-  value = value.replace(/(\d{3})(\d{1})$/, "$1-$2");
-  return value;
-};
-
-const applyPhoneMask = (value: string) => {
-  value = value.replace(/\D/g, ""); // Remove non-digits
-  if (value.length > 10) { // (XX) 9XXXX-XXXX
-    value = value.replace(/^(\d\d)(\d{5})(\d{4}).*/, "($1) $2-$3");
-  } else if (value.length > 6) { // (XX) XXXX-XXXX
-    value = value.replace(/^(\d\d)(\d{4})(\d{0,4}).*/, "($1) $2-$3");
-  } else if (value.length > 2) { // (XX) XXXX
-    value = value.replace(/^(\d*)/, "($1) ");
-  } else if (value.length > 0) { // (XX
-    value = value.replace(/^(\d*)/, "($1");
-  }
-  return value;
-};
-
+type FieldErrors = Partial<Record<"fullName" | "mainPhoneContact" | "identificationNumber", string>>;
+type CepStatus = "idle" | "loading" | "found" | "not-found" | "error";
 
 const ClientFormPage = () => {
   const navigate = useNavigate();
-  const { clientId } = useParams<{ clientId?: string }>(); // Obter clientId da URL
+  const { clientId } = useParams<{ clientId?: string }>();
   const isEditing = !!clientId;
   const queryClient = useQueryClient();
   const { data: clientToEdit, isLoading: isClientLoading, isError: isClientError, error: clientError } =
     useClientWithAnimals(isEditing ? clientId : undefined);
 
-  // Estados para os campos do formulário
-  const [clientType, setClientType] = useState<Client['clientType']>("physical");
+  const [clientType, setClientType] = useState<Client["clientType"]>("physical");
   const [fullName, setFullName] = useState("");
-  const [nationality, setNationality] = useState<Client['nationality']>("brazilian");
+  const [nationality, setNationality] = useState<Client["nationality"]>("brazilian");
   const [gender, setGender] = useState<string | undefined>(undefined);
-  const [identificationNumber, setIdentificationNumber] = useState(""); // CPF ou CNPJ
-  const [secondaryIdentification, setSecondaryIdentification] = useState(""); // RG ou IE
+  const [identificationNumber, setIdentificationNumber] = useState("");
+  const [secondaryIdentification, setSecondaryIdentification] = useState("");
   const [birthday, setBirthday] = useState("");
   const [profession, setProfession] = useState("");
-  const [acceptEmail, setAcceptEmail] = useState<Client['acceptEmail']>("yes");
-  const [acceptWhatsapp, setAcceptWhatsapp] = useState<Client['acceptWhatsapp']>("yes");
-  const [acceptSMS, setAcceptSMS] = useState<Client['acceptSMS']>("yes");
-
-  // Contatos fixos
+  const [acceptEmail, setAcceptEmail] = useState<Client["acceptEmail"]>("yes");
+  const [acceptWhatsapp, setAcceptWhatsapp] = useState<Client["acceptWhatsapp"]>("yes");
+  const [acceptSMS, setAcceptSMS] = useState<Client["acceptSMS"]>("yes");
   const [mainEmailContact, setMainEmailContact] = useState("");
-  const [mainPhoneContact, setMainPhoneContact] = useState(""); // Novo campo para telefone principal
-
-  // Contatos dinâmicos (para telefones adicionais)
-  const [dynamicContacts, setDynamicContacts] = useState<DynamicContact[]>([]);
-
-  // Endereço com busca de CEP
+  const [mainPhoneContact, setMainPhoneContact] = useState("");
   const [cep, setCep] = useState("");
   const [street, setStreet] = useState("");
   const [number, setNumber] = useState("");
@@ -103,21 +100,25 @@ const ClientFormPage = () => {
   const [neighborhood, setNeighborhood] = useState("");
   const [city, setCity] = useState("");
   const [state, setState] = useState<string | undefined>(undefined);
-
-  // Extras
   const [notes, setNotes] = useState("");
+
   const [isSaving, setIsSaving] = useState(false);
+  const [errors, setErrors] = useState<FieldErrors>({});
+  const [cepStatus, setCepStatus] = useState<CepStatus>("idle");
   const [showMissingIdentificationDialog, setShowMissingIdentificationDialog] = useState(false);
   const [loadedClientId, setLoadedClientId] = useState<string | null>(null);
+  const lastFetchedCep = useRef("");
+  const numberInputRef = useRef<HTMLInputElement>(null);
+
+  const isPerson = clientType === "physical";
+  const docLabel = isPerson ? "CPF" : "CNPJ";
 
   // Carregar dados do cliente se estiver em modo de edição
   useEffect(() => {
     if (!isEditing) return;
     if (isClientLoading) return;
     if (isClientError) {
-      toast.error(
-        `Erro ao carregar cliente do banco: ${clientError instanceof Error ? clientError.message : "erro desconhecido"}.`
-      );
+      toast.error(`Erro ao carregar cliente do banco: ${clientError instanceof Error ? clientError.message : "erro desconhecido"}.`);
       navigate("/clients");
       return;
     }
@@ -131,7 +132,7 @@ const ClientFormPage = () => {
     setClientType(clientToEdit.clientType);
     setFullName(clientToEdit.name);
     setNationality(clientToEdit.nationality);
-    setGender(clientToEdit.gender);
+    setGender(clientToEdit.gender || undefined);
     setIdentificationNumber(clientToEdit.identificationNumber);
     setSecondaryIdentification(clientToEdit.secondaryIdentification);
     setBirthday(clientToEdit.birthday);
@@ -141,14 +142,14 @@ const ClientFormPage = () => {
     setAcceptSMS(clientToEdit.acceptSMS);
     setMainEmailContact(clientToEdit.mainEmailContact);
     setMainPhoneContact(clientToEdit.mainPhoneContact);
-    setDynamicContacts(clientToEdit.dynamicContacts || []);
     setCep(clientToEdit.address.cep);
+    lastFetchedCep.current = clientToEdit.address.cep;
     setStreet(clientToEdit.address.street);
     setNumber(clientToEdit.address.number);
     setComplement(clientToEdit.address.complement);
     setNeighborhood(clientToEdit.address.neighborhood);
     setCity(clientToEdit.address.city);
-    setState(clientToEdit.address.state);
+    setState(clientToEdit.address.state || undefined);
     setNotes(clientToEdit.notes);
     setLoadedClientId(clientToEdit.id);
   }, [isEditing, isClientLoading, isClientError, clientError, clientToEdit, loadedClientId, navigate]);
@@ -160,166 +161,103 @@ const ClientFormPage = () => {
     }
   };
 
-  // Resetar campos de identificação ao mudar o tipo de cliente
-  useEffect(() => {
-    if (!isEditing) { // Apenas reseta se não estiver editando
-      setIdentificationNumber("");
-      setSecondaryIdentification("");
+  const clearError = (key: keyof FieldErrors) => setErrors((prev) => (prev[key] ? { ...prev, [key]: undefined } : prev));
+
+  const docError = (value: string, type: Client["clientType"]) => {
+    const raw = value.replace(/\D/g, "");
+    if (!raw) return undefined;
+    if (type === "physical" && raw.length !== 11) return "CPF incompleto — são 11 números.";
+    if (type === "legal" && raw.length !== 14) return "CNPJ incompleto — são 14 números.";
+    return undefined;
+  };
+
+  const handleClientTypeChange = (value: Client["clientType"] | undefined) => {
+    if (!value || value === clientType) return;
+    setClientType(value);
+    // Documento de PF não serve pra PJ (e vice-versa): limpa pra não gravar número com a máscara errada.
+    setIdentificationNumber("");
+    setSecondaryIdentification("");
+    clearError("identificationNumber");
+  };
+
+  const fetchAddressByCep = async (value: string) => {
+    if (value.length !== 9 || value === lastFetchedCep.current) return;
+    lastFetchedCep.current = value;
+    setCepStatus("loading");
+    try {
+      const response = await fetch(`https://viacep.com.br/ws/${value.replace("-", "")}/json/`);
+      const data = await response.json();
+      if (data.erro) {
+        setCepStatus("not-found");
+        return;
+      }
+      setStreet(data.logradouro || "");
+      setNeighborhood(data.bairro || "");
+      setCity(data.localidade || "");
+      setState(data.uf || undefined);
+      setCepStatus("found");
+      numberInputRef.current?.focus();
+    } catch (error) {
+      console.error("Erro ao buscar CEP:", error);
+      lastFetchedCep.current = "";
+      setCepStatus("error");
     }
-  }, [clientType, isEditing]);
-
-  const handleIdentificationChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let value = e.target.value;
-    if (clientType === "physical") {
-      value = applyCpfMask(value);
-    } else {
-      value = applyCnpjMask(value);
-    }
-    setIdentificationNumber(value);
-  };
-
-  const handleIdentificationBlur = () => {
-    const rawValue = identificationNumber.replace(/\D/g, "");
-    if (clientType === "physical" && rawValue.length !== 11) {
-      toast.error("CPF inválido. Por favor, verifique o número.");
-    } else if (clientType === "legal" && rawValue.length !== 14) {
-      toast.error("CNPJ inválido. Por favor, verifique o número.");
-    }
-  };
-
-  const handleSecondaryIdentificationChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let value = e.target.value;
-    if (clientType === "physical") {
-      value = applyRgMask(value);
-    }
-    // Para IE, não aplicamos máscara complexa por enquanto, apenas removemos não-dígitos
-    else {
-      value = value.replace(/\D/g, "");
-    }
-    setSecondaryIdentification(value);
-  };
-
-  const handleMainPhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = applyPhoneMask(e.target.value);
-    setMainPhoneContact(value);
-  };
-
-  const handleDynamicPhoneChange = (id: string, value: string) => {
-    const maskedValue = applyPhoneMask(value);
-    setDynamicContacts(prev => prev.map(contact => contact.id === id ? { ...contact, value: maskedValue } : contact));
-  };
-
-  const handleAddDynamicContact = () => {
-    setDynamicContacts(prev => [...prev, { id: `contact-${Date.now()}`, label: '', value: '' }]);
-  };
-
-  const handleUpdateDynamicContact = (id: string, field: keyof DynamicContact, value: string) => {
-    setDynamicContacts(prev => prev.map(contact => contact.id === id ? { ...contact, [field]: value } : contact));
-  };
-
-  const handleRemoveDynamicContact = (id: string) => {
-    setDynamicContacts(prev => prev.filter(contact => contact.id !== id));
   };
 
   const handleCepChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let value = e.target.value.replace(/\D/g, ""); // Remove non-digits
-    if (value.length > 5) {
-      value = value.replace(/^(\d{5})(\d)/, "$1-$2");
-    }
+    let value = e.target.value.replace(/\D/g, "").slice(0, 8);
+    if (value.length > 5) value = value.replace(/^(\d{5})(\d)/, "$1-$2");
     setCep(value);
+    if (value.length < 9) setCepStatus("idle");
+    // Busca assim que o CEP fica completo — não precisa sair do campo.
+    if (value.length === 9) void fetchAddressByCep(value);
   };
 
-  const fetchAddressByCep = async () => {
-    if (cep.length === 9) { // Check for masked length
-      try {
-        const response = await fetch(`https://viacep.com.br/ws/${cep.replace('-', '')}/json/`);
-        const data = await response.json();
-        if (data.erro) {
-          toast.error("CEP não encontrado.");
-          setStreet("");
-          setNeighborhood("");
-          setCity("");
-          setState(undefined);
-        } else {
-          setStreet(data.logradouro);
-          setNeighborhood(data.bairro);
-          setCity(data.localidade);
-          setState(data.uf);
-          toast.success("Endereço preenchido automaticamente!");
-        }
-      } catch (error) {
-        console.error("Erro ao buscar CEP:", error);
-        toast.error("Erro ao buscar CEP. Tente novamente.");
-        setStreet("");
-        setNeighborhood("");
-        setCity("");
-        setState(undefined);
-      }
-    }
+  const validate = (): FieldErrors => {
+    const next: FieldErrors = {};
+    if (!fullName.trim()) next.fullName = isPerson ? "Informe o nome do cliente." : "Informe o nome ou a razão social.";
+    const phoneDigits = mainPhoneContact.replace(/\D/g, "");
+    if (!phoneDigits) next.mainPhoneContact = "Informe um telefone para contato.";
+    else if (phoneDigits.length < 10) next.mainPhoneContact = "Telefone incompleto — inclua o DDD.";
+    const doc = docError(identificationNumber, clientType);
+    if (doc) next.identificationNumber = doc;
+    return next;
   };
 
   const handleSaveClient = async () => {
     if (isSaving) return;
-    // Validação de campos obrigatórios
-    if (!fullName.trim()) {
-      toast.error("O campo 'Nome completo' é obrigatório.");
+    const found = validate();
+    setErrors(found);
+    const firstInvalid = (["fullName", "mainPhoneContact", "identificationNumber"] as const).find((k) => found[k]);
+    if (firstInvalid) {
+      toast.error("Confira os campos destacados.");
+      focusField(firstInvalid);
       return;
     }
-    const rawIdentification = identificationNumber.replace(/\D/g, "");
-    // CPF/CNPJ não é mais obrigatório, mas se foi preenchido precisa ter o tamanho correto.
-    if (rawIdentification.length > 0) {
-      if (clientType === "physical" && rawIdentification.length !== 11) {
-        toast.error("CPF inválido. Por favor, verifique o número.");
-        return;
-      }
-      if (clientType === "legal" && rawIdentification.length !== 14) {
-        toast.error("CNPJ inválido. Por favor, verifique o número.");
-        return;
-      }
-    }
-    if (!mainPhoneContact.replace(/\D/g, "").trim()) { // Validar telefone principal sem máscara
-      toast.error("O campo 'Telefone Principal' é obrigatório.");
-      return;
-    }
-
-    if (rawIdentification.length === 0) {
+    if (!identificationNumber.replace(/\D/g, "")) {
       setShowMissingIdentificationDialog(true);
       return;
     }
-
     await saveClient();
   };
 
-  const handleConfirmSaveWithoutIdentification = () => {
-    setShowMissingIdentificationDialog(false);
-    saveClient();
-  };
-
   const saveClient = async () => {
-    const clientData: Omit<Client, 'id' | 'animals'> = {
+    const clientData: Omit<Client, "id" | "animals"> = {
       name: fullName.trim(),
       clientType,
       nationality,
-      gender: gender || '',
+      gender: isPerson ? gender || "" : "",
       identificationNumber,
       secondaryIdentification,
       birthday,
-      profession,
+      profession: isPerson ? profession : "",
       acceptEmail,
       acceptWhatsapp,
       acceptSMS,
-      mainEmailContact,
+      mainEmailContact: mainEmailContact.trim(),
       mainPhoneContact,
-      dynamicContacts,
-      address: {
-        cep,
-        street,
-        number,
-        complement,
-        neighborhood,
-        city,
-        state: state || '',
-      },
+      dynamicContacts: [],
+      address: { cep, street, number, complement, neighborhood, city, state: state || "" },
       notes,
     };
 
@@ -330,15 +268,10 @@ const ClientFormPage = () => {
           toast.error("Cliente não encontrado para edição.");
           return;
         }
-
-        const updated = await updateClient({
-          ...clientData,
-          id: clientId,
-          animals: clientToEdit.animals || [],
-        });
+        const updated = await updateClient({ ...clientData, id: clientId, animals: clientToEdit.animals || [] });
         if (updated) {
           await invalidateClientQueries(clientId);
-          toast.success("Cliente atualizado com sucesso!");
+          toast.success("Cliente atualizado.");
           navigate(`/clients/${clientId}`);
         } else {
           toast.error("Erro ao atualizar cliente no banco.");
@@ -350,7 +283,7 @@ const ClientFormPage = () => {
           return;
         }
         await invalidateClientQueries(result.client.id);
-        toast.success("Cliente salvo com sucesso!");
+        toast.success("Cliente cadastrado.");
         navigate(`/clients/${result.client.id}`);
       }
     } finally {
@@ -360,313 +293,298 @@ const ClientFormPage = () => {
 
   if (isEditing && isClientLoading && !clientToEdit) {
     return (
-      <div className="p-6 text-center">
-        <h1 className="text-2xl font-semibold mb-2">Carregando...</h1>
-        <p className="text-muted-foreground">Buscando dados do cliente no banco.</p>
-      </div>
+      <PageShell>
+        <div className="p-6 text-center">
+          <h1 className="mb-2 text-xl font-semibold">Carregando…</h1>
+          <p className="text-muted-foreground">Buscando dados do cliente.</p>
+        </div>
+      </PageShell>
     );
   }
 
+  const cancelPath = isEditing ? `/clients/${clientId}` : "/clients";
+  const cepHint =
+    cepStatus === "loading"
+      ? "Buscando endereço…"
+      : cepStatus === "found"
+        ? "Endereço preenchido pelo CEP — confira o número."
+        : cepStatus === "not-found"
+          ? "CEP não encontrado. Preencha o endereço à mão."
+          : cepStatus === "error"
+            ? "Não deu para buscar o CEP agora. Preencha à mão."
+            : "Digite o CEP para preencher rua, bairro e cidade.";
+
   return (
-    <PageShell>
+    <PageShell className="space-y-5 sm:space-y-6">
       <PageHeader
-        title={isEditing ? `Editar responsável: ${fullName}` : "Adicionar responsável"}
-        description={isEditing ? "Edite as informações do responsável." : "Cadastre um novo responsável e suas informações."}
-        icon={Users}
+        title={isEditing ? "Editar cliente" : "Novo cliente"}
+        description="Só o nome e o telefone são obrigatórios (*). O resto pode ser completado depois."
+        icon={isEditing ? Users : UserPlus}
         module="clinical"
+        className="mb-0 sm:mb-0"
         breadcrumb={
           <>
-            Painel &gt; <Link to="/clients" className="hover:text-primary">Clientes</Link> &gt; {isEditing ? "Editar" : "Adicionar"}
+            Painel &gt;{" "}
+            <Link to="/clients" className="hover:text-primary">
+              Clientes
+            </Link>{" "}
+            &gt; {isEditing ? fullName || "Editar" : "Novo cliente"}
           </>
-        }
-        actions={
-          <Link to={isEditing ? `/clients/${clientId}` : "/clients"}>
-            <Button variant="outline" className="rounded-md border-border text-foreground hover:bg-muted hover:text-foreground transition-colors duration-200">
-              <FaArrowLeft className="mr-2 h-4 w-4" /> Voltar
-            </Button>
-          </Link>
         }
       />
 
-      <div className="flex-1">
-        <Tabs defaultValue="general" className="w-full">
-          <TabsList className="vf-surface-card vf-tone-clinical grid h-auto w-full grid-cols-3 rounded-md border border-border/80 p-2 shadow-sm">
-            <TabsTrigger value="general" className="rounded-md text-muted-foreground transition-colors duration-200 data-[state=active]:bg-[hsl(var(--vf-clinical))] data-[state=active]:text-white">Geral</TabsTrigger>
-            <TabsTrigger value="address" className="rounded-md text-muted-foreground transition-colors duration-200 data-[state=active]:bg-[hsl(var(--vf-clinical))] data-[state=active]:text-white">Endereço</TabsTrigger>
-            <TabsTrigger value="extras" className="rounded-md text-muted-foreground transition-colors duration-200 data-[state=active]:bg-[hsl(var(--vf-clinical))] data-[state=active]:text-white">Extras</TabsTrigger>
-          </TabsList>
-          <TabsContent value="general" className="vf-surface-card vf-tone-clinical card-hover mt-4 rounded-md border border-border/80 bg-card p-6 shadow-sm">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="type" className="text-muted-foreground font-medium">Tipo (Pessoa física/jurídica)*</Label>
-                <Select onValueChange={(value: Client['clientType']) => setClientType(value)} value={clientType}>
-                  <SelectTrigger id="type" className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200">
-                    <SelectValue placeholder="Selecione..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="physical">Pessoa física</SelectItem>
-                    <SelectItem value="legal">Pessoa jurídica</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="fullName" className="text-muted-foreground font-medium">Nome completo*</Label>
-                <Input id="fullName" placeholder="Nome completo" value={fullName} onChange={(e) => setFullName(e.target.value)} className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="nationality" className="text-muted-foreground font-medium">Nacionalidade*</Label>
-                <Select onValueChange={(value: Client['nationality']) => setNationality(value)} value={nationality}>
-                  <SelectTrigger id="nationality" className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200">
-                    <SelectValue placeholder="Selecione..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="brazilian">Brasileira</SelectItem>
-                    <SelectItem value="other">Outra</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="gender" className="text-muted-foreground font-medium">Sexo</Label>
-                <Select onValueChange={setGender} value={gender}>
-                  <SelectTrigger id="gender" className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200">
-                    <SelectValue placeholder="Selecione..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="male">Masculino</SelectItem>
-                    <SelectItem value="female">Feminino</SelectItem>
-                    <SelectItem value="other">Outro</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="identificationNumber">{clientType === "physical" ? "CPF" : "CNPJ"}</Label>
-                <Input
-                  id="identificationNumber"
-                  placeholder={clientType === "physical" ? "999.999.999-99" : "99.999.999/9999-99"}
-                  value={identificationNumber}
-                  onChange={handleIdentificationChange}
-                  onBlur={handleIdentificationBlur}
-                  maxLength={clientType === "physical" ? 14 : 18}
-                  className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="secondaryIdentification">{clientType === "physical" ? "RG" : "Inscrição Estadual"}</Label>
-                <Input
-                  id="secondaryIdentification"
-                  placeholder={clientType === "physical" ? "99.999.999-X" : "Inscrição Estadual"}
-                  value={secondaryIdentification}
-                  onChange={handleSecondaryIdentificationChange}
-                  maxLength={clientType === "physical" ? 12 : undefined} // RG usually 12 chars with mask, IE varies
-                  className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="birthday" className="text-muted-foreground font-medium">Aniversário</Label>
-                <Input id="birthday" type="date" value={birthday} onChange={(e) => setBirthday(e.target.value)} className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="profession" className="text-muted-foreground font-medium">Profissão</Label>
-                <Input id="profession" placeholder="Profissão" value={profession} onChange={(e) => setProfession(e.target.value)} className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="acceptEmail" className="text-muted-foreground font-medium">Aceita Email?</Label>
-                <Select onValueChange={(value: Client['acceptEmail']) => setAcceptEmail(value)} value={acceptEmail}>
-                  <SelectTrigger id="acceptEmail" className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200">
-                    <SelectValue placeholder="Selecione..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="yes">Sim</SelectItem>
-                    <SelectItem value="no">Não</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="acceptWhatsapp" className="text-muted-foreground font-medium">Aceita WhatsApp?</Label>
-                <Select onValueChange={(value: Client['acceptWhatsapp']) => setAcceptWhatsapp(value)} value={acceptWhatsapp}>
-                  <SelectTrigger id="acceptWhatsapp" className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200">
-                    <SelectValue placeholder="Selecione..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="yes">Sim</SelectItem>
-                    <SelectItem value="no">Não</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="acceptSMS" className="text-muted-foreground font-medium">Aceita SMS?</Label>
-                <Select onValueChange={(value: Client['acceptSMS']) => setAcceptSMS(value)} value={acceptSMS}>
-                  <SelectTrigger id="acceptSMS" className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200">
-                    <SelectValue placeholder="Selecione..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="yes">Sim</SelectItem>
-                    <SelectItem value="no">Não</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
+      <form
+        noValidate
+        className="space-y-6 sm:space-y-8"
+        onSubmit={(e) => {
+          e.preventDefault();
+          void handleSaveClient();
+        }}
+      >
+        <FormSection title="Dados pessoais" description="Quem é o responsável pelo animal.">
+          <FieldGrid>
+            <Field label="Tipo de cadastro" labelId="clientType-label" className="sm:col-span-6">
+              <ChoiceGroup
+                labelledBy="clientType-label"
+                value={clientType}
+                onChange={handleClientTypeChange}
+                options={[
+                  { value: "physical", label: "Pessoa física" },
+                  { value: "legal", label: "Pessoa jurídica" },
+                ]}
+              />
+            </Field>
 
-            <div className="mt-6">
-              <h2 className="text-xl font-semibold mb-4 text-foreground">Contatos</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="mainEmailContact" className="text-muted-foreground font-medium">Email Principal</Label>
-                  <Input id="mainEmailContact" type="email" placeholder="email@exemplo.com" value={mainEmailContact} onChange={(e) => setMainEmailContact(e.target.value)} className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200" />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="mainPhoneContact" className="text-muted-foreground font-medium">Telefone Principal*</Label>
-                  <Input id="mainPhoneContact" type="tel" placeholder="(XX) XXXXX-XXXX" value={mainPhoneContact} onChange={handleMainPhoneChange} maxLength={15} className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200" />
-                </div>
-              </div>
-              <div className="space-y-4 mt-4">
-                {dynamicContacts.map((contact, index) => (
-                  <div key={contact.id} className="flex flex-col sm:flex-row items-stretch sm:items-end gap-2">
-                    <div className="flex-1 space-y-2">
-                      <Label htmlFor={`dynamic-contact-label-${contact.id}`} className="text-muted-foreground font-medium">Nome do Contato {index + 1}</Label>
-                      <Input
-                        id={`dynamic-contact-label-${contact.id}`}
-                        placeholder="Ex: Mãe, Trabalho"
-                        value={contact.label}
-                        onChange={(e) => handleUpdateDynamicContact(contact.id, 'label', e.target.value)}
-                        className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200"
-                      />
-                    </div>
-                    <div className="flex-1 space-y-2">
-                      <Label htmlFor={`dynamic-contact-value-${contact.id}`} className="text-muted-foreground font-medium">Telefone</Label>
-                      <Input
-                        id={`dynamic-contact-value-${contact.id}`}
-                        type="tel"
-                        placeholder="(XX) XXXXX-XXXX"
-                        value={contact.value}
-                        onChange={(e) => handleDynamicPhoneChange(contact.id, e.target.value)}
-                        maxLength={15}
-                        className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200"
-                      />
-                    </div>
-                    <Button variant="ghost" size="icon" onClick={() => handleRemoveDynamicContact(contact.id)} className="rounded-md hover:bg-muted hover:text-foreground transition-colors duration-200">
-                      <FaTrashAlt className="h-4 w-4 text-destructive" />
-                    </Button>
-                  </div>
-                ))}
-                <Button type="button" variant="outline" onClick={handleAddDynamicContact} className="w-full bg-card border border-border text-foreground hover:bg-muted rounded-md transition-all duration-200 shadow-sm hover:shadow-md">
-                  <FaPlus className="mr-2 h-4 w-4" /> Adicionar Outro Telefone
-                </Button>
-              </div>
-            </div>
+            <Field label={isPerson ? "Nome completo" : "Nome ou razão social"} htmlFor="fullName" required error={errors.fullName} className="sm:col-span-6">
+              <Input
+                id="fullName"
+                value={fullName}
+                autoComplete="off"
+                aria-invalid={Boolean(errors.fullName)}
+                onChange={(e) => {
+                  setFullName(e.target.value);
+                  clearError("fullName");
+                }}
+                placeholder={isPerson ? "Ex.: Maria da Silva" : "Ex.: Agropecuária São José"}
+              />
+            </Field>
 
-            <div className="flex flex-col sm:flex-row justify-end gap-2 mt-6">
-              <Button variant="outline" onClick={() => navigate(isEditing ? `/clients/${clientId}` : "/clients")} className="bg-card border border-border text-foreground hover:bg-muted rounded-md transition-all duration-200 shadow-sm hover:shadow-md">
-                <FaTimes className="mr-2 h-4 w-4" /> Cancelar
-              </Button>
-              <Button disabled={isSaving} onClick={handleSaveClient} className="rounded-md bg-[hsl(var(--vf-clinical))] font-semibold text-white transition-all duration-200 shadow-md hover:bg-[hsl(var(--vf-clinical)/0.9)] hover:shadow-lg">
-                <FaSave className="mr-2 h-4 w-4" /> Salvar
-              </Button>
-            </div>
-          </TabsContent>
-          <TabsContent value="address" className="vf-surface-card vf-tone-clinical card-hover mt-4 rounded-md border border-border/80 bg-card p-6 shadow-sm">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="zipCode" className="text-muted-foreground font-medium">CEP</Label>
-                <Input id="zipCode" placeholder="99999-999" value={cep} onChange={handleCepChange} onBlur={fetchAddressByCep} maxLength={9} className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200" />
+            <Field label={docLabel} htmlFor="identificationNumber" error={errors.identificationNumber} className="sm:col-span-3">
+              <Input
+                id="identificationNumber"
+                inputMode="numeric"
+                placeholder={isPerson ? "000.000.000-00" : "00.000.000/0000-00"}
+                value={identificationNumber}
+                maxLength={isPerson ? 14 : 18}
+                aria-invalid={Boolean(errors.identificationNumber)}
+                onChange={(e) => {
+                  const masked = isPerson ? applyCpfMask(e.target.value) : applyCnpjMask(e.target.value);
+                  setIdentificationNumber(masked);
+                  if (errors.identificationNumber && !docError(masked, clientType)) clearError("identificationNumber");
+                }}
+                onBlur={() => setErrors((prev) => ({ ...prev, identificationNumber: docError(identificationNumber, clientType) }))}
+              />
+            </Field>
+
+            <Field label={isPerson ? "RG" : "Inscrição estadual"} htmlFor="secondaryIdentification" className="sm:col-span-3">
+              <Input
+                id="secondaryIdentification"
+                inputMode={isPerson ? "text" : "numeric"}
+                placeholder={isPerson ? "00.000.000-0" : "Somente números"}
+                value={secondaryIdentification}
+                maxLength={isPerson ? 12 : undefined}
+                onChange={(e) =>
+                  setSecondaryIdentification(isPerson ? applyRgMask(e.target.value) : e.target.value.replace(/\D/g, ""))
+                }
+              />
+            </Field>
+
+            <Field label={isPerson ? "Data de nascimento" : "Data de fundação"} htmlFor="birthday" className="sm:col-span-3">
+              <Input id="birthday" type="date" value={birthday} onChange={(e) => setBirthday(e.target.value)} />
+            </Field>
+
+            {isPerson && (
+              <Field label="Profissão" htmlFor="profession" className="sm:col-span-3">
+                <Input id="profession" value={profession} onChange={(e) => setProfession(e.target.value)} placeholder="Ex.: Professora" />
+              </Field>
+            )}
+
+            {isPerson && (
+              <Field label="Sexo" labelId="gender-label" className="sm:col-span-3">
+                <ChoiceGroup
+                  labelledBy="gender-label"
+                  value={gender}
+                  onChange={setGender}
+                  allowDeselect
+                  options={[
+                    { value: "male", label: "Masculino" },
+                    { value: "female", label: "Feminino" },
+                    { value: "other", label: "Outro" },
+                  ]}
+                />
+              </Field>
+            )}
+
+            <Field label="Nacionalidade" labelId="nationality-label" className="sm:col-span-3">
+              <ChoiceGroup
+                labelledBy="nationality-label"
+                value={nationality}
+                onChange={(v) => v && setNationality(v)}
+                options={[
+                  { value: "brazilian", label: "Brasileira" },
+                  { value: "other", label: "Outra" },
+                ]}
+              />
+            </Field>
+          </FieldGrid>
+        </FormSection>
+
+        <FormSection title="Contato" description="Usado nos lembretes e para enviar receitas e exames pelo WhatsApp.">
+          <FieldGrid>
+            <Field label="Telefone (WhatsApp)" htmlFor="mainPhoneContact" required error={errors.mainPhoneContact} className="sm:col-span-3">
+              <Input
+                id="mainPhoneContact"
+                type="tel"
+                inputMode="tel"
+                autoComplete="off"
+                placeholder="(00) 00000-0000"
+                value={mainPhoneContact}
+                maxLength={15}
+                aria-invalid={Boolean(errors.mainPhoneContact)}
+                onChange={(e) => {
+                  setMainPhoneContact(applyPhoneMask(e.target.value));
+                  clearError("mainPhoneContact");
+                }}
+              />
+            </Field>
+
+            <Field label="E-mail" htmlFor="mainEmailContact" className="sm:col-span-3">
+              <Input
+                id="mainEmailContact"
+                type="email"
+                inputMode="email"
+                autoComplete="off"
+                placeholder="nome@exemplo.com"
+                value={mainEmailContact}
+                onChange={(e) => setMainEmailContact(e.target.value)}
+              />
+            </Field>
+
+            <Field label="Aceita receber mensagens por" labelId="accept-label" className="sm:col-span-6">
+              <div role="group" aria-labelledby="accept-label" className="flex flex-wrap gap-2">
+                <ToggleChip pressed={acceptWhatsapp === "yes"} onPressedChange={(on) => setAcceptWhatsapp(on ? "yes" : "no")}>
+                  WhatsApp
+                </ToggleChip>
+                <ToggleChip pressed={acceptEmail === "yes"} onPressedChange={(on) => setAcceptEmail(on ? "yes" : "no")}>
+                  E-mail
+                </ToggleChip>
+                <ToggleChip pressed={acceptSMS === "yes"} onPressedChange={(on) => setAcceptSMS(on ? "yes" : "no")}>
+                  SMS
+                </ToggleChip>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="street" className="text-muted-foreground font-medium">Endereço</Label>
-                <Input id="street" placeholder="Rua, Avenida, etc." value={street} onChange={(e) => setStreet(e.target.value)} className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200" />
+            </Field>
+          </FieldGrid>
+        </FormSection>
+
+        <FormSection title="Endereço" description="Digite o CEP e o resto é preenchido sozinho.">
+          <FieldGrid>
+            <Field label="CEP" htmlFor="zipCode" hint={cepHint} className="sm:col-span-2">
+              <div className="relative">
+                <Input
+                  id="zipCode"
+                  inputMode="numeric"
+                  autoComplete="off"
+                  placeholder="00000-000"
+                  value={cep}
+                  maxLength={9}
+                  onChange={handleCepChange}
+                  onBlur={() => void fetchAddressByCep(cep)}
+                  className="pr-9"
+                />
+                {cepStatus === "loading" && (
+                  <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" aria-hidden />
+                )}
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="number" className="text-muted-foreground font-medium">Número</Label>
-                <Input id="number" placeholder="Número" value={number} onChange={(e) => setNumber(e.target.value)} className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="complement" className="text-muted-foreground font-medium">Complemento</Label>
-                <Input id="complement" placeholder="Apartamento, Bloco, etc." value={complement} onChange={(e) => setComplement(e.target.value)} className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="neighborhood" className="text-muted-foreground font-medium">Bairro</Label>
-                <Input id="neighborhood" placeholder="Bairro" value={neighborhood} onChange={(e) => setNeighborhood(e.target.value)} className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="city" className="text-muted-foreground font-medium">Cidade</Label>
-                <Input id="city" placeholder="Cidade" value={city} onChange={(e) => setCity(e.target.value)} className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="state" className="text-muted-foreground font-medium">Estado</Label>
-                <Select onValueChange={setState} value={state}>
-                  <SelectTrigger id="state" className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200">
-                    <SelectValue placeholder="Selecione..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="AC">Acre</SelectItem>
-                    <SelectItem value="AL">Alagoas</SelectItem>
-                    <SelectItem value="AP">Amapá</SelectItem>
-                    <SelectItem value="AM">Amazonas</SelectItem>
-                    <SelectItem value="BA">Bahia</SelectItem>
-                    <SelectItem value="CE">Ceará</SelectItem>
-                    <SelectItem value="DF">Distrito Federal</SelectItem>
-                    <SelectItem value="ES">Espírito Santo</SelectItem>
-                    <SelectItem value="GO">Goiás</SelectItem>
-                    <SelectItem value="MA">Maranhão</SelectItem>
-                    <SelectItem value="MT">Mato Grosso</SelectItem>
-                    <SelectItem value="MS">Mato Grosso do Sul</SelectItem>
-                    <SelectItem value="MG">Minas Gerais</SelectItem>
-                    <SelectItem value="PA">Pará</SelectItem>
-                    <SelectItem value="PB">Paraíba</SelectItem>
-                    <SelectItem value="PR">Paraná</SelectItem>
-                    <SelectItem value="PE">Pernambuco</SelectItem>
-                    <SelectItem value="PI">Piauí</SelectItem>
-                    <SelectItem value="RJ">Rio de Janeiro</SelectItem>
-                    <SelectItem value="RN">Rio Grande do Norte</SelectItem>
-                    <SelectItem value="RS">Rio Grande do Sul</SelectItem>
-                    <SelectItem value="RO">Rondônia</SelectItem>
-                    <SelectItem value="RR">Roraima</SelectItem>
-                    <SelectItem value="SC">Santa Catarina</SelectItem>
-                    <SelectItem value="SP">São Paulo</SelectItem>
-                    <SelectItem value="SE">Sergipe</SelectItem>
-                    <SelectItem value="TO">Tocantins</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="flex flex-col sm:flex-row justify-end gap-2 mt-6">
-              <Button variant="outline" onClick={() => navigate(isEditing ? `/clients/${clientId}` : "/clients")} className="bg-card border border-border text-foreground hover:bg-muted rounded-md transition-all duration-200 shadow-sm hover:shadow-md">
-                <FaTimes className="mr-2 h-4 w-4" /> Cancelar
-              </Button>
-              <Button disabled={isSaving} onClick={handleSaveClient} className="rounded-md bg-[hsl(var(--vf-clinical))] font-semibold text-white transition-all duration-200 shadow-md hover:bg-[hsl(var(--vf-clinical)/0.9)] hover:shadow-lg">
-                <FaSave className="mr-2 h-4 w-4" /> Salvar
-              </Button>
-            </div>
-          </TabsContent>
-          <TabsContent value="extras" className="vf-surface-card vf-tone-clinical card-hover mt-4 rounded-md border border-border/80 bg-card p-6 shadow-sm">
-            <div className="space-y-2">
-              <Label htmlFor="notes" className="text-muted-foreground font-medium">Observações</Label>
-              <Textarea id="notes" placeholder="Adicione observações adicionais sobre o responsável..." rows={5} value={notes} onChange={(e) => setNotes(e.target.value)} className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200" />
-            </div>
-            <div className="flex flex-col sm:flex-row justify-end gap-2 mt-6">
-              <Button variant="outline" onClick={() => navigate(isEditing ? `/clients/${clientId}` : "/clients")} className="bg-card border border-border text-foreground hover:bg-muted rounded-md transition-all duration-200 shadow-sm hover:shadow-md">
-                <FaTimes className="mr-2 h-4 w-4" /> Cancelar
-              </Button>
-              <Button disabled={isSaving} onClick={handleSaveClient} className="rounded-md bg-[hsl(var(--vf-clinical))] font-semibold text-white transition-all duration-200 shadow-md hover:bg-[hsl(var(--vf-clinical)/0.9)] hover:shadow-lg">
-                <FaSave className="mr-2 h-4 w-4" /> Salvar
-              </Button>
-            </div>
-          </TabsContent>
-        </Tabs>
-      </div>
+            </Field>
+
+            <Field label="Rua" htmlFor="street" className="sm:col-span-4">
+              <Input id="street" value={street} onChange={(e) => setStreet(e.target.value)} placeholder="Rua, avenida…" />
+            </Field>
+
+            <Field label="Número" htmlFor="number" className="sm:col-span-2">
+              <Input id="number" ref={numberInputRef} value={number} onChange={(e) => setNumber(e.target.value)} placeholder="Ex.: 120" />
+            </Field>
+
+            <Field label="Complemento" htmlFor="complement" className="sm:col-span-4">
+              <Input id="complement" value={complement} onChange={(e) => setComplement(e.target.value)} placeholder="Apto, bloco, fundos…" />
+            </Field>
+
+            <Field label="Bairro" htmlFor="neighborhood" className="sm:col-span-6">
+              <Input id="neighborhood" value={neighborhood} onChange={(e) => setNeighborhood(e.target.value)} />
+            </Field>
+
+            <Field label="Cidade" htmlFor="city" className="sm:col-span-3">
+              <Input id="city" value={city} onChange={(e) => setCity(e.target.value)} />
+            </Field>
+
+            <Field label="Estado" htmlFor="state" className="sm:col-span-3">
+              <Select value={state} onValueChange={setState}>
+                <SelectTrigger id="state">
+                  <SelectValue placeholder="UF" />
+                </SelectTrigger>
+                <SelectContent>
+                  {STATES.map(([uf, name]) => (
+                    <SelectItem key={uf} value={uf}>
+                      {uf} — {name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
+          </FieldGrid>
+        </FormSection>
+
+        <FormSection title="Observações" description="Algo importante sobre o cliente — aparece em destaque na ficha.">
+          <Field label="Observações" htmlFor="notes">
+            <Textarea
+              id="notes"
+              rows={4}
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Ex.: prefere contato à tarde; pagamento sempre no PIX."
+            />
+          </Field>
+        </FormSection>
+
+        <StickyActionBar>
+          <Button type="button" variant="outline" onClick={() => navigate(cancelPath)} disabled={isSaving}>
+            Cancelar
+          </Button>
+          <Button type="submit" disabled={isSaving} className="min-w-[9rem] font-semibold">
+            {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+            {isEditing ? "Salvar alterações" : "Salvar cliente"}
+          </Button>
+        </StickyActionBar>
+      </form>
 
       <AlertDialog open={showMissingIdentificationDialog} onOpenChange={setShowMissingIdentificationDialog}>
-        <AlertDialogContent className="shadow-sm border border-border rounded-md">
+        <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-lg font-semibold text-foreground">
-              {clientType === "physical" ? "CPF" : "CNPJ"} não informado
-            </AlertDialogTitle>
-            <AlertDialogDescription className="text-sm text-muted-foreground">
-              Está faltando o {clientType === "physical" ? "CPF" : "CNPJ"} do responsável. Deseja continuar mesmo assim?
+            <AlertDialogTitle>{docLabel} não informado</AlertDialogTitle>
+            <AlertDialogDescription>
+              O {docLabel} do cliente não foi preenchido. Dá para salvar assim e completar depois.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="bg-card border border-border text-foreground hover:bg-muted rounded-md transition-all duration-200 shadow-sm hover:shadow-md">Voltar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmSaveWithoutIdentification} className="rounded-md bg-[hsl(var(--vf-clinical))] font-semibold text-white transition-all duration-200 shadow-md hover:bg-[hsl(var(--vf-clinical)/0.9)] hover:shadow-lg">Continuar mesmo assim</AlertDialogAction>
+            <AlertDialogCancel>Voltar e preencher</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setShowMissingIdentificationDialog(false);
+                void saveClient();
+              }}
+            >
+              Salvar sem {docLabel}
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

@@ -1,517 +1,598 @@
+import React, { useEffect, useMemo, useState } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { Bird, Cat, Dog, Loader2, PawPrint, Rabbit, Save } from "lucide-react";
+import { toast } from "sonner";
+import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import WeightInput from "@/components/inputs/WeightInput";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import WeightInput from "@/components/inputs/WeightInput";
 import ClientCombobox from "@/components/ClientCombobox";
 import AutocompleteSelect from "@/components/AutocompleteSelect";
-import { usePatientRouteParams } from "@/hooks/usePatientRouteParams";
-import { Textarea } from "@/components/ui/textarea";
-import { FaArrowLeft, FaPlus, FaTimes, FaSave } from "@/components/icons/fa";
-import React, { useState, useEffect, useRef, useMemo } from "react";
-import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom"; // Importar useParams e useSearchParams
-import { toast } from "sonner";
-import { Animal, Client } from "@/types/client"; // Importar as interfaces Animal e Client
-import { useClientWithAnimals, useClientsList } from "@/hooks/useSupabaseClients";
-import { getPatientRecordPath } from "@/utils/patientDisplayId";
-import { useRegistryList } from "@/hooks/useRegistryList";
-import { addAnimalToClient, updateAnimalDetails } from "@/lib/clientsApi";
-import { useQueryClient } from "@tanstack/react-query";
 import { PageShell } from "@/components/saas/PageShell";
 import { PageHeader } from "@/components/saas/PageHeader";
-import { PawPrint } from "lucide-react";
+import { ChoiceGroup, Field, FieldGrid, FormSection, StickyActionBar, focusField } from "@/components/forms/FormLayout";
+import { ClientAvatar } from "@/components/clients/clientVisuals";
+import { usePatientRouteParams } from "@/hooks/usePatientRouteParams";
+import { useClientWithAnimals, useClientsList } from "@/hooks/useSupabaseClients";
+import { useRegistryList } from "@/hooks/useRegistryList";
+import { addAnimalToClient, updateAnimalDetails } from "@/lib/clientsApi";
+import { formatAgeLong, formatPhoneBR, getTodayLocalISO } from "@/lib/utils";
+import { getPatientRecordPath } from "@/utils/patientDisplayId";
+import type { Animal } from "@/types/client";
 
-// Mock data for species
-const mockSpecies = [
-  { id: "1", name: "Canino" },
-  { id: "2", name: "Felino" },
-  { id: "3", name: "Pássaro" },
-  { id: "4", name: "Roedor" },
-  { id: "other", name: "Outro" },
-];
+// Cadastro de animal em seções (mesmo padrão do cadastro de cliente):
+// espécie e sexo como opções visíveis, idade calculada na hora, opção de
+// informar só a idade aproximada, um "Salvar" fixo no rodapé.
+//
+// Raça e pelagem ficam guardadas pelo NOME (é o que vai pro banco) e a
+// opção do select é derivada na hora — antes eram ids e dois efeitos
+// sincronizavam os campos: ao abrir pra editar, a raça era apagada logo
+// depois de carregada.
 
-// Mock data for breeds, categorized by speciesId
-const mockBreeds = [
-  // Canino (speciesId: "1")
-  { id: "c1", name: "SRD / Vira-lata", speciesId: "1" },
-  { id: "c2", name: "American Bully", speciesId: "1" },
-  { id: "c3", name: "Beagle", speciesId: "1" },
-  { id: "c4", name: "Bernese Mountain Dog", speciesId: "1" },
-  { id: "c5", name: "Bichon Frisé", speciesId: "1" },
-  { id: "c6", name: "Border Collie", speciesId: "1" },
-  { id: "c7", name: "Boxer", speciesId: "1" },
-  { id: "c8", name: "Bulldog Francês", speciesId: "1" },
-  { id: "c9", name: "Cane Corso", speciesId: "1" },
-  { id: "c10", name: "Chihuahua", speciesId: "1" },
-  { id: "c11", name: "Chow Chow", speciesId: "1" },
-  { id: "c12", name: "Cocker Spaniel", speciesId: "1" },
-  { id: "c13", name: "Dachshund (Salsicha)", speciesId: "1" },
-  { id: "c14", name: "Dogue Alemão", speciesId: "1" },
-  { id: "c15", name: "Golden Retriever", speciesId: "1" },
-  { id: "c16", name: "Husky Siberiano", speciesId: "1" },
-  { id: "c17", name: "Labrador Retriever", speciesId: "1" },
-  { id: "c18", name: "Lhasa Apso", speciesId: "1" },
-  { id: "c19", name: "Lulu da Pomerânia (Spitz Alemão)", speciesId: "1" },
-  { id: "c20", name: "Maltês", speciesId: "1" },
-  { id: "c21", name: "Pastor Alemão", speciesId: "1" },
-  { id: "c22", name: "Pastor Australiano", speciesId: "1" },
-  { id: "c23", name: "Pastor Belga Malinois", speciesId: "1" },
-  { id: "c24", name: "Pinscher Miniatura", speciesId: "1" },
-  { id: "c25", name: "Pit Bull (American Pit Bull Terrier)", speciesId: "1" },
-  { id: "c26", name: "Pit Monster", speciesId: "1" },
-  { id: "c27", name: "Poodle", speciesId: "1" },
-  { id: "c28", name: "Pug", speciesId: "1" },
-  { id: "c29", name: "Rottweiler", speciesId: "1" },
-  { id: "c30", name: "Schnauzer", speciesId: "1" },
-  { id: "c31", name: "Shih Tzu", speciesId: "1" },
-  { id: "c32", name: "Staffordshire Terrier (Amstaff)", speciesId: "1" },
-  { id: "c33", name: "Yorkshire Terrier", speciesId: "1" },
+const SPECIES = [
+  { id: "1", name: "Canino", icon: Dog },
+  { id: "2", name: "Felino", icon: Cat },
+  { id: "3", name: "Pássaro", icon: Bird },
+  { id: "4", name: "Roedor", icon: Rabbit },
+  { id: "other", name: "Outra", icon: PawPrint },
+] as const;
+type SpeciesId = (typeof SPECIES)[number]["id"];
 
-  // Felino (speciesId: "2")
-  { id: "f1", name: "SRD / Vira-lata", speciesId: "2" },
-  { id: "f2", name: "American Shorthair", speciesId: "2" },
-  { id: "f3", name: "Angorá Turco", speciesId: "2" },
-  { id: "f4", name: "Azul Russo", speciesId: "2" },
-  { id: "f5", name: "Bengal", speciesId: "2" },
-  { id: "f6", name: "Maine Coon", speciesId: "2" },
-  { id: "f7", name: "Persa", speciesId: "2" },
-  { id: "f8", name: "Ragdoll", speciesId: "2" },
-  { id: "f9", name: "Siamês", speciesId: "2" },
-  { id: "f10", name: "Sphynx", speciesId: "2" },
+const BREEDS: Record<string, string[]> = {
+  "1": [
+    "SRD / Vira-lata", "American Bully", "Beagle", "Bernese Mountain Dog", "Bichon Frisé", "Border Collie", "Boxer",
+    "Bulldog Francês", "Cane Corso", "Chihuahua", "Chow Chow", "Cocker Spaniel", "Dachshund (Salsicha)", "Dogue Alemão",
+    "Golden Retriever", "Husky Siberiano", "Labrador Retriever", "Lhasa Apso", "Lulu da Pomerânia (Spitz Alemão)",
+    "Maltês", "Pastor Alemão", "Pastor Australiano", "Pastor Belga Malinois", "Pinscher Miniatura",
+    "Pit Bull (American Pit Bull Terrier)", "Pit Monster", "Poodle", "Pug", "Rottweiler", "Schnauzer", "Shih Tzu",
+    "Staffordshire Terrier (Amstaff)", "Yorkshire Terrier",
+  ],
+  "2": ["SRD / Vira-lata", "American Shorthair", "Angorá Turco", "Azul Russo", "Bengal", "Maine Coon", "Persa", "Ragdoll", "Siamês", "Sphynx"],
+  "3": ["Calopsita", "Canário", "Periquito", "Agapornis", "Cacatua", "Papagaio"],
+  "4": ["Hamster", "Porquinho-da-Índia", "Coelho", "Chinchila", "Rato Twister"],
+};
 
-  // Pássaro (speciesId: "3")
-  { id: "p1", name: "Calopsita", speciesId: "3" },
-  { id: "p2", name: "Canário", speciesId: "3" },
-  { id: "p3", name: "Periquito", speciesId: "3" },
-  { id: "p4", name: "Agapornis", speciesId: "3" },
-  { id: "p5", name: "Cacatua", speciesId: "3" },
-  { id: "p6", name: "Papagaio", speciesId: "3" },
+const OTHER = "__other__";
 
-  // Roedor (speciesId: "4")
-  { id: "r1", name: "Hamster", speciesId: "4" },
-  { id: "r2", name: "Porquinho-da-Índia", speciesId: "4" },
-  { id: "r3", name: "Coelho", speciesId: "4" },
-  { id: "r4", name: "Chinchila", speciesId: "4" },
-  { id: "r5", name: "Rato Twister", speciesId: "4" },
-];
+/** SRD primeiro, o resto em ordem alfabética. */
+function breedsFor(speciesId: SpeciesId | undefined): string[] {
+  const list = speciesId ? BREEDS[speciesId] ?? [] : [];
+  const srd = list.filter((b) => b === "SRD / Vira-lata");
+  return [...srd, ...list.filter((b) => b !== "SRD / Vira-lata").sort((a, b) => a.localeCompare(b, "pt-BR"))];
+}
+
+/** Data de hoje menos N anos e M meses, em "aaaa-mm-dd" (idade aproximada). */
+function birthdayFromAge(years: number, months: number): string {
+  const d = new Date();
+  d.setMonth(d.getMonth() - (years * 12 + months));
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+type FieldErrors = Partial<Record<"tutor" | "animalName" | "species" | "customSpecies" | "breed" | "gender" | "birthday" | "weight" | "coatColor", string>>;
 
 const AddAnimalPage = () => {
   const navigate = useNavigate();
-  const { clientId, animalId } = usePatientRouteParams(); // clientId/animalId da rota longa OU curta (/prontuario/:patientCode/edit)
-  const isEditing = !!animalId; // Determinar se está em modo de edição
+  const { clientId, animalId } = usePatientRouteParams(); // rota longa OU curta (/prontuario/:patientCode/edit)
+  const isEditing = !!animalId;
   const [searchParams] = useSearchParams();
-  const initialClientIdFromParams = searchParams.get('clientId');
+  const initialClientIdFromParams = searchParams.get("clientId");
   const queryClient = useQueryClient();
   const { data: clientsData, isLoading: isClientsLoading, isError: isClientsError, error: clientsError } = useClientsList();
   const { list: coatTypesFromDb } = useRegistryList("coatTypes");
 
   const [selectedTutorId, setSelectedTutorId] = useState<string | undefined>(initialClientIdFromParams || clientId || undefined);
   const [animalName, setAnimalName] = useState("");
-  const [selectedSpecies, setSelectedSpecies] = useState<string | undefined>(undefined);
-  const [customSpeciesName, setCustomSpeciesName] = useState(""); // New state for custom species
-  const [selectedBreed, setSelectedBreed] = useState<string | undefined>(undefined);
-  const [customBreedName, setCustomBreedName] = useState(""); // New state for custom breed
-  const [gender, setGender] = useState<Animal['gender'] | undefined>(undefined);
+  const [speciesId, setSpeciesId] = useState<SpeciesId | undefined>(undefined);
+  const [customSpecies, setCustomSpecies] = useState("");
+  const [breed, setBreed] = useState("");
+  const [breedIsCustom, setBreedIsCustom] = useState(false);
+  const [gender, setGender] = useState<string | undefined>(undefined);
   const [birthday, setBirthday] = useState("");
-  const [selectedCoatColor, setSelectedCoatColor] = useState<string | undefined>(undefined);
-  const [customCoatColorName, setCustomCoatColorName] = useState(""); // New state for custom coat color
-  const [weight, setWeight] = useState<number | ''>('');
+  const [approxAge, setApproxAge] = useState<{ open: boolean; years: string; months: string }>({ open: false, years: "", months: "" });
+  const [coatColor, setCoatColor] = useState("");
+  const [coatIsCustom, setCoatIsCustom] = useState(false);
+  const [weight, setWeight] = useState<number | "">("");
   const [microchip, setMicrochip] = useState("");
   const [notes, setNotes] = useState("");
   const [isSaving, setIsSaving] = useState(false);
-  const isFirstSpeciesSync = useRef(true);
-  const coatTypesBase = useMemo(
-    () => coatTypesFromDb.map((c) => ({ id: c.id, name: c.name })),
-    [coatTypesFromDb]
-  );
+  const [errors, setErrors] = useState<FieldErrors>({});
+  const [loadedAnimalId, setLoadedAnimalId] = useState<string | null>(null);
 
   const { data: clientData, isLoading: isClientLoading, isError: isClientError, error: clientError } =
     useClientWithAnimals(isEditing ? clientId : selectedTutorId);
   const existingAnimal = clientData?.animals.find((a) => a.id === animalId);
+  const tutorLocked = isEditing || !!initialClientIdFromParams;
 
-  // Carregar dados do animal se estiver em modo de edição
+  // Carrega o animal no modo edição (uma vez por animal).
   useEffect(() => {
-    if (!isEditing || !clientId || !animalId) return;
-    if (isClientLoading) return;
+    if (!isEditing || !clientId || !animalId || isClientLoading) return;
     if (isClientError) {
-      toast.error(
-        `Erro ao carregar animal do banco: ${clientError instanceof Error ? clientError.message : "erro desconhecido"}.`
-      );
+      toast.error(`Erro ao carregar animal do banco: ${clientError instanceof Error ? clientError.message : "erro desconhecido"}.`);
       navigate(`/clients/${clientId}`);
       return;
     }
-
-    const animalToEdit = clientData?.animals.find((a) => a.id === animalId);
-    if (!animalToEdit) {
+    const animal = clientData?.animals.find((a) => a.id === animalId);
+    if (!animal) {
       toast.error("Animal não encontrado para edição.");
       navigate(`/clients/${clientId}`);
       return;
     }
+    if (loadedAnimalId === animal.id) return;
+    setAnimalName(animal.name);
+    const species = SPECIES.find((s) => s.id !== "other" && s.name === animal.species);
+    setSpeciesId(species ? species.id : "other");
+    setCustomSpecies(species ? "" : animal.species);
+    setBreed(animal.breed || "");
+    setGender(animal.gender || undefined);
+    setBirthday(animal.birthday || "");
+    setCoatColor(animal.coatColor || "");
+    setWeight(animal.weight || "");
+    setMicrochip(animal.microchip || "");
+    setNotes(animal.notes || "");
+    setLoadedAnimalId(animal.id);
+  }, [isEditing, clientId, animalId, isClientLoading, isClientError, clientError, clientData, navigate, loadedAnimalId]);
 
-    setAnimalName(animalToEdit.name);
-    // Encontrar o ID da espécie correspondente ou definir como 'other'
-    const speciesFound = mockSpecies.find((s) => s.name === animalToEdit.species);
-    if (speciesFound) {
-      setSelectedSpecies(speciesFound.id);
-      setCustomSpeciesName("");
-    } else {
-      setSelectedSpecies("other");
-      setCustomSpeciesName(animalToEdit.species);
-    }
+  const breedOptions = useMemo(() => breedsFor(speciesId), [speciesId]);
+  const breedInList = breedOptions.includes(breed);
+  const showCustomBreed = speciesId === "other" || breedIsCustom || (Boolean(breed) && !breedInList);
 
-    // Encontrar o ID da raça correspondente ou definir como 'other'
-    const breedFound = mockBreeds.find((b) => b.name === animalToEdit.breed && b.speciesId === speciesFound?.id);
-    if (breedFound) {
-      setSelectedBreed(breedFound.id);
-      setCustomBreedName("");
-    } else {
-      setSelectedBreed(`other-${speciesFound?.id || "other"}`);
-      setCustomBreedName(animalToEdit.breed);
-    }
+  const coatOptions = useMemo(
+    () => coatTypesFromDb.map((c) => c.name).sort((a, b) => a.localeCompare(b, "pt-BR")),
+    [coatTypesFromDb]
+  );
+  const coatInList = coatOptions.includes(coatColor);
+  const showCustomCoat = coatIsCustom || (Boolean(coatColor) && !coatInList);
 
-    setGender(animalToEdit.gender);
-    setBirthday(animalToEdit.birthday);
+  const clearError = (key: keyof FieldErrors) => setErrors((prev) => (prev[key] ? { ...prev, [key]: undefined } : prev));
 
-    // Encontrar o ID da cor da pelagem correspondente ou definir como 'other-color'
-    const coatColorFound = coatTypesBase.find((c) => c.name === animalToEdit.coatColor);
-    if (coatColorFound) {
-      setSelectedCoatColor(coatColorFound.id);
-      setCustomCoatColorName("");
-    } else {
-      setSelectedCoatColor("other-color");
-      setCustomCoatColorName(animalToEdit.coatColor);
-    }
-
-    setWeight(animalToEdit.weight);
-    setMicrochip(animalToEdit.microchip);
-    setNotes(animalToEdit.notes);
-  }, [isEditing, clientId, animalId, isClientLoading, isClientError, clientError, clientData, navigate]);
-
-
-  // Filter breeds based on selected species and sort them
-  const getFilteredBreeds = () => {
-    if (!selectedSpecies) return [];
-    if (selectedSpecies === "other") return [{ id: "other-custom", name: "Outra Raça", speciesId: "other" }];
-
-    const breedsForSpecies = mockBreeds.filter(breed => breed.speciesId === selectedSpecies);
-
-    // Separate SRD / Vira-lata
-    const srdBreed = breedsForSpecies.find(b => b.name === "SRD / Vira-lata");
-    const otherBreeds = breedsForSpecies.filter(b => b.name !== "SRD / Vira-lata");
-
-    // Sort other breeds alphabetically
-    const sortedOtherBreeds = [...otherBreeds].sort((a, b) => a.name.localeCompare(b.name));
-
-    // Combine SRD (if exists), sorted other breeds, and then "Outra Raça"
-    const finalBreeds = [];
-    if (srdBreed) {
-      finalBreeds.push(srdBreed);
-    }
-    finalBreeds.push(...sortedOtherBreeds);
-    finalBreeds.push({ id: `other-${selectedSpecies}`, name: "Outra Raça", speciesId: selectedSpecies });
-
-    return finalBreeds;
+  const handleSpeciesChange = (value: SpeciesId | undefined) => {
+    if (!value || value === speciesId) return;
+    setSpeciesId(value);
+    // Raça de uma espécie não vale pra outra.
+    setBreed("");
+    setBreedIsCustom(false);
+    if (value !== "other") setCustomSpecies("");
+    clearError("species");
   };
 
-  // Prepare coat color options with "Outra Cor" at the end
-  const getCoatColorOptions = () => {
-    const sortedColors = [...coatTypesBase].sort((a, b) => a.name.localeCompare(b.name));
-    return [...sortedColors, { id: "other-color", name: "Outra Cor" }];
+  const ageLabel = useMemo(() => {
+    if (!birthday) return "";
+    if (birthday > getTodayLocalISO()) return "";
+    return formatAgeLong(`${birthday}T12:00:00`);
+  }, [birthday]);
+
+  const applyApproxAge = (years: string, months: string) => {
+    setApproxAge((prev) => ({ ...prev, years, months }));
+    const y = parseInt(years, 10) || 0;
+    const m = parseInt(months, 10) || 0;
+    if (y > 0 || m > 0) {
+      setBirthday(birthdayFromAge(y, m));
+      clearError("birthday");
+    }
   };
-
-  // Reset breed and custom breed when species changes
-  useEffect(() => {
-    if (isFirstSpeciesSync.current) {
-      isFirstSpeciesSync.current = false;
-      return;
-    }
-    setSelectedBreed(undefined);
-    setCustomBreedName("");
-  }, [selectedSpecies]);
-
-  // Reset custom species name if "Outro" is deselected
-  useEffect(() => {
-    if (selectedSpecies !== "other") {
-      setCustomSpeciesName("");
-    }
-  }, [selectedSpecies]);
-
-  // Reset custom breed name if "Outra Raça" is deselected
-  useEffect(() => {
-    if (selectedBreed && !selectedBreed.startsWith("other-")) {
-      setCustomBreedName("");
-    }
-  }, [selectedBreed]);
-
-  // Reset custom coat color name if "Outra Cor" is deselected
-  useEffect(() => {
-    if (selectedCoatColor !== "other-color") {
-      setCustomCoatColorName("");
-    }
-  }, [selectedCoatColor]);
-
 
   const invalidateAnimalQueries = async (targetClientId: string) => {
     await queryClient.invalidateQueries({ queryKey: ["clients-with-animals"] });
     await queryClient.invalidateQueries({ queryKey: ["client-with-animals", targetClientId] });
   };
 
+  const validate = (): FieldErrors => {
+    const next: FieldErrors = {};
+    if (!selectedTutorId) next.tutor = "Escolha o tutor do animal.";
+    if (!animalName.trim()) next.animalName = "Informe o nome do animal.";
+    if (!speciesId) next.species = "Escolha a espécie.";
+    else if (speciesId === "other" && !customSpecies.trim()) next.customSpecies = "Digite qual é a espécie.";
+    if (showCustomBreed && breedIsCustom && !breed.trim() && speciesId !== "other") next.breed = "Digite a raça ou escolha outra opção.";
+    if (!gender) next.gender = "Escolha o sexo.";
+    if (!birthday) next.birthday = "Informe a data de nascimento (ou a idade aproximada).";
+    else if (birthday > getTodayLocalISO()) next.birthday = "A data de nascimento está no futuro.";
+    if (weight === "" || Number(weight) <= 0) next.weight = "Informe o peso.";
+    if (coatIsCustom && !coatColor.trim()) next.coatColor = "Digite a cor da pelagem ou escolha da lista.";
+    return next;
+  };
+
   const handleSaveAnimal = async () => {
     if (isSaving) return;
-    // Determine final species name
-    const finalSpeciesName = selectedSpecies === "other"
-      ? customSpeciesName.trim()
-      : mockSpecies.find(s => s.id === selectedSpecies)?.name || '';
-
-    // Determine final breed name
-    const finalBreedName = selectedBreed && selectedBreed.startsWith("other-")
-      ? customBreedName.trim()
-      : mockBreeds.find(b => b.id === selectedBreed)?.name || '';
-
-    // Determine final coat color name
-    const finalCoatColorName = selectedCoatColor === "other-color"
-      ? customCoatColorName.trim()
-      : coatTypesBase.find(c => c.id === selectedCoatColor)?.name || '';
-
-    // Basic validation
-    if (!selectedTutorId || !animalName.trim() || !finalSpeciesName || !gender || !birthday || weight === '') {
-      toast.error("Por favor, preencha todos os campos obrigatórios.");
-      return;
-    }
-    if (selectedSpecies === "other" && !customSpeciesName.trim()) {
-      toast.error("Por favor, digite o nome da espécie personalizada.");
-      return;
-    }
-    if (selectedBreed && selectedBreed.startsWith("other-") && !customBreedName.trim()) {
-      toast.error("Por favor, digite o nome da raça personalizada.");
-      return;
-    }
-    if (selectedCoatColor === "other-color" && !customCoatColorName.trim()) {
-      toast.error("Por favor, digite o nome da cor da pelagem personalizada.");
+    const found = validate();
+    setErrors(found);
+    const order: Array<keyof FieldErrors> = ["tutor", "animalName", "species", "customSpecies", "breed", "gender", "birthday", "weight", "coatColor"];
+    const firstInvalid = order.find((k) => found[k]);
+    if (firstInvalid) {
+      toast.error("Confira os campos destacados.");
+      focusField(firstInvalid);
       return;
     }
 
-
-    const animalData: Omit<Animal, 'id'> = {
+    const speciesName = speciesId === "other" ? customSpecies.trim() : SPECIES.find((s) => s.id === speciesId)?.name || "";
+    const base: Partial<Animal> = {
       name: animalName.trim(),
-      species: finalSpeciesName,
-      breed: finalBreedName,
-      gender: gender,
-      birthday: birthday,
-      coatColor: finalCoatColorName,
-      weight: Number(weight),
+      species: speciesName,
+      breed: breed.trim(),
+      gender: gender as Animal["gender"],
+      birthday,
+      coatColor: coatColor.trim(),
       microchip: microchip.trim(),
       notes: notes.trim(),
-      status: 'Ativo', // Default status
     };
 
     setIsSaving(true);
     try {
       if (isEditing && clientId && animalId) {
-        const updated = await updateAnimalDetails(clientId, animalId, animalData);
-        if (!updated) {
+        // Peso só vai junto se mudou: cada peso enviado vira um ponto no
+        // histórico da aba Peso (antes, qualquer edição — até corrigir o
+        // nome — gravava o mesmo peso de novo).
+        const updates: Partial<Animal> = { ...base };
+        if (!existingAnimal || Number(weight) !== existingAnimal.weight) {
+          updates.weight = Number(weight);
+          updates.lastWeightSource = "Manual";
+        }
+        const now = new Date();
+        const ok = await updateAnimalDetails(clientId, animalId, updates, {
+          date: getTodayLocalISO(),
+          time: `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`,
+        });
+        if (!ok) {
           toast.error("Erro ao atualizar animal no banco.");
           return;
         }
         await invalidateAnimalQueries(clientId);
-        toast.success(`Animal ${animalData.name} atualizado com sucesso!`);
+        toast.success(`${base.name} atualizado.`);
         navigate(getPatientRecordPath(clientId, animalId, existingAnimal?.patientCode));
         return;
       }
 
-      if (!selectedTutorId) {
-        toast.error("Selecione um tutor para salvar o animal.");
-        return;
-      }
-
-      const addedAnimal = await addAnimalToClient(selectedTutorId, animalData);
-      if (!addedAnimal) {
+      if (!selectedTutorId) return;
+      const added = await addAnimalToClient(selectedTutorId, {
+        ...base,
+        weight: Number(weight),
+        status: "Ativo",
+        lastWeightSource: "Cadastro Inicial",
+      });
+      if (!added) {
         toast.error("Erro ao adicionar animal no banco.");
         return;
       }
       await invalidateAnimalQueries(selectedTutorId);
-      toast.success(`Animal ${addedAnimal.name} adicionado com sucesso ao cliente!`);
+      toast.success(`${added.name} cadastrado.`);
       navigate(`/clients/${selectedTutorId}`);
     } finally {
       setIsSaving(false);
     }
   };
 
-  const pageTitle = isEditing ? `Editar Animal: ${animalName}` : "Adicionar Animal";
-  const breadcrumbText = isEditing ? "Editar Animal" : "Adicionar Animal";
-  const backLink = isEditing && clientId && animalId
-    ? getPatientRecordPath(clientId, animalId, existingAnimal?.patientCode)
-    : `/clients/${selectedTutorId || ''}`;
+  const backLink =
+    isEditing && clientId && animalId
+      ? getPatientRecordPath(clientId, animalId, existingAnimal?.patientCode)
+      : selectedTutorId
+        ? `/clients/${selectedTutorId}`
+        : "/clients";
 
-  if ((isEditing && isClientLoading) || (!isEditing && isClientsLoading)) {
+  if ((isEditing && isClientLoading && !clientData) || (!isEditing && isClientsLoading)) {
     return (
-      <div className="p-6 text-center">
-        <h1 className="text-2xl font-semibold mb-2">Carregando...</h1>
-        <p className="text-muted-foreground">Buscando dados no banco.</p>
-      </div>
+      <PageShell>
+        <div className="p-6 text-center">
+          <h1 className="mb-2 text-xl font-semibold">Carregando…</h1>
+          <p className="text-muted-foreground">Buscando dados no banco.</p>
+        </div>
+      </PageShell>
     );
   }
 
   if (isClientError || isClientsError) {
     return (
-      <div className="p-6 text-center">
-        <h1 className="text-2xl font-semibold mb-2 text-destructive">Erro ao carregar dados</h1>
-        <p className="text-muted-foreground">
-          {isClientError
-            ? `Falha ao carregar cliente: ${clientError instanceof Error ? clientError.message : "erro desconhecido"}`
-            : `Falha ao carregar lista de tutores: ${clientsError instanceof Error ? clientsError.message : "erro desconhecido"}`}
-        </p>
-      </div>
+      <PageShell>
+        <div className="p-6 text-center">
+          <h1 className="mb-2 text-xl font-semibold text-destructive">Erro ao carregar dados</h1>
+          <p className="text-muted-foreground">
+            {isClientError
+              ? `Falha ao carregar cliente: ${clientError instanceof Error ? clientError.message : "erro desconhecido"}`
+              : `Falha ao carregar lista de tutores: ${clientsError instanceof Error ? clientsError.message : "erro desconhecido"}`}
+          </p>
+        </div>
+      </PageShell>
     );
   }
 
+  const tutor = clientData ?? clientsData?.find((c) => c.id === selectedTutorId);
+  const genderOptions = [
+    { value: "Macho", label: "Macho" },
+    { value: "Fêmea", label: "Fêmea" },
+    ...(gender === "Outro" ? [{ value: "Outro", label: "Outro" }] : []),
+  ];
+
   return (
-    <PageShell>
+    <PageShell className="space-y-5 sm:space-y-6">
       <PageHeader
-        title={pageTitle}
-        description={isEditing ? "Edite as informações do animal." : "Cadastre um novo animal e suas informações."}
+        title={isEditing ? `Editar ${animalName || "animal"}` : "Novo animal"}
+        description="Campos com * são obrigatórios."
         icon={PawPrint}
         module="clinical"
+        className="mb-0 sm:mb-0"
         breadcrumb={
           <>
-            Painel &gt; <Link to="/clients" className="hover:text-primary">Clientes</Link> &gt; {breadcrumbText}
+            Painel &gt;{" "}
+            <Link to="/clients" className="hover:text-primary">
+              Clientes
+            </Link>{" "}
+            &gt; {isEditing ? "Editar animal" : "Novo animal"}
           </>
-        }
-        actions={
-          <Link to={backLink}>
-            <Button variant="outline" className="rounded-md border-border text-foreground hover:bg-muted hover:text-foreground transition-colors duration-200">
-              <FaArrowLeft className="mr-2 h-4 w-4" /> Voltar
-            </Button>
-          </Link>
         }
       />
 
-      <div className="flex-1">
-        <div className="grid grid-cols-1 gap-4 rounded-2xl border border-border/80 bg-card p-6 shadow-sm md:grid-cols-2 lg:grid-cols-3 vf-surface-card vf-tone-clinical card-hover">
-          <div className="space-y-2">
-            <Label htmlFor="tutor" className="text-muted-foreground font-medium">Tutor/Responsável*</Label>
-            <ClientCombobox
-              id="tutor"
-              clients={clientsData || []}
-              value={selectedTutorId}
-              onChange={setSelectedTutorId}
-              placeholder="Selecione o tutor..."
-              disabled={isEditing || !!initialClientIdFromParams}
-              className="h-10 bg-input rounded-md"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="animalName" className="text-muted-foreground font-medium">Nome do Animal*</Label>
-            <Input id="animalName" placeholder="Nome do animal" value={animalName} onChange={(e) => setAnimalName(e.target.value)} className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200" />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="species" className="text-muted-foreground font-medium">Espécie*</Label>
-            <Select onValueChange={setSelectedSpecies} value={selectedSpecies}>
-              <SelectTrigger id="species" className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200">
-                <SelectValue placeholder="Selecione..." />
-              </SelectTrigger>
-              <SelectContent>
-                {mockSpecies.map((species) => (
-                  <SelectItem key={species.id} value={species.id}>
-                    {species.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {selectedSpecies === "other" && (
-              <Input
-                id="customSpeciesName"
-                placeholder="Digite a espécie"
-                value={customSpeciesName}
-                onChange={(e) => setCustomSpeciesName(e.target.value)}
-                className="mt-2 bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200"
+      <form
+        noValidate
+        className="space-y-6 sm:space-y-8"
+        onSubmit={(e) => {
+          e.preventDefault();
+          void handleSaveAnimal();
+        }}
+      >
+        <FormSection title="Tutor" description={tutorLocked ? "Responsável pelo animal." : "Quem é o responsável pelo animal."}>
+          {tutorLocked && tutor ? (
+            <div className="flex items-center gap-3">
+              <ClientAvatar name={tutor.name} />
+              <div className="min-w-0">
+                <p className="break-words font-medium text-foreground">{tutor.name}</p>
+                {tutor.mainPhoneContact && <p className="text-sm text-muted-foreground">{formatPhoneBR(tutor.mainPhoneContact)}</p>}
+              </div>
+            </div>
+          ) : (
+            <Field
+              label="Tutor"
+              htmlFor="tutor"
+              required
+              error={errors.tutor}
+              hint={
+                <>
+                  Não está na lista?{" "}
+                  <Link to="/clients/add" className="font-medium text-primary hover:underline">
+                    Cadastre o cliente primeiro
+                  </Link>
+                  .
+                </>
+              }
+            >
+              <ClientCombobox
+                id="tutor"
+                clients={clientsData || []}
+                value={selectedTutorId}
+                onChange={(id) => {
+                  setSelectedTutorId(id);
+                  clearError("tutor");
+                }}
+                placeholder="Digite o nome do tutor…"
               />
-            )}
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="breed" className="text-muted-foreground font-medium">Raça</Label>
-            <AutocompleteSelect
-              disabled={!selectedSpecies || selectedSpecies === "other"}
-              value={selectedBreed}
-              onChange={setSelectedBreed}
-              options={getFilteredBreeds().map((breed) => ({ value: breed.id, label: breed.name }))}
-              placeholder="Digite pra buscar a raça..."
-            />
-            {selectedBreed && selectedBreed.startsWith("other-") && (
-              <Input
-                id="customBreedName"
-                placeholder="Digite a raça"
-                value={customBreedName}
-                onChange={(e) => setCustomBreedName(e.target.value)}
-                className="mt-2 bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200"
-              />
-            )}
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="gender" className="text-muted-foreground font-medium">Sexo*</Label>
-            <Select onValueChange={(value: Animal['gender']) => setGender(value)} value={gender}>
-              <SelectTrigger id="gender" className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200">
-                <SelectValue placeholder="Selecione..." />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Macho">Macho</SelectItem>
-                <SelectItem value="Fêmea">Fêmea</SelectItem>
-                <SelectItem value="Outro">Outro</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="birthday" className="text-muted-foreground font-medium">Data de Nascimento*</Label>
-            <Input id="birthday" type="date" value={birthday} onChange={(e) => setBirthday(e.target.value)} className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200" />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="coatColor" className="text-muted-foreground font-medium">Cor da Pelagem</Label>
-            <Select onValueChange={setSelectedCoatColor} value={selectedCoatColor}>
-              <SelectTrigger id="coatColor" className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200">
-                <SelectValue placeholder="Selecione..." />
-              </SelectTrigger>
-              <SelectContent>
-                {getCoatColorOptions().map((coatType) => (
-                  <SelectItem key={coatType.id} value={coatType.id}>
-                    {coatType.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {selectedCoatColor === "other-color" && (
-              <Input
-                id="customCoatColorName"
-                placeholder="Digite a cor da pelagem"
-                value={customCoatColorName}
-                onChange={(e) => setCustomCoatColorName(e.target.value)}
-                className="mt-2 bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200"
-              />
-            )}
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="weight" className="text-muted-foreground font-medium">Peso (kg)*</Label>
-            <WeightInput id="weight" placeholder="Ex: 5,5" value={weight} onChange={setWeight} className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200" />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="microchip" className="text-muted-foreground font-medium">Microchip</Label>
-            <Input id="microchip" placeholder="Número do microchip" value={microchip} onChange={(e) => setMicrochip(e.target.value)} className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200" />
-          </div>
-        </div>
+            </Field>
+          )}
+        </FormSection>
 
-        <div className="vf-surface-card vf-tone-clinical card-hover mt-6 space-y-2 rounded-2xl border border-border/80 p-6">
-          <Label htmlFor="animalNotes" className="text-muted-foreground font-medium">Observações</Label>
-          <Textarea id="animalNotes" placeholder="Adicione observações sobre o animal..." rows={5} value={notes} onChange={(e) => setNotes(e.target.value)} className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200" />
-        </div>
+        <FormSection title="Dados do animal" description="Nome, espécie, idade e peso atual.">
+          <FieldGrid>
+            <Field label="Nome" htmlFor="animalName" required error={errors.animalName} className="sm:col-span-6">
+              <Input
+                id="animalName"
+                value={animalName}
+                autoComplete="off"
+                aria-invalid={Boolean(errors.animalName)}
+                placeholder="Ex.: Thor"
+                onChange={(e) => {
+                  setAnimalName(e.target.value);
+                  clearError("animalName");
+                }}
+              />
+            </Field>
 
-        <div className="flex justify-end gap-2 mt-6">
-          <Button variant="outline" onClick={() => navigate(backLink)} className="bg-card border border-border text-foreground hover:bg-muted rounded-md transition-all duration-200 shadow-sm hover:shadow-md">
-            <FaTimes className="mr-2 h-4 w-4" /> Cancelar
+            <Field label="Espécie" labelId="species-label" required error={errors.species} className="sm:col-span-6">
+              <ChoiceGroup
+                id="species"
+                labelledBy="species-label"
+                value={speciesId}
+                onChange={handleSpeciesChange}
+                options={SPECIES.map((s) => ({ value: s.id, label: s.name, icon: s.icon }))}
+              />
+            </Field>
+
+            {speciesId === "other" && (
+              <Field label="Qual espécie?" htmlFor="customSpecies" required error={errors.customSpecies} className="sm:col-span-6">
+                <Input
+                  id="customSpecies"
+                  value={customSpecies}
+                  placeholder="Ex.: Réptil, Equino"
+                  onChange={(e) => {
+                    setCustomSpecies(e.target.value);
+                    clearError("customSpecies");
+                  }}
+                />
+              </Field>
+            )}
+
+            <Field label="Raça" htmlFor={showCustomBreed ? "breed" : undefined} error={errors.breed} className="sm:col-span-3">
+              {speciesId !== "other" && (
+                <AutocompleteSelect
+                  disabled={!speciesId}
+                  value={breedInList ? breed : showCustomBreed ? OTHER : undefined}
+                  onChange={(value) => {
+                    clearError("breed");
+                    if (value === OTHER) {
+                      setBreedIsCustom(true);
+                      if (breedInList) setBreed("");
+                    } else {
+                      setBreedIsCustom(false);
+                      setBreed(value);
+                    }
+                  }}
+                  options={[...breedOptions.map((b) => ({ value: b, label: b })), { value: OTHER, label: "Outra raça" }]}
+                  placeholder={speciesId ? "Digite para buscar…" : "Escolha a espécie primeiro"}
+                />
+              )}
+              {showCustomBreed && (
+                <Input
+                  id="breed"
+                  value={breed}
+                  className={speciesId !== "other" ? "mt-2" : undefined}
+                  placeholder="Digite a raça"
+                  onChange={(e) => {
+                    setBreed(e.target.value);
+                    clearError("breed");
+                  }}
+                />
+              )}
+            </Field>
+
+            <Field label="Sexo" labelId="gender-label" required error={errors.gender} className="sm:col-span-3">
+              <ChoiceGroup
+                id="gender"
+                labelledBy="gender-label"
+                value={gender}
+                onChange={(v) => {
+                  setGender(v);
+                  clearError("gender");
+                }}
+                options={genderOptions}
+              />
+            </Field>
+
+            <Field
+              label="Data de nascimento"
+              htmlFor="birthday"
+              required
+              error={errors.birthday}
+              hint={ageLabel ? `Idade: ${ageLabel}${approxAge.open ? " (aproximada)" : ""}` : undefined}
+              className="sm:col-span-3"
+            >
+              <Input
+                id="birthday"
+                type="date"
+                max={getTodayLocalISO()}
+                value={birthday}
+                aria-invalid={Boolean(errors.birthday)}
+                onChange={(e) => {
+                  setBirthday(e.target.value);
+                  clearError("birthday");
+                }}
+              />
+              {approxAge.open ? (
+                <div className="flex flex-wrap items-end gap-2 rounded-xl bg-muted/50 p-2.5">
+                  <div className="w-20 space-y-1">
+                    <Label htmlFor="approxYears" className="text-xs">
+                      Anos
+                    </Label>
+                    <Input
+                      id="approxYears"
+                      inputMode="numeric"
+                      value={approxAge.years}
+                      onChange={(e) => applyApproxAge(e.target.value.replace(/\D/g, "").slice(0, 2), approxAge.months)}
+                    />
+                  </div>
+                  <div className="w-20 space-y-1">
+                    <Label htmlFor="approxMonths" className="text-xs">
+                      Meses
+                    </Label>
+                    <Input
+                      id="approxMonths"
+                      inputMode="numeric"
+                      value={approxAge.months}
+                      onChange={(e) => applyApproxAge(approxAge.years, e.target.value.replace(/\D/g, "").slice(0, 2))}
+                    />
+                  </div>
+                  <Button type="button" variant="ghost" size="sm" onClick={() => setApproxAge({ open: false, years: "", months: "" })}>
+                    Fechar
+                  </Button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  className="text-xs font-medium text-primary hover:underline"
+                  onClick={() => setApproxAge((p) => ({ ...p, open: true }))}
+                >
+                  Não sabe a data? Informe a idade aproximada
+                </button>
+              )}
+            </Field>
+
+            <Field label="Peso (kg)" htmlFor="weight" required error={errors.weight} hint="Digite só os números: 5500 vira 5,500 kg." className="sm:col-span-3">
+              <WeightInput
+                id="weight"
+                placeholder="0,000"
+                value={weight}
+                onChange={(v) => {
+                  setWeight(v);
+                  clearError("weight");
+                }}
+              />
+            </Field>
+
+            <Field label="Pelagem" htmlFor="coatColor" error={errors.coatColor} className="sm:col-span-3">
+              <Select
+                value={coatInList ? coatColor : showCustomCoat ? OTHER : undefined}
+                onValueChange={(value) => {
+                  clearError("coatColor");
+                  if (value === OTHER) {
+                    setCoatIsCustom(true);
+                    if (coatInList) setCoatColor("");
+                  } else {
+                    setCoatIsCustom(false);
+                    setCoatColor(value);
+                  }
+                }}
+              >
+                <SelectTrigger id={showCustomCoat ? undefined : "coatColor"}>
+                  <SelectValue placeholder="Escolha a cor" />
+                </SelectTrigger>
+                <SelectContent>
+                  {coatOptions.map((name) => (
+                    <SelectItem key={name} value={name}>
+                      {name}
+                    </SelectItem>
+                  ))}
+                  <SelectItem value={OTHER}>Outra cor</SelectItem>
+                </SelectContent>
+              </Select>
+              {showCustomCoat && (
+                <Input
+                  id="coatColor"
+                  className="mt-2"
+                  value={coatColor}
+                  placeholder="Digite a cor da pelagem"
+                  onChange={(e) => {
+                    setCoatColor(e.target.value);
+                    clearError("coatColor");
+                  }}
+                />
+              )}
+            </Field>
+
+            <Field label="Microchip" htmlFor="microchip" className="sm:col-span-3">
+              <Input id="microchip" inputMode="numeric" value={microchip} placeholder="Número do microchip, se tiver" onChange={(e) => setMicrochip(e.target.value)} />
+            </Field>
+          </FieldGrid>
+        </FormSection>
+
+        <FormSection title="Observações" description="Alergias, comportamento, cuidados especiais.">
+          <Field label="Observações" htmlFor="animalNotes">
+            <Textarea
+              id="animalNotes"
+              rows={4}
+              value={notes}
+              placeholder="Ex.: alérgico a dipirona; morde na contenção."
+              onChange={(e) => setNotes(e.target.value)}
+            />
+          </Field>
+        </FormSection>
+
+        <StickyActionBar>
+          <Button type="button" variant="outline" onClick={() => navigate(backLink)} disabled={isSaving}>
+            Cancelar
           </Button>
-          <Button disabled={isSaving} onClick={handleSaveAnimal} className="rounded-md bg-[hsl(var(--vf-clinical))] font-semibold text-white transition-all duration-200 shadow-md hover:bg-[hsl(var(--vf-clinical)/0.9)] hover:shadow-lg">
-            <FaSave className="mr-2 h-4 w-4" /> Salvar
+          <Button type="submit" disabled={isSaving} className="min-w-[9rem] font-semibold">
+            {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+            {isEditing ? "Salvar alterações" : "Salvar animal"}
           </Button>
-        </div>
-      </div>
+        </StickyActionBar>
+      </form>
     </PageShell>
   );
 };
