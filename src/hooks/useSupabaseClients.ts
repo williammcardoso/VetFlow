@@ -17,6 +17,10 @@ type DbClient = {
   accept_sms: boolean | null;
   main_email_contact: string | null;
   main_phone_contact: string | null;
+  // Só existem depois da migration 20260928120000 — por isso os clientes são
+  // lidos com select("*"): pedir as colunas pelo nome quebraria a lista antes dela.
+  secondary_phone_contact?: string | null;
+  secondary_phone_label?: string | null;
   notes: string | null;
   cep: string | null;
   street: string | null;
@@ -86,6 +90,8 @@ function mapDbClientToClient(c: DbClient, animals: Animal[]): Client {
     acceptSMS: c.accept_sms ? "yes" : "no",
     mainEmailContact: c.main_email_contact || "",
     mainPhoneContact: c.main_phone_contact || "",
+    secondaryPhoneContact: c.secondary_phone_contact || "",
+    secondaryPhoneLabel: c.secondary_phone_label || "",
     dynamicContacts: [],
     address: {
       cep: c.cep || "",
@@ -109,7 +115,7 @@ async function fetchClientsWithAnimals(): Promise<Client[]> {
 
   const { data: clientsData, error: clientsError } = await supabase
     .from("clients")
-    .select("id, name, client_type, nationality, gender, identification_number, secondary_identification, birthday, profession, accept_email, accept_whatsapp, accept_sms, main_email_contact, main_phone_contact, notes, cep, street, number, complement, neighborhood, city, state, created_at")
+    .select("*")
     .order("name", { ascending: true });
 
   if (clientsError) {
@@ -145,7 +151,7 @@ async function fetchClientWithAnimals(clientId: string): Promise<Client | null> 
 
   const { data: clientRow, error: clientError } = await supabase
     .from("clients")
-    .select("id, name, client_type, nationality, gender, identification_number, secondary_identification, birthday, profession, accept_email, accept_whatsapp, accept_sms, main_email_contact, main_phone_contact, notes, cep, street, number, complement, neighborhood, city, state, created_at")
+    .select("*")
     .eq("id", clientId)
     .maybeSingle();
 

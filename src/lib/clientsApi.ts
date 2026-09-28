@@ -16,6 +16,10 @@ type DbClient = {
   accept_sms?: boolean | null;
   main_email_contact?: string | null;
   main_phone_contact?: string | null;
+  // Só existem depois da migration 20260928120000 — por isso os clientes são
+  // lidos com select("*"): pedir as colunas pelo nome quebraria a lista antes dela.
+  secondary_phone_contact?: string | null;
+  secondary_phone_label?: string | null;
   notes?: string | null;
   cep?: string | null;
   street?: string | null;
@@ -84,6 +88,8 @@ function mapDbClientToClient(c: DbClient, animals: Animal[]): Client {
     acceptSMS: c.accept_sms ? "yes" : "no",
     mainEmailContact: c.main_email_contact || "",
     mainPhoneContact: c.main_phone_contact || "",
+    secondaryPhoneContact: c.secondary_phone_contact || "",
+    secondaryPhoneLabel: c.secondary_phone_label || "",
     dynamicContacts: [],
     address: {
       cep: c.cep || "",
@@ -102,7 +108,7 @@ function mapDbClientToClient(c: DbClient, animals: Animal[]): Client {
 export async function readClients(): Promise<Client[]> {
   const { data: clientsData, error: clientsError } = await supabase
     .from("clients")
-    .select("id, name, client_type, nationality, gender, identification_number, secondary_identification, birthday, profession, accept_email, accept_whatsapp, accept_sms, main_email_contact, main_phone_contact, notes, cep, street, number, complement, neighborhood, city, state")
+    .select("*")
     .order("name", { ascending: true });
   if (clientsError) {
     console.error("[readClients] error", clientsError);
@@ -133,7 +139,7 @@ export async function readClients(): Promise<Client[]> {
 export async function getClientById(clientId: string): Promise<Client | null> {
   const { data: clientRows, error: clientError } = await supabase
     .from("clients")
-    .select("id, name, client_type, nationality, gender, identification_number, secondary_identification, birthday, profession, accept_email, accept_whatsapp, accept_sms, main_email_contact, main_phone_contact, notes, cep, street, number, complement, neighborhood, city, state")
+    .select("*")
     .eq("id", clientId)
     .limit(1);
   if (clientError) {
@@ -156,8 +162,26 @@ export async function getClientById(clientId: string): Promise<Client | null> {
 }
 
 export type AddClientResult =
-  | { success: true; client: Client }
+  | { success: true; client: Client; warning?: string }
   | { success: false; message: string };
+
+// Segundo telefone: colunas criadas pela migration 20260928120000. Enquanto
+// ela não for aplicada, o banco recusa o insert/update inteiro por causa das
+// colunas desconhecidas — então tenta de novo sem elas e avisa, em vez de
+// perder o cadastro todo.
+const SECONDARY_PHONE_WARNING =
+  "O segundo telefone não foi salvo: falta aplicar no Supabase o SQL do segundo telefone (migration 20260928120000).";
+
+function secondaryPhoneFields(client: Partial<Client>) {
+  return {
+    secondary_phone_contact: client.secondaryPhoneContact?.trim() || null,
+    secondary_phone_label: client.secondaryPhoneLabel?.trim() || null,
+  };
+}
+
+function isMissingSecondaryPhoneColumn(error: { code?: string; message?: string } | null): boolean {
+  return Boolean(error) && /secondary_phone/.test(error?.message || "") && (error?.code === "PGRST204" || error?.code === "42703");
+}
 
 export async function addClient(newClient: Partial<Client>): Promise<AddClientResult> {
   const insertObj: Record<string, unknown> = {
@@ -183,7 +207,13 @@ export async function addClient(newClient: Partial<Client>): Promise<AddClientRe
     city: newClient.address?.city,
     state: newClient.address?.state,
   };
-  const { data, error } = await supabase.from("clients").insert(insertObj).select().single();
+  const phone2 = secondaryPhoneFields(newClient);
+  let warning: string | undefined;
+  let { data, error } = await supabase.from("clients").insert({ ...insertObj, ...phone2 }).select().single();
+  if (isMissingSecondaryPhoneColumn(error)) {
+    ({ data, error } = await supabase.from("clients").insert(insertObj).select().single());
+    if (!error && phone2.secondary_phone_contact) warning = SECONDARY_PHONE_WARNING;
+  }
   if (error) {
     if (error.code === "23505") {
       return { success: false, message: "Já existe um cliente com este CPF/CNPJ." };
@@ -191,10 +221,10 @@ export async function addClient(newClient: Partial<Client>): Promise<AddClientRe
     console.error("[addClient] error", error);
     return { success: false, message: error.message || "Erro ao salvar cliente." };
   }
-  return { success: true, client: mapDbClientToClient(data as DbClient, []) };
+  return { success: true, client: mapDbClientToClient(data as DbClient, []), warning };
 }
 
-export async function updateClient(updatedClient: Client): Promise<boolean> {
+export async function updateClient(updatedClient: Client): Promise<{ ok: boolean; warning?: string }> {
   const updateObj: any = {
     name: updatedClient.name,
     client_type: updatedClient.clientType,
@@ -218,12 +248,18 @@ export async function updateClient(updatedClient: Client): Promise<boolean> {
     city: updatedClient.address?.city,
     state: updatedClient.address?.state,
   };
-  const { error } = await supabase.from("clients").update(updateObj).match({ id: updatedClient.id });
+  const phone2 = secondaryPhoneFields(updatedClient);
+  let warning: string | undefined;
+  let { error } = await supabase.from("clients").update({ ...updateObj, ...phone2 }).match({ id: updatedClient.id });
+  if (isMissingSecondaryPhoneColumn(error)) {
+    ({ error } = await supabase.from("clients").update(updateObj).match({ id: updatedClient.id }));
+    if (!error && phone2.secondary_phone_contact) warning = SECONDARY_PHONE_WARNING;
+  }
   if (error) {
     console.error("[updateClient] error", error);
-    return false;
+    return { ok: false };
   }
-  return true;
+  return { ok: true, warning };
 }
 
 export async function addAnimalToClient(clientId: string, newAnimal: Partial<Animal>): Promise<Animal | null> {

@@ -68,7 +68,7 @@ interface ClientRowData {
   lastVisit: string;
 }
 
-/** Busca por nome do tutor, nome do pet, telefone, CPF/CNPJ ou nº da ficha do pet. */
+/** Busca por nome do tutor, nome do pet, telefone (os dois), CPF/CNPJ ou nº da ficha do pet. */
 function matchClient(client: Client, q: string, digits: string, species: SpeciesFilter): string[] | null {
   const pets = client.animals ?? [];
   if (species !== "all" && !pets.some((a) => speciesKind(a.species) === species)) return null;
@@ -84,7 +84,9 @@ function matchClient(client: Client, q: string, digits: string, species: Species
     .map((a) => a.id);
   const docHit =
     digits.length >= 3 &&
-    (digitsOf(client.mainPhoneContact).includes(digits) || digitsOf(client.identificationNumber).includes(digits));
+    (digitsOf(client.mainPhoneContact).includes(digits) ||
+      digitsOf(client.secondaryPhoneContact).includes(digits) ||
+      digitsOf(client.identificationNumber).includes(digits));
 
   return nameHit || petIds.length || docHit ? petIds : null;
 }

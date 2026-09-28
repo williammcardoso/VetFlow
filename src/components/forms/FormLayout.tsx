@@ -39,9 +39,18 @@ export function FormSection({
   );
 }
 
-/** Grade dos campos dentro da seção: 1 coluna no celular, 6 "fatias" a partir de sm. */
+/**
+ * Grade dos campos dentro da seção: 2 no celular, 6 "fatias" no tablet e 12
+ * no computador — cada campo diz quantas ocupa em cada uma (`sm:col-span-*`
+ * e `lg:col-span-*`). No celular o campo ocupa a linha toda (col-span-2, o
+ * padrão do Field); pares curtos e ligados (CPF/RG, Cidade/UF) usam
+ * `col-span-1` e ficam lado a lado. Com 12 fatias no computador os campos
+ * curtos (CEP, número, UF) ficam do tamanho do conteúdo.
+ */
 export function FieldGrid({ children, className }: { children: React.ReactNode; className?: string }) {
-  return <div className={cn("grid grid-cols-1 gap-x-4 gap-y-5 sm:grid-cols-6", className)}>{children}</div>;
+  return (
+    <div className={cn("grid grid-cols-2 gap-x-3 gap-y-4 sm:grid-cols-6 sm:gap-x-4 lg:grid-cols-12", className)}>{children}</div>
+  );
 }
 
 export function Field({
@@ -65,7 +74,7 @@ export function Field({
   children: React.ReactNode;
 }) {
   return (
-    <div className={cn("relative min-w-0 space-y-1.5", className)}>
+    <div className={cn("relative col-span-2 min-w-0 space-y-1.5", className)}>
       <Label id={labelId} htmlFor={htmlFor} className="text-sm font-medium text-foreground">
         {label}
         {required ? (

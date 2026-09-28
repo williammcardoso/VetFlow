@@ -304,7 +304,7 @@ const AddAnimalPage = () => {
   ];
 
   return (
-    <PageShell className="space-y-5 sm:space-y-6">
+    <PageShell className="mx-auto w-full max-w-6xl space-y-5 sm:space-y-6">
       <PageHeader
         title={isEditing ? `Editar ${animalName || "animal"}` : "Novo animal"}
         description="Campos com * são obrigatórios."
@@ -345,6 +345,7 @@ const AddAnimalPage = () => {
               htmlFor="tutor"
               required
               error={errors.tutor}
+              className="lg:max-w-xl"
               hint={
                 <>
                   Não está na lista?{" "}
@@ -371,7 +372,7 @@ const AddAnimalPage = () => {
 
         <FormSection title="Dados do animal" description="Nome, espécie, idade e peso atual.">
           <FieldGrid>
-            <Field label="Nome" htmlFor="animalName" required error={errors.animalName} className="sm:col-span-6">
+            <Field label="Nome" htmlFor="animalName" required error={errors.animalName} className="sm:col-span-6 lg:col-span-4">
               <Input
                 id="animalName"
                 value={animalName}
@@ -385,7 +386,7 @@ const AddAnimalPage = () => {
               />
             </Field>
 
-            <Field label="Espécie" labelId="species-label" required error={errors.species} className="sm:col-span-6">
+            <Field label="Espécie" labelId="species-label" required error={errors.species} className="sm:col-span-6 lg:col-span-8">
               <ChoiceGroup
                 id="species"
                 labelledBy="species-label"
@@ -396,7 +397,7 @@ const AddAnimalPage = () => {
             </Field>
 
             {speciesId === "other" && (
-              <Field label="Qual espécie?" htmlFor="customSpecies" required error={errors.customSpecies} className="sm:col-span-6">
+              <Field label="Qual espécie?" htmlFor="customSpecies" required error={errors.customSpecies} className="sm:col-span-6 lg:col-span-4">
                 <Input
                   id="customSpecies"
                   value={customSpecies}
@@ -409,7 +410,7 @@ const AddAnimalPage = () => {
               </Field>
             )}
 
-            <Field label="Raça" htmlFor={showCustomBreed ? "breed" : undefined} error={errors.breed} className="sm:col-span-3">
+            <Field label="Raça" htmlFor={showCustomBreed ? "breed" : undefined} error={errors.breed} className="sm:col-span-3 lg:col-span-4">
               {speciesId !== "other" && (
                 <AutocompleteSelect
                   disabled={!speciesId}
@@ -442,7 +443,7 @@ const AddAnimalPage = () => {
               )}
             </Field>
 
-            <Field label="Sexo" labelId="gender-label" required error={errors.gender} className="sm:col-span-3">
+            <Field label="Sexo" labelId="gender-label" required error={errors.gender} className="sm:col-span-3 lg:col-span-4">
               <ChoiceGroup
                 id="gender"
                 labelledBy="gender-label"
@@ -461,7 +462,7 @@ const AddAnimalPage = () => {
               required
               error={errors.birthday}
               hint={ageLabel ? `Idade: ${ageLabel}${approxAge.open ? " (aproximada)" : ""}` : undefined}
-              className="sm:col-span-3"
+              className="sm:col-span-3 lg:col-span-4"
             >
               <Input
                 id="birthday"
@@ -513,7 +514,7 @@ const AddAnimalPage = () => {
               )}
             </Field>
 
-            <Field label="Peso (kg)" htmlFor="weight" required error={errors.weight} hint="Digite só os números: 5500 vira 5,500 kg." className="sm:col-span-3">
+            <Field label="Peso (kg)" htmlFor="weight" required error={errors.weight} hint="Só números: 5500 = 5,500 kg." className="col-span-1 sm:col-span-3 lg:col-span-4">
               <WeightInput
                 id="weight"
                 placeholder="0,000"
@@ -525,7 +526,7 @@ const AddAnimalPage = () => {
               />
             </Field>
 
-            <Field label="Pelagem" htmlFor="coatColor" error={errors.coatColor} className="sm:col-span-3">
+            <Field label="Pelagem" htmlFor="coatColor" error={errors.coatColor} className="col-span-1 sm:col-span-3 lg:col-span-4">
               <Select
                 value={coatInList ? coatColor : showCustomCoat ? OTHER : undefined}
                 onValueChange={(value) => {
@@ -565,7 +566,7 @@ const AddAnimalPage = () => {
               )}
             </Field>
 
-            <Field label="Microchip" htmlFor="microchip" className="sm:col-span-3">
+            <Field label="Microchip" htmlFor="microchip" className="sm:col-span-3 lg:col-span-4">
               <Input id="microchip" inputMode="numeric" value={microchip} placeholder="Número do microchip, se tiver" onChange={(e) => setMicrochip(e.target.value)} />
             </Field>
           </FieldGrid>

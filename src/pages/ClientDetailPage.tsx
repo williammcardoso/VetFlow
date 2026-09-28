@@ -14,6 +14,7 @@ import {
   formatWeightKg,
   sexLabel,
   speciesIcon,
+  speciesTone,
 } from "@/components/clients/clientVisuals";
 import { cn, formatPhoneBR } from "@/lib/utils";
 import { openWhatsAppChat } from "@/lib/whatsappShare";
@@ -46,7 +47,7 @@ function PetRow({ clientId, animal, lastVisit }: { clientId: string; animal: Ani
 
   return (
     <li className={cn("relative flex items-center gap-3 px-4 py-3.5 transition-colors hover:bg-muted/40", inactive && "opacity-70")}>
-      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-muted text-foreground/70" aria-hidden>
+      <span className={cn("flex h-11 w-11 shrink-0 items-center justify-center rounded-xl", speciesTone(animal.species).soft)} aria-hidden>
         <Icon className="h-5 w-5" />
       </span>
       <div className="min-w-0 flex-1">
@@ -170,8 +171,30 @@ const ClientDetailPage = () => {
     ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([street, number, neighborhood, city, state, cep].filter(Boolean).join(", "))}`
     : "";
 
+  const phone2 = client.secondaryPhoneContact?.trim() || "";
+  const phone2Label = client.secondaryPhoneLabel?.trim() || "";
   const contactRows = [
     phone && { label: "Telefone", value: formatPhoneBR(phone) },
+    phone2 && {
+      label: "Outro telefone",
+      value: (
+        <span className="inline-flex flex-wrap items-center gap-x-2">
+          <span>
+            {formatPhoneBR(phone2)}
+            {phone2Label && <span className="font-normal text-muted-foreground"> · {phone2Label}</span>}
+          </span>
+          <button
+            type="button"
+            onClick={() => openWhatsAppChat(phone2)}
+            className="inline-flex items-center rounded text-emerald-600 hover:text-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/50"
+            aria-label={`Conversar no WhatsApp com ${phone2Label || "o outro telefone"}`}
+            title="Conversar no WhatsApp"
+          >
+            <FaWhatsapp className="h-4 w-4" />
+          </button>
+        </span>
+      ),
+    },
     email && { label: "E-mail", value: <a href={`mailto:${email}`} className="break-all hover:text-primary hover:underline">{email}</a> },
     { label: "Mensagens", value: messagePreference(client) },
   ].filter(Boolean) as Array<{ label: string; value: React.ReactNode }>;

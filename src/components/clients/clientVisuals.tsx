@@ -5,9 +5,10 @@ import { cn, parseLocalDate } from "@/lib/utils";
 import type { Animal } from "@/types/client";
 
 // Peças visuais compartilhadas da lista de clientes e da ficha do cliente.
-// Paleta neutra de propósito (padrão Stripe/Linear): a primeira versão tinha
-// uma cor por avatar, etiqueta por espécie e ícone de sexo colorido — tudo
-// disputava atenção e a tela ficava confusa. Cor agora só no destaque da busca.
+// Cor com moderação: a v1 pintava tudo (avatar, etiqueta inteira por espécie,
+// ícone de sexo) e ficou confusa; a v2 ficou neutra demais ("faltou cor").
+// Meio-termo: iniciais em tons suaves e só o ÍCONE da espécie colorido — a
+// etiqueta continua neutra.
 
 const norm = (s: string | undefined) =>
   (s || "")
@@ -27,12 +28,29 @@ export function getInitials(name: string): string {
   return (words[0][0] + words[words.length - 1][0]).toUpperCase();
 }
 
+// Tons suaves (fundo 100, texto 700) — mesma cor pro mesmo nome na lista e na ficha.
+const AVATAR_TONES = [
+  "bg-sky-100 text-sky-700",
+  "bg-emerald-100 text-emerald-700",
+  "bg-amber-100 text-amber-800",
+  "bg-violet-100 text-violet-700",
+  "bg-rose-100 text-rose-700",
+  "bg-teal-100 text-teal-700",
+];
+
+function avatarTone(name: string): string {
+  let h = 0;
+  for (const ch of norm(name)) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return AVATAR_TONES[h % AVATAR_TONES.length];
+}
+
 export function ClientAvatar({ name, className }: { name: string; className?: string }) {
   return (
     <span
       aria-hidden
       className={cn(
-        "flex h-10 w-10 shrink-0 select-none items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary",
+        "flex h-10 w-10 shrink-0 select-none items-center justify-center rounded-full text-sm font-semibold",
+        avatarTone(name),
         className
       )}
     >
@@ -60,6 +78,17 @@ export function speciesIcon(species: string | undefined): LucideIcon {
   if (/^(pass|ave|calops|papag|periq|canar)/.test(s)) return Bird;
   if (/^(roedor|coelh|hamster|porquinho|chinchila)/.test(s)) return Rabbit;
   return PawPrint;
+}
+
+/** Cor do ícone da espécie: `icon` (só o traço) e `soft` (quadradinho com fundo claro). */
+export function speciesTone(species: string | undefined): { icon: string; soft: string } {
+  const kind = speciesKind(species);
+  if (kind === "dog") return { icon: "text-amber-600", soft: "bg-amber-50 text-amber-600" };
+  if (kind === "cat") return { icon: "text-violet-600", soft: "bg-violet-50 text-violet-600" };
+  const s = norm(species);
+  if (/^(pass|ave|calops|papag|periq|canar)/.test(s)) return { icon: "text-sky-600", soft: "bg-sky-50 text-sky-600" };
+  if (/^(roedor|coelh|hamster|porquinho|chinchila)/.test(s)) return { icon: "text-pink-600", soft: "bg-pink-50 text-pink-600" };
+  return { icon: "text-emerald-600", soft: "bg-emerald-50 text-emerald-600" };
 }
 
 /** "Macho"/"Fêmea" (ou vazio) a partir do que estiver gravado. */
@@ -99,7 +128,7 @@ export function PetChip({
         className
       )}
     >
-      <Icon className="h-3.5 w-3.5 shrink-0 opacity-70" aria-hidden />
+      <Icon className={cn("h-3.5 w-3.5 shrink-0", highlighted ? undefined : speciesTone(animal.species).icon)} aria-hidden />
       <span className="min-w-0 truncate">{animal.name}</span>
     </Link>
   );

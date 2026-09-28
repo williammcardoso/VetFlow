@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { Loader2, Save, UserPlus, Users } from "lucide-react";
+import { Loader2, Save, Search, UserPlus, Users } from "lucide-react";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -20,14 +20,19 @@ import { Textarea } from "@/components/ui/textarea";
 import { PageShell } from "@/components/saas/PageShell";
 import { PageHeader } from "@/components/saas/PageHeader";
 import { ChoiceGroup, Field, FieldGrid, FormSection, StickyActionBar, ToggleChip, focusField } from "@/components/forms/FormLayout";
+import { CepSearchDialog, splitCityUf, ufFromCep } from "@/components/forms/CepSearchDialog";
+import { mockCompanySettings } from "@/mockData/settings";
 import { Client } from "@/types/client";
 import { useClientWithAnimals } from "@/hooks/useSupabaseClients";
 import { addClient, updateClient } from "@/lib/clientsApi";
 
 // Cadastro de cliente numa página só, em seções (antes: 3 abas — Endereço e
 // Observações ficavam escondidas e o "Salvar" repetido em cada aba). Só nome
-// e telefone são obrigatórios. O antigo "Adicionar outro telefone" saiu: não
-// existe coluna no banco pra ele e o número digitado sumia ao salvar.
+// e telefone são obrigatórios. O antigo "Adicionar outro telefone" (lista sem
+// coluna no banco — o número sumia) virou um segundo telefone de verdade,
+// com colunas próprias (migration 20260928120000).
+// Grade de 12 colunas no computador: campos curtos (CEP, número, UF) do
+// tamanho do conteúdo, mais campos por linha, e a página com largura máxima.
 
 const applyCpfMask = (value: string) =>
   value
@@ -69,7 +74,7 @@ const STATES: Array<[string, string]> = [
   ["SE", "Sergipe"], ["TO", "Tocantins"],
 ];
 
-type FieldErrors = Partial<Record<"fullName" | "mainPhoneContact" | "identificationNumber", string>>;
+type FieldErrors = Partial<Record<"fullName" | "mainPhoneContact" | "secondaryPhoneContact" | "identificationNumber", string>>;
 type CepStatus = "idle" | "loading" | "found" | "not-found" | "error";
 
 const ClientFormPage = () => {
@@ -93,6 +98,8 @@ const ClientFormPage = () => {
   const [acceptSMS, setAcceptSMS] = useState<Client["acceptSMS"]>("yes");
   const [mainEmailContact, setMainEmailContact] = useState("");
   const [mainPhoneContact, setMainPhoneContact] = useState("");
+  const [secondaryPhoneContact, setSecondaryPhoneContact] = useState("");
+  const [secondaryPhoneLabel, setSecondaryPhoneLabel] = useState("");
   const [cep, setCep] = useState("");
   const [street, setStreet] = useState("");
   const [number, setNumber] = useState("");
@@ -105,6 +112,7 @@ const ClientFormPage = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [errors, setErrors] = useState<FieldErrors>({});
   const [cepStatus, setCepStatus] = useState<CepStatus>("idle");
+  const [cepDialogOpen, setCepDialogOpen] = useState(false);
   const [showMissingIdentificationDialog, setShowMissingIdentificationDialog] = useState(false);
   const [loadedClientId, setLoadedClientId] = useState<string | null>(null);
   const lastFetchedCep = useRef("");
@@ -142,6 +150,8 @@ const ClientFormPage = () => {
     setAcceptSMS(clientToEdit.acceptSMS);
     setMainEmailContact(clientToEdit.mainEmailContact);
     setMainPhoneContact(clientToEdit.mainPhoneContact);
+    setSecondaryPhoneContact(clientToEdit.secondaryPhoneContact || "");
+    setSecondaryPhoneLabel(clientToEdit.secondaryPhoneLabel || "");
     setCep(clientToEdit.address.cep);
     lastFetchedCep.current = clientToEdit.address.cep;
     setStreet(clientToEdit.address.street);
@@ -219,6 +229,8 @@ const ClientFormPage = () => {
     const phoneDigits = mainPhoneContact.replace(/\D/g, "");
     if (!phoneDigits) next.mainPhoneContact = "Informe um telefone para contato.";
     else if (phoneDigits.length < 10) next.mainPhoneContact = "Telefone incompleto — inclua o DDD.";
+    const phone2Digits = secondaryPhoneContact.replace(/\D/g, "");
+    if (phone2Digits && phone2Digits.length < 10) next.secondaryPhoneContact = "Telefone incompleto — inclua o DDD.";
     const doc = docError(identificationNumber, clientType);
     if (doc) next.identificationNumber = doc;
     return next;
@@ -228,7 +240,7 @@ const ClientFormPage = () => {
     if (isSaving) return;
     const found = validate();
     setErrors(found);
-    const firstInvalid = (["fullName", "mainPhoneContact", "identificationNumber"] as const).find((k) => found[k]);
+    const firstInvalid = (["fullName", "identificationNumber", "mainPhoneContact", "secondaryPhoneContact"] as const).find((k) => found[k]);
     if (firstInvalid) {
       toast.error("Confira os campos destacados.");
       focusField(firstInvalid);
@@ -256,6 +268,8 @@ const ClientFormPage = () => {
       acceptSMS,
       mainEmailContact: mainEmailContact.trim(),
       mainPhoneContact,
+      secondaryPhoneContact: secondaryPhoneContact.replace(/\D/g, "") ? secondaryPhoneContact : "",
+      secondaryPhoneLabel: secondaryPhoneContact.replace(/\D/g, "") ? secondaryPhoneLabel.trim() : "",
       dynamicContacts: [],
       address: { cep, street, number, complement, neighborhood, city, state: state || "" },
       notes,
@@ -269,7 +283,8 @@ const ClientFormPage = () => {
           return;
         }
         const updated = await updateClient({ ...clientData, id: clientId, animals: clientToEdit.animals || [] });
-        if (updated) {
+        if (updated.ok) {
+          if (updated.warning) toast.warning(updated.warning, { duration: 10000 });
           await invalidateClientQueries(clientId);
           toast.success("Cliente atualizado.");
           navigate(`/clients/${clientId}`);
@@ -283,6 +298,7 @@ const ClientFormPage = () => {
           return;
         }
         await invalidateClientQueries(result.client.id);
+        if (result.warning) toast.warning(result.warning, { duration: 10000 });
         toast.success("Cliente cadastrado.");
         navigate(`/clients/${result.client.id}`);
       }
@@ -312,10 +328,10 @@ const ClientFormPage = () => {
           ? "CEP não encontrado. Preencha o endereço à mão."
           : cepStatus === "error"
             ? "Não deu para buscar o CEP agora. Preencha à mão."
-            : "Digite o CEP para preencher rua, bairro e cidade.";
+            : "Não sabe o CEP? Use o Buscar.";
 
   return (
-    <PageShell className="space-y-5 sm:space-y-6">
+    <PageShell className="mx-auto w-full max-w-6xl space-y-5 sm:space-y-6">
       <PageHeader
         title={isEditing ? "Editar cliente" : "Novo cliente"}
         description="Só o nome e o telefone são obrigatórios (*). O resto pode ser completado depois."
@@ -343,7 +359,7 @@ const ClientFormPage = () => {
       >
         <FormSection title="Dados pessoais" description="Quem é o responsável pelo animal.">
           <FieldGrid>
-            <Field label="Tipo de cadastro" labelId="clientType-label" className="sm:col-span-6">
+            <Field label="Tipo de cadastro" labelId="clientType-label" className="sm:col-span-6 lg:col-span-5">
               <ChoiceGroup
                 labelledBy="clientType-label"
                 value={clientType}
@@ -355,7 +371,7 @@ const ClientFormPage = () => {
               />
             </Field>
 
-            <Field label={isPerson ? "Nome completo" : "Nome ou razão social"} htmlFor="fullName" required error={errors.fullName} className="sm:col-span-6">
+            <Field label={isPerson ? "Nome completo" : "Nome ou razão social"} htmlFor="fullName" required error={errors.fullName} className="sm:col-span-6 lg:col-span-7">
               <Input
                 id="fullName"
                 value={fullName}
@@ -369,7 +385,7 @@ const ClientFormPage = () => {
               />
             </Field>
 
-            <Field label={docLabel} htmlFor="identificationNumber" error={errors.identificationNumber} className="sm:col-span-3">
+            <Field label={docLabel} htmlFor="identificationNumber" error={errors.identificationNumber} className="col-span-1 sm:col-span-3 lg:col-span-3">
               <Input
                 id="identificationNumber"
                 inputMode="numeric"
@@ -386,7 +402,7 @@ const ClientFormPage = () => {
               />
             </Field>
 
-            <Field label={isPerson ? "RG" : "Inscrição estadual"} htmlFor="secondaryIdentification" className="sm:col-span-3">
+            <Field label={isPerson ? "RG" : "Inscrição estadual"} htmlFor="secondaryIdentification" className="col-span-1 sm:col-span-3 lg:col-span-3">
               <Input
                 id="secondaryIdentification"
                 inputMode={isPerson ? "text" : "numeric"}
@@ -399,18 +415,18 @@ const ClientFormPage = () => {
               />
             </Field>
 
-            <Field label={isPerson ? "Data de nascimento" : "Data de fundação"} htmlFor="birthday" className="sm:col-span-3">
+            <Field label={isPerson ? "Nascimento" : "Fundação"} htmlFor="birthday" className="col-span-1 sm:col-span-3 lg:col-span-3">
               <Input id="birthday" type="date" value={birthday} onChange={(e) => setBirthday(e.target.value)} />
             </Field>
 
             {isPerson && (
-              <Field label="Profissão" htmlFor="profession" className="sm:col-span-3">
+              <Field label="Profissão" htmlFor="profession" className="col-span-1 sm:col-span-3 lg:col-span-3">
                 <Input id="profession" value={profession} onChange={(e) => setProfession(e.target.value)} placeholder="Ex.: Professora" />
               </Field>
             )}
 
             {isPerson && (
-              <Field label="Sexo" labelId="gender-label" className="sm:col-span-3">
+              <Field label="Sexo" labelId="gender-label" className="sm:col-span-3 lg:col-span-6">
                 <ChoiceGroup
                   labelledBy="gender-label"
                   value={gender}
@@ -425,7 +441,7 @@ const ClientFormPage = () => {
               </Field>
             )}
 
-            <Field label="Nacionalidade" labelId="nationality-label" className="sm:col-span-3">
+            <Field label="Nacionalidade" labelId="nationality-label" className="sm:col-span-3 lg:col-span-6">
               <ChoiceGroup
                 labelledBy="nationality-label"
                 value={nationality}
@@ -441,7 +457,7 @@ const ClientFormPage = () => {
 
         <FormSection title="Contato" description="Usado nos lembretes e para enviar receitas e exames pelo WhatsApp.">
           <FieldGrid>
-            <Field label="Telefone (WhatsApp)" htmlFor="mainPhoneContact" required error={errors.mainPhoneContact} className="sm:col-span-3">
+            <Field label="Telefone (WhatsApp)" htmlFor="mainPhoneContact" required error={errors.mainPhoneContact} className="sm:col-span-3 lg:col-span-4">
               <Input
                 id="mainPhoneContact"
                 type="tel"
@@ -458,7 +474,34 @@ const ClientFormPage = () => {
               />
             </Field>
 
-            <Field label="E-mail" htmlFor="mainEmailContact" className="sm:col-span-3">
+            <Field label="Outro telefone" htmlFor="secondaryPhoneContact" error={errors.secondaryPhoneContact} className="col-span-1 sm:col-span-3 lg:col-span-4">
+              <Input
+                id="secondaryPhoneContact"
+                type="tel"
+                inputMode="tel"
+                autoComplete="off"
+                placeholder="(00) 00000-0000"
+                value={secondaryPhoneContact}
+                maxLength={15}
+                aria-invalid={Boolean(errors.secondaryPhoneContact)}
+                onChange={(e) => {
+                  setSecondaryPhoneContact(applyPhoneMask(e.target.value));
+                  clearError("secondaryPhoneContact");
+                }}
+              />
+            </Field>
+
+            <Field label="De quem é" htmlFor="secondaryPhoneLabel" className="col-span-1 sm:col-span-3 lg:col-span-4">
+              <Input
+                id="secondaryPhoneLabel"
+                autoComplete="off"
+                placeholder="Ex.: esposa"
+                value={secondaryPhoneLabel}
+                onChange={(e) => setSecondaryPhoneLabel(e.target.value)}
+              />
+            </Field>
+
+            <Field label="E-mail" htmlFor="mainEmailContact" className="sm:col-span-3 lg:col-span-6">
               <Input
                 id="mainEmailContact"
                 type="email"
@@ -470,7 +513,7 @@ const ClientFormPage = () => {
               />
             </Field>
 
-            <Field label="Aceita receber mensagens por" labelId="accept-label" className="sm:col-span-6">
+            <Field label="Aceita receber mensagens por" labelId="accept-label" className="sm:col-span-6 lg:col-span-6">
               <div role="group" aria-labelledby="accept-label" className="flex flex-wrap gap-2">
                 <ToggleChip pressed={acceptWhatsapp === "yes"} onPressedChange={(on) => setAcceptWhatsapp(on ? "yes" : "no")}>
                   WhatsApp
@@ -488,8 +531,9 @@ const ClientFormPage = () => {
 
         <FormSection title="Endereço" description="Digite o CEP e o resto é preenchido sozinho.">
           <FieldGrid>
-            <Field label="CEP" htmlFor="zipCode" hint={cepHint} className="sm:col-span-2">
-              <div className="relative">
+            <Field label="CEP" htmlFor="zipCode" hint={cepHint} className="sm:col-span-3 lg:col-span-4">
+              <div className="flex gap-2">
+                <div className="relative min-w-0 flex-1">
                 <Input
                   id="zipCode"
                   inputMode="numeric"
@@ -504,33 +548,44 @@ const ClientFormPage = () => {
                 {cepStatus === "loading" && (
                   <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" aria-hidden />
                 )}
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="shrink-0 px-3"
+                  onClick={() => setCepDialogOpen(true)}
+                  title="Não sabe o CEP? Buscar pelo nome da rua"
+                >
+                  <Search className="mr-1.5 h-4 w-4" aria-hidden /> Buscar
+                </Button>
               </div>
             </Field>
 
-            <Field label="Rua" htmlFor="street" className="sm:col-span-4">
+            <Field label="Rua" htmlFor="street" className="sm:col-span-3 lg:col-span-6">
               <Input id="street" value={street} onChange={(e) => setStreet(e.target.value)} placeholder="Rua, avenida…" />
             </Field>
 
-            <Field label="Número" htmlFor="number" className="sm:col-span-2">
+            <Field label="Número" htmlFor="number" className="col-span-1 sm:col-span-2 lg:col-span-2">
               <Input id="number" ref={numberInputRef} value={number} onChange={(e) => setNumber(e.target.value)} placeholder="Ex.: 120" />
             </Field>
 
-            <Field label="Complemento" htmlFor="complement" className="sm:col-span-4">
+            <Field label="Complemento" htmlFor="complement" className="col-span-1 sm:col-span-4 lg:col-span-3">
               <Input id="complement" value={complement} onChange={(e) => setComplement(e.target.value)} placeholder="Apto, bloco, fundos…" />
             </Field>
 
-            <Field label="Bairro" htmlFor="neighborhood" className="sm:col-span-6">
+            <Field label="Bairro" htmlFor="neighborhood" className="sm:col-span-3 lg:col-span-4">
               <Input id="neighborhood" value={neighborhood} onChange={(e) => setNeighborhood(e.target.value)} />
             </Field>
 
-            <Field label="Cidade" htmlFor="city" className="sm:col-span-3">
+            <Field label="Cidade" htmlFor="city" className="col-span-1 sm:col-span-2 lg:col-span-3">
               <Input id="city" value={city} onChange={(e) => setCity(e.target.value)} />
             </Field>
 
-            <Field label="Estado" htmlFor="state" className="sm:col-span-3">
+            <Field label="UF" htmlFor="state" className="col-span-1 sm:col-span-1 lg:col-span-2">
               <Select value={state} onValueChange={setState}>
                 <SelectTrigger id="state">
-                  <SelectValue placeholder="UF" />
+                  {/* Campo estreito: mostra só a sigla; a lista tem o nome inteiro. */}
+                  <SelectValue placeholder="UF">{state}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {STATES.map(([uf, name]) => (
@@ -566,6 +621,25 @@ const ClientFormPage = () => {
           </Button>
         </StickyActionBar>
       </form>
+
+      <CepSearchDialog
+        open={cepDialogOpen}
+        onOpenChange={setCepDialogOpen}
+        defaultStreet={street}
+        // Sem cidade no formulário, sugere a da clínica (gravada como "Itapira/SP").
+        defaultCity={city || splitCityUf(mockCompanySettings.city).city}
+        defaultState={state || splitCityUf(mockCompanySettings.city).uf || ufFromCep(mockCompanySettings.zipCode)}
+        onPick={(address) => {
+          setCep(address.cep);
+          lastFetchedCep.current = address.cep;
+          setStreet(address.street);
+          setNeighborhood(address.neighborhood);
+          setCity(address.city);
+          setState(address.state || undefined);
+          setCepStatus("found");
+        }}
+        focusAfterPick={() => numberInputRef.current?.focus()}
+      />
 
       <AlertDialog open={showMissingIdentificationDialog} onOpenChange={setShowMissingIdentificationDialog}>
         <AlertDialogContent>

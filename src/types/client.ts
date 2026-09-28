@@ -47,6 +47,10 @@ export interface Client {
   acceptSMS: "yes" | "no";
   mainEmailContact: string;
   mainPhoneContact: string;
+  /** Segundo telefone (colunas secondary_phone_* — migration 20260928120000). */
+  secondaryPhoneContact?: string;
+  /** De quem é o segundo telefone (ex.: "Esposa", "Trabalho"). */
+  secondaryPhoneLabel?: string;
   dynamicContacts: DynamicContact[];
   address: {
     cep: string;
