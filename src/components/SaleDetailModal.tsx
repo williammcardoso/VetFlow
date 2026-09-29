@@ -11,16 +11,17 @@ import {
 import { getSaleItems, SaleItem } from "@/lib/saleItemsApi";
 import { listReceiptsForSale } from "@/lib/financialApi";
 import type { FinancialTransaction } from "@/mockData/financial";
-import { Package, Stethoscope, Loader2, Printer, MoreHorizontal, ClipboardList, Undo2 } from "lucide-react";
+import { CheckCircle2, Loader2, Printer, MoreHorizontal, ClipboardList, Undo2 } from "lucide-react";
 import SaleReceiptPdfContent from "@/components/SaleReceiptPdfContent";
 import SaleCancellationPdfContent from "@/components/SaleCancellationPdfContent";
 import { SaleStatusBadge } from "@/components/sales/SaleStatusBadge";
-import { paymentMethodIcon } from "@/components/sales/PaymentChoice";
+import { IconChip, PaymentMethodBadge } from "@/components/finance/FinanceUI";
+import { CONCEPTS, SALE_STATUS_VISUAL, TONES, categoryVisual } from "@/components/finance/financeTheme";
 import { createPdfBlob, openPdf } from "@/lib/pdfExport";
 import { getReversedAmountForSale } from "@/lib/saleCancellation";
 import { groupRepassesByProvider, resolveCostProvider } from "@/lib/costProviders";
 import { catalogCategoryLabel } from "@/lib/catalogCategories";
-import { saleBalance } from "@/lib/salePayment";
+import { saleBalance, saleStatus } from "@/lib/salePayment";
 import { cn, formatCurrencyBRL, formatDateTime } from "@/lib/utils";
 import { toast } from "sonner";
 import { getPatientRecordPath } from "@/utils/patientDisplayId";
@@ -148,7 +149,10 @@ const SaleDetailModal: React.FC<SaleDetailModalProps> = (props) => {
       {/* min-w-0: DialogContent é grid; sem isso conteúdo sem quebra estoura a largura. */}
       <DialogContent className="max-h-[90vh] w-[95vw] min-w-0 max-w-2xl overflow-y-auto overflow-x-hidden">
         <DialogHeader>
-          <DialogTitle>Venda</DialogTitle>
+          <DialogTitle className="flex items-center gap-2.5">
+            <IconChip icon={SALE_STATUS_VISUAL[saleStatus(transaction).key].icon} tone={SALE_STATUS_VISUAL[saleStatus(transaction).key].tone} size="sm" />
+            Venda
+          </DialogTitle>
           <DialogDescription>{who || "Venda sem cliente"}</DialogDescription>
         </DialogHeader>
 
@@ -156,45 +160,56 @@ const SaleDetailModal: React.FC<SaleDetailModalProps> = (props) => {
           {/* Resumo */}
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div className="min-w-0">
-              <p className={cn("text-3xl font-semibold tabular-nums tracking-tight text-foreground", cancelled && "text-muted-foreground line-through")}>
+              <p className={cn("text-3xl font-bold tabular-nums tracking-tight text-foreground", cancelled && "text-muted-foreground line-through")}>
                 {fmt(transaction.amount)}
               </p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {formatDateTime(transaction.date, transaction.time)}
-                {methods.length > 0 && ` · ${methods.join(" + ")}`}
-                {transaction.paymentInstallments && transaction.paymentInstallments > 1
-                  ? ` · ${transaction.paymentInstallments}x de ${fmt(transaction.amount / transaction.paymentInstallments)}`
-                  : ""}
-                {transaction.responsible && ` · ${transaction.responsible}`}
-              </p>
+              <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
+                <span className="tabular-nums">{formatDateTime(transaction.date, transaction.time)}</span>
+                {methods.map((m) => (
+                  <PaymentMethodBadge key={m} method={m} />
+                ))}
+                {transaction.paymentInstallments && transaction.paymentInstallments > 1 && (
+                  <span className="font-medium text-violet-700">
+                    {transaction.paymentInstallments}x de {fmt(transaction.amount / transaction.paymentInstallments)}
+                  </span>
+                )}
+                {transaction.responsible && <span>{transaction.responsible}</span>}
+              </div>
+              {((transaction.discountAmount ?? 0) > 0 || (transaction.surchargeAmount ?? 0) > 0 || (transaction.financialFee ?? 0) > 0) && (
+                <div className="mt-1 flex flex-wrap gap-x-3 text-xs font-medium">
+                  {(transaction.discountAmount ?? 0) > 0 && <span className="text-emerald-700">desconto {fmt(transaction.discountAmount ?? 0)}</span>}
+                  {(transaction.surchargeAmount ?? 0) > 0 && <span className="text-amber-700">acréscimo {fmt(transaction.surchargeAmount ?? 0)}</span>}
+                  {(transaction.financialFee ?? 0) > 0 && <span className="text-rose-700">taxa do cartão {fmt(transaction.financialFee ?? 0)}</span>}
+                </div>
+              )}
             </div>
             <SaleStatusBadge sale={transaction} className="text-sm" />
           </div>
 
           {cancelled && (
-            <div className="rounded-xl border border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
-              Venda cancelada
+            <div className="rounded-xl border border-rose-200 bg-rose-50/60 px-3 py-2 text-sm text-rose-800">
+              <span className="font-semibold">Venda cancelada</span>
               {transaction.cancelledAt && ` em ${formatDateTime(transaction.cancelledAt.slice(0, 10))}`}
-              {transaction.cancelReason && <> — motivo: <span className="text-foreground">{transaction.cancelReason}</span></>}
+              {transaction.cancelReason && <> — motivo: <span className="font-medium">{transaction.cancelReason}</span></>}
             </div>
           )}
 
           {!cancelled && (transaction.paidAmount || 0) > 0 && balance > 0 && (
-            <div className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-border bg-border text-sm">
-              <div className="bg-card px-3 py-2">
-                <p className="text-xs text-muted-foreground">Recebido</p>
-                <p className="font-semibold tabular-nums">{fmt(transaction.paidAmount || 0)}</p>
+            <div className="grid grid-cols-2 gap-2 text-sm">
+              <div className={cn("rounded-xl border px-3 py-2", TONES.teal.card)}>
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-teal-700">Recebido</p>
+                <p className="font-bold tabular-nums text-teal-700">{fmt(transaction.paidAmount || 0)}</p>
               </div>
-              <div className="bg-card px-3 py-2">
-                <p className="text-xs text-muted-foreground">Falta receber</p>
-                <p className="font-semibold tabular-nums text-amber-800">{fmt(balance)}</p>
+              <div className={cn("rounded-xl border px-3 py-2", TONES.amber.card)}>
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-800">Falta receber</p>
+                <p className="font-bold tabular-nums text-amber-700">{fmt(balance)}</p>
               </div>
             </div>
           )}
 
           {/* Itens */}
           <section>
-            <h3 className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Itens</h3>
+            <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Itens</h3>
             {loading ? (
               <div className="flex items-center justify-center py-6 text-sm text-muted-foreground">
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Carregando itens...
@@ -204,34 +219,43 @@ const SaleDetailModal: React.FC<SaleDetailModalProps> = (props) => {
                 <ul className="divide-y divide-border/70">
                   {items.map((item) => {
                     const provider = item.cost > 0 ? resolveCostProvider(item.costProvider, item.category, item.cost) : undefined;
-                    const Icon = item.type === "product" ? Package : Stethoscope;
+                    const cat = categoryVisual(item.category ?? (item.type === "product" ? "produto" : "servico"));
                     return (
                       <li key={item.id} className="flex items-center gap-3 px-3 py-2.5">
-                        <Icon className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+                        <IconChip icon={cat.icon} tone={cat.tone} size="sm" />
                         <div className="min-w-0 flex-1">
-                          <p className="break-words text-sm font-medium text-foreground">{item.name}</p>
+                          <p className="break-words text-sm font-semibold text-foreground">{item.name}</p>
                           <p className="text-xs text-muted-foreground">
                             {item.quantity} × {fmt(item.unitPrice)}
                             {item.category && ` · ${catalogCategoryLabel(item.category)}`}
-                            {provider && ` · repasse ${fmt(item.cost * item.quantity)} → ${provider}`}
                           </p>
+                          {provider && (
+                            <p className="mt-0.5 inline-flex items-center gap-1 text-xs font-medium text-orange-700">
+                              <CONCEPTS.repasses.icon className="h-3 w-3" aria-hidden />
+                              repasse {fmt(item.cost * item.quantity)} → {provider}
+                            </p>
+                          )}
                         </div>
-                        <p className="shrink-0 text-sm font-semibold tabular-nums">{fmt(item.subtotal)}</p>
+                        <p className="shrink-0 text-sm font-bold tabular-nums">{fmt(item.subtotal)}</p>
                       </li>
                     );
                   })}
                 </ul>
                 {/* Interno (não sai no comprovante do cliente): quanto sobra depois dos repasses. */}
                 {totalCost > 0 && (
-                  <div className="space-y-1 border-t border-border bg-muted/30 px-3 py-2 text-xs">
+                  <div className="space-y-1 border-t border-border bg-muted/20 px-3 py-2 text-xs">
                     {repassesByProvider.map((row) => (
-                      <div key={row.provider} className="flex justify-between text-muted-foreground">
-                        <span>Repasse → {row.provider}</span>
+                      <div key={row.provider} className="flex justify-between font-medium text-orange-700">
+                        <span className="inline-flex items-center gap-1">
+                          <CONCEPTS.repasses.icon className="h-3 w-3" aria-hidden /> Repasse → {row.provider}
+                        </span>
                         <span className="tabular-nums">− {fmt(row.amount)}</span>
                       </div>
                     ))}
-                    <div className="flex justify-between font-medium text-foreground">
-                      <span>Lucro estimado ({margem}%)</span>
+                    <div className={cn("flex justify-between font-bold", lucro >= 0 ? "text-emerald-700" : "text-rose-700")}>
+                      <span className="inline-flex items-center gap-1">
+                        <CONCEPTS.lucro.icon className="h-3 w-3" aria-hidden /> Lucro estimado ({margem}%)
+                      </span>
                       <span className="tabular-nums">{fmt(lucro)}</span>
                     </div>
                   </div>
@@ -247,20 +271,27 @@ const SaleDetailModal: React.FC<SaleDetailModalProps> = (props) => {
           {/* Pagamentos desta venda */}
           {!loading && receipts.length > 0 && (
             <section>
-              <h3 className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Pagamentos</h3>
+              <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Pagamentos desta venda</h3>
               <ul className="divide-y divide-border/70 overflow-hidden rounded-xl border border-border">
                 {receipts.map((r) => {
                   const reversal = r.amount < 0;
-                  const Icon = reversal ? Undo2 : paymentMethodIcon({ name: r.paymentMethod || "" });
                   return (
                     <li key={r.id} className="flex items-center gap-3 px-3 py-2 text-sm">
-                      <Icon className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
-                      <span className="min-w-0 flex-1">
-                        <span className="font-medium text-foreground">{reversal ? "Estorno" : r.paymentMethod || "Pagamento"}</span>
-                        <span className="text-muted-foreground"> · {formatDateTime(r.date, r.time)}</span>
+                      {reversal ? (
+                        <Undo2 className="h-4 w-4 shrink-0 text-rose-600" aria-hidden />
+                      ) : (
+                        <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" aria-hidden />
+                      )}
+                      <span className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-0.5">
+                        {reversal ? (
+                          <span className="font-semibold text-rose-700">Estorno</span>
+                        ) : (
+                          <PaymentMethodBadge method={r.paymentMethod || "Pagamento"} />
+                        )}
+                        <span className="text-xs tabular-nums text-muted-foreground">{formatDateTime(r.date, r.time)}</span>
                       </span>
-                      <span className={cn("shrink-0 font-semibold tabular-nums", reversal && "text-red-700")}>
-                        {reversal ? `− ${fmt(Math.abs(r.amount))}` : fmt(r.amount)}
+                      <span className={cn("shrink-0 font-bold tabular-nums", reversal ? "text-rose-700" : "text-emerald-700")}>
+                        {reversal ? `− ${fmt(Math.abs(r.amount))}` : `+ ${fmt(r.amount)}`}
                       </span>
                     </li>
                   );

@@ -18,6 +18,9 @@ import CancelSaleDialog from "@/components/CancelSaleDialog";
 import DeleteSaleDialog from "@/components/DeleteSaleDialog";
 import { ReceivePaymentDialog } from "@/components/sales/ReceivePaymentDialog";
 import { SaleStatusBadge } from "@/components/sales/SaleStatusBadge";
+import { PaymentMethodBadge } from "@/components/finance/FinanceUI";
+import { CONCEPTS, SALE_STATUS_VISUAL, TONES, type Tone } from "@/components/finance/financeTheme";
+import { ClientAvatar, speciesIcon, speciesTone } from "@/components/clients/clientVisuals";
 import {
   receiptMethodsBySale,
   saleBalance,
@@ -30,11 +33,12 @@ import type { Animal, Client } from "@/types/client";
 
 type StatusFilter = "all" | "open" | "paid" | "cancelled";
 
-const STATUS_FILTERS: Array<{ key: StatusFilter; label: string }> = [
+// Contagem de cada situação na cor dela (a receber âmbar, pagas verde, canceladas vermelho).
+const STATUS_FILTERS: Array<{ key: StatusFilter; label: string; tone?: Tone }> = [
   { key: "all", label: "Todas" },
-  { key: "open", label: "A receber" },
-  { key: "paid", label: "Pagas" },
-  { key: "cancelled", label: "Canceladas" },
+  { key: "open", label: "A receber", tone: SALE_STATUS_VISUAL.open.tone },
+  { key: "paid", label: "Pagas", tone: SALE_STATUS_VISUAL.paid.tone },
+  { key: "cancelled", label: "Canceladas", tone: SALE_STATUS_VISUAL.cancelled.tone },
 ];
 
 const matchesStatus = (key: SaleStatusKey, filter: StatusFilter) =>
@@ -43,12 +47,12 @@ const matchesStatus = (key: SaleStatusKey, filter: StatusFilter) =>
   (filter === "paid" && key === "paid") ||
   (filter === "cancelled" && key === "cancelled");
 
-// Mesmas colunas no cabeçalho e nas linhas. xl, não xl: com o menu lateral
-// aberto, uma tela de 1024px deixa ~770px — as 5 colunas espremiam os itens
-// (e nome longo de exame invadia a coluna do cliente). Abaixo disso fica o
-// formato de lista do celular.
+// Mesmas colunas no cabeçalho e nas linhas (cliente | itens | data | valor |
+// situação). xl, não lg: com o menu lateral aberto, uma tela de 1024px deixa
+// ~770px e as colunas espremiam os itens. Abaixo disso fica o formato de
+// lista do celular. O avatar fica fora da grade (w-10), como em Clientes.
 const COLUMNS =
-  "xl:grid xl:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)_7.5rem_7.5rem_minmax(8.5rem,auto)] xl:items-center xl:gap-4";
+  "xl:grid xl:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)_6.5rem_7.5rem_11.5rem] xl:items-center xl:gap-4";
 
 const PAGE_SIZE = 30;
 
@@ -219,19 +223,22 @@ const SalesPage = () => {
         items={[
           {
             label: "Vendido no período",
+            concept: CONCEPTS.faturado,
             value: formatCurrencyBRL(kpis.sold),
             hint: plural(kpis.count, "venda", "vendas"),
           },
           {
             label: "Recebido",
+            concept: CONCEPTS.recebido,
             value: formatCurrencyBRL(kpis.received),
             hint: kpis.sold > 0 ? `${Math.round((kpis.received / kpis.sold) * 100)}% do vendido` : "—",
           },
           {
             label: "A receber",
+            concept: CONCEPTS.aReceber,
             value: formatCurrencyBRL(kpis.open),
             hint: kpis.openCount > 0 ? `${plural(kpis.openCount, "venda", "vendas")} · todas as datas` : "Nada em aberto",
-            tone: kpis.open > 0 ? "warning" : "default",
+            colorValue: kpis.open > 0,
             onClick:
               kpis.openCount > 0
                 ? () => {
@@ -242,6 +249,7 @@ const SalesPage = () => {
           },
           {
             label: "Ticket médio",
+            concept: CONCEPTS.ticket,
             value: formatCurrencyBRL(kpis.ticket),
             hint: "por venda no período",
           },
@@ -278,7 +286,7 @@ const SalesPage = () => {
           </div>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div role="radiogroup" aria-label="Situação" className="inline-flex w-full overflow-x-auto rounded-xl bg-muted p-1 sm:w-auto">
-              {STATUS_FILTERS.map(({ key, label }) => {
+              {STATUS_FILTERS.map(({ key, label, tone }) => {
                 const active = status === key;
                 return (
                   <button
@@ -294,7 +302,14 @@ const SalesPage = () => {
                     )}
                   >
                     {label}
-                    <span className="ml-1.5 text-xs tabular-nums text-muted-foreground">{counts[key]}</span>
+                    <span
+                      className={cn(
+                        "ml-1.5 inline-flex min-w-[1.25rem] justify-center rounded-full px-1.5 text-xs font-semibold tabular-nums",
+                        tone && counts[key] > 0 ? cn("ring-1 ring-inset", TONES[tone].badge) : "text-muted-foreground"
+                      )}
+                    >
+                      {counts[key]}
+                    </span>
                   </button>
                 );
               })}
@@ -316,10 +331,11 @@ const SalesPage = () => {
         </div>
 
         {/* Cabeçalho das colunas (computador) */}
-        <div className="hidden border-b border-border/70 bg-muted/30 px-4 py-2 text-xs font-medium text-muted-foreground xl:block">
-          <div className={COLUMNS}>
-            <span>Venda</span>
+        <div className="hidden items-center gap-3 border-b border-border/70 bg-muted/30 px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground xl:flex">
+          <span className="w-10 shrink-0" aria-hidden />
+          <div className={cn("flex-1", COLUMNS)}>
             <span>Cliente</span>
+            <span>Itens</span>
             <span>Data</span>
             <span className="text-right">Valor</span>
             <span className="text-right">Situação</span>
@@ -370,43 +386,52 @@ const SalesPage = () => {
                 const st = saleStatus(sale);
                 const balance = saleBalance(sale);
                 const methods = methodsOf(sale);
-                const who = [client?.name, animal?.name && `(${animal.name})`].filter(Boolean).join(" ");
+                const SpeciesIcon = animal ? speciesIcon(animal.species) : null;
+                const cancelled = st.key === "cancelled";
                 return (
-                  <li key={sale.id} className="relative px-3 py-3 transition-colors hover:bg-muted/40 sm:px-4">
-                    <div className={cn("flex flex-col gap-2", COLUMNS)}>
+                  <li key={sale.id} className="relative flex items-start gap-3 px-3 py-3 transition-colors hover:bg-muted/40 sm:px-4 xl:items-center">
+                    <ClientAvatar name={client?.name || "?"} className={cn(cancelled && "opacity-50")} />
+                    <div className={cn("min-w-0 flex-1", COLUMNS)}>
+                      {/* Cliente — botão "esticado": a linha toda abre o detalhe; o "Receber" fica por cima (z-10). */}
                       <div className="min-w-0">
-                        {/* Botão "esticado": a linha toda abre o detalhe; o "Receber" fica por cima (z-10). */}
                         <button
                           type="button"
                           onClick={() => setSelectedSale(sale)}
-                          className="block w-full text-left font-medium leading-snug text-foreground after:absolute after:inset-0 focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-inset focus-visible:after:ring-primary/60"
+                          className="block w-full text-left font-semibold leading-snug text-foreground after:absolute after:inset-0 focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-inset focus-visible:after:ring-primary/60"
                         >
-                          <span className={cn("[overflow-wrap:anywhere]", st.key === "cancelled" && "text-muted-foreground line-through")}>
-                            {summarizeSaleItems(sale.description, 3)}
-                          </span>
+                          <span className="[overflow-wrap:anywhere]">{client?.name || "Venda sem cliente"}</span>
                         </button>
-                        <p className="mt-0.5 text-xs text-muted-foreground">
-                          <span className="xl:hidden">
-                            {[who, formatDateTime(sale.date, sale.time)].filter(Boolean).join(" · ")}
-                            {methods.length > 0 && " · "}
-                          </span>
-                          {methods.join(" + ")}
-                          {methods.length === 0 && <span className="hidden xl:inline">—</span>}
-                        </p>
+                        {animal && SpeciesIcon && (
+                          <p className="mt-0.5 inline-flex items-center gap-1 text-xs font-medium text-muted-foreground">
+                            <SpeciesIcon className={cn("h-3.5 w-3.5", speciesTone(animal.species).icon)} aria-hidden />
+                            {animal.name}
+                          </p>
+                        )}
                       </div>
-                      <p className="hidden min-w-0 truncate text-sm text-foreground xl:block" title={who}>
-                        {who || <span className="text-muted-foreground">Sem cliente</span>}
-                      </p>
+                      {/* Itens */}
+                      <div className="mt-1 min-w-0 xl:mt-0">
+                        <p className={cn("text-sm leading-snug text-foreground/85 [overflow-wrap:anywhere]", cancelled && "text-muted-foreground line-through")}>
+                          {summarizeSaleItems(sale.description, 3)}
+                        </p>
+                        <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                          <span className="tabular-nums xl:hidden">{formatDateTime(sale.date, sale.time)}</span>
+                          {methods.map((m) => (
+                            <PaymentMethodBadge key={m} method={m} />
+                          ))}
+                        </div>
+                      </div>
+                      {/* Data (computador) */}
                       <p className="hidden text-sm tabular-nums text-muted-foreground xl:block">
                         {formatDateTime(sale.date)}
                         <span className="block text-xs">{sale.time}</span>
                       </p>
-                      <div className="flex items-center justify-between gap-3 xl:contents">
+                      {/* Valor + situação */}
+                      <div className="mt-2 flex items-center justify-between gap-3 xl:contents">
                         <div className="xl:text-right">
-                          <p className={cn("font-semibold tabular-nums text-foreground", st.key === "cancelled" && "text-muted-foreground")}>
+                          <p className={cn("text-base font-bold tabular-nums text-foreground", cancelled && "text-muted-foreground line-through")}>
                             {formatCurrencyBRL(sale.amount)}
                           </p>
-                          {st.key === "partial" && <p className="text-xs text-amber-800">falta {formatCurrencyBRL(balance)}</p>}
+                          {st.key === "partial" && <p className="text-xs font-medium text-amber-700">falta {formatCurrencyBRL(balance)}</p>}
                         </div>
                         <div className="flex items-center justify-end gap-2">
                           <SaleStatusBadge sale={sale} />

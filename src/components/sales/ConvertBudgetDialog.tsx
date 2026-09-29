@@ -1,5 +1,6 @@
 import * as React from "react";
-import { Loader2 } from "lucide-react";
+import { FileText, Loader2 } from "lucide-react";
+import { IconChip } from "@/components/finance/FinanceUI";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -112,7 +113,10 @@ export function ConvertBudgetDialog({
     <Dialog open={open} onOpenChange={(v) => !saving && onOpenChange(v)}>
       <DialogContent className="max-h-[90vh] min-w-0 overflow-y-auto sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Converter em venda</DialogTitle>
+          <DialogTitle className="flex items-center gap-2.5">
+            <IconChip icon={FileText} tone="violet" size="sm" />
+            Converter em venda
+          </DialogTitle>
           <DialogDescription>
             {[clientName ?? budget.clientName, (animalName ?? budget.animalName) && `(${animalName ?? budget.animalName})`]
               .filter(Boolean)
@@ -149,20 +153,20 @@ export function ConvertBudgetDialog({
                 </div>
               )}
               {discount > 0 && (
-                <div className="flex justify-between text-muted-foreground">
+                <div className="flex justify-between font-medium text-emerald-700">
                   <span>Desconto</span>
                   <span className="tabular-nums">− {formatCurrencyBRL(discount)}</span>
                 </div>
               )}
               {surcharge > 0 && (
-                <div className="flex justify-between text-muted-foreground">
+                <div className="flex justify-between font-medium text-amber-700">
                   <span>Acréscimo</span>
                   <span className="tabular-nums">+ {formatCurrencyBRL(surcharge)}</span>
                 </div>
               )}
               <div className="flex justify-between text-base font-semibold text-foreground">
-                <span>Total</span>
-                <span className="tabular-nums">{formatCurrencyBRL(total)}</span>
+                <span className="uppercase tracking-wide">Total</span>
+                <span className="text-lg font-bold tabular-nums">{formatCurrencyBRL(total)}</span>
               </div>
             </div>
           </div>

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { ArrowRight, FileDown, FileSpreadsheet, Wallet } from "lucide-react";
+import { ArrowLeftRight, ArrowRight, BarChart3, CheckCircle2, FileDown, FileSpreadsheet, Wallet } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -10,6 +10,10 @@ import { KpiStrip } from "@/components/saas/KpiStrip";
 import { PeriodFilter, describePeriod, periodRange } from "@/components/saas/PeriodFilter";
 import { DailyBarChart } from "@/components/saas/DailyBarChart";
 import { ReceivePaymentDialog } from "@/components/sales/ReceivePaymentDialog";
+import { IconChip, Panel, PaymentMethodBadge } from "@/components/finance/FinanceUI";
+import { ResultBreakdown } from "@/components/finance/ResultBreakdown";
+import { CONCEPTS, TONES, movementVisual, type Concept } from "@/components/finance/financeTheme";
+import { ClientAvatar } from "@/components/clients/clientVisuals";
 import FinancialOverviewPdfContent from "@/components/FinancialOverviewPdfContent";
 import { useFinancialTransactions } from "@/hooks/useFinancialTransactions";
 import { useClientsList } from "@/hooks/useSupabaseClients";
@@ -29,7 +33,7 @@ type Drill = "faturado" | "recebido" | "aberto" | "repasses" | "compras";
 
 const fmt = formatCurrencyBRL;
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
-const SALES_SERIES = [{ key: "vendas", label: "Faturado", color: "hsl(var(--primary))" }];
+const SALES_SERIES = [{ key: "vendas", label: "Faturado", color: "hsl(199 89% 48%)" }];
 
 // Visão geral: quanto entrou, quanto falta receber e quanto sobra de verdade
 // (a mesma conta do Fechamento 50/50). Antes eram 11 cartões — "Total
@@ -168,31 +172,35 @@ const FinancialPage: React.FC = () => {
   };
 
   // ------------------------------------------------------------- detalhamento
-  type DrillRow = { id: string; label: string; sub: string; value: number; sale?: FinancialTransaction };
-  const drillContent: Record<Drill, { title: string; empty: string; rows: DrillRow[] }> = {
+  type DrillRow = { id: string; label: string; sub: string; value: number; sale?: FinancialTransaction; method?: string };
+  const drillContent: Record<Drill, { title: string; empty: string; concept: Concept; rows: DrillRow[] }> = {
     faturado: {
       title: "Vendas do período",
       empty: "Nenhuma venda no período.",
+      concept: CONCEPTS.faturado,
       rows: fin.sales.map((s) => ({
         id: s.id,
-        label: summarizeSaleItems(s.description, 3),
-        sub: [whoOf(s), formatDateTime(s.date, s.time)].filter(Boolean).join(" · "),
+        label: whoOf(s) || "Venda sem cliente",
+        sub: `${summarizeSaleItems(s.description, 3)} · ${formatDateTime(s.date, s.time)}`,
         value: s.amount,
       })),
     },
     recebido: {
       title: "Recebimentos do período",
       empty: "Nenhum recebimento no período.",
+      concept: CONCEPTS.recebido,
       rows: fin.receipts.map((r) => ({
         id: r.id,
-        label: `${r.amount < 0 ? "Estorno" : r.paymentMethod || "Recebimento"}${whoOf(r) ? ` · ${whoOf(r)}` : ""}`,
-        sub: formatDateTime(r.date, r.time),
+        label: whoOf(r) || r.description,
+        sub: `${r.amount < 0 ? "Estorno" : r.paymentMethod || "Forma não informada"} · ${formatDateTime(r.date, r.time)}`,
         value: r.amount,
+        method: r.amount < 0 ? undefined : r.paymentMethod,
       })),
     },
     aberto: {
       title: "A receber (todas as datas)",
       empty: "Nenhuma venda em aberto.",
+      concept: CONCEPTS.aReceber,
       rows: openSalesOldestFirst.map((s) => ({
         id: s.id,
         label: whoOf(s) || "Venda sem cliente",
@@ -204,6 +212,7 @@ const FinancialPage: React.FC = () => {
     repasses: {
       title: "Repasses a prestadores",
       empty: "Nenhum repasse no período.",
+      concept: CONCEPTS.repasses,
       rows:
         repassesPorPrestador.length > 0
           ? repassesPorPrestador.map((r) => ({ id: r.provider, label: r.provider, sub: "Repasse no período", value: r.amount }))
@@ -214,17 +223,10 @@ const FinancialPage: React.FC = () => {
     compras: {
       title: "Compras do almoxarifado",
       empty: "Nenhuma compra no período.",
+      concept: CONCEPTS.compras,
       rows: fin.purchases.map((p) => ({ id: p.id, label: p.description, sub: formatDateTime(p.date, p.time), value: p.amount })),
     },
   };
-
-  const resultRows: Array<{ key: string; label: string; value: number; drill?: Drill; hint?: string }> = [
-    { key: "bruto", label: "Faturamento bruto", value: c.bruto, drill: "faturado", hint: plural(c.salesCount, "venda", "vendas") },
-    { key: "repasses", label: "Repasses a prestadores", value: -c.custoRepasses, drill: "repasses", hint: "labs, especialistas" },
-    ...(c.custoProdutos > 0 ? [{ key: "produtos", label: "Custo de produtos", value: -c.custoProdutos, hint: "vendas antigas" }] : []),
-    { key: "compras", label: "Compras do almoxarifado", value: -c.custoCompras, drill: "compras" as Drill, hint: "insumos" },
-    ...(c.taxasCartao > 0 ? [{ key: "taxas", label: "Taxas de cartão", value: -c.taxasCartao }] : []),
-  ];
 
   const signed = (v: number) => (v < 0 ? `− ${fmt(Math.abs(v))}` : fmt(v));
 
@@ -240,10 +242,10 @@ const FinancialPage: React.FC = () => {
         actions={
           <>
             <Button variant="outline" className="flex-1 sm:flex-none" onClick={() => void handleExportPdf()} disabled={exportingPdf}>
-              <FileDown className="mr-2 h-4 w-4" /> {exportingPdf ? "Gerando..." : "PDF"}
+              <FileDown className="mr-2 h-4 w-4 text-rose-600" /> {exportingPdf ? "Gerando..." : "PDF"}
             </Button>
             <Button variant="outline" className="flex-1 sm:flex-none" onClick={handleExportExcel}>
-              <FileSpreadsheet className="mr-2 h-4 w-4" /> Excel
+              <FileSpreadsheet className="mr-2 h-4 w-4 text-emerald-600" /> Excel
             </Button>
           </>
         }
@@ -256,133 +258,95 @@ const FinancialPage: React.FC = () => {
         items={[
           {
             label: "Faturado",
+            concept: CONCEPTS.faturado,
             value: fmt(fin.faturado),
             hint: fin.sales.length > 0 ? `${plural(fin.sales.length, "venda", "vendas")} · ticket ${fmt(fin.ticketMedio)}` : "Nenhuma venda",
             onClick: () => setDrill("faturado"),
           },
           {
             label: "Recebido",
+            concept: CONCEPTS.recebido,
             value: fmt(fin.recebido),
             hint: percentRecebido != null ? `${percentRecebido}% do faturado` : "—",
             onClick: () => setDrill("recebido"),
           },
           {
             label: "A receber",
+            concept: CONCEPTS.aReceber,
             value: fmt(fin.openTotal),
             hint: fin.openSales.length > 0 ? `${plural(fin.openSales.length, "venda", "vendas")} · todas as datas` : "Nada em aberto",
-            tone: fin.openTotal > 0 ? "warning" : "default",
+            colorValue: fin.openTotal > 0,
             onClick: () => setDrill("aberto"),
           },
           {
             label: "Lucro líquido",
+            concept: c.lucroLiquido < 0 ? { ...CONCEPTS.lucro, tone: "rose" } : CONCEPTS.lucro,
             value: fmt(c.lucroLiquido),
             hint: `margem ${c.margemPct}% · ${fmt(c.metadeClinica)} cada parte`,
-            tone: c.lucroLiquido < 0 ? "negative" : "positive",
+            highlight: true,
             onClick: () => navigate("/financial/monthly-closing"),
           },
         ]}
       />
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.25fr)]">
-        {/* Resultado (demonstrativo) — mesma conta do Fechamento 50/50 */}
-        <section className="overflow-hidden rounded-2xl border border-border/80 bg-card shadow-sm" aria-label="Resultado do período">
-          <div className="flex items-baseline justify-between gap-2 border-b border-border/70 px-4 py-3">
-            <h2 className="text-base font-semibold text-foreground">Resultado</h2>
-            <span className="text-xs text-muted-foreground">{periodLabel}</span>
-          </div>
-          <ul className="divide-y divide-border/70 text-sm">
-            {resultRows.map((row) => {
-              const content = (
-                <>
-                  <span className="min-w-0">
-                    <span className="text-foreground">{row.key !== "bruto" ? "− " : ""}{row.label}</span>
-                    {row.hint && <span className="ml-1.5 text-xs text-muted-foreground">{row.hint}</span>}
-                  </span>
-                  <span className="shrink-0 tabular-nums text-foreground">{fmt(Math.abs(row.value))}</span>
-                </>
-              );
-              return (
-                <li key={row.key}>
-                  {row.drill ? (
-                    <button
-                      type="button"
-                      onClick={() => setDrill(row.drill!)}
-                      className="flex w-full items-center justify-between gap-3 px-4 py-2.5 text-left transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/60"
-                    >
-                      {content}
-                    </button>
-                  ) : (
-                    <div className="flex items-center justify-between gap-3 px-4 py-2.5">{content}</div>
-                  )}
-                </li>
-              );
-            })}
-            <li className="flex items-center justify-between gap-3 bg-muted/30 px-4 py-3">
-              <span className="font-semibold text-foreground">
-                = Lucro líquido <span className="ml-1 text-xs font-normal text-muted-foreground">margem {c.margemPct}%</span>
-              </span>
-              <span className={cn("shrink-0 text-base font-semibold tabular-nums", c.lucroLiquido < 0 ? "text-red-700" : "text-emerald-700")}>
-                {signed(c.lucroLiquido)}
-              </span>
-            </li>
-            <li className="flex items-center justify-between gap-3 px-4 py-3">
-              <span className="text-foreground">
-                Cada parte <span className="text-xs text-muted-foreground">(clínica / agropecuária)</span>
-              </span>
-              <span className="shrink-0 font-semibold tabular-nums text-foreground">{signed(c.metadeClinica)}</span>
-            </li>
-          </ul>
-          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/70 px-4 py-2.5 text-xs text-muted-foreground">
-            <span>Despesas fora do almoxarifado não entram no 50/50.</span>
-            <Link to="/financial/monthly-closing" className="inline-flex items-center gap-1 font-medium text-primary hover:underline">
-              Fechamento 50/50 <ArrowRight className="h-3.5 w-3.5" />
-            </Link>
-          </div>
-        </section>
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
+        <ResultBreakdown
+          closing={c}
+          periodLabel={periodLabel}
+          onRowClick={(key) => setDrill(key === "bruto" ? "faturado" : key === "repasses" ? "repasses" : "compras")}
+        />
 
-        {/* Faturamento por dia */}
-        <section className="min-w-0 overflow-hidden rounded-2xl border border-border/80 bg-card shadow-sm" aria-label="Faturamento por dia">
-          <div className="flex items-baseline justify-between gap-2 border-b border-border/70 px-4 py-3">
-            <h2 className="text-base font-semibold text-foreground">Faturamento por dia</h2>
-            <span className="text-xs text-muted-foreground">{fmt(fin.faturado)}</span>
-          </div>
+        <Panel title="Faturamento por dia" icon={BarChart3} tone="sky" description={periodLabel} actions={<span className="text-sm font-bold tabular-nums text-sky-700">{fmt(fin.faturado)}</span>}>
           <div className="p-3 sm:p-4">
             {fin.sales.length === 0 ? (
-              <div className="flex h-[220px] items-center justify-center text-sm text-muted-foreground">Nenhuma venda no período.</div>
+              <div className="flex h-[240px] items-center justify-center text-sm text-muted-foreground">Nenhuma venda no período.</div>
             ) : (
-              <DailyBarChart values={chartValues} series={SALES_SERIES} from={period.from} to={period.to} />
+              <DailyBarChart values={chartValues} series={SALES_SERIES} from={period.from} to={period.to} className="h-[260px] w-full" />
             )}
           </div>
-        </section>
+        </Panel>
       </div>
 
       <div className="grid gap-4 xl:grid-cols-2">
-        {/* A receber */}
-        <section className="overflow-hidden rounded-2xl border border-border/80 bg-card shadow-sm" aria-label="A receber">
-          <div className="flex items-baseline justify-between gap-2 border-b border-border/70 px-4 py-3">
-            <h2 className="text-base font-semibold text-foreground">A receber</h2>
-            <Link to="/sales/receipts" className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline">
+        <Panel
+          title="A receber"
+          icon={CONCEPTS.aReceber.icon}
+          tone="amber"
+          description="Da mais antiga para a mais nova"
+          actions={
+            <Link to="/sales/receipts" className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline">
               Recebimentos <ArrowRight className="h-3.5 w-3.5" />
             </Link>
-          </div>
+          }
+        >
           {openSalesOldestFirst.length === 0 ? (
-            <p className="px-4 py-10 text-center text-sm text-muted-foreground">Tudo recebido. Nenhuma venda em aberto.</p>
+            <div className="px-4 py-10 text-center">
+              <span className="mx-auto flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600 ring-1 ring-emerald-100">
+                <CheckCircle2 className="h-5 w-5" aria-hidden />
+              </span>
+              <p className="mt-2 text-sm font-semibold text-foreground">Tudo recebido</p>
+              <p className="text-xs text-muted-foreground">Nenhuma venda em aberto.</p>
+            </div>
           ) : (
             <ul className="divide-y divide-border/70">
-              {openSalesOldestFirst.slice(0, 5).map((s) => (
-                <li key={s.id} className="flex items-center gap-3 px-4 py-2.5">
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-foreground">{whoOf(s) || "Venda sem cliente"}</p>
-                    <p className="truncate text-xs text-muted-foreground">
-                      {summarizeSaleItems(s.description, 2)} · {formatDateTime(s.date)}
-                    </p>
-                  </div>
-                  <span className="shrink-0 text-sm font-semibold tabular-nums text-foreground">{fmt(saleBalance(s))}</span>
-                  <Button size="sm" className="h-8 shrink-0 font-semibold" onClick={() => setSaleToReceive(s)}>
-                    Receber
-                  </Button>
-                </li>
-              ))}
+              {openSalesOldestFirst.slice(0, 5).map((s) => {
+                const client = s.relatedClientId ? clientById.get(s.relatedClientId) : undefined;
+                return (
+                  <li key={s.id} className="flex items-center gap-3 px-4 py-2.5">
+                    <ClientAvatar name={client?.name || "?"} className="h-9 w-9 text-xs" />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-semibold text-foreground">{whoOf(s) || "Venda sem cliente"}</p>
+                      <p className="truncate text-xs text-muted-foreground">
+                        {summarizeSaleItems(s.description, 2)} · {formatDateTime(s.date)}
+                      </p>
+                    </div>
+                    <span className="shrink-0 text-sm font-bold tabular-nums text-amber-700">{fmt(saleBalance(s))}</span>
+                    <Button size="sm" className="h-8 shrink-0 font-semibold" onClick={() => setSaleToReceive(s)}>
+                      Receber
+                    </Button>
+                  </li>
+                );
+              })}
               {openSalesOldestFirst.length > 5 && (
                 <li className="px-4 py-2 text-xs text-muted-foreground">
                   + {plural(openSalesOldestFirst.length - 5, "venda", "vendas")} em Recebimentos
@@ -390,48 +354,61 @@ const FinancialPage: React.FC = () => {
               )}
             </ul>
           )}
-        </section>
+        </Panel>
 
-        {/* Últimas movimentações */}
-        <section className="overflow-hidden rounded-2xl border border-border/80 bg-card shadow-sm" aria-label="Últimas movimentações">
-          <div className="flex items-baseline justify-between gap-2 border-b border-border/70 px-4 py-3">
-            <h2 className="text-base font-semibold text-foreground">Últimas movimentações</h2>
-            <Link to="/financial/reports" className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline">
+        <Panel
+          title="Últimas movimentações"
+          icon={ArrowLeftRight}
+          tone="slate"
+          description="Vendas, recebimentos, compras e saídas"
+          actions={
+            <Link to="/financial/reports" className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline">
               Relatório completo <ArrowRight className="h-3.5 w-3.5" />
             </Link>
-          </div>
+          }
+        >
           {lastMovements.length === 0 ? (
             <p className="px-4 py-10 text-center text-sm text-muted-foreground">Nenhuma movimentação no período.</p>
           ) : (
             <ul className="divide-y divide-border/70">
               {lastMovements.map((t) => {
-                const kind = classifyTransaction(t);
+                const mv = movementVisual(t);
                 const title =
                   isSale(t)
                     ? summarizeSaleItems(t.description, 2)
                     : t.category === "Recebimento"
-                      ? [t.amount < 0 ? "Estorno" : t.paymentMethod || "Recebimento", whoOf(t)].filter(Boolean).join(" · ")
+                      ? whoOf(t) || t.description
                       : t.description;
+                const cancelledSale = isSale(t) && isCancelled(t);
                 return (
                   <li key={t.id} className="flex items-center gap-3 px-4 py-2.5">
+                    <IconChip icon={mv.icon} tone={cancelledSale ? "slate" : mv.tone} size="sm" />
                     <div className="min-w-0 flex-1">
-                      <p className={cn("truncate text-sm text-foreground", isSale(t) && isCancelled(t) && "text-muted-foreground line-through")}>
+                      <p className={cn("truncate text-sm font-semibold text-foreground", cancelledSale && "text-muted-foreground line-through")}>
                         {title}
                       </p>
-                      <p className="truncate text-xs text-muted-foreground">
-                        {kind.label} · {formatDateTime(t.date, t.time)}
-                        {isSale(t) && whoOf(t) ? ` · ${whoOf(t)}` : ""}
-                      </p>
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
+                        <span className={cn("font-medium", TONES[mv.tone].text)}>{cancelledSale ? "Venda cancelada" : mv.label}</span>
+                        <span className="tabular-nums">{formatDateTime(t.date, t.time)}</span>
+                        {t.category === "Recebimento" && t.amount > 0 && t.paymentMethod && <PaymentMethodBadge method={t.paymentMethod} />}
+                        {isSale(t) && whoOf(t) && <span className="truncate">{whoOf(t)}</span>}
+                      </div>
                     </div>
-                    <span className="shrink-0 text-sm font-medium tabular-nums text-foreground">
-                      {t.amount < 0 || t.type === "expense" ? `− ${fmt(Math.abs(t.amount))}` : fmt(t.amount)}
+                    <span
+                      className={cn(
+                        "shrink-0 text-sm font-bold tabular-nums",
+                        cancelledSale ? "text-muted-foreground line-through" : mv.sign === "+" ? "text-emerald-700" : mv.sign === "−" ? TONES[mv.tone].text : "text-foreground"
+                      )}
+                    >
+                      {mv.sign ? `${mv.sign} ` : ""}
+                      {fmt(Math.abs(t.amount))}
                     </span>
                   </li>
                 );
               })}
             </ul>
           )}
-        </section>
+        </Panel>
       </div>
 
       <Dialog open={drill !== null} onOpenChange={(open) => !open && setDrill(null)}>
@@ -439,7 +416,10 @@ const FinancialPage: React.FC = () => {
           {drill && (
             <>
               <DialogHeader>
-                <DialogTitle>{drillContent[drill].title}</DialogTitle>
+                <DialogTitle className="flex items-center gap-2.5">
+                  <IconChip icon={drillContent[drill].concept.icon} tone={drillContent[drill].concept.tone} size="sm" />
+                  {drillContent[drill].title}
+                </DialogTitle>
                 <DialogDescription>{drill === "aberto" ? "Vendas com saldo, da mais antiga para a mais nova." : periodLabel}</DialogDescription>
               </DialogHeader>
               <div className="-mx-1 flex-1 overflow-y-auto px-1">
@@ -448,10 +428,12 @@ const FinancialPage: React.FC = () => {
                     {drillContent[drill].rows.map((row) => (
                       <li key={row.id} className="flex items-center gap-3 px-3 py-2.5">
                         <div className="min-w-0 flex-1">
-                          <p className="break-words text-sm font-medium text-foreground">{row.label}</p>
+                          <p className="break-words text-sm font-semibold text-foreground">{row.label}</p>
                           <p className="text-xs text-muted-foreground">{row.sub}</p>
                         </div>
-                        <span className="shrink-0 text-sm font-semibold tabular-nums">{signed(row.value)}</span>
+                        <span className={cn("shrink-0 text-sm font-bold tabular-nums", row.value < 0 ? "text-rose-700" : TONES[drillContent[drill].concept.tone].text)}>
+                          {signed(row.value)}
+                        </span>
                         {row.sale && (
                           <Button
                             size="sm"
@@ -475,7 +457,9 @@ const FinancialPage: React.FC = () => {
               </div>
               <div className="flex items-center justify-between border-t border-border pt-3 text-sm font-semibold">
                 <span>Total</span>
-                <span className="tabular-nums">{signed(drillContent[drill].rows.reduce((s, r) => s + r.value, 0))}</span>
+                <span className={cn("text-base font-bold tabular-nums", TONES[drillContent[drill].concept.tone].text)}>
+                  {signed(drillContent[drill].rows.reduce((s, r) => s + r.value, 0))}
+                </span>
               </div>
             </>
           )}

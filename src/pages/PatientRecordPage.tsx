@@ -110,7 +110,7 @@ import { Calendar } from "lucide-react";
 import SaleDetailModal from "@/components/SaleDetailModal";
 import CancelSaleDialog from "@/components/CancelSaleDialog";
 import DeleteSaleDialog from "@/components/DeleteSaleDialog";
-import { PaymentChoice, paymentMethodIcon } from "@/components/sales/PaymentChoice";
+import { PaymentChoice } from "@/components/sales/PaymentChoice";
 import { ReceivePaymentDialog } from "@/components/sales/ReceivePaymentDialog";
 import { ConvertBudgetDialog } from "@/components/sales/ConvertBudgetDialog";
 import { SaleStatusBadge } from "@/components/sales/SaleStatusBadge";
@@ -125,8 +125,12 @@ import {
   saleBalance,
   saleStatus,
   summarizeSaleItems,
+  toCents,
   type PayMode,
 } from "@/lib/salePayment";
+import { AdjustmentLines, PriceAdjustmentFields, usePriceAdjustments } from "@/components/sales/PriceAdjustments";
+import { IconChip, PaymentMethodBadge } from "@/components/finance/FinanceUI";
+import { CONCEPTS, SALE_STATUS_VISUAL, TONES, categoryVisual, type Concept, type Tone } from "@/components/finance/financeTheme";
 
 import {
   readPatientDocuments,
@@ -611,7 +615,10 @@ const PatientRecordPage = () => {
     setSaleUnitPrice(item?.price || 0);
   }, [saleSelectedItemId, catalogItemsFromHook]);
 
-  const saleTotal = saleItems.reduce((sum, it) => sum + it.qty * it.unitPrice, 0);
+  const saleSubtotal = saleItems.reduce((sum, it) => sum + it.qty * it.unitPrice, 0);
+  // Desconto/acréscimo — o mesmo do PDV (% e R$ andam juntos).
+  const saleAdj = usePriceAdjustments(saleSubtotal);
+  const saleTotal = Math.max(0, toCents(saleSubtotal - saleAdj.discountAmount + saleAdj.surchargeAmount));
 
   const addItemToSale = () => {
     if (!saleSelectedItemId) { toast.error("Selecione um item."); return; }
@@ -642,6 +649,7 @@ const PatientRecordPage = () => {
     setSaleUnitPrice(0);
     setSalePayMode("now");
     setSalePaymentMethod(undefined);
+    saleAdj.reset();
     setSaleModalOpen(true);
   };
 
@@ -670,6 +678,8 @@ const PatientRecordPage = () => {
         relatedClientId: currentClient.id,
         paymentMethod: salePaymentMethod,
         status: "pending",
+        discountAmount: saleAdj.discountAmount > 0 ? saleAdj.discountAmount : undefined,
+        surchargeAmount: saleAdj.surchargeAmount > 0 ? saleAdj.surchargeAmount : undefined,
         responsible,
         observations: buildSaleObservations(saleAppointmentId || undefined, saleObservations),
       });
@@ -705,6 +715,7 @@ const PatientRecordPage = () => {
       await Promise.all([refetchCatalog(), refetchFinancial()]);
       setSaleModalOpen(false);
       setSaleItems([]);
+      saleAdj.reset();
       if (salePayMode === "now" && saleTotal > 0) {
         if (received) toast.success(`Venda registrada e recebida (${salePaymentMethod}).`);
         else toast.warning("Venda registrada, mas o recebimento não foi gravado. Use “Receber” na venda.");
@@ -3036,19 +3047,22 @@ const PatientRecordPage = () => {
           </TabsContent>
 
           <TabsContent value="financial" className="mt-4">
-            {/* Vendas e pagamentos numa lista só (antes: sub-abas "Vendas" e
-                "Financeiro", com a baixa num formulário à parte). */}
+            {/* Cada venda mostra os próprios pagamentos embaixo dela. Antes havia
+                uma segunda lista "Pagamentos recebidos" com os mesmos valores —
+                parecia pagamento em dobro. O estorno fica no menu (⋯) da venda. */}
             <Tabs value={financeTab} onValueChange={(v) => setFinanceTab(v as "vendas" | "orcamentos")} className="w-full">
               <section className="overflow-hidden rounded-2xl border border-border/80 bg-card shadow-sm" aria-label="Financeiro do paciente">
                 <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/70 p-3 sm:p-4">
                   <TabsList className="h-auto rounded-xl bg-muted p-1">
-                    <TabsTrigger value="vendas" className="rounded-lg px-3 py-1.5 text-sm font-medium data-[state=active]:shadow-sm">
+                    <TabsTrigger value="vendas" className="gap-1.5 rounded-lg px-3 py-1.5 text-sm font-semibold data-[state=active]:shadow-sm">
+                      <CONCEPTS.faturado.icon className="h-4 w-4 text-sky-600" aria-hidden />
                       Vendas
-                      <span className="ml-1.5 text-xs tabular-nums text-muted-foreground">{animalSalesTransactions.length}</span>
+                      <span className="rounded-full bg-sky-100 px-1.5 text-xs font-bold tabular-nums text-sky-700">{animalSalesTransactions.length}</span>
                     </TabsTrigger>
-                    <TabsTrigger value="orcamentos" className="rounded-lg px-3 py-1.5 text-sm font-medium data-[state=active]:shadow-sm">
+                    <TabsTrigger value="orcamentos" className="gap-1.5 rounded-lg px-3 py-1.5 text-sm font-semibold data-[state=active]:shadow-sm">
+                      <FileTextIcon className="h-4 w-4 text-violet-600" aria-hidden />
                       Orçamentos
-                      <span className="ml-1.5 text-xs tabular-nums text-muted-foreground">{patientBudgets.length}</span>
+                      <span className="rounded-full bg-violet-100 px-1.5 text-xs font-bold tabular-nums text-violet-700">{patientBudgets.length}</span>
                     </TabsTrigger>
                   </TabsList>
                   {financeTab === "vendas" ? (
@@ -3065,115 +3079,156 @@ const PatientRecordPage = () => {
                 <TabsContent value="vendas" className="m-0">
                   {animalSalesTransactions.length === 0 ? (
                     <div className="px-4 py-12 text-center">
-                      <p className="text-sm font-medium text-foreground">Nenhuma venda para este paciente</p>
+                      <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-sky-50 text-sky-600 ring-1 ring-sky-100">
+                        <CONCEPTS.faturado.icon className="h-6 w-6" aria-hidden />
+                      </span>
+                      <p className="mt-3 text-sm font-semibold text-foreground">Nenhuma venda para este paciente</p>
                       <p className="mt-1 text-sm text-muted-foreground">Registre o que foi cobrado no atendimento em “Nova venda”.</p>
                     </div>
                   ) : (
                     <>
-                      <div className="flex flex-wrap gap-x-6 gap-y-1 border-b border-border/70 bg-muted/30 px-4 py-2.5 text-sm">
-                        <span className="text-muted-foreground">
-                          Total <span className="font-semibold tabular-nums text-foreground">{formatCurrencyBRL(salesTotals.total)}</span>
-                        </span>
-                        <span className="text-muted-foreground">
-                          Recebido <span className="font-semibold tabular-nums text-foreground">{formatCurrencyBRL(salesTotals.received)}</span>
-                        </span>
-                        {salesTotals.open > 0 && (
-                          <span className="text-amber-800">
-                            A receber <span className="font-semibold tabular-nums">{formatCurrencyBRL(salesTotals.open)}</span>
-                          </span>
-                        )}
+                      {/* Resumo do paciente */}
+                      <div className="grid grid-cols-3 gap-2 border-b border-border/70 bg-muted/20 p-3 sm:p-4">
+                        {(
+                          [
+                            { label: "Total", value: salesTotals.total, concept: CONCEPTS.faturado, strong: false },
+                            { label: "Recebido", value: salesTotals.received, concept: CONCEPTS.recebido, strong: false },
+                            { label: "A receber", value: salesTotals.open, concept: CONCEPTS.aReceber, strong: salesTotals.open > 0 },
+                          ] as Array<{ label: string; value: number; concept: Concept; strong: boolean }>
+                        ).map((s) => (
+                          <div
+                            key={s.label}
+                            className={cn(
+                              "flex min-w-0 items-center gap-2.5 rounded-xl border px-2.5 py-2 sm:px-3",
+                              s.strong ? TONES.amber.card : "border-border/70 bg-card"
+                            )}
+                          >
+                            <IconChip icon={s.concept.icon} tone={s.concept.tone} size="sm" className="max-sm:hidden" />
+                            <div className="min-w-0">
+                              <p className={cn("text-[11px] font-semibold uppercase tracking-wide", s.strong ? "text-amber-800" : "text-muted-foreground")}>
+                                {s.label}
+                              </p>
+                              <p
+                                className={cn(
+                                  "truncate text-sm font-bold tabular-nums sm:text-base",
+                                  s.label === "A receber" ? (s.value > 0 ? "text-amber-700" : "text-muted-foreground") : TONES[s.concept.tone].text
+                                )}
+                              >
+                                {formatCurrencyBRL(s.value)}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
                       </div>
+
                       <ul className="divide-y divide-border/70">
                         {animalSalesTransactions.map((t) => {
                           const balance = saleBalance(t);
                           const status = saleStatus(t);
+                          const statusVisual = SALE_STATUS_VISUAL[status.key];
+                          const cancelled = status.key === "cancelled";
                           const { appointmentId: linkedAppointmentId } = parseSaleObservations(t.observations);
                           const app = linkedAppointmentId ? animalAppointments.find((a) => a.id === linkedAppointmentId) : undefined;
-                          const methods = t.paymentMethod ? [t.paymentMethod] : receiptMethods.get(t.id) ?? [];
-                          const meta = [
-                            formatDateTime(t.date, t.time),
-                            methods.join(" + "),
-                            app ? [displayAppointmentType(app.type), app.vet].filter(Boolean).join(" · ") : "",
-                          ].filter(Boolean);
+                          const saleReceipts = animalReceipts
+                            .filter((r) => isReceiptOfSale(r, t.id))
+                            .sort((a, b) => `${a.date}T${a.time}`.localeCompare(`${b.date}T${b.time}`));
+                          const refundable = cancelled ? [] : saleReceipts.filter((r) => r.amount > 0);
                           return (
-                            <li key={t.id} className="relative flex flex-col gap-2 px-3 py-3 transition-colors hover:bg-muted/40 sm:flex-row sm:items-center sm:gap-4 sm:px-4">
+                            <li key={t.id} className="relative flex items-start gap-3 px-3 py-3 transition-colors hover:bg-muted/40 sm:px-4">
+                              <IconChip icon={statusVisual.icon} tone={statusVisual.tone} className="mt-0.5" />
                               <div className="min-w-0 flex-1">
-                                {/* Botão "esticado": a linha toda abre o detalhe; o "Receber" fica por cima (z-10). */}
-                                <button
-                                  type="button"
-                                  onClick={() => setSelectedPdvSale(t)}
-                                  className="block w-full text-left font-medium leading-snug text-foreground after:absolute after:inset-0 focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-inset focus-visible:after:ring-primary/60"
-                                >
-                                  <span className={cn("[overflow-wrap:anywhere]", status.key === "cancelled" && "text-muted-foreground line-through")}>
-                                    {summarizeSaleItems(t.description, 3)}
-                                  </span>
-                                </button>
-                                <p className="mt-0.5 text-xs text-muted-foreground">{meta.join(" · ")}</p>
-                              </div>
-                              <div className="flex items-center justify-between gap-3 sm:shrink-0 sm:justify-end">
-                                <div className="sm:text-right">
-                                  <p className="font-semibold tabular-nums text-foreground">{formatCurrencyBRL(t.amount)}</p>
-                                  {status.key === "partial" && (
-                                    <p className="text-xs text-amber-800">falta {formatCurrencyBRL(balance)}</p>
-                                  )}
+                                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+                                  <div className="min-w-0">
+                                    {/* Botão "esticado": a linha toda abre o detalhe; Receber e ⋯ ficam por cima (z-10). */}
+                                    <button
+                                      type="button"
+                                      onClick={() => setSelectedPdvSale(t)}
+                                      className="block w-full text-left font-semibold leading-snug text-foreground after:absolute after:inset-0 focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-inset focus-visible:after:ring-primary/60"
+                                    >
+                                      <span className={cn("[overflow-wrap:anywhere]", cancelled && "text-muted-foreground line-through")}>
+                                        {summarizeSaleItems(t.description, 3)}
+                                      </span>
+                                    </button>
+                                    <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
+                                      <span className="tabular-nums">{formatDateTime(t.date, t.time)}</span>
+                                      {app && (
+                                        <span className="inline-flex items-center gap-1">
+                                          <StethoscopeIcon className="h-3 w-3 text-teal-600" aria-hidden />
+                                          {[displayAppointmentType(app.type), app.vet].filter(Boolean).join(" · ")}
+                                        </span>
+                                      )}
+                                      {(t.discountAmount ?? 0) > 0 && (
+                                        <span className="font-medium text-emerald-700">desconto {formatCurrencyBRL(t.discountAmount ?? 0)}</span>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center justify-between gap-2 sm:shrink-0 sm:justify-end">
+                                    <p className={cn("text-base font-bold tabular-nums text-foreground", cancelled && "text-muted-foreground line-through")}>
+                                      {formatCurrencyBRL(t.amount)}
+                                    </p>
+                                    <div className="flex items-center gap-1.5">
+                                      {/* No celular o ícone à esquerda já mostra a situação — o selo sai para caber Receber e ⋯. */}
+                                      <SaleStatusBadge sale={t} className={cn(balance > 0 && "max-sm:hidden")} />
+                                      {balance > 0 && (
+                                        <Button size="sm" className="relative z-10 h-8 font-semibold" onClick={() => setSaleToReceive(t)}>
+                                          Receber
+                                        </Button>
+                                      )}
+                                      <DropdownMenu modal={false}>
+                                        <DropdownMenuTrigger asChild>
+                                          <Button variant="ghost" size="icon" className="relative z-10 h-8 w-8" aria-label="Mais ações da venda">
+                                            <MoreHorizontal className="h-4 w-4" />
+                                          </Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent align="end" className="min-w-[15rem]">
+                                          <DropdownMenuItem onClick={() => setSelectedPdvSale(t)}>Ver detalhes e comprovante</DropdownMenuItem>
+                                          {refundable.map((r) => (
+                                            <DropdownMenuItem key={r.id} className="text-amber-800 focus:text-amber-800" onClick={() => setReceiptIdToRefund(r.id)}>
+                                              <Undo2 className="mr-2 h-4 w-4" aria-hidden />
+                                              Estornar {formatCurrencyBRL(r.amount)}
+                                              {r.paymentMethod ? ` (${r.paymentMethod})` : ""}
+                                            </DropdownMenuItem>
+                                          ))}
+                                          {!cancelled && (
+                                            <DropdownMenuItem className="text-red-700 focus:text-red-700" onClick={() => setPdvSaleToCancel(t)}>
+                                              Cancelar venda
+                                            </DropdownMenuItem>
+                                          )}
+                                        </DropdownMenuContent>
+                                      </DropdownMenu>
+                                    </div>
+                                  </div>
                                 </div>
-                                <div className="flex items-center gap-2">
-                                  <SaleStatusBadge sale={t} />
-                                  {balance > 0 && (
-                                    <Button size="sm" className="relative z-10 h-8 font-semibold" onClick={() => setSaleToReceive(t)}>
-                                      Receber
-                                    </Button>
-                                  )}
-                                </div>
-                              </div>
-                            </li>
-                          );
-                        })}
-                      </ul>
-                    </>
-                  )}
 
-                  {animalReceipts.length > 0 && (
-                    <>
-                      <h3 className="border-y border-border/70 bg-muted/30 px-4 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                        Pagamentos recebidos
-                      </h3>
-                      <ul className="divide-y divide-border/70">
-                        {animalReceipts.map((r) => {
-                          const sale = animalSalesTransactions.find((s) => isReceiptOfSale(r, s.id));
-                          const isReversal = r.amount < 0;
-                          const MethodIcon = paymentMethodIcon({ name: r.paymentMethod || "" });
-                          return (
-                            <li key={r.id} className="flex items-center gap-3 px-3 py-2.5 sm:px-4">
-                              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground" aria-hidden>
-                                {isReversal ? <Undo2 className="h-4 w-4" /> : <MethodIcon className="h-4 w-4" />}
-                              </span>
-                              <div className="min-w-0 flex-1">
-                                <p className="text-sm font-medium text-foreground">
-                                  {isReversal ? "Estorno" : r.paymentMethod || "Pagamento"}
-                                </p>
-                                <p className="truncate text-xs text-muted-foreground">
-                                  {formatDateTime(r.date, r.time)} · {sale ? summarizeSaleItems(sale.description, 2) : r.description}
-                                </p>
+                                {/* Pagamentos desta venda (não são outra cobrança) */}
+                                {(saleReceipts.length > 0 || status.key === "partial") && (
+                                  <ul className="mt-2 space-y-1 border-l-2 border-border/80 pl-2.5">
+                                    {saleReceipts.map((r) => {
+                                      const reversal = r.amount < 0;
+                                      return (
+                                        <li key={r.id} className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs">
+                                          {reversal ? (
+                                            <Undo2 className="h-3.5 w-3.5 text-rose-600" aria-hidden />
+                                          ) : (
+                                            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" aria-hidden />
+                                          )}
+                                          <span className={cn("font-semibold tabular-nums", reversal ? "text-rose-700" : "text-emerald-700")}>
+                                            {reversal ? "Estornado" : "Pago"} {formatCurrencyBRL(Math.abs(r.amount))}
+                                          </span>
+                                          {!reversal && r.paymentMethod && <PaymentMethodBadge method={r.paymentMethod} />}
+                                          <span className="tabular-nums text-muted-foreground">{formatDateTime(r.date, r.time)}</span>
+                                        </li>
+                                      );
+                                    })}
+                                    {status.key === "partial" && (
+                                      <li className="flex items-center gap-2 text-xs font-semibold text-amber-700">
+                                        <CONCEPTS.aReceber.icon className="h-3.5 w-3.5" aria-hidden />
+                                        Falta {formatCurrencyBRL(balance)}
+                                      </li>
+                                    )}
+                                  </ul>
+                                )}
                               </div>
-                              <p className={cn("shrink-0 text-sm font-semibold tabular-nums", isReversal ? "text-red-700" : "text-foreground")}>
-                                {isReversal ? `− ${formatCurrencyBRL(Math.abs(r.amount))}` : formatCurrencyBRL(r.amount)}
-                              </p>
-                              {/* Estornar = desfazer esta baixa (o valor volta a ficar em aberto). Venda
-                                  cancelada já tem o estorno automático — desfazer aqui deixaria o saldo negativo. */}
-                              {!isReversal && sale?.status !== "cancelled" && (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-8 shrink-0 px-2 text-muted-foreground hover:bg-amber-50 hover:text-amber-800"
-                                  onClick={() => setReceiptIdToRefund(r.id)}
-                                  title="Estornar pagamento"
-                                  aria-label="Estornar pagamento"
-                                >
-                                  <Undo2 className="h-4 w-4 sm:mr-1.5" />
-                                  <span className="hidden sm:inline">Estornar</span>
-                                </Button>
-                              )}
                             </li>
                           );
                         })}
@@ -3185,7 +3240,10 @@ const PatientRecordPage = () => {
                 <TabsContent value="orcamentos" className="m-0">
                   {patientBudgets.length === 0 ? (
                     <div className="px-4 py-12 text-center">
-                      <p className="text-sm font-medium text-foreground">Nenhum orçamento para este paciente</p>
+                      <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-violet-50 text-violet-600 ring-1 ring-violet-100">
+                        <FileTextIcon className="h-6 w-6" aria-hidden />
+                      </span>
+                      <p className="mt-3 text-sm font-semibold text-foreground">Nenhum orçamento para este paciente</p>
                       <p className="mt-1 text-sm text-muted-foreground">Monte uma proposta em “Novo orçamento” e envie pelo WhatsApp.</p>
                     </div>
                   ) : (
@@ -3198,68 +3256,78 @@ const PatientRecordPage = () => {
                         const validUntil = parseLocalDate(b.date);
                         validUntil.setDate(validUntil.getDate() + BUDGET_VALIDITY_DAYS);
                         const validLabel = format(validUntil, "dd/MM/yyyy");
-                        const badge: Record<string, { label: string; className: string }> = {
-                          draft: { label: "Rascunho", className: "bg-muted text-muted-foreground ring-border" },
-                          approved: { label: "Aprovado", className: "bg-sky-50 text-sky-700 ring-sky-600/15" },
-                          converted: { label: "Virou venda", className: "bg-emerald-50 text-emerald-700 ring-emerald-600/15" },
-                          cancelled: { label: "Cancelado", className: "bg-muted text-muted-foreground ring-border" },
-                          expired: { label: "Vencido", className: "bg-red-50 text-red-700 ring-red-600/15" },
+                        const badge: Record<string, { label: string; tone: Tone }> = {
+                          draft: { label: "Rascunho", tone: "slate" },
+                          approved: { label: "Aprovado", tone: "sky" },
+                          converted: { label: "Virou venda", tone: "emerald" },
+                          cancelled: { label: "Cancelado", tone: "slate" },
+                          expired: { label: "Vencido", tone: "rose" },
                         };
                         const st = badge[expired ? "expired" : b.status] ?? badge.draft;
                         const names = b.items.map((it) => it.name);
                         return (
-                          <li key={b.id} className="flex flex-col gap-2 px-3 py-3 sm:flex-row sm:items-center sm:gap-4 sm:px-4">
-                            <div className="min-w-0 flex-1">
-                              <p className={cn("break-words font-medium leading-snug text-foreground", b.status === "cancelled" && "text-muted-foreground line-through")}>
-                                {names.slice(0, 3).join(" · ")}
-                                {names.length > 3 && <span className="text-muted-foreground"> +{names.length - 3}</span>}
-                              </p>
-                              <p className="mt-0.5 text-xs text-muted-foreground">
-                                {formatDateTime(b.date)}
-                                {!closed && (expired ? ` · venceu em ${validLabel}` : ` · válido até ${validLabel}`)}
-                                {b.notes && <> · {b.notes}</>}
-                              </p>
-                            </div>
-                            <div className="flex flex-wrap items-center justify-between gap-2 sm:shrink-0 sm:justify-end">
-                              <p className="font-semibold tabular-nums text-foreground">{formatCurrencyBRL(total)}</p>
-                              <div className="flex items-center gap-1.5">
-                                <span className={cn("inline-flex items-center whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset", st.className)}>
-                                  {st.label}
-                                </span>
-                                {canConvert && (
-                                  <Button size="sm" className="h-8 font-semibold" onClick={() => openConvertModal(b)}>
-                                    Converter em venda
-                                  </Button>
-                                )}
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-8 w-8"
-                                  title="Enviar orçamento por WhatsApp (com link do PDF, sem precisar anexar)"
-                                  aria-label="Enviar orçamento por WhatsApp"
-                                  onClick={() => void sendBudgetViaWhatsApp(b)}
-                                >
-                                  <SiWhatsapp className="h-4 w-4 text-[#25D366]" />
-                                </Button>
-                                <DropdownMenu modal={false}>
-                                  <DropdownMenuTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Mais ações do orçamento">
-                                      <MoreHorizontal className="h-4 w-4" />
+                          <li key={b.id} className="flex items-start gap-3 px-3 py-3 sm:px-4">
+                            <IconChip icon={FileTextIcon} tone={b.status === "cancelled" ? "slate" : "violet"} className="mt-0.5" />
+                            <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
+                              <div className="min-w-0 flex-1">
+                                <p className={cn("break-words font-semibold leading-snug text-foreground", b.status === "cancelled" && "text-muted-foreground line-through")}>
+                                  {names.slice(0, 3).join(" · ")}
+                                  {names.length > 3 && <span className="font-normal text-muted-foreground"> +{names.length - 3}</span>}
+                                </p>
+                                <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
+                                  <span className="tabular-nums">{formatDateTime(b.date)}</span>
+                                  {!closed && (
+                                    <span className={cn("font-medium", expired ? "text-rose-700" : "text-muted-foreground")}>
+                                      {expired ? `venceu em ${validLabel}` : `válido até ${validLabel}`}
+                                    </span>
+                                  )}
+                                  {(b.discountAmount ?? 0) > 0 && (
+                                    <span className="font-medium text-emerald-700">desconto {formatCurrencyBRL(b.discountAmount ?? 0)}</span>
+                                  )}
+                                  {b.notes && <span className="italic">{b.notes}</span>}
+                                </div>
+                              </div>
+                              <div className="flex flex-wrap items-center justify-between gap-2 sm:shrink-0 sm:justify-end">
+                                <p className="text-base font-bold tabular-nums text-foreground">{formatCurrencyBRL(total)}</p>
+                                <div className="flex items-center gap-1.5">
+                                  <span className={cn("inline-flex items-center whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-semibold ring-1 ring-inset", TONES[st.tone].badge)}>
+                                    {st.label}
+                                  </span>
+                                  {canConvert && (
+                                    <Button size="sm" className="h-8 font-semibold" onClick={() => openConvertModal(b)}>
+                                      Converter em venda
                                     </Button>
-                                  </DropdownMenuTrigger>
-                                  <DropdownMenuContent align="end">
-                                    {!closed && <DropdownMenuItem onClick={() => startEditBudget(b)}>Editar</DropdownMenuItem>}
-                                    {!closed && b.status !== "approved" && (
-                                      <DropdownMenuItem onClick={() => void approveBudget(b.id)}>Marcar como aprovado</DropdownMenuItem>
-                                    )}
-                                    <DropdownMenuItem onClick={() => void printBudget(b)}>Imprimir (PDF)</DropdownMenuItem>
-                                    {!closed && (
-                                      <DropdownMenuItem className="text-red-700 focus:text-red-700" onClick={() => void cancelBudget(b.id)}>
-                                        Cancelar orçamento
-                                      </DropdownMenuItem>
-                                    )}
-                                  </DropdownMenuContent>
-                                </DropdownMenu>
+                                  )}
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8"
+                                    title="Enviar orçamento por WhatsApp (com link do PDF, sem precisar anexar)"
+                                    aria-label="Enviar orçamento por WhatsApp"
+                                    onClick={() => void sendBudgetViaWhatsApp(b)}
+                                  >
+                                    <SiWhatsapp className="h-4 w-4 text-[#25D366]" />
+                                  </Button>
+                                  <DropdownMenu modal={false}>
+                                    <DropdownMenuTrigger asChild>
+                                      <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Mais ações do orçamento">
+                                        <MoreHorizontal className="h-4 w-4" />
+                                      </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end">
+                                      {!closed && <DropdownMenuItem onClick={() => startEditBudget(b)}>Editar</DropdownMenuItem>}
+                                      {!closed && b.status !== "approved" && (
+                                        <DropdownMenuItem onClick={() => void approveBudget(b.id)}>Marcar como aprovado</DropdownMenuItem>
+                                      )}
+                                      <DropdownMenuItem onClick={() => void printBudget(b)}>Imprimir (PDF)</DropdownMenuItem>
+                                      {!closed && (
+                                        <DropdownMenuItem className="text-red-700 focus:text-red-700" onClick={() => void cancelBudget(b.id)}>
+                                          Cancelar orçamento
+                                        </DropdownMenuItem>
+                                      )}
+                                    </DropdownMenuContent>
+                                  </DropdownMenu>
+                                </div>
                               </div>
                             </div>
                           </li>
@@ -3274,15 +3342,24 @@ const PatientRecordPage = () => {
             <AlertDialog open={!!receiptIdToRefund} onOpenChange={(open) => !open && setReceiptIdToRefund(null)}>
               <AlertDialogContent>
                 <AlertDialogHeader>
-                  <AlertDialogTitle>Estornar pagamento?</AlertDialogTitle>
+                  <AlertDialogTitle>Estornar este pagamento?</AlertDialogTitle>
                   <AlertDialogDescription>
-                    O valor deste recebimento volta a aparecer como “a receber” na venda.
+                    {(() => {
+                      const r = animalReceipts.find((x) => x.id === receiptIdToRefund);
+                      return r ? (
+                        <>
+                          <strong className="text-foreground">{formatCurrencyBRL(r.amount)}</strong>
+                          {r.paymentMethod ? ` em ${r.paymentMethod}` : ""}, recebido em {formatDateTime(r.date, r.time)}.{" "}
+                        </>
+                      ) : null;
+                    })()}
+                    Use quando o pagamento foi lançado por engano: ele é apagado e o valor volta a ficar “a receber” na venda.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                   <AlertDialogCancel>Voltar</AlertDialogCancel>
                   <AlertDialogAction onClick={handleConfirmEstorno} className="bg-amber-600 hover:bg-amber-700">
-                    Estornar
+                    Estornar pagamento
                   </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
@@ -3791,7 +3868,10 @@ const PatientRecordPage = () => {
       <Dialog open={saleModalOpen} onOpenChange={(open) => { if (!savingSale) setSaleModalOpen(open); }}>
         <DialogContent className="max-h-[92vh] min-w-0 overflow-y-auto sm:max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Nova venda</DialogTitle>
+            <DialogTitle className="flex items-center gap-2.5">
+              <IconChip icon={CONCEPTS.faturado.icon} tone="sky" size="sm" />
+              Nova venda
+            </DialogTitle>
             <DialogDescription>
               {currentAnimal && currentClient
                 ? `${currentAnimal.name} · ${currentClient.name}`
@@ -3835,13 +3915,18 @@ const PatientRecordPage = () => {
 
               {saleItems.length > 0 ? (
                 <ul className="divide-y divide-border/70 overflow-hidden rounded-xl border border-border">
-                  {saleItems.map((it, idx) => (
+                  {saleItems.map((it, idx) => {
+                    const cat = categoryVisual(
+                      catalogItemsFromHook.find((c) => c.id === it.itemId)?.category ?? (it.type === "product" ? "produto" : "servico")
+                    );
+                    return (
                     <li key={`${it.itemId}-${idx}`} className="flex items-center gap-3 px-3 py-2">
+                      <IconChip icon={cat.icon} tone={cat.tone} size="sm" />
                       <div className="min-w-0 flex-1">
-                        <p className="break-words text-sm font-medium text-foreground">{it.name}</p>
+                        <p className="break-words text-sm font-semibold text-foreground">{it.name}</p>
                         <p className="text-xs text-muted-foreground">{it.qty} × {formatCurrencyBRL(it.unitPrice)}</p>
                       </div>
-                      <span className="shrink-0 text-sm font-semibold tabular-nums">{formatCurrencyBRL(it.qty * it.unitPrice)}</span>
+                      <span className="shrink-0 text-sm font-bold tabular-nums">{formatCurrencyBRL(it.qty * it.unitPrice)}</span>
                       <button
                         type="button"
                         onClick={() => removeSaleItem(it.itemId, idx)}
@@ -3851,10 +3936,19 @@ const PatientRecordPage = () => {
                         <FaTrashAlt className="h-3.5 w-3.5" />
                       </button>
                     </li>
-                  ))}
-                  <li className="flex items-baseline justify-between bg-muted/30 px-3 py-2">
-                    <span className="text-sm font-medium text-foreground">Total</span>
-                    <span className="text-lg font-semibold tabular-nums text-foreground">{formatCurrencyBRL(saleTotal)}</span>
+                    );
+                  })}
+                  <li className="space-y-1 bg-muted/30 px-3 py-2.5">
+                    <AdjustmentLines
+                      subtotal={saleSubtotal}
+                      discount={saleAdj.discountAmount}
+                      surcharge={saleAdj.surchargeAmount}
+                      discountPct={saleAdj.discountPct}
+                    />
+                    <div className="flex items-baseline justify-between">
+                      <span className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Total</span>
+                      <span className="text-2xl font-bold tabular-nums text-foreground">{formatCurrencyBRL(saleTotal)}</span>
+                    </div>
                   </li>
                 </ul>
               ) : (
@@ -3863,6 +3957,8 @@ const PatientRecordPage = () => {
                 </p>
               )}
             </div>
+
+            {saleItems.length > 0 && <PriceAdjustmentFields adj={saleAdj} idPrefix="prontuarioSale" />}
 
             <PaymentChoice
               idPrefix="prontuarioSale"

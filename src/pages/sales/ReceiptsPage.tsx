@@ -21,7 +21,9 @@ import { KpiStrip } from "@/components/saas/KpiStrip";
 import { PeriodFilter, isWithinPeriod, periodRange } from "@/components/saas/PeriodFilter";
 import { ReceivePaymentDialog } from "@/components/sales/ReceivePaymentDialog";
 import { SaleStatusBadge } from "@/components/sales/SaleStatusBadge";
-import { paymentMethodIcon } from "@/components/sales/PaymentChoice";
+import { IconChip, Panel, PaymentMethodBadge } from "@/components/finance/FinanceUI";
+import { CONCEPTS, TONES, movementVisual, paymentMethodVisual } from "@/components/finance/financeTheme";
+import { ClientAvatar, speciesIcon, speciesTone } from "@/components/clients/clientVisuals";
 import { useClientsList } from "@/hooks/useSupabaseClients";
 import { useFinancialTransactions } from "@/hooks/useFinancialTransactions";
 import { useRegistryList } from "@/hooks/useRegistryList";
@@ -65,6 +67,13 @@ const ReceiptsPage = () => {
   useEffect(() => setVisible(PAGE_SIZE), [period, search, method]);
 
   const clientById = useMemo(() => new Map(clients.map((c) => [c.id, c])), [clients]);
+  const animalOfTx = useCallback(
+    (t?: FinancialTransaction | null) =>
+      t?.relatedClientId && t.relatedAnimalId
+        ? clientById.get(t.relatedClientId)?.animals.find((a) => a.id === t.relatedAnimalId)
+        : undefined,
+    [clientById]
+  );
   const whoOf = useCallback(
     (t?: FinancialTransaction | null) => {
       if (!t?.relatedClientId) return "";
@@ -194,43 +203,64 @@ const ReceiptsPage = () => {
         items={[
           {
             label: "Recebido no período",
+            concept: CONCEPTS.recebido,
             value: formatCurrencyBRL(totalReceived),
             hint: plural(periodReceipts.length, "lançamento", "lançamentos"),
+            colorValue: true,
           },
           {
             label: "A receber",
+            concept: CONCEPTS.aReceber,
             value: formatCurrencyBRL(openTotal),
             hint: openSales.length > 0 ? `${plural(openSales.length, "venda", "vendas")} · todas as datas` : "Nada em aberto",
-            tone: openTotal > 0 ? "warning" : "default",
+            colorValue: openTotal > 0,
           },
         ]}
       />
 
       {openSales.length > 0 && (
-        <section className="overflow-hidden rounded-2xl border border-border/80 bg-card shadow-sm" aria-label="A receber">
-          <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-border/70 px-4 py-3">
-            <h2 className="text-base font-semibold text-foreground">A receber</h2>
-            <p className="text-sm text-muted-foreground">
+        <Panel
+          title="A receber"
+          icon={CONCEPTS.aReceber.icon}
+          tone="amber"
+          description="Vendas com saldo em aberto, da mais antiga para a mais nova"
+          actions={
+            <span className="text-sm text-muted-foreground">
               {plural(openSales.length, "venda", "vendas")} ·{" "}
-              <span className="font-semibold tabular-nums text-amber-800">{formatCurrencyBRL(openTotal)}</span>
-            </p>
-          </div>
+              <span className="font-bold tabular-nums text-amber-700">{formatCurrencyBRL(openTotal)}</span>
+            </span>
+          }
+        >
           <ul className="divide-y divide-border/70">
             {openSales.map((sale) => {
-              const who = whoOf(sale);
+              const client = sale.relatedClientId ? clientById.get(sale.relatedClientId) : undefined;
+              const animal = animalOfTx(sale);
+              const SpeciesIcon = animal ? speciesIcon(animal.species) : null;
               const balance = saleBalance(sale);
               return (
                 <li key={sale.id} className="flex flex-col gap-2 px-3 py-3 sm:flex-row sm:items-center sm:gap-4 sm:px-4">
-                  <div className="min-w-0 flex-1">
-                    <p className="break-words font-medium leading-snug text-foreground">{who || "Sem cliente"}</p>
-                    <p className="mt-0.5 text-xs text-muted-foreground">
-                      {summarizeSaleItems(sale.description, 3)} · {formatDateTime(sale.date, sale.time)}
-                      {sale.paymentMethod && ` · ${sale.paymentMethod}`}
-                    </p>
+                  <div className="flex min-w-0 flex-1 items-start gap-3">
+                    <ClientAvatar name={client?.name || "?"} />
+                    <div className="min-w-0">
+                      <p className="break-words font-semibold leading-snug text-foreground">
+                        {client?.name || "Venda sem cliente"}
+                        {animal && SpeciesIcon && (
+                          <span className="ml-2 inline-flex items-center gap-1 align-middle text-xs font-medium text-muted-foreground">
+                            <SpeciesIcon className={cn("h-3.5 w-3.5", speciesTone(animal.species).icon)} aria-hidden />
+                            {animal.name}
+                          </span>
+                        )}
+                      </p>
+                      <p className="mt-0.5 text-sm text-foreground/80">{summarizeSaleItems(sale.description, 3)}</p>
+                      <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                        <span className="tabular-nums">{formatDateTime(sale.date, sale.time)}</span>
+                        {sale.paymentMethod && <PaymentMethodBadge method={sale.paymentMethod} />}
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex items-center justify-between gap-3 sm:shrink-0 sm:justify-end">
+                  <div className="flex items-center justify-between gap-3 pl-[3.25rem] sm:shrink-0 sm:justify-end sm:pl-0">
                     <div className="sm:text-right">
-                      <p className="font-semibold tabular-nums text-foreground">{formatCurrencyBRL(balance)}</p>
+                      <p className="text-base font-bold tabular-nums text-amber-700">{formatCurrencyBRL(balance)}</p>
                       {(sale.paidAmount || 0) > 0 && (
                         <p className="text-xs text-muted-foreground">de {formatCurrencyBRL(sale.amount)}</p>
                       )}
@@ -246,12 +276,11 @@ const ReceiptsPage = () => {
               );
             })}
           </ul>
-        </section>
+        </Panel>
       )}
 
-      <section className="overflow-hidden rounded-2xl border border-border/80 bg-card shadow-sm" aria-label="Histórico de recebimentos">
+      <Panel title="Histórico de recebimentos" icon={CONCEPTS.recebido.icon} tone="teal" description="Tudo o que entrou no caixa, por forma de pagamento">
         <div className="space-y-3 border-b border-border/70 p-3 sm:p-4">
-          <h2 className="text-base font-semibold text-foreground">Histórico</h2>
           <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
             <div className="relative min-w-0 flex-1">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
@@ -281,6 +310,8 @@ const ReceiptsPage = () => {
             <div role="radiogroup" aria-label="Forma de pagamento" className="flex gap-1.5 pb-0.5 max-sm:overflow-x-auto sm:flex-wrap">
               {[["all", searched.reduce((sum, r) => sum + r.amount, 0)] as [string, number], ...byMethod].map(([name, value]) => {
                 const active = method === name;
+                const visual = name === "all" ? null : paymentMethodVisual(name);
+                const MethodIcon = visual?.icon;
                 return (
                   <button
                     key={name}
@@ -289,15 +320,16 @@ const ReceiptsPage = () => {
                     aria-checked={active}
                     onClick={() => setMethod(active && name !== "all" ? "all" : name)}
                     className={cn(
-                      "flex shrink-0 items-baseline gap-1.5 whitespace-nowrap rounded-lg border px-3 py-1.5 text-sm transition-colors",
+                      "flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl border px-3 py-1.5 text-sm font-medium transition-colors",
                       "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60",
                       active
-                        ? "border-foreground/20 bg-foreground/[0.04] font-medium text-foreground"
-                        : "border-border text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+                        ? "border-primary bg-primary/[0.07] text-foreground ring-1 ring-primary"
+                        : "border-border bg-card text-foreground/80 hover:bg-muted/50"
                     )}
                   >
+                    {MethodIcon && <MethodIcon className={cn("h-4 w-4", TONES[visual!.tone].text)} aria-hidden />}
                     {name === "all" ? "Todas" : name}
-                    <span className="tabular-nums text-xs">{formatCurrencyBRL(value)}</span>
+                    <span className="text-xs font-bold tabular-nums text-foreground">{formatCurrencyBRL(value)}</span>
                   </button>
                 );
               })}
@@ -329,7 +361,7 @@ const ReceiptsPage = () => {
                 const sale = saleOfReceipt(r);
                 const who = whoOf(r) || whoOf(sale);
                 const reversal = r.amount < 0;
-                const Icon = reversal ? Undo2 : paymentMethodIcon({ name: r.paymentMethod || "" });
+                const visual = reversal ? movementVisual(r) : paymentMethodVisual(r.paymentMethod || "");
                 const clientId = r.relatedClientId || sale?.relatedClientId;
                 const animalId = r.relatedAnimalId || sale?.relatedAnimalId;
                 const patientCode = clientId && animalId
@@ -337,25 +369,25 @@ const ReceiptsPage = () => {
                   : undefined;
                 return (
                   <li key={r.id} className="flex items-center gap-3 px-3 py-3 sm:px-4">
-                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground" aria-hidden>
-                      <Icon className="h-4 w-4" />
-                    </span>
+                    <IconChip icon={visual.icon} tone={visual.tone} />
                     <div className="min-w-0 flex-1">
-                      <p className="break-words text-sm font-medium leading-snug text-foreground">
+                      <p className="break-words text-sm font-semibold leading-snug text-foreground">
                         {who || (sale ? "Venda sem cliente" : r.description)}
                       </p>
-                      <p className="mt-0.5 text-xs text-muted-foreground">
-                        {[
-                          reversal ? "Estorno" : r.paymentMethod || "Forma não informada",
-                          formatDateTime(r.date, r.time),
-                          sale ? summarizeSaleItems(sale.description, 2) : who ? r.description : "Entrada avulsa",
-                        ]
-                          .filter(Boolean)
-                          .join(" · ")}
-                      </p>
+                      <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                        {reversal ? (
+                          <span className="font-semibold text-rose-700">Estorno</span>
+                        ) : (
+                          <PaymentMethodBadge method={r.paymentMethod || "Forma não informada"} />
+                        )}
+                        <span className="tabular-nums">{formatDateTime(r.date, r.time)}</span>
+                        <span className="min-w-0 truncate">
+                          {sale ? summarizeSaleItems(sale.description, 2) : who ? r.description : "Entrada avulsa"}
+                        </span>
+                      </div>
                     </div>
-                    <p className={cn("shrink-0 text-sm font-semibold tabular-nums", reversal ? "text-red-700" : "text-foreground")}>
-                      {reversal ? `− ${formatCurrencyBRL(Math.abs(r.amount))}` : formatCurrencyBRL(r.amount)}
+                    <p className={cn("shrink-0 text-sm font-bold tabular-nums", reversal ? "text-rose-700" : "text-emerald-700")}>
+                      {reversal ? `− ${formatCurrencyBRL(Math.abs(r.amount))}` : `+ ${formatCurrencyBRL(r.amount)}`}
                     </p>
                     <div className="flex shrink-0 items-center">
                       {clientId && animalId && (
@@ -389,7 +421,7 @@ const ReceiptsPage = () => {
                   ? `Mostrando ${shown.length} de ${plural(rows.length, "lançamento", "lançamentos")}`
                   : plural(rows.length, "lançamento", "lançamentos")}
                 {" · "}
-                <span className="font-medium tabular-nums text-foreground">
+                <span className="font-bold tabular-nums text-teal-700">
                   {formatCurrencyBRL(rows.reduce((sum, r) => sum + r.amount, 0))}
                 </span>
               </span>
@@ -401,7 +433,7 @@ const ReceiptsPage = () => {
             </div>
           </>
         )}
-      </section>
+      </Panel>
 
       <ReceivePaymentDialog
         open={!!receiveTarget}

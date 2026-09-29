@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { BarChart3, Printer, Receipt } from "lucide-react";
+import { BarChart3, Layers, Printer, Receipt, Trophy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PageShell } from "@/components/saas/PageShell";
 import { PageHeader } from "@/components/saas/PageHeader";
@@ -8,6 +8,8 @@ import { KpiStrip } from "@/components/saas/KpiStrip";
 import { PeriodFilter, describePeriod, periodRange } from "@/components/saas/PeriodFilter";
 import { DailyBarChart } from "@/components/saas/DailyBarChart";
 import { BarList } from "@/components/saas/BarList";
+import { Panel } from "@/components/finance/FinanceUI";
+import { CONCEPTS, categoryVisual, paymentMethodVisual } from "@/components/finance/financeTheme";
 import { useFinancialTransactions } from "@/hooks/useFinancialTransactions";
 import { useCatalog } from "@/hooks/useCatalog";
 import { getSaleItemsBySaleIds, type SaleItem } from "@/lib/saleItemsApi";
@@ -28,7 +30,7 @@ const fmt = formatCurrencyBRL;
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 const pct = (part: number, total: number) => (total > 0 ? `${Math.round((part / total) * 100)}%` : "");
 const qtyLabel = (q: number) => (Number.isInteger(q) ? String(q) : q.toLocaleString("pt-BR", { maximumFractionDigits: 2 }));
-const SALES_SERIES = [{ key: "vendas", label: "Vendido", color: "hsl(var(--primary))" }];
+const SALES_SERIES = [{ key: "vendas", label: "Vendido", color: "hsl(199 89% 48%)" }];
 const escapeHtml = (s: string) => s.replace(/[&<>"]/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[ch] as string);
 
 const SalesReportsPage: React.FC = () => {
@@ -131,7 +133,7 @@ const SalesReportsPage: React.FC = () => {
           <>
             <Button asChild variant="outline" className="flex-1 sm:flex-none">
               <Link to="/sales/my-sales">
-                <Receipt className="mr-2 h-4 w-4" /> Vendas
+                <Receipt className="mr-2 h-4 w-4 text-sky-600" /> Vendas
               </Link>
             </Button>
             <Button variant="outline" className="flex-1 sm:flex-none" onClick={handlePrint}>
@@ -148,94 +150,106 @@ const SalesReportsPage: React.FC = () => {
         items={[
           {
             label: "Vendido",
+            concept: CONCEPTS.faturado,
             value: fmt(fin.faturado),
             hint:
               plural(fin.sales.length, "venda", "vendas") +
               (fin.cancelledSales.length > 0 ? ` · ${plural(fin.cancelledSales.length, "cancelada", "canceladas")} fora` : ""),
           },
-          { label: "Ticket médio", value: fmt(fin.ticketMedio), hint: "por venda" },
+          { label: "Ticket médio", concept: CONCEPTS.ticket, value: fmt(fin.ticketMedio), hint: "por venda" },
           {
             label: "Recebido",
+            concept: CONCEPTS.recebido,
             value: fmt(fin.recebido),
             hint: fin.faturado > 0 ? `${Math.round((fin.recebido / fin.faturado) * 100)}% do vendido` : "—",
           },
           {
             label: "A receber",
+            concept: CONCEPTS.aReceber,
             value: fmt(fin.openTotal),
             hint: fin.openSales.length > 0 ? `${plural(fin.openSales.length, "venda", "vendas")} · todas as datas` : "Nada em aberto",
-            tone: fin.openTotal > 0 ? "warning" : "default",
+            colorValue: fin.openTotal > 0,
           },
         ]}
       />
 
-      <section className="min-w-0 overflow-hidden rounded-2xl border border-border/80 bg-card shadow-sm print:break-inside-avoid" aria-label="Vendas por dia">
-        <div className="flex items-baseline justify-between gap-2 border-b border-border/70 px-4 py-3">
-          <h2 className="text-base font-semibold text-foreground">Vendas por dia</h2>
-          <span className="text-xs tabular-nums text-muted-foreground">{fmt(fin.faturado)}</span>
-        </div>
+      <Panel
+        title="Vendas por dia"
+        icon={BarChart3}
+        tone="sky"
+        description={periodLabel}
+        className="print:break-inside-avoid"
+        actions={<span className="text-sm font-bold tabular-nums text-sky-700">{fmt(fin.faturado)}</span>}
+      >
         <div className="p-3 sm:p-4">
           {fin.sales.length === 0 ? (
             <div className="flex h-[240px] items-center justify-center text-sm text-muted-foreground">Nenhuma venda no período.</div>
           ) : (
-            <DailyBarChart values={chartValues} series={SALES_SERIES} from={period.from} to={period.to} className="h-[240px] w-full" />
+            <DailyBarChart values={chartValues} series={SALES_SERIES} from={period.from} to={period.to} className="h-[260px] w-full" />
           )}
         </div>
-      </section>
+      </Panel>
 
       <div className="grid gap-4 xl:grid-cols-2">
-        <section className="overflow-hidden rounded-2xl border border-border/80 bg-card shadow-sm print:break-inside-avoid" aria-label="Por categoria">
-          <div className="flex items-baseline justify-between gap-2 border-b border-border/70 px-4 py-3">
-            <h2 className="text-base font-semibold text-foreground">Por categoria</h2>
-            <span className="text-xs text-muted-foreground">categorias do catálogo</span>
-          </div>
+        <Panel title="Por categoria" icon={Layers} tone="sky" description="Categorias do catálogo" className="print:break-inside-avoid">
           <div className="p-3 sm:p-4">
             {porCategoria.length === 0 ? (
               <p className="py-8 text-center text-sm text-muted-foreground">Nenhum item vendido no período.</p>
             ) : (
               <BarList
-                items={porCategoria.map((row) => ({
-                  key: row.category ?? "",
-                  label: catalogCategoryLabel(row.category),
-                  value: row.value,
-                  hint: `${plural(row.quantity, "item", "itens")} · ${pct(row.value, totalItens)}`,
-                }))}
+                items={porCategoria.map((row) => {
+                  const v = categoryVisual(row.category);
+                  return {
+                    key: row.category ?? "",
+                    label: catalogCategoryLabel(row.category),
+                    value: row.value,
+                    hint: `${plural(row.quantity, "item", "itens")} · ${pct(row.value, totalItens)}`,
+                    icon: v.icon,
+                    tone: v.tone,
+                  };
+                })}
               />
             )}
           </div>
-        </section>
+        </Panel>
 
-        <section className="overflow-hidden rounded-2xl border border-border/80 bg-card shadow-sm print:break-inside-avoid" aria-label="Recebido por forma de pagamento">
-          <div className="flex items-baseline justify-between gap-2 border-b border-border/70 px-4 py-3">
-            <h2 className="text-base font-semibold text-foreground">Recebido por forma</h2>
-            <span className="text-xs tabular-nums text-muted-foreground">{fmt(fin.recebido)}</span>
-          </div>
+        <Panel
+          title="Recebido por forma"
+          icon={CONCEPTS.recebido.icon}
+          tone="teal"
+          description="Confere com a gaveta e a maquininha"
+          className="print:break-inside-avoid"
+          actions={<span className="text-sm font-bold tabular-nums text-teal-700">{fmt(fin.recebido)}</span>}
+        >
           <div className="p-3 sm:p-4">
             {porForma.length === 0 ? (
               <p className="py-8 text-center text-sm text-muted-foreground">Nenhum recebimento no período.</p>
             ) : (
               <BarList
-                items={porForma.map((row) => ({
-                  key: row.name,
-                  label: row.name,
-                  value: row.value,
-                  hint: pct(row.value, fin.recebido),
-                }))}
+                items={porForma.map((row) => {
+                  const v = paymentMethodVisual(row.name);
+                  return { key: row.name, label: row.name, value: row.value, hint: pct(row.value, fin.recebido), icon: v.icon, tone: v.tone };
+                })}
               />
             )}
           </div>
-        </section>
+        </Panel>
       </div>
 
-      <section className="overflow-hidden rounded-2xl border border-border/80 bg-card shadow-sm print:break-inside-avoid" aria-label="Mais vendidos">
-        <div className="flex items-baseline justify-between gap-2 border-b border-border/70 px-4 py-3">
-          <h2 className="text-base font-semibold text-foreground">Mais vendidos</h2>
-          <span className="text-xs text-muted-foreground">por valor · top 10</span>
-        </div>
+      <Panel
+        title="Mais vendidos"
+        icon={Trophy}
+        tone="violet"
+        description="Top 10 por valor no período"
+        className="print:break-inside-avoid"
+      >
         <div className="p-3 sm:p-4">
           {maisVendidos.length === 0 ? (
             <p className="py-8 text-center text-sm text-muted-foreground">Nenhum item vendido no período.</p>
           ) : (
             <BarList
+              ranked
+              tone="violet"
               items={maisVendidos.map((row) => ({
                 key: row.key,
                 label: row.name,
@@ -245,7 +259,7 @@ const SalesReportsPage: React.FC = () => {
             />
           )}
         </div>
-      </section>
+      </Panel>
     </PageShell>
   );
 };

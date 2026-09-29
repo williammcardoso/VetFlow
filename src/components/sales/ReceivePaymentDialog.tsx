@@ -14,8 +14,10 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import CurrencyInput from "@/components/CurrencyInput";
+import { IconChip } from "@/components/finance/FinanceUI";
+import { CONCEPTS } from "@/components/finance/financeTheme";
 import { ChoiceGroup } from "@/components/forms/FormLayout";
-import { paymentMethodIcon, type PaymentMethodOption } from "@/components/sales/PaymentChoice";
+import { paymentMethodChoiceIcon, type PaymentMethodOption } from "@/components/sales/PaymentChoice";
 import { addReceipt } from "@/lib/financialApi";
 import { nowTimeHHMM, receiveSalePayment, saleBalance, summarizeSaleItems, toCents } from "@/lib/salePayment";
 import { formatCurrencyBRL, formatDateTime, getTodayLocalISO } from "@/lib/utils";
@@ -121,7 +123,10 @@ export function ReceivePaymentDialog({
     <Dialog open={open} onOpenChange={(v) => !saving && onOpenChange(v)}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>{sale ? "Receber pagamento" : "Entrada avulsa"}</DialogTitle>
+          <DialogTitle className="flex items-center gap-2.5">
+            <IconChip icon={CONCEPTS.recebido.icon} tone="teal" size="sm" />
+            {sale ? "Receber pagamento" : "Entrada avulsa"}
+          </DialogTitle>
           <DialogDescription>
             {sale ? who || "Venda sem cliente" : "Dinheiro que entrou sem venda registrada no sistema."}
           </DialogDescription>
@@ -139,20 +144,20 @@ export function ReceivePaymentDialog({
         >
           {sale && (
             <div className="rounded-xl border border-border bg-muted/30 p-3 text-sm">
-              <p className="break-words font-medium text-foreground">{summarizeSaleItems(sale.description, 3)}</p>
+              <p className="break-words font-semibold text-foreground">{summarizeSaleItems(sale.description, 3)}</p>
               <p className="mt-0.5 text-xs text-muted-foreground">Venda de {formatDateTime(sale.date, sale.time)}</p>
               <div className="mt-2 grid grid-cols-3 gap-2 border-t border-border/70 pt-2 text-xs">
                 <div>
-                  <p className="text-muted-foreground">Total</p>
-                  <p className="font-semibold tabular-nums text-foreground">{formatCurrencyBRL(sale.amount)}</p>
+                  <p className="font-semibold uppercase tracking-wide text-muted-foreground">Total</p>
+                  <p className="text-sm font-bold tabular-nums text-foreground">{formatCurrencyBRL(sale.amount)}</p>
                 </div>
                 <div>
-                  <p className="text-muted-foreground">Já pago</p>
-                  <p className="font-semibold tabular-nums text-foreground">{formatCurrencyBRL(sale.paidAmount || 0)}</p>
+                  <p className="font-semibold uppercase tracking-wide text-teal-700">Já pago</p>
+                  <p className="text-sm font-bold tabular-nums text-teal-700">{formatCurrencyBRL(sale.paidAmount || 0)}</p>
                 </div>
                 <div>
-                  <p className="text-muted-foreground">Falta</p>
-                  <p className="font-semibold tabular-nums text-amber-700">{formatCurrencyBRL(balance)}</p>
+                  <p className="font-semibold uppercase tracking-wide text-amber-800">Falta</p>
+                  <p className="text-sm font-bold tabular-nums text-amber-700">{formatCurrencyBRL(balance)}</p>
                 </div>
               </div>
             </div>
@@ -191,7 +196,7 @@ export function ReceivePaymentDialog({
               labelledBy="receiveMethodLabel"
               value={method}
               onChange={setMethod}
-              options={methods.map((m) => ({ value: m.name, label: m.name, icon: paymentMethodIcon(m) }))}
+              options={methods.map((m) => ({ value: m.name, label: m.name, icon: paymentMethodChoiceIcon(m) }))}
             />
           </div>
 

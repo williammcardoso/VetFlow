@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { FileDown, FileText, Wallet } from "lucide-react";
+import { ArrowLeftRight, FileDown, FileText, FlaskConical, Layers, Wallet } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { PageShell } from "@/components/saas/PageShell";
@@ -10,6 +10,9 @@ import { PeriodFilter, describePeriod, periodRange } from "@/components/saas/Per
 import { DailyBarChart } from "@/components/saas/DailyBarChart";
 import { BarList } from "@/components/saas/BarList";
 import FinancialReportPdfContent from "@/components/FinancialReportPdfContent";
+import { IconChip, Panel, PaymentMethodBadge } from "@/components/finance/FinanceUI";
+import { ResultBreakdown } from "@/components/finance/ResultBreakdown";
+import { CONCEPTS, TONES, categoryVisual, movementVisual } from "@/components/finance/financeTheme";
 import { useFinancialTransactions } from "@/hooks/useFinancialTransactions";
 import { useClientsList } from "@/hooks/useSupabaseClients";
 import { useCatalog } from "@/hooks/useCatalog";
@@ -19,7 +22,6 @@ import { lineProviderCost } from "@/lib/monthlyClosing";
 import { catalogCategoryLabel } from "@/lib/catalogCategories";
 import { computePeriodFinancials, isCancelled, isSale, revenueByCategory, sumByDay } from "@/lib/financialSummary";
 import { summarizeSaleItems } from "@/lib/salePayment";
-import { classifyTransaction } from "@/lib/financialTransactionDisplay";
 import { createPdfBlob, openPdf } from "@/lib/pdfExport";
 import { cn, formatCurrencyBRL, formatDateTime, getTodayLocalISO } from "@/lib/utils";
 import { getPatientRecordPath } from "@/utils/patientDisplayId";
@@ -48,8 +50,8 @@ const pct = (part: number, total: number) => (total > 0 ? `${Math.round((part / 
 // venda e o recebimento dela entravam os dois como "entrada" — o mesmo
 // dinheiro contado duas vezes.
 const CASH_SERIES = [
-  { key: "entradas", label: "Entradas", color: "hsl(var(--primary))" },
-  { key: "saidas", label: "Saídas", color: "hsl(32 95% 52%)" },
+  { key: "entradas", label: "Entradas", color: "hsl(160 84% 39%)" },
+  { key: "saidas", label: "Saídas", color: "hsl(350 89% 60%)" },
 ];
 
 const FinancialReportsPage: React.FC = () => {
@@ -211,14 +213,6 @@ const FinancialReportsPage: React.FC = () => {
     }
   };
 
-  const resultRows: Array<{ key: string; label: string; value: number; hint?: string }> = [
-    { key: "bruto", label: "Faturamento bruto", value: c.bruto, hint: plural(c.salesCount, "venda", "vendas") },
-    { key: "repasses", label: "Repasses a prestadores", value: -c.custoRepasses },
-    ...(c.custoProdutos > 0 ? [{ key: "produtos", label: "Custo de produtos", value: -c.custoProdutos, hint: "vendas antigas" }] : []),
-    { key: "compras", label: "Compras do almoxarifado", value: -c.custoCompras },
-    { key: "taxas", label: "Taxas de cartão", value: -c.taxasCartao, hint: "repassadas ao cliente" },
-  ];
-
   return (
     <PageShell className="space-y-4 sm:space-y-5">
       <PageHeader
@@ -232,11 +226,11 @@ const FinancialReportsPage: React.FC = () => {
           <>
             <Button asChild variant="outline" className="flex-1 sm:flex-none">
               <Link to="/financial">
-                <Wallet className="mr-2 h-4 w-4" /> Visão geral
+                <Wallet className="mr-2 h-4 w-4 text-[hsl(var(--vf-finance))]" /> Visão geral
               </Link>
             </Button>
             <Button variant="outline" className="flex-1 sm:flex-none" onClick={() => void handlePrintDetailedReport()} disabled={exportingPdf}>
-              <FileDown className="mr-2 h-4 w-4" /> {exportingPdf ? "Gerando..." : "PDF"}
+              <FileDown className="mr-2 h-4 w-4 text-rose-600" /> {exportingPdf ? "Gerando..." : "PDF"}
             </Button>
           </>
         }
@@ -247,129 +241,131 @@ const FinancialReportsPage: React.FC = () => {
       <KpiStrip
         loading={loading}
         items={[
-          { label: "Faturamento bruto", value: fmt(fin.faturado), hint: plural(fin.sales.length, "venda", "vendas") },
-          { label: "Recebido no caixa", value: fmt(fin.recebido), hint: plural(fin.receipts.length, "lançamento", "lançamentos") },
-          {
-            label: "Lucro líquido",
-            value: fmt(c.lucroLiquido),
-            hint: `margem ${c.margemPct}% · ${fmt(c.metadeClinica)} cada parte`,
-            tone: c.lucroLiquido < 0 ? "negative" : "positive",
-          },
+          { label: "Faturamento bruto", concept: CONCEPTS.faturado, value: fmt(fin.faturado), hint: plural(fin.sales.length, "venda", "vendas") },
+          { label: "Recebido no caixa", concept: CONCEPTS.recebido, value: fmt(fin.recebido), hint: plural(fin.receipts.length, "lançamento", "lançamentos") },
           {
             label: "A receber",
+            concept: CONCEPTS.aReceber,
             value: fmt(fin.openTotal),
             hint: fin.openSales.length > 0 ? `${plural(fin.openSales.length, "venda", "vendas")} · todas as datas` : "Nada em aberto",
-            tone: fin.openTotal > 0 ? "warning" : "default",
+            colorValue: fin.openTotal > 0,
+          },
+          {
+            label: "Lucro líquido",
+            concept: c.lucroLiquido < 0 ? { ...CONCEPTS.lucro, tone: "rose" } : CONCEPTS.lucro,
+            value: fmt(c.lucroLiquido),
+            hint: `margem ${c.margemPct}% · ${fmt(c.metadeClinica)} cada parte`,
+            highlight: true,
           },
         ]}
       />
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.25fr)]">
-        <section className="overflow-hidden rounded-2xl border border-border/80 bg-card shadow-sm print:break-inside-avoid" aria-label="Resultado">
-          <div className="flex items-baseline justify-between gap-2 border-b border-border/70 px-4 py-3">
-            <h2 className="text-base font-semibold text-foreground">Resultado</h2>
-            <Link to="/financial/monthly-closing" className="text-xs font-medium text-primary hover:underline print:hidden">
-              Fechamento 50/50
-            </Link>
-          </div>
-          <ul className="divide-y divide-border/70 text-sm">
-            {resultRows.map((row) => (
-              <li key={row.key} className="flex items-center justify-between gap-3 px-4 py-2.5">
-                <span className="min-w-0">
-                  {row.key !== "bruto" ? "− " : ""}
-                  {row.label}
-                  {row.hint && <span className="ml-1.5 text-xs text-muted-foreground">{row.hint}</span>}
-                </span>
-                <span className="shrink-0 tabular-nums">{fmt(Math.abs(row.value))}</span>
-              </li>
-            ))}
-            <li className="flex items-center justify-between gap-3 bg-muted/30 px-4 py-3">
-              <span className="font-semibold">
-                = Lucro líquido <span className="ml-1 text-xs font-normal text-muted-foreground">margem {c.margemPct}%</span>
-              </span>
-              <span className={cn("shrink-0 text-base font-semibold tabular-nums", c.lucroLiquido < 0 ? "text-red-700" : "text-emerald-700")}>
-                {c.lucroLiquido < 0 ? `− ${fmt(Math.abs(c.lucroLiquido))}` : fmt(c.lucroLiquido)}
-              </span>
-            </li>
-            <li className="flex items-center justify-between gap-3 px-4 py-2.5 text-muted-foreground">
-              <span>Saídas operacionais <span className="text-xs">(fora do 50/50)</span></span>
-              <span className="shrink-0 tabular-nums">{fmt(saidasOperacionais)}</span>
-            </li>
-          </ul>
-        </section>
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
+        <ResultBreakdown
+          closing={c}
+          periodLabel={periodLabel}
+          className="print:break-inside-avoid"
+          footer={
+            <span className="inline-flex items-center gap-1.5">
+              <CONCEPTS.saidas.icon className="h-3.5 w-3.5 text-rose-600" aria-hidden />
+              Saídas operacionais: <span className="font-semibold text-rose-700">{fmt(saidasOperacionais)}</span> (fora do 50/50)
+            </span>
+          }
+        />
 
-        <section className="min-w-0 overflow-hidden rounded-2xl border border-border/80 bg-card shadow-sm print:break-inside-avoid" aria-label="Entradas e saídas por dia">
-          <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-border/70 px-4 py-3">
-            <h2 className="text-base font-semibold text-foreground">Entradas e saídas por dia</h2>
+        <Panel
+          title="Entradas e saídas por dia"
+          icon={ArrowLeftRight}
+          tone="slate"
+          description="Entradas = recebimentos · saídas = despesas"
+          className="print:break-inside-avoid"
+          actions={
             <span className="flex items-center gap-3 text-xs text-muted-foreground">
               {CASH_SERIES.map((s) => (
-                <span key={s.key} className="inline-flex items-center gap-1.5">
+                <span key={s.key} className="inline-flex items-center gap-1.5 font-medium">
                   <span className="h-2.5 w-2.5 rounded-[2px]" style={{ background: s.color }} aria-hidden />
                   {s.label}
                 </span>
               ))}
             </span>
-          </div>
+          }
+        >
           <div className="p-3 sm:p-4">
             {Object.keys(cashByDay).length === 0 ? (
-              <div className="flex h-[240px] items-center justify-center text-sm text-muted-foreground">Nenhuma movimentação no período.</div>
+              <div className="flex h-[260px] items-center justify-center text-sm text-muted-foreground">Nenhuma movimentação no período.</div>
             ) : (
-              <DailyBarChart values={cashByDay} series={CASH_SERIES} from={period.from} to={period.to} className="h-[240px] w-full" />
+              <DailyBarChart values={cashByDay} series={CASH_SERIES} from={period.from} to={period.to} className="h-[260px] w-full" />
             )}
           </div>
-        </section>
+        </Panel>
       </div>
 
       <div className="grid gap-4 xl:grid-cols-2">
-        <section className="overflow-hidden rounded-2xl border border-border/80 bg-card shadow-sm print:break-inside-avoid" aria-label="Faturamento por categoria">
-          <div className="flex items-baseline justify-between gap-2 border-b border-border/70 px-4 py-3">
-            <h2 className="text-base font-semibold text-foreground">Faturamento por categoria</h2>
-            <span className="text-xs text-muted-foreground">itens vendidos</span>
-          </div>
+        <Panel
+          title="Faturamento por categoria"
+          icon={Layers}
+          tone="sky"
+          description="Itens vendidos, pela categoria do catálogo"
+          className="print:break-inside-avoid"
+        >
           <div className="p-3 sm:p-4">
             {porCategoria.length === 0 ? (
               <p className="py-8 text-center text-sm text-muted-foreground">Nenhum item vendido no período.</p>
             ) : (
               <BarList
-                items={porCategoria.map((row) => ({
-                  key: row.category ?? "",
-                  label: catalogCategoryLabel(row.category),
-                  value: row.value,
-                  hint: pct(row.value, totalItens),
-                }))}
+                items={porCategoria.map((row) => {
+                  const v = categoryVisual(row.category);
+                  return {
+                    key: row.category ?? "",
+                    label: catalogCategoryLabel(row.category),
+                    value: row.value,
+                    hint: pct(row.value, totalItens),
+                    icon: v.icon,
+                    tone: v.tone,
+                  };
+                })}
               />
             )}
           </div>
-        </section>
+        </Panel>
 
-        <section className="overflow-hidden rounded-2xl border border-border/80 bg-card shadow-sm print:break-inside-avoid" aria-label="Despesas por categoria">
-          <div className="flex items-baseline justify-between gap-2 border-b border-border/70 px-4 py-3">
-            <h2 className="text-base font-semibold text-foreground">Despesas por categoria</h2>
-            <span className="text-xs tabular-nums text-muted-foreground">{fmt(totalDespesas)}</span>
-          </div>
+        <Panel
+          title="Despesas por categoria"
+          icon={CONCEPTS.saidas.icon}
+          tone="rose"
+          description="Compras do almoxarifado e saídas"
+          className="print:break-inside-avoid"
+          actions={<span className="text-sm font-bold tabular-nums text-rose-700">{fmt(totalDespesas)}</span>}
+        >
           <div className="p-3 sm:p-4">
             {despesasPorCategoria.length === 0 ? (
               <p className="py-8 text-center text-sm text-muted-foreground">Nenhuma despesa no período.</p>
             ) : (
               <BarList
+                tone="rose"
                 items={despesasPorCategoria.map((row) => ({
                   key: row.name,
                   label: row.name,
                   value: row.value,
                   hint: pct(row.value, totalDespesas),
+                  icon: row.name === "Compras do almoxarifado" ? CONCEPTS.compras.icon : CONCEPTS.saidas.icon,
+                  tone: row.name === "Compras do almoxarifado" ? "amber" : "rose",
                 }))}
               />
             )}
           </div>
-        </section>
+        </Panel>
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,0.8fr)_minmax(0,1.4fr)]">
-        <section className="overflow-hidden rounded-2xl border border-border/80 bg-card shadow-sm print:break-inside-avoid" aria-label="Repasses por prestador">
-          <div className="flex items-baseline justify-between gap-2 border-b border-border/70 px-4 py-3">
-            <h2 className="text-base font-semibold text-foreground">Repasses por prestador</h2>
-            <span className="text-xs tabular-nums text-muted-foreground">{fmt(totalRepassesItens)}</span>
-          </div>
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,0.85fr)_minmax(0,1.35fr)]">
+        <Panel
+          title="Repasses por prestador"
+          icon={CONCEPTS.repasses.icon}
+          tone="orange"
+          description="Quanto repassar a cada lab, especialista ou fornecedor"
+          className="print:break-inside-avoid"
+          actions={<span className="text-sm font-bold tabular-nums text-orange-700">{fmt(totalRepassesItens)}</span>}
+        >
           <div className="p-3 sm:p-4">
             {repassesPorPrestador.length === 0 ? (
               <p className="py-8 text-center text-sm text-muted-foreground">
@@ -378,11 +374,13 @@ const FinancialReportsPage: React.FC = () => {
             ) : (
               <>
                 <BarList
+                  tone="orange"
                   items={repassesPorPrestador.map((r) => ({
                     key: r.provider,
                     label: r.provider,
                     value: r.amount,
                     hint: pct(r.amount, totalRepassesItens),
+                    icon: CONCEPTS.repasses.icon,
                   }))}
                   onSelect={goToProviderDetail}
                   selectedKey={providerFilter === "all" ? undefined : providerFilter}
@@ -391,23 +389,29 @@ const FinancialReportsPage: React.FC = () => {
               </>
             )}
           </div>
-        </section>
+        </Panel>
 
-        <section
-          ref={detalhamentoRef}
-          className="min-w-0 scroll-mt-4 overflow-hidden rounded-2xl border border-border/80 bg-card shadow-sm print:break-inside-avoid"
-          aria-label="Pacientes com serviços externos"
-        >
-          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/70 px-4 py-3">
-            <h2 className="text-base font-semibold text-foreground">
-              Serviços externos{providerFilter !== "all" && <span className="font-normal text-muted-foreground"> · {providerFilter}</span>}
-            </h2>
-            {providerFilter !== "all" && (
+        <Panel
+          sectionRef={detalhamentoRef}
+          title={
+            <>
+              Serviços externos
+              {providerFilter !== "all" && <span className="font-medium text-orange-700"> · {providerFilter}</span>}
+            </>
+          }
+          ariaLabel="Serviços externos por paciente"
+          icon={FlaskConical}
+          tone="orange"
+          description="Paciente, serviço e prestador de cada repasse"
+          className="scroll-mt-4 print:break-inside-avoid"
+          actions={
+            providerFilter !== "all" ? (
               <Button variant="ghost" size="sm" className="h-8 print:hidden" onClick={() => setProviderFilter("all")}>
                 Ver todos
               </Button>
-            )}
-          </div>
+            ) : undefined
+          }
+        >
           {filteredRepasses.length === 0 ? (
             <p className="px-4 py-10 text-center text-sm text-muted-foreground">Nenhum paciente com repasse no período.</p>
           ) : (
@@ -420,66 +424,81 @@ const FinancialReportsPage: React.FC = () => {
                         {row.clientId && row.animalId ? (
                           <Link
                             to={getPatientRecordPath(row.clientId, row.animalId, row.patientCode)}
-                            className="font-medium hover:text-primary hover:underline"
+                            className="font-semibold hover:text-primary hover:underline"
                           >
                             {row.animalName}
                           </Link>
                         ) : (
-                          <span className="font-medium">{row.animalName}</span>
+                          <span className="font-semibold">{row.animalName}</span>
                         )}
                         <span className="text-muted-foreground"> · {row.clientName}</span>
                       </p>
-                      <p className="truncate text-xs text-muted-foreground">
-                        {row.serviceName}
-                        {row.quantity > 1 && ` × ${row.quantity}`} · {row.provider} · {formatDateTime(row.date)}
-                      </p>
+                      <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
+                        <span className="text-foreground/80">
+                          {row.serviceName}
+                          {row.quantity > 1 && ` × ${row.quantity}`}
+                        </span>
+                        <span className={cn("inline-flex items-center rounded-md px-1.5 py-0.5 text-[11px] font-semibold ring-1 ring-inset", TONES.orange.badge)}>
+                          {row.provider}
+                        </span>
+                        <span className="tabular-nums">{formatDateTime(row.date)}</span>
+                      </div>
                     </div>
-                    <span className="shrink-0 text-sm font-semibold tabular-nums">{fmt(row.amount)}</span>
+                    <span className="shrink-0 text-sm font-bold tabular-nums text-orange-700">{fmt(row.amount)}</span>
                   </li>
                 ))}
               </ul>
-              <div className="flex items-center justify-between border-t border-border/70 bg-muted/30 px-4 py-2.5 text-sm">
+              <div className="flex items-center justify-between border-t border-border/70 bg-orange-50/40 px-4 py-2.5 text-sm">
                 <span className="text-muted-foreground">{plural(filteredRepasses.length, "item", "itens")}</span>
-                <span className="font-semibold tabular-nums">{fmt(filteredRepasses.reduce((s, r) => s + r.amount, 0))}</span>
+                <span className="font-bold tabular-nums text-orange-700">{fmt(filteredRepasses.reduce((s, r) => s + r.amount, 0))}</span>
               </div>
             </>
           )}
-        </section>
+        </Panel>
       </div>
 
-      <section className="overflow-hidden rounded-2xl border border-border/80 bg-card shadow-sm" aria-label="Movimentações">
-        <div className="flex items-baseline justify-between gap-2 border-b border-border/70 px-4 py-3">
-          <h2 className="text-base font-semibold text-foreground">Movimentações</h2>
-          <span className="text-xs text-muted-foreground">{plural(movimentos.length, "lançamento", "lançamentos")}</span>
-        </div>
+      <Panel
+        title="Movimentações"
+        icon={ArrowLeftRight}
+        tone="slate"
+        description="Todos os lançamentos do período"
+        actions={<span className="text-xs text-muted-foreground">{plural(movimentos.length, "lançamento", "lançamentos")}</span>}
+      >
         {movimentos.length === 0 ? (
           <p className="px-4 py-10 text-center text-sm text-muted-foreground">Nenhum movimento no período.</p>
         ) : (
           <ul className="max-h-[480px] divide-y divide-border/70 overflow-y-auto">
             {movimentos.map((t) => {
-              const kind = classifyTransaction(t);
-              const out = t.amount < 0 || t.type === "expense";
+              const mv = movementVisual(t);
+              const cancelledSale = isSale(t) && isCancelled(t);
               return (
                 <li key={t.id} className="flex items-center gap-3 px-4 py-2.5">
+                  <IconChip icon={mv.icon} tone={cancelledSale ? "slate" : mv.tone} size="sm" />
                   <div className="min-w-0 flex-1">
-                    <p className={cn("truncate text-sm text-foreground", isSale(t) && isCancelled(t) && "text-muted-foreground line-through")}>
+                    <p className={cn("truncate text-sm font-semibold text-foreground", cancelledSale && "text-muted-foreground line-through")}>
                       {isSale(t) ? summarizeSaleItems(t.description, 3) : t.description}
                     </p>
-                    <p className="truncate text-xs text-muted-foreground">
-                      {kind.label}
-                      {t.paymentMethod ? ` · ${t.paymentMethod}` : ""} · {formatDateTime(t.date, t.time)}
-                      {isSale(t) && isCancelled(t) ? " · cancelada" : ""}
-                    </p>
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
+                      <span className={cn("font-medium", TONES[cancelledSale ? "rose" : mv.tone].text)}>{cancelledSale ? "Venda cancelada" : mv.label}</span>
+                      {t.paymentMethod && t.category === "Recebimento" && t.amount > 0 && <PaymentMethodBadge method={t.paymentMethod} />}
+                      <span className="tabular-nums">{formatDateTime(t.date, t.time)}</span>
+                    </div>
                   </div>
-                  <span className="shrink-0 text-sm font-medium tabular-nums text-foreground">
-                    {out ? `− ${fmt(Math.abs(t.amount))}` : fmt(t.amount)}
+                  <span
+                    className={cn(
+                      "shrink-0 text-sm font-bold tabular-nums",
+                      cancelledSale ? "text-muted-foreground line-through" : mv.sign === "+" ? "text-emerald-700" : mv.sign === "−" ? TONES[mv.tone].text : "text-foreground"
+                    )}
+                  >
+                    {mv.sign ? `${mv.sign} ` : ""}
+                    {fmt(Math.abs(t.amount))}
                   </span>
                 </li>
               );
             })}
           </ul>
         )}
-      </section>
+      </Panel>
     </PageShell>
   );
 };

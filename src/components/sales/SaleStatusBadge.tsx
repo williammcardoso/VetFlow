@@ -1,15 +1,10 @@
 import { cn } from "@/lib/utils";
-import { saleStatus, type SaleStatusKey } from "@/lib/salePayment";
+import { saleStatus } from "@/lib/salePayment";
+import { SALE_STATUS_VISUAL, TONES } from "@/components/finance/financeTheme";
 import type { FinancialTransaction } from "@/mockData/financial";
 
-// Cor só onde tem significado: verde = pago, âmbar = falta receber, cinza = cancelada.
-const TONE: Record<SaleStatusKey, { pill: string; dot: string }> = {
-  paid: { pill: "bg-emerald-50 text-emerald-700 ring-emerald-600/15", dot: "bg-emerald-500" },
-  partial: { pill: "bg-amber-50 text-amber-800 ring-amber-600/20", dot: "bg-amber-500" },
-  open: { pill: "bg-amber-50 text-amber-800 ring-amber-600/20", dot: "bg-amber-500" },
-  cancelled: { pill: "bg-muted text-muted-foreground ring-border", dot: "bg-muted-foreground/50" },
-};
-
+// Pago = verde, Parcial = azul, A receber = âmbar, Cancelada = vermelho —
+// mesmas cores que o sistema já usava antes nas vendas.
 export function SaleStatusBadge({
   sale,
   className,
@@ -18,16 +13,16 @@ export function SaleStatusBadge({
   className?: string;
 }) {
   const { key, label } = saleStatus(sale);
-  const tone = TONE[key];
+  const { icon: Icon, tone } = SALE_STATUS_VISUAL[key];
   return (
     <span
       className={cn(
-        "inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset",
-        tone.pill,
+        "inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-semibold ring-1 ring-inset",
+        TONES[tone].badge,
         className
       )}
     >
-      <span className={cn("h-1.5 w-1.5 rounded-full", tone.dot)} aria-hidden />
+      <Icon className="h-3.5 w-3.5" aria-hidden />
       {label}
     </span>
   );

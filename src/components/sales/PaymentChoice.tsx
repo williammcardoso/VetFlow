@@ -1,7 +1,9 @@
 import * as React from "react";
-import { Banknote, CreditCard, QrCode, Wallet } from "lucide-react";
+import { CheckCircle2, Clock } from "lucide-react";
 import { ChoiceGroup } from "@/components/forms/FormLayout";
 import { cn } from "@/lib/utils";
+import { paymentMethodVisual } from "@/components/finance/financeTheme";
+import { coloredIcon } from "@/components/finance/FinanceUI";
 import type { PayMode } from "@/lib/salePayment";
 
 export interface PaymentMethodOption {
@@ -14,11 +16,13 @@ export interface PaymentMethodOption {
 
 /** Ícone pela natureza da forma de pagamento (cadastro) ou pelo nome. */
 export function paymentMethodIcon(method: Pick<PaymentMethodOption, "name" | "type">) {
-  const hint = `${method.type ?? ""} ${method.name}`.toLowerCase();
-  if (/cash|dinheiro|esp[eé]cie/.test(hint)) return Banknote;
-  if (/pix/.test(hint)) return QrCode;
-  if (/credit|cr[eé]dito|debit|d[eé]bito|cart/.test(hint)) return CreditCard;
-  return Wallet;
+  return paymentMethodVisual(method).icon;
+}
+
+/** Ícone já na cor da forma (PIX verde-azulado, dinheiro verde, crédito roxo, débito azul) — para as opções. */
+export function paymentMethodChoiceIcon(method: Pick<PaymentMethodOption, "name" | "type">) {
+  const { icon, tone } = paymentMethodVisual(method);
+  return coloredIcon(icon, tone);
 }
 
 /**
@@ -50,10 +54,10 @@ export function PaymentChoice({
       <div role="radiogroup" aria-label="Pagamento" className="grid grid-cols-2 gap-1 rounded-xl bg-muted p-1">
         {(
           [
-            { key: "now", label: "Recebido agora" },
-            { key: "later", label: "Fica a receber" },
+            { key: "now", label: "Recebido agora", icon: CheckCircle2, on: "text-emerald-700" },
+            { key: "later", label: "Fica a receber", icon: Clock, on: "text-amber-700" },
           ] as const
-        ).map(({ key, label }) => {
+        ).map(({ key, label, icon: Icon, on }) => {
           const active = mode === key;
           return (
             <button
@@ -63,10 +67,11 @@ export function PaymentChoice({
               aria-checked={active}
               onClick={() => onModeChange(key)}
               className={cn(
-                "rounded-lg px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60",
-                active ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                "inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60",
+                active ? cn("bg-card shadow-sm", on) : "text-muted-foreground hover:text-foreground"
               )}
             >
+              <Icon className="h-4 w-4" aria-hidden />
               {label}
             </button>
           );
@@ -91,7 +96,7 @@ export function PaymentChoice({
             value={method}
             onChange={onMethodChange}
             allowDeselect={mode === "later"}
-            options={methods.map((m) => ({ value: m.name, label: m.name, icon: paymentMethodIcon(m) }))}
+            options={methods.map((m) => ({ value: m.name, label: m.name, icon: paymentMethodChoiceIcon(m) }))}
           />
         ) : (
           <p className="text-xs text-muted-foreground">Cadastre as formas em Financeiro › Formas de pagamento.</p>
