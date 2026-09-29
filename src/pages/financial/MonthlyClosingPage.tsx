@@ -39,8 +39,7 @@ import {
   reopenMonth,
   type MonthlyClosingRecord,
 } from "@/lib/monthlyClosingsApi";
-import MonthlyClosingPdfContent from "@/components/MonthlyClosingPdfContent";
-import { createPdfBlob, openPdf } from "@/lib/pdfExport";
+import { renderPdf, openPdf } from "@/lib/pdfExport";
 import { ArrowLeft, Calculator, Lock, Unlock, Printer, Scale, ShoppingBag } from "lucide-react";
 import { toast } from "sonner";
 
@@ -176,7 +175,7 @@ const MonthlyClosingPage: React.FC = () => {
   const handlePrint = async () => {
     setPrinting(true);
     try {
-      const blob = await createPdfBlob(<MonthlyClosingPdfContent data={closing} />);
+      const blob = await renderPdf((K) => <K.MonthlyClosingPdfContent data={closing} />);
       await openPdf({
         blob,
         fileName: `fechamento-50-50-${year}-${String(month).padStart(2, "0")}.pdf`,

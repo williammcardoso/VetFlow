@@ -14,7 +14,6 @@ import { IconChip, Panel, PaymentMethodBadge } from "@/components/finance/Financ
 import { ResultBreakdown } from "@/components/finance/ResultBreakdown";
 import { CONCEPTS, TONES, movementVisual, type Concept } from "@/components/finance/financeTheme";
 import { ClientAvatar } from "@/components/clients/clientVisuals";
-import FinancialOverviewPdfContent from "@/components/FinancialOverviewPdfContent";
 import { useFinancialTransactions } from "@/hooks/useFinancialTransactions";
 import { useClientsList } from "@/hooks/useSupabaseClients";
 import { useRegistryList } from "@/hooks/useRegistryList";
@@ -24,7 +23,7 @@ import { lineProviderCost } from "@/lib/monthlyClosing";
 import { computePeriodFinancials, isSale, isCancelled, sumByDay } from "@/lib/financialSummary";
 import { saleBalance, summarizeSaleItems } from "@/lib/salePayment";
 import { classifyTransaction } from "@/lib/financialTransactionDisplay";
-import { createPdfBlob, openPdf } from "@/lib/pdfExport";
+import { renderPdf, openPdf } from "@/lib/pdfExport";
 import { exportRowsToXlsx } from "@/lib/xlsxExport";
 import { cn, formatCurrencyBRL, formatDateTime, getTodayLocalISO } from "@/lib/utils";
 import type { FinancialTransaction } from "@/mockData/financial";
@@ -118,8 +117,8 @@ const FinancialPage: React.FC = () => {
   const handleExportPdf = async () => {
     setExportingPdf(true);
     try {
-      const blob = await createPdfBlob(
-        <FinancialOverviewPdfContent
+      const blob = await renderPdf((K) =>
+        <K.FinancialOverviewPdfContent
           periodLabel={`Período: ${periodLabel}`}
           totalFaturado={fin.faturado}
           totalRecebido={fin.recebido}
@@ -143,7 +142,7 @@ const FinancialPage: React.FC = () => {
   };
 
   const handleExportExcel = () => {
-    exportRowsToXlsx(`visao-geral-financeira-${getTodayLocalISO()}`, [
+    void exportRowsToXlsx(`visao-geral-financeira-${getTodayLocalISO()}`, [
       {
         name: "Resultado",
         headers: ["Item", "Valor"],

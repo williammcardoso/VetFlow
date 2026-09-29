@@ -12,12 +12,10 @@ import { getSaleItems, SaleItem } from "@/lib/saleItemsApi";
 import { listReceiptsForSale } from "@/lib/financialApi";
 import type { FinancialTransaction } from "@/mockData/financial";
 import { CheckCircle2, Loader2, Printer, MoreHorizontal, ClipboardList, Undo2 } from "lucide-react";
-import SaleReceiptPdfContent from "@/components/SaleReceiptPdfContent";
-import SaleCancellationPdfContent from "@/components/SaleCancellationPdfContent";
 import { SaleStatusBadge } from "@/components/sales/SaleStatusBadge";
 import { IconChip, PaymentMethodBadge } from "@/components/finance/FinanceUI";
 import { CONCEPTS, SALE_STATUS_VISUAL, TONES, categoryVisual } from "@/components/finance/financeTheme";
-import { createPdfBlob, openPdf } from "@/lib/pdfExport";
+import { renderPdf, openPdf } from "@/lib/pdfExport";
 import { getReversedAmountForSale } from "@/lib/saleCancellation";
 import { groupRepassesByProvider, resolveCostProvider } from "@/lib/costProviders";
 import { catalogCategoryLabel } from "@/lib/catalogCategories";
@@ -81,8 +79,8 @@ const SaleDetailModal: React.FC<SaleDetailModalProps> = (props) => {
     setPrintingCancellation(true);
     try {
       const reversedAmount = await getReversedAmountForSale(transaction.id);
-      const blob = await createPdfBlob(
-        <SaleCancellationPdfContent
+      const blob = await renderPdf((K) =>
+        <K.SaleCancellationPdfContent
           transaction={transaction}
           items={items}
           reversedAmount={reversedAmount}
@@ -103,8 +101,8 @@ const SaleDetailModal: React.FC<SaleDetailModalProps> = (props) => {
     if (!transaction) return;
     setPrinting(true);
     try {
-      const blob = await createPdfBlob(
-        <SaleReceiptPdfContent
+      const blob = await renderPdf((K) =>
+        <K.SaleReceiptPdfContent
           transaction={transaction}
           items={items}
           mode={mode}

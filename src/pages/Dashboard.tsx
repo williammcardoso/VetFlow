@@ -40,6 +40,7 @@ import { useAppointments } from "@/hooks/useAppointments";
 import { PageShell } from "@/components/saas/PageShell";
 import { Link } from "react-router-dom";
 import { getPatientRecordPath } from "@/utils/patientDisplayId";
+import { buildReminders } from "@/lib/reminders";
 
 const Dashboard = () => {
   const { data: dbClients, isError } = useClientsList();
@@ -142,7 +143,6 @@ const Dashboard = () => {
   const todayLabel = now.toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "short" });
 
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const in7days = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
 
   const animalMap = useMemo(() => {
     const map = new Map<string, { animalName: string; clientName: string; clientId: string; patientCode?: number }>();
@@ -154,42 +154,32 @@ const Dashboard = () => {
     return map;
   }, [dbClients]);
 
+  // Mesma regra da tela de lembretes (lib/reminders): some o que já foi
+  // resolvido (dose seguinte aplicada / paciente que já voltou).
+  const weekReminders = useMemo(
+    () => buildReminders(allAppointments).filter((r) => r.daysUntil >= 0 && r.daysUntil <= 7),
+    [allAppointments]
+  );
+
   const returnsThisWeek = useMemo(() => {
-    return allAppointments
-      .filter((app) => {
-        const days = (app.details as Record<string, unknown>)?.retornoRecomendadoEmDias as number | undefined;
-        if (!days) return false;
-        const returnDate = new Date(parseLocalDate(app.date).getTime() + days * 86400000);
-        return returnDate >= today && returnDate <= in7days;
-      })
-      .map((app) => {
-        const days = (app.details as Record<string, unknown>).retornoRecomendadoEmDias as number;
-        const returnDate = new Date(parseLocalDate(app.date).getTime() + days * 86400000);
-        const info = animalMap.get(app.animalId);
-        return { animalId: app.animalId, animalName: info?.animalName ?? "Pet", clientName: info?.clientName ?? "Tutor", clientId: info?.clientId, patientCode: info?.patientCode, returnDate };
+    return weekReminders
+      .filter((r) => r.kind === "retorno")
+      .map((r) => {
+        const info = animalMap.get(r.animalId);
+        return { animalId: r.animalId, animalName: info?.animalName ?? "Pet", clientName: info?.clientName ?? "Tutor", clientId: info?.clientId, patientCode: info?.patientCode, returnDate: parseLocalDate(r.dueDate) };
       })
       .slice(0, 5);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allAppointments, animalMap]);
+  }, [weekReminders, animalMap]);
 
   const vaccinesThisWeek = useMemo(() => {
-    return allAppointments
-      .filter((app) => {
-        if (app.type !== "Vacina") return false;
-        const nextDose = (app.details as Record<string, unknown>)?.proximaDose as string | undefined;
-        if (!nextDose) return false;
-        const doseDate = parseLocalDate(nextDose);
-        return doseDate >= today && doseDate <= in7days;
-      })
-      .map((app) => {
-        const d = app.details as Record<string, unknown>;
-        const doseDate = parseLocalDate(d.proximaDose as string);
-        const info = animalMap.get(app.animalId);
-        return { animalId: app.animalId, animalName: info?.animalName ?? "Pet", clientName: info?.clientName ?? "Tutor", clientId: info?.clientId, patientCode: info?.patientCode, doseDate, vaccine: (d.tipoVacina as string) || "Vacina" };
+    return weekReminders
+      .filter((r) => r.kind === "vacina")
+      .map((r) => {
+        const info = animalMap.get(r.animalId);
+        return { animalId: r.animalId, animalName: info?.animalName ?? "Pet", clientName: info?.clientName ?? "Tutor", clientId: info?.clientId, patientCode: info?.patientCode, doseDate: parseLocalDate(r.dueDate), vaccine: r.vaccine || "Vacina" };
       })
       .slice(0, 5);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allAppointments, animalMap]);
+  }, [weekReminders, animalMap]);
 
   const hasWeekAlerts = returnsThisWeek.length > 0 || vaccinesThisWeek.length > 0;
 

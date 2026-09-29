@@ -6,8 +6,7 @@ import { toast } from "sonner";
 import SaasButton from "@/components/saas/SaasButton";
 import { PageShell } from "@/components/saas/PageShell";
 import { PageHeader } from "@/components/saas/PageHeader";
-import AppointmentPdfContent from "@/components/AppointmentPdfContent";
-import { createPdfBlob, openPdf } from "@/lib/pdfExport";
+import { renderPdf, openPdf } from "@/lib/pdfExport";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -196,8 +195,8 @@ export default function AppointmentViewPage() {
   const handleGeneratePdf = async () => {
     setGeneratingPdf(true);
     try {
-      const blob = await createPdfBlob(
-        <AppointmentPdfContent
+      const blob = await renderPdf((K) =>
+        <K.AppointmentPdfContent
           appointment={appointment}
           clientName={client.name}
           animalName={animal.name}

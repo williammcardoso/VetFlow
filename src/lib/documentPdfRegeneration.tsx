@@ -1,8 +1,7 @@
-import { createPdfBlob } from "@/lib/pdfExport";
+import { renderPdf } from "@/lib/pdfExport";
 import { getDocumentForPdfRegeneration, updateDocumentHashAndPdf, uploadDocumentPdf } from "@/lib/documentEmissionApi";
 import { getSignaturesByDocument } from "@/lib/documentSignatureApi";
 import { generateQrCodeDataUrl } from "@/lib/qrCode";
-import DocumentTemplatePdfContent from "@/components/DocumentTemplatePdfContent";
 
 /**
  * Regera o PDF de um documento já emitido incluindo as imagens de assinatura
@@ -35,8 +34,8 @@ export async function regenerarPdfComAssinaturas(documentId: string): Promise<{ 
 
   let blob: Blob;
   try {
-    blob = await createPdfBlob(
-      <DocumentTemplatePdfContent
+    blob = await renderPdf((K) =>
+      <K.DocumentTemplatePdfContent
         codigo={doc.codigo}
         titulo={doc.titulo}
         numero={doc.numero}

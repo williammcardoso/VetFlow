@@ -1,4 +1,4 @@
-import * as XLSX from "xlsx";
+// A biblioteca do Excel (~400 KB) é carregada só na hora de exportar.
 
 export interface XlsxSheet {
   name: string;
@@ -24,7 +24,8 @@ function computeColumnWidths(headers: string[], rows: (string | number)[][]): { 
 }
 
 /** Gera e baixa um .xlsx de verdade (era um .csv disfarçado de Excel antes) — largura de coluna calculada pelo conteúdo e moeda formatada, pra não abrir truncado no Excel. */
-export function exportRowsToXlsx(fileNameBase: string, sheets: XlsxSheet[]): void {
+export async function exportRowsToXlsx(fileNameBase: string, sheets: XlsxSheet[]): Promise<void> {
+  const XLSX = await import("xlsx");
   const wb = XLSX.utils.book_new();
   sheets.forEach((sheet) => {
     const ws = XLSX.utils.aoa_to_sheet([sheet.headers, ...sheet.rows]);

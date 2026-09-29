@@ -1,4 +1,3 @@
-import { pdf } from "@react-pdf/renderer";
 import type { ReactElement } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { createShareLink, type ShareLinkPreview } from "@/lib/documentShareLinksApi";
@@ -93,8 +92,23 @@ function downloadBlob(blob: Blob, fileName: string) {
   URL.revokeObjectURL(url);
 }
 
+// A biblioteca de PDF (~1,3 MB) é carregada só aqui, na hora de gerar — antes
+// vinha no import do topo e descia junto com qualquer tela que tivesse um
+// botão de PDF/WhatsApp (inclusive o Painel).
 export async function createPdfBlob(node: ReactElement): Promise<Blob> {
+  const { pdf } = await import("@react-pdf/renderer");
   return pdf(node).toBlob();
+}
+
+export type PdfKit = typeof import("@/lib/pdfKit");
+
+/**
+ * Gera o PDF carregando os modelos (lib/pdfKit) só agora:
+ * `renderPdf((K) => <K.SaleReceiptPdfContent ... />)`.
+ */
+export async function renderPdf(build: (kit: PdfKit) => ReactElement | Promise<ReactElement>): Promise<Blob> {
+  const kit = await import("@/lib/pdfKit");
+  return createPdfBlob(await build(kit));
 }
 
 export async function openPdf({

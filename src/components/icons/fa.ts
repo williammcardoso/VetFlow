@@ -1,52 +1,99 @@
-import * as Icons from "lucide-react";
+// Aliases com nomes do Font Awesome para ícones do lucide-react (telas antigas).
+// Import estático de cada ícone — antes era `import * as Icons` + busca por
+// nome, o que obrigava o build a embutir a biblioteca inteira (~600 KB).
+import {
+  ArrowLeft,
+  Badge,
+  Briefcase,
+  Building2,
+  Cake,
+  Calendar,
+  CalendarPlus,
+  CheckCircle2,
+  ClipboardList,
+  ClipboardEdit,
+  Clock3,
+  Copy,
+  DollarSign,
+  Download,
+  Eye,
+  FileHeart,
+  FileText,
+  FlaskConical,
+  Layers,
+  Lock,
+  Mail,
+  MapPin,
+  MessageCircleMore,
+  MessageSquare,
+  Microscope,
+  PawPrint,
+  Pencil,
+  Phone,
+  Plus,
+  Printer,
+  Save,
+  Scale,
+  Settings,
+  ShoppingCart,
+  Sparkles,
+  Stethoscope,
+  StickyNote,
+  Tag,
+  Trash,
+  Trash2,
+  Trophy,
+  User,
+  Users,
+  Wrench,
+  X,
+  XCircle,
+} from "lucide-react";
 
-const I = Icons as Record<string, any>;
-const pick = (...names: string[]) => names.map((n) => I[n]).find(Boolean) || I.Circle;
-
-export const FaArrowLeft = pick("ArrowLeft");
-export const FaPlus = pick("Plus");
-export const FaTimes = pick("X");
-export const FaEye = pick("Eye");
-export const FaSave = pick("Save");
-export const FaPrint = pick("Printer");
-export const FaDownload = pick("Download");
-export const FaClipboardList = pick("ClipboardList");
-export const FaUsers = pick("Users");
-export const FaTrashAlt = pick("Trash2");
-export const FaEdit = pick("Pencil", "Edit");
-export const FaPaw = pick("PawPrint");
-export const FaShoppingCart = pick("ShoppingCart");
-export const FaDollarSign = pick("DollarSign");
-export const FaCheckCircle = pick("CheckCircle2", "CheckCircle");
-export const FaTimesCircle = pick("XCircle");
-export const FaUser = pick("User");
-export const FaFileAlt = pick("FileText", "File");
-export const FaCopy = pick("Copy");
-export const FaMagic = pick("Sparkles");
-export const FaLayerGroup = pick("Layers");
-export const FaFlask = pick("FlaskConical");
-export const FaMicroscope = pick("Microscope");
-export const FaFileMedicalAlt = pick("FileHeart", "HeartPulse");
-export const FaNotesMedical = pick("NotebookPen", "NotebookText");
-export const FaUserMd = pick("Stethoscope", "Shield");
-export const FaTrash = pick("Trash");
-export const FaCalendarPlus = pick("CalendarPlus");
-export const FaCalendarAlt = pick("Calendar");
-export const FaClock = pick("Clock3", "Clock");
-export const FaStickyNote = pick("StickyNote");
-export const FaTag = pick("Tag");
-export const FaCog = pick("Settings");
-export const FaBuilding = pick("Building2", "Building");
-export const FaMapPin = pick("MapPin");
-export const FaWrench = pick("Wrench");
-export const FaBriefcase = pick("BriefcaseBusiness", "Briefcase");
-export const FaLock = pick("Lock");
-export const FaTrophy = pick("Trophy");
-export const FaBalanceScale = pick("Scale");
-export const FaEnvelope = pick("Mail");
-export const FaPhone = pick("Phone");
-export const FaMapMarkerAlt = pick("MapPin");
-export const FaIdCard = pick("IdCard", "Badge");
-export const FaBirthdayCake = pick("Cake", "Calendar");
-export const FaWhatsapp = pick("MessageCircleMore", "MessageCircle");
-export const FaSms = pick("MessageSquare");
+export const FaArrowLeft = ArrowLeft;
+export const FaPlus = Plus;
+export const FaTimes = X;
+export const FaEye = Eye;
+export const FaSave = Save;
+export const FaPrint = Printer;
+export const FaDownload = Download;
+export const FaClipboardList = ClipboardList;
+export const FaUsers = Users;
+export const FaTrashAlt = Trash2;
+export const FaEdit = Pencil;
+export const FaPaw = PawPrint;
+export const FaShoppingCart = ShoppingCart;
+export const FaDollarSign = DollarSign;
+export const FaCheckCircle = CheckCircle2;
+export const FaTimesCircle = XCircle;
+export const FaUser = User;
+export const FaFileAlt = FileText;
+export const FaCopy = Copy;
+export const FaMagic = Sparkles;
+export const FaLayerGroup = Layers;
+export const FaFlask = FlaskConical;
+export const FaMicroscope = Microscope;
+export const FaFileMedicalAlt = FileHeart;
+export const FaNotesMedical = ClipboardEdit;
+export const FaUserMd = Stethoscope;
+export const FaTrash = Trash;
+export const FaCalendarPlus = CalendarPlus;
+export const FaCalendarAlt = Calendar;
+export const FaClock = Clock3;
+export const FaStickyNote = StickyNote;
+export const FaTag = Tag;
+export const FaCog = Settings;
+export const FaBuilding = Building2;
+export const FaMapPin = MapPin;
+export const FaWrench = Wrench;
+export const FaBriefcase = Briefcase;
+export const FaLock = Lock;
+export const FaTrophy = Trophy;
+export const FaBalanceScale = Scale;
+export const FaEnvelope = Mail;
+export const FaPhone = Phone;
+export const FaMapMarkerAlt = MapPin;
+export const FaIdCard = Badge;
+export const FaBirthdayCake = Cake;
+export const FaWhatsapp = MessageCircleMore;
+export const FaSms = MessageSquare;

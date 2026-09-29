@@ -11,8 +11,7 @@ import type { CatalogItem, CatalogItemType } from "@/mockData/catalog";
 import { PageShell } from "@/components/saas/PageShell";
 import { PageHeader } from "@/components/saas/PageHeader";
 import { SectionCard } from "@/components/saas/SectionCard";
-import PriceListPdfContent from "@/components/PriceListPdfContent";
-import { createPdfBlob, openPdf } from "@/lib/pdfExport";
+import { renderPdf, openPdf } from "@/lib/pdfExport";
 import { Tag, Search, FileText, ArrowLeft, Package, Stethoscope } from "lucide-react";
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -64,8 +63,8 @@ const PriceListPage: React.FC = () => {
       return;
     }
     try {
-      const blob = await createPdfBlob(
-        <PriceListPdfContent items={filteredItems} showCosts={showCosts} />
+      const blob = await renderPdf((K) =>
+        <K.PriceListPdfContent items={filteredItems} showCosts={showCosts} />
       );
       await openPdf({
         blob,

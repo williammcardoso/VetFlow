@@ -13,8 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { PageShell } from "@/components/saas/PageShell";
 import { PageHeader } from "@/components/saas/PageHeader";
 import { SectionCard } from "@/components/saas/SectionCard";
-import PriceListPdfContent from "@/components/PriceListPdfContent";
-import { createPdfBlob, openPdf } from "@/lib/pdfExport";
+import { renderPdf, openPdf } from "@/lib/pdfExport";
 
 const SERVICE_CATEGORY_OPTIONS = [
   { value: "servico", label: "Serviço geral" },
@@ -290,8 +289,8 @@ const ProductsServicesPage: React.FC = () => {
       const filtered = exportCategory === "all"
         ? items
         : items.filter(i => i.category === exportCategory);
-      const blob = await createPdfBlob(
-        <PriceListPdfContent items={filtered} showCosts={showCosts} />
+      const blob = await renderPdf((K) =>
+        <K.PriceListPdfContent items={filtered} showCosts={showCosts} />
       );
       await openPdf({
         blob,

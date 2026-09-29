@@ -8,8 +8,7 @@ import { toast } from "sonner";
 import type { FinancialTransaction } from "@/mockData/financial";
 import { getSaleItems, SaleItem } from "@/lib/saleItemsApi";
 import { getReceiptsForSale, cancelSaleWithReversal } from "@/lib/saleCancellation";
-import SaleCancellationPdfContent from "@/components/SaleCancellationPdfContent";
-import { createPdfBlob, openPdf } from "@/lib/pdfExport";
+import { renderPdf, openPdf } from "@/lib/pdfExport";
 
 const fmt = (v: number) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
@@ -70,8 +69,8 @@ const CancelSaleDialog: React.FC<CancelSaleDialogProps> = ({
       );
 
       try {
-        const blob = await createPdfBlob(
-          <SaleCancellationPdfContent
+        const blob = await renderPdf((K) =>
+          <K.SaleCancellationPdfContent
             transaction={{
               ...sale,
               status: "cancelled",

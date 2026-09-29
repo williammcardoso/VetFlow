@@ -1,267 +1,318 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { AlertTriangle, CalendarDays, CheckCircle2, MessageCircle, RotateCcw, Syringe } from "lucide-react";
+import { SiWhatsapp } from "react-icons/si";
+import { toast } from "sonner";
 import { useAppointments } from "@/hooks/useAppointments";
 import { useClientsList } from "@/hooks/useSupabaseClients";
+import { useAuth } from "@/contexts/AuthContext";
 import { PageShell } from "@/components/saas/PageShell";
 import { PageHeader } from "@/components/saas/PageHeader";
-import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { KpiStrip } from "@/components/saas/KpiStrip";
+import { IconChip, Panel } from "@/components/finance/FinanceUI";
+import { TONES, type Tone } from "@/components/finance/financeTheme";
+import { speciesIcon, speciesTone } from "@/components/clients/clientVisuals";
 import { Button } from "@/components/ui/button";
-import { RotateCcw, Syringe, CalendarDays, ExternalLink } from "lucide-react";
 import { getPatientRecordPath } from "@/utils/patientDisplayId";
 import { displayAppointmentType } from "@/lib/appointmentDisplay";
+import { openWhatsAppChat } from "@/lib/whatsappShare";
+import { mockCompanySettings } from "@/mockData/settings";
+import { cn } from "@/lib/utils";
+import {
+  buildReminderMessage,
+  buildReminders,
+  getSentReminders,
+  markReminderSent,
+  type ReminderItem,
+} from "@/lib/reminders";
+import type { Animal, Client } from "@/types/client";
 
 type PeriodFilter = "7" | "30" | "90" | "all" | "overdue";
 
-interface ReturnAlert {
-  kind: "retorno" | "vacina";
-  animalId: string;
-  animalName: string;
-  clientName: string;
-  clientId?: string;
-  patientCode?: number;
-  dueDate: Date;
-  label: string;
-  daysUntil: number;
+const PERIODS: Array<{ key: PeriodFilter; label: string }> = [
+  { key: "7", label: "7 dias" },
+  { key: "30", label: "30 dias" },
+  { key: "90", label: "90 dias" },
+  { key: "all", label: "Todos" },
+];
+
+const formatBR = (iso: string) => {
+  const [y, m, d] = iso.split("-");
+  return `${d}/${m}/${y}`;
+};
+const phoneOf = (client?: Client) => {
+  const main = (client?.mainPhoneContact || "").replace(/\D/g, "");
+  if (main.length >= 10) return client?.mainPhoneContact;
+  const second = (client?.secondaryPhoneContact || "").replace(/\D/g, "");
+  return second.length >= 10 ? client?.secondaryPhoneContact : undefined;
+};
+
+function urgency(daysUntil: number): { label: string; tone: Tone } {
+  if (daysUntil < 0) return { label: `atrasado há ${Math.abs(daysUntil)} ${Math.abs(daysUntil) === 1 ? "dia" : "dias"}`, tone: "rose" };
+  if (daysUntil === 0) return { label: "hoje", tone: "rose" };
+  if (daysUntil <= 7) return { label: `em ${daysUntil} ${daysUntil === 1 ? "dia" : "dias"}`, tone: "amber" };
+  return { label: `em ${daysUntil} dias`, tone: "slate" };
 }
 
+// Previsão de vacinas e acompanhamentos → lembrete pelo WhatsApp com um
+// toque (mensagem pronta), marcando quem já foi avisado.
 export default function ReturnsForecastPage() {
-  const { appointments } = useAppointments();
+  const { appointments, loading: loadingAppointments } = useAppointments();
   const { data: dbClients } = useClientsList();
+  const { session } = useAuth();
   const [period, setPeriod] = useState<PeriodFilter>("30");
+  const [sent, setSent] = useState<Record<string, string>>({});
 
-  // "YYYY-MM-DD" puro vira meia-noite UTC se parseado direto; em fuso negativo
-  // (Brasil, UTC-3) isso volta pro dia anterior. Forcar hora local evita o bug.
-  const parseLocalDate = (dateStr: string) => new Date(`${dateStr}T00:00:00`);
+  useEffect(() => {
+    let alive = true;
+    void getSentReminders().then((map) => alive && setSent(map));
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   const animalMap = useMemo(() => {
-    const map = new Map<string, { animalName: string; clientName: string; clientId: string; patientCode?: number }>();
-    for (const client of dbClients || []) {
-      for (const animal of client.animals || []) {
-        map.set(animal.id, { animalName: animal.name, clientName: client.name, clientId: client.id, patientCode: animal.patientCode });
-      }
-    }
+    const map = new Map<string, { animal: Animal; client: Client }>();
+    for (const client of dbClients || []) for (const animal of client.animals || []) map.set(animal.id, { animal, client });
     return map;
   }, [dbClients]);
 
-  const today = useMemo(() => {
-    const d = new Date();
-    d.setHours(0, 0, 0, 0);
-    return d;
-  }, []);
+  const all = useMemo(() => buildReminders(appointments), [appointments]);
+  const overdueCount = all.filter((r) => r.daysUntil < 0).length;
+  const visible = useMemo(() => {
+    if (period === "overdue") return all.filter((r) => r.daysUntil < 0);
+    if (period === "all") return all.filter((r) => r.daysUntil >= 0);
+    return all.filter((r) => r.daysUntil >= 0 && r.daysUntil <= Number(period));
+  }, [all, period]);
 
-  const cutoff = useMemo(() => {
-    if (period === "all" || period === "overdue") return null;
-    return new Date(today.getTime() + Number(period) * 86400000);
-  }, [period, today]);
+  const retornos = visible.filter((r) => r.kind === "retorno");
+  const vacinas = visible.filter((r) => r.kind === "vacina");
+  const sentCount = visible.filter((r) => sent[r.key]).length;
+  const periodText = period === "overdue" ? "atrasados" : period === "all" ? "a partir de hoje" : `nos próximos ${period} dias`;
 
-  const showOverdue = period === "overdue";
-
-  const alerts: ReturnAlert[] = useMemo(() => {
-    const list: ReturnAlert[] = [];
-    const include = (dueDate: Date) =>
-      showOverdue ? dueDate < today : dueDate >= today && (!cutoff || dueDate <= cutoff);
-
-    for (const app of appointments) {
-      const d = app.details as Record<string, unknown>;
-      const info = animalMap.get(app.animalId);
-
-      // Retorno
-      const days = d?.retornoRecomendadoEmDias as number | undefined;
-      if (days) {
-        const dueDate = new Date(parseLocalDate(app.date).getTime() + days * 86400000);
-        if (include(dueDate)) {
-          const daysUntil = Math.ceil((dueDate.getTime() - today.getTime()) / 86400000);
-          list.push({
-            kind: "retorno",
-            animalId: app.animalId,
-            animalName: info?.animalName ?? "Pet",
-            clientName: info?.clientName ?? "Tutor",
-            clientId: info?.clientId,
-            patientCode: info?.patientCode,
-            dueDate,
-            label: `Próximo acompanhamento (${displayAppointmentType(app.type)} de ${parseLocalDate(app.date).toLocaleDateString("pt-BR")})`,
-            daysUntil,
-          });
-        }
-      }
-
-      // Vacina
-      if (app.type === "Vacina") {
-        const nextDose = d?.proximaDose as string | undefined;
-        const tipoVacina = (d?.tipoVacina as string) || "Vacina";
-        if (nextDose) {
-          const dueDate = parseLocalDate(nextDose);
-          if (include(dueDate)) {
-            const daysUntil = Math.ceil((dueDate.getTime() - today.getTime()) / 86400000);
-            list.push({
-              kind: "vacina",
-              animalId: app.animalId,
-              animalName: info?.animalName ?? "Pet",
-              clientName: info?.clientName ?? "Tutor",
-              clientId: info?.clientId,
-              patientCode: info?.patientCode,
-              dueDate,
-              label: `Próxima dose: ${tipoVacina}`,
-              daysUntil,
-            });
-          }
-        }
-      }
+  const remind = async (item: ReminderItem) => {
+    const info = animalMap.get(item.animalId);
+    const phone = phoneOf(info?.client);
+    if (!phone) {
+      toast.error("Este cliente não tem telefone cadastrado. Atualize o cadastro para mandar o lembrete.");
+      return;
     }
-
-    return list.sort((a, b) => a.dueDate.getTime() - b.dueDate.getTime());
-  }, [appointments, animalMap, today, cutoff, showOverdue]);
-
-  const retornos = alerts.filter((a) => a.kind === "retorno");
-  const vacinas = alerts.filter((a) => a.kind === "vacina");
-
-  const periodLabel: Record<PeriodFilter, string> = {
-    "7": "7 dias",
-    "30": "30 dias",
-    "90": "90 dias",
-    "all": "Todos",
-    "overdue": "Atrasados",
+    openWhatsAppChat(
+      phone,
+      buildReminderMessage({
+        kind: item.kind,
+        clientName: info?.client.name ?? "",
+        animalName: info?.animal.name ?? "seu pet",
+        dueDate: item.dueDate,
+        daysUntil: item.daysUntil,
+        vaccine: item.vaccine,
+        clinicName: mockCompanySettings.companyName,
+      })
+    );
+    const sentAt = await markReminderSent(item, { clientId: info?.client.id, sentBy: session?.username });
+    setSent((prev) => ({ ...prev, [item.key]: sentAt }));
   };
 
-  function urgencyColor(daysUntil: number) {
-    if (daysUntil < 0) {
-      return Math.abs(daysUntil) <= 3
-        ? "text-orange-600 bg-orange-50 border-orange-200"
-        : "text-red-600 bg-red-50 border-red-200";
+  function renderList(items: ReminderItem[], empty: string) {
+    if (loadingAppointments && items.length === 0) {
+      return (
+        <ul className="divide-y divide-border/70" aria-busy>
+          {[0, 1, 2].map((i) => (
+            <li key={i} className="flex items-center gap-3 px-4 py-3">
+              <span className="h-9 w-9 shrink-0 animate-pulse rounded-xl bg-muted" />
+              <span className="flex-1 space-y-1.5">
+                <span className="block h-3.5 w-40 max-w-full animate-pulse rounded bg-muted" />
+                <span className="block h-3 w-28 animate-pulse rounded bg-muted" />
+              </span>
+            </li>
+          ))}
+        </ul>
+      );
     }
-    if (daysUntil <= 3) return "text-red-600 bg-red-50 border-red-200";
-    if (daysUntil <= 7) return "text-orange-600 bg-orange-50 border-orange-200";
-    return "text-slate-600 bg-slate-50 border-slate-200";
-  }
-
-  function renderList(items: ReturnAlert[], icon: React.ReactNode, emptyMsg: string) {
     if (items.length === 0) {
       return (
-        <p className="rounded-lg border border-dashed border-border/60 bg-muted/30 px-4 py-6 text-center text-sm text-muted-foreground">
-          {emptyMsg}
-        </p>
+        <div className="px-4 py-10 text-center">
+          <span className="mx-auto flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600 ring-1 ring-emerald-100">
+            <CheckCircle2 className="h-5 w-5" aria-hidden />
+          </span>
+          <p className="mt-2 text-sm font-semibold text-foreground">Nada por aqui</p>
+          <p className="text-xs text-muted-foreground">{empty}</p>
+        </div>
       );
     }
     return (
-      <div className="space-y-2">
-        {items.map((item, i) => (
-          <div
-            key={`${item.kind}-${item.animalId}-${i}`}
-            className={`flex items-center justify-between rounded-lg border px-4 py-3 ${urgencyColor(item.daysUntil)}`}
-          >
-            <div className="flex min-w-0 items-center gap-3">
-              <span className="shrink-0">{icon}</span>
-              <div className="min-w-0">
-                <div className="flex items-center gap-1.5">
-                  {item.clientId ? (
-                    <Link
-                      to={getPatientRecordPath(item.clientId, item.animalId, item.patientCode)}
-                      className="truncate text-sm font-semibold hover:underline"
-                    >
-                      {item.animalName}
-                    </Link>
-                  ) : (
-                    <span className="truncate text-sm font-semibold">{item.animalName}</span>
-                  )}
-                  {item.clientId && (
-                    <Link to={getPatientRecordPath(item.clientId, item.animalId, item.patientCode)} className="shrink-0 opacity-50 hover:opacity-100">
-                      <ExternalLink className="h-3 w-3" />
-                    </Link>
+      <ul className="divide-y divide-border/70">
+        {items.map((item) => {
+          const info = animalMap.get(item.animalId);
+          const Species = speciesIcon(info?.animal.species);
+          const u = urgency(item.daysUntil);
+          const sentAt = sent[item.key];
+          const hasPhone = Boolean(phoneOf(info?.client));
+          return (
+            <li key={item.key} className="flex flex-col gap-2 px-3 py-3 sm:flex-row sm:items-center sm:gap-3 sm:px-4">
+              <div className="flex min-w-0 flex-1 items-start gap-3">
+                <span
+                  className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ring-1 ring-black/5", speciesTone(info?.animal.species).soft)}
+                  aria-hidden
+                >
+                  <Species className="h-[18px] w-[18px]" />
+                </span>
+                <div className="min-w-0">
+                  <p className="truncate text-sm text-foreground">
+                    {info ? (
+                      <Link
+                        to={getPatientRecordPath(info.client.id, info.animal.id, info.animal.patientCode)}
+                        className="font-semibold hover:text-primary hover:underline"
+                      >
+                        {info.animal.name}
+                      </Link>
+                    ) : (
+                      <span className="font-semibold">Pet</span>
+                    )}
+                    <span className="text-muted-foreground"> · {info?.client.name ?? "Tutor"}</span>
+                  </p>
+                  <p className="truncate text-xs text-muted-foreground">
+                    {item.kind === "vacina" ? (
+                      <>
+                        <span className="font-medium text-sky-700">{item.vaccine}</span> · dose anterior em {formatBR(item.appointmentDate)}
+                      </>
+                    ) : (
+                      <>
+                        Após {displayAppointmentType(item.appointmentType as never)} de {formatBR(item.appointmentDate)}
+                      </>
+                    )}
+                  </p>
+                  {sentAt && (
+                    <p className="mt-1 inline-flex items-center gap-1 rounded-md bg-emerald-50 px-1.5 py-0.5 text-[11px] font-semibold text-emerald-700 ring-1 ring-inset ring-emerald-600/15">
+                      <CheckCircle2 className="h-3 w-3" aria-hidden />
+                      Avisado em {new Date(sentAt).toLocaleDateString("pt-BR")}
+                    </p>
                   )}
                 </div>
-                <p className="break-words text-xs opacity-70 sm:truncate">{item.clientName} · {item.label}</p>
               </div>
-            </div>
-            <div className="ml-3 shrink-0 text-right">
-              <p className="text-sm font-semibold">{item.dueDate.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit" })}</p>
-              <p className="text-xs opacity-70">
-                {item.daysUntil < 0 ? `atrasado há ${Math.abs(item.daysUntil)}d` : `em ${item.daysUntil}d`}
-              </p>
-            </div>
-          </div>
-        ))}
-      </div>
+              <div className="flex items-center justify-between gap-2 pl-12 sm:shrink-0 sm:justify-end sm:pl-0">
+                <div className="sm:text-right">
+                  <p className="text-sm font-bold tabular-nums text-foreground">{formatBR(item.dueDate)}</p>
+                  <span className={cn("inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 ring-inset", TONES[u.tone].badge)}>{u.label}</span>
+                </div>
+                <Button
+                  size="sm"
+                  variant={sentAt ? "outline" : "default"}
+                  className={cn(
+                    "h-9 gap-1.5 font-semibold",
+                    !sentAt && "bg-[#25D366] text-white hover:bg-[#1fb957]",
+                    !hasPhone && "opacity-60"
+                  )}
+                  title={hasPhone ? "Abrir o WhatsApp com a mensagem pronta" : "Cliente sem telefone cadastrado"}
+                  onClick={() => void remind(item)}
+                >
+                  <SiWhatsapp className={cn("h-4 w-4", sentAt && "text-[#25D366]")} aria-hidden />
+                  {sentAt ? "Reenviar" : "Lembrar"}
+                </Button>
+              </div>
+            </li>
+          );
+        })}
+      </ul>
     );
   }
 
   return (
-    <PageShell className="space-y-4 font-sans">
+    <PageShell className="space-y-4 sm:space-y-5">
       <PageHeader
-        title="Previsão de Acompanhamentos e Vacinas"
-        description="Próximos acompanhamentos recomendados e próximas doses registrados nos prontuários."
+        title="Vacinas e acompanhamentos"
+        description="Quem está para vencer — avise o tutor pelo WhatsApp com a mensagem pronta."
         icon={CalendarDays}
         module="clinical"
-        breadcrumb={<>Agenda &gt; Previsão</>}
-        actions={
-          <div className="flex items-center gap-2">
-            {(["7", "30", "90", "all"] as PeriodFilter[]).map((p) => (
-              <Button
-                key={p}
-                size="sm"
-                variant={period === p ? "default" : "outline"}
-                className="h-8 rounded-full px-3 text-xs"
-                onClick={() => setPeriod(p)}
-              >
-                {periodLabel[p]}
-              </Button>
-            ))}
-            <span className="mx-0.5 h-5 w-px bg-border" aria-hidden="true" />
-            <Button
-              size="sm"
-              variant={showOverdue ? "default" : "outline"}
-              className={`h-8 rounded-full px-3 text-xs ${
-                showOverdue
-                  ? "border-red-600 bg-red-600 text-white hover:bg-red-600/90"
-                  : "border-red-200 text-red-600 hover:bg-red-50"
-              }`}
-              onClick={() => setPeriod("overdue")}
-            >
-              Atrasados
-            </Button>
-          </div>
-        }
+        breadcrumb={<>Agenda &gt; Lembretes</>}
+        className="mb-0 sm:mb-0"
       />
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <Card className="rounded-2xl vf-surface-card vf-tone-clinical p-4 sm:p-5">
-          <div className="mb-3 flex items-center justify-between">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-orange-600">Acompanhamentos</p>
-              <h2 className="text-[1.05rem] font-semibold tracking-tight text-foreground">{showOverdue ? "Acompanhamentos atrasados" : "Próximos acompanhamentos"}</h2>
-            </div>
-            <Badge className="bg-orange-100 text-orange-700">
-              {retornos.length}
-            </Badge>
-          </div>
-          {renderList(
-            retornos,
-            <RotateCcw className="h-4 w-4" />,
-            showOverdue
-              ? "Nenhum acompanhamento atrasado."
-              : `Nenhum acompanhamento previsto nos próximos ${period === "all" ? "registros" : periodLabel[period]}.`
+      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+        <div role="radiogroup" aria-label="Período" className="inline-flex w-full rounded-xl bg-muted p-1 sm:w-auto">
+          {PERIODS.map(({ key, label }) => {
+            const on = period === key;
+            return (
+              <button
+                key={key}
+                type="button"
+                role="radio"
+                aria-checked={on}
+                onClick={() => setPeriod(key)}
+                className={cn(
+                  "flex-1 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium transition-colors sm:flex-none",
+                  on ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                {label}
+              </button>
+            );
+          })}
+        </div>
+        <button
+          type="button"
+          role="radio"
+          aria-checked={period === "overdue"}
+          onClick={() => setPeriod("overdue")}
+          className={cn(
+            "inline-flex items-center justify-center gap-1.5 rounded-xl border px-3 py-2 text-sm font-semibold transition-colors",
+            period === "overdue" ? "border-rose-600 bg-rose-600 text-white" : "border-rose-200 bg-rose-50/60 text-rose-700 hover:bg-rose-50"
           )}
-        </Card>
-
-        <Card className="rounded-2xl vf-surface-card vf-tone-clinical p-4 sm:p-5">
-          <div className="mb-3 flex items-center justify-between">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-blue-600">Vacinas</p>
-              <h2 className="text-[1.05rem] font-semibold tracking-tight text-foreground">{showOverdue ? "Doses atrasadas" : "Próximas doses"}</h2>
-            </div>
-            <Badge className="bg-blue-100 text-blue-700">
-              {vacinas.length}
-            </Badge>
-          </div>
-          {renderList(
-            vacinas,
-            <Syringe className="h-4 w-4" />,
-            showOverdue
-              ? "Nenhuma vacina atrasada."
-              : `Nenhuma vacina prevista nos próximos ${period === "all" ? "registros" : periodLabel[period]}.`
-          )}
-        </Card>
+        >
+          <AlertTriangle className="h-4 w-4" aria-hidden />
+          Atrasados
+          <span className={cn("rounded-full px-1.5 text-xs tabular-nums", period === "overdue" ? "bg-white/20" : "bg-rose-100")}>{overdueCount}</span>
+        </button>
       </div>
+
+      <KpiStrip
+        compactOnPhone
+        loading={loadingAppointments}
+        items={[
+          { label: "Vacinas", icon: Syringe, tone: "sky", value: String(vacinas.length), hint: periodText },
+          { label: "Acompanhamentos", icon: RotateCcw, tone: "orange", value: String(retornos.length), hint: periodText },
+          {
+            label: "Atrasados",
+            icon: AlertTriangle,
+            tone: "rose",
+            value: String(overdueCount),
+            hint: "ainda sem retorno",
+            colorValue: overdueCount > 0,
+            onClick: overdueCount > 0 ? () => setPeriod("overdue") : undefined,
+          },
+          { label: "Já avisados", icon: MessageCircle, tone: "emerald", value: `${sentCount} de ${visible.length}`, hint: "nesta lista" },
+        ]}
+      />
+
+      <div className="grid gap-4 xl:grid-cols-2">
+        <Panel
+          title={period === "overdue" ? "Vacinas atrasadas" : "Próximas vacinas"}
+          icon={Syringe}
+          tone="sky"
+          description="Próxima dose registrada no atendimento de vacina"
+          actions={<span className="rounded-full bg-sky-100 px-2 text-xs font-bold tabular-nums text-sky-700">{vacinas.length}</span>}
+        >
+          {renderList(vacinas, period === "overdue" ? "Nenhuma vacina atrasada." : `Nenhuma vacina ${periodText}.`)}
+        </Panel>
+
+        <Panel
+          title={period === "overdue" ? "Acompanhamentos atrasados" : "Próximos acompanhamentos"}
+          icon={RotateCcw}
+          tone="orange"
+          description="“Próximo acompanhamento (dias)” registrado no atendimento"
+          actions={<span className="rounded-full bg-orange-100 px-2 text-xs font-bold tabular-nums text-orange-700">{retornos.length}</span>}
+        >
+          {renderList(retornos, period === "overdue" ? "Nenhum acompanhamento atrasado." : `Nenhum acompanhamento ${periodText}.`)}
+        </Panel>
+      </div>
+
+      <p className="flex items-start gap-2 text-xs text-muted-foreground">
+        <IconChip icon={CheckCircle2} tone="emerald" size="sm" />
+        <span className="pt-1.5">
+          Some da lista sozinho quando o pet volta: vacina com a dose seguinte aplicada, ou acompanhamento com um novo atendimento
+          registrado depois.
+        </span>
+      </p>
     </PageShell>
   );
 }

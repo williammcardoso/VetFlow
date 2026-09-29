@@ -39,6 +39,7 @@ import {
   Building2,
   Palette,
   KeyRound,
+  DatabaseBackup,
   Clock,
   ExternalLink,
 } from "lucide-react";
@@ -56,7 +57,7 @@ const navItemsBase: NavItem[] = [
   { title: "Painel de Controle", href: "/dashboard", icon: LayoutDashboard, section: "Atendimento" },
   { title: "Agenda", href: "/agenda", icon: Calendar },
   { title: "Clientes", href: "/clients", icon: Users },
-  { title: "Previsão de Retornos", href: "/clinical/returns-forecast", icon: RotateCcw },
+  { title: "Vacinas e acompanhamentos", href: "/clinical/returns-forecast", icon: RotateCcw },
   { title: "Relatório de Atendimentos", href: "/clinical/appointments-report", icon: BarChart3 },
   {
     title: "Comercial",
@@ -117,6 +118,7 @@ const navItemsBase: NavItem[] = [
       { title: "Usuarios do sistema", href: "/settings/users-management", icon: Shield, requireRole: "admin" },
       { title: "Aparência", href: "/settings/appearance", icon: Palette },
       { title: "Perfil de Acesso", href: "/settings/access-profile", icon: KeyRound, requireRole: "admin" },
+      { title: "Backup dos dados", href: "/settings/backup", icon: DatabaseBackup, requireRole: "admin" },
     ],
   },
 ];

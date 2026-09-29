@@ -23,9 +23,8 @@ import { buildAutoDocumentContext, mergeManualFields } from "@/lib/documentConte
 import { renderDocumentTemplate } from "@/lib/documentTemplateEngine";
 import { computeDocumentHash } from "@/lib/documentHash";
 import { generateQrCodeDataUrl } from "@/lib/qrCode";
-import { createPdfBlob } from "@/lib/pdfExport";
+import { renderPdf } from "@/lib/pdfExport";
 import { insertEmittedDocument, updateDocumentHashAndPdf, uploadDocumentPdf } from "@/lib/documentEmissionApi";
-import DocumentTemplatePdfContent from "@/components/DocumentTemplatePdfContent";
 import DocumentSignaturePanel from "@/components/DocumentSignaturePanel";
 import { useAuth } from "@/contexts/AuthContext";
 import type { DocumentTemplateGroup } from "@/types/documentTemplate";
@@ -162,8 +161,8 @@ const EmitDocumentPage: React.FC = () => {
     let blob: Blob;
     try {
       const vetContext = contextoFinal?.vet as { nome?: string; crmv?: string; crmv_uf?: string } | undefined;
-      blob = await createPdfBlob(
-        <DocumentTemplatePdfContent
+      blob = await renderPdf((K) =>
+        <K.DocumentTemplatePdfContent
           codigo={template.codigo}
           titulo={template.titulo}
           numero={params.numero}

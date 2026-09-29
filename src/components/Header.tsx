@@ -20,6 +20,8 @@ import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCurrentUserProfile } from "@/hooks/useCurrentUserProfile";
 import UserAvatarDisplay from "@/components/UserAvatarDisplay";
+import { BACKUP_REMINDER_DAYS, daysSinceLastBackup } from "@/lib/backupApi";
+import { buildReminders } from "@/lib/reminders";
 
 interface HeaderProps {
   onToggleMobileSidebar: () => void;
@@ -79,19 +81,23 @@ const Header: React.FC<HeaderProps> = ({
       const date = toDateTime(s);
       return date >= startOfToday && date < now && (status === "scheduled" || status === "in_progress");
     }).length;
+    // Mesma regra da tela de lembretes: ignora o que já foi resolvido.
+    const upcomingFollowUps = buildReminders(appointments, now).filter((r) => r.daysUntil >= 0 && r.daysUntil <= 7).length;
 
-    // "YYYY-MM-DD" puro vira meia-noite UTC se parseado direto; em fuso negativo
-    // (Brasil, UTC-3) isso volta pro dia anterior. Forcar hora local evita o bug.
-    const parseLocalDate = (dateStr: string) => new Date(`${dateStr}T00:00:00`);
-    const in7days = new Date(startOfToday.getTime() + 7 * 86400000);
-    const upcomingFollowUps = appointments.filter((app) => {
-      const days = (app.details as Record<string, unknown>)?.retornoRecomendadoEmDias as number | undefined;
-      if (!days) return false;
-      const dueDate = new Date(parseLocalDate(app.date).getTime() + days * 86400000);
-      return dueDate >= startOfToday && dueDate <= in7days;
-    }).length;
+    // Backup atrasado (só admin faz backup). O id muda por semana: se marcar
+    // como lido, volta a lembrar na semana seguinte enquanto não fizer.
+    const backupDays = session?.role === "admin" ? daysSinceLastBackup(now) : 0;
+    const backupLate = backupDays === null || (backupDays ?? 0) > BACKUP_REMINDER_DAYS;
+    const weekKey = Math.floor(now.getTime() / (7 * 86400000));
 
     return [
+      {
+        id: `notif-backup-${weekKey}`,
+        title: "Backup dos dados",
+        description: backupDays === null ? "Nenhum backup feito neste computador ainda." : `Último backup há ${backupDays} dias.`,
+        href: "/settings/backup",
+        visible: session?.role === "admin" && backupLate,
+      },
       {
         id: "notif-upcoming-2h",
         title: "Agenda imediata",
@@ -108,8 +114,8 @@ const Header: React.FC<HeaderProps> = ({
       },
       {
         id: "notif-follow-ups-7d",
-        title: "Acompanhamentos próximos",
-        description: `${upcomingFollowUps} acompanhamento(s) previsto(s) nos próximos 7 dias.`,
+        title: "Vacinas e acompanhamentos",
+        description: `${upcomingFollowUps} lembrete(s) para os próximos 7 dias — avise pelo WhatsApp.`,
         href: "/clinical/returns-forecast",
         visible: upcomingFollowUps > 0,
       },
@@ -121,7 +127,7 @@ const Header: React.FC<HeaderProps> = ({
         visible: lowStockCount > 0,
       },
     ].filter((n) => n.visible);
-  }, [schedules, appointments]);
+  }, [schedules, appointments, session?.role]);
 
   const unreadNotifications = notifications.filter((n) => !dismissedNotifications.includes(n.id));
 

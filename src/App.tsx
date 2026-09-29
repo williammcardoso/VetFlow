@@ -2,74 +2,69 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate, Outlet, useLocation, useParams } from "react-router-dom";
-import { useEffect } from "react";
+import { Suspense, useEffect } from "react";
 import Layout from "./components/Layout";
-import Dashboard from "./pages/Dashboard";
-import ClientsPage from "./pages/ClientsPage";
-import ClientFormPage from "./pages/ClientFormPage";
-import AddAnimalPage from "./pages/AddAnimalPage";
-import ClientDetailPage from "./pages/ClientDetailPage";
-import PatientRecordPage from "./pages/PatientRecordPage";
-import AddExamPage from "./pages/AddExamPage";
-import AddPrescriptionPage from "./pages/AddPrescriptionPage";
-import AddDocumentPage from "./pages/AddDocumentPage";
-import EmitDocumentPage from "./pages/EmitDocumentPage";
-import AddExamRequestPage from "./pages/AddExamRequestPage";
-import AddAppointmentPage from "./pages/AddAppointmentPage";
-import AppointmentViewPage from "./pages/AppointmentViewPage";
-import SpeciesPage from "./pages/registrations/SpeciesPage";
-import BreedsPage from "./pages/registrations/BreedsPage";
-import CoatTypesPage from "./pages/registrations/CoatTypesPage";
-import ExamReferencesPage from "./pages/registrations/ExamReferencesPage";
-import CompanySettingsPage from "./pages/settings/CompanySettingsPage";
-import AgendaAvailabilityPage from "./pages/settings/AgendaAvailabilityPage";
-import UserSettingsPage from "./pages/settings/UserSettingsPage";
-import AppointmentTypesPage from "./pages/registrations/AppointmentTypesPage";
-import VaccinesPage from "./pages/registrations/VaccinesPage";
-import ExamsPage from "./pages/registrations/ExamsPage";
-import DocumentModelPage from "./pages/registrations/DocumentModelPage";
-import DocumentLibraryPage from "./pages/registrations/DocumentLibraryPage";
-import DocumentTemplateEditorPage from "./pages/registrations/DocumentTemplateEditorPage";
-import AgendaPage from "./pages/AgendaPage";
-import FinancialPage from "./pages/FinancialPage";
-import NotFound from "./pages/NotFound";
-import HelpPage from "./pages/HelpPage";
 import { ErrorBoundary } from "./components/ErrorBoundary";
-import LoginPage from "./pages/auth/LoginPage";
-import ValidateDocumentPage from "./pages/public/ValidateDocumentPage";
-import SignDocumentPage from "./pages/public/SignDocumentPage";
-import BookSchedulePage from "./pages/public/BookSchedulePage";
-import DocumentRedirectPage from "./pages/public/DocumentRedirectPage";
-import UsersManagementPage from "./pages/settings/UsersManagementPage";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
-
-// Sales Pages
-import SalesPage from "./pages/sales/SalesPage";
-import POSPage from "./pages/sales/POSPage";
-import ReceiptsPage from "./pages/sales/ReceiptsPage";
-import BudgetsPage from "./pages/sales/BudgetsPage";
-import SalesReportsPage from "./pages/sales/SalesReportsPage";
-import ClientFinancialPage from "./pages/sales/ClientFinancialPage";
-import PriceListPage from "./pages/sales/PriceListPage";
-
-// Clinical pages
-import ReturnsForecastPage from "./pages/clinical/ReturnsForecastPage";
-import AppointmentsReportPage from "./pages/clinical/AppointmentsReportPage";
-
-// Financial Sub-pages
-import FinancialPaymentMethodsPage from "./pages/financial/PaymentMethodsPage";
-import FinancialReportsPage from "./pages/financial/FinancialReportsPage";
-import MonthlyClosingPage from "./pages/financial/MonthlyClosingPage";
-
-// Stock pages
-import ProductsServicesPage from "./pages/stock/ProductsServicesPage";
-import PurchasesPage from "./pages/stock/PurchasesPage";
-
-// Settings
-import AccessProfilePage from "./pages/settings/AccessProfilePage";
-import AppearanceSettingsPage from "./pages/settings/AppearanceSettingsPage";
 import { getCompanySettings } from "./lib/settingsApi";
+import { lazyPage } from "./lib/lazyPage";
+import { PageLoading } from "./components/PageLoading";
+
+// Telas carregadas sob demanda (ver lib/lazyPage.ts).
+const Dashboard = lazyPage(() => import("./pages/Dashboard"));
+const ClientsPage = lazyPage(() => import("./pages/ClientsPage"));
+const ClientFormPage = lazyPage(() => import("./pages/ClientFormPage"));
+const AddAnimalPage = lazyPage(() => import("./pages/AddAnimalPage"));
+const ClientDetailPage = lazyPage(() => import("./pages/ClientDetailPage"));
+const PatientRecordPage = lazyPage(() => import("./pages/PatientRecordPage"));
+const AddExamPage = lazyPage(() => import("./pages/AddExamPage"));
+const AddPrescriptionPage = lazyPage(() => import("./pages/AddPrescriptionPage"));
+const AddDocumentPage = lazyPage(() => import("./pages/AddDocumentPage"));
+const EmitDocumentPage = lazyPage(() => import("./pages/EmitDocumentPage"));
+const AddExamRequestPage = lazyPage(() => import("./pages/AddExamRequestPage"));
+const AddAppointmentPage = lazyPage(() => import("./pages/AddAppointmentPage"));
+const AppointmentViewPage = lazyPage(() => import("./pages/AppointmentViewPage"));
+const SpeciesPage = lazyPage(() => import("./pages/registrations/SpeciesPage"));
+const BreedsPage = lazyPage(() => import("./pages/registrations/BreedsPage"));
+const CoatTypesPage = lazyPage(() => import("./pages/registrations/CoatTypesPage"));
+const ExamReferencesPage = lazyPage(() => import("./pages/registrations/ExamReferencesPage"));
+const CompanySettingsPage = lazyPage(() => import("./pages/settings/CompanySettingsPage"));
+const AgendaAvailabilityPage = lazyPage(() => import("./pages/settings/AgendaAvailabilityPage"));
+const UserSettingsPage = lazyPage(() => import("./pages/settings/UserSettingsPage"));
+const AppointmentTypesPage = lazyPage(() => import("./pages/registrations/AppointmentTypesPage"));
+const VaccinesPage = lazyPage(() => import("./pages/registrations/VaccinesPage"));
+const ExamsPage = lazyPage(() => import("./pages/registrations/ExamsPage"));
+const DocumentModelPage = lazyPage(() => import("./pages/registrations/DocumentModelPage"));
+const DocumentLibraryPage = lazyPage(() => import("./pages/registrations/DocumentLibraryPage"));
+const DocumentTemplateEditorPage = lazyPage(() => import("./pages/registrations/DocumentTemplateEditorPage"));
+const AgendaPage = lazyPage(() => import("./pages/AgendaPage"));
+const FinancialPage = lazyPage(() => import("./pages/FinancialPage"));
+const NotFound = lazyPage(() => import("./pages/NotFound"));
+const HelpPage = lazyPage(() => import("./pages/HelpPage"));
+const LoginPage = lazyPage(() => import("./pages/auth/LoginPage"));
+const ValidateDocumentPage = lazyPage(() => import("./pages/public/ValidateDocumentPage"));
+const SignDocumentPage = lazyPage(() => import("./pages/public/SignDocumentPage"));
+const BookSchedulePage = lazyPage(() => import("./pages/public/BookSchedulePage"));
+const DocumentRedirectPage = lazyPage(() => import("./pages/public/DocumentRedirectPage"));
+const UsersManagementPage = lazyPage(() => import("./pages/settings/UsersManagementPage"));
+const SalesPage = lazyPage(() => import("./pages/sales/SalesPage"));
+const POSPage = lazyPage(() => import("./pages/sales/POSPage"));
+const ReceiptsPage = lazyPage(() => import("./pages/sales/ReceiptsPage"));
+const BudgetsPage = lazyPage(() => import("./pages/sales/BudgetsPage"));
+const SalesReportsPage = lazyPage(() => import("./pages/sales/SalesReportsPage"));
+const ClientFinancialPage = lazyPage(() => import("./pages/sales/ClientFinancialPage"));
+const PriceListPage = lazyPage(() => import("./pages/sales/PriceListPage"));
+const ReturnsForecastPage = lazyPage(() => import("./pages/clinical/ReturnsForecastPage"));
+const AppointmentsReportPage = lazyPage(() => import("./pages/clinical/AppointmentsReportPage"));
+const FinancialPaymentMethodsPage = lazyPage(() => import("./pages/financial/PaymentMethodsPage"));
+const FinancialReportsPage = lazyPage(() => import("./pages/financial/FinancialReportsPage"));
+const MonthlyClosingPage = lazyPage(() => import("./pages/financial/MonthlyClosingPage"));
+const ProductsServicesPage = lazyPage(() => import("./pages/stock/ProductsServicesPage"));
+const PurchasesPage = lazyPage(() => import("./pages/stock/PurchasesPage"));
+const AccessProfilePage = lazyPage(() => import("./pages/settings/AccessProfilePage"));
+const AppearanceSettingsPage = lazyPage(() => import("./pages/settings/AppearanceSettingsPage"));
+const BackupPage = lazyPage(() => import("./pages/settings/BackupPage"));
 
 const queryClient = new QueryClient();
 
@@ -132,7 +127,10 @@ const ProtectedAppShell = () => {
   return (
     <ProtectedRoute>
       <Layout>
-        <Outlet />
+        {/* O menu fica na tela enquanto a próxima tela é baixada. */}
+        <Suspense fallback={<PageLoading />}>
+          <Outlet />
+        </Suspense>
       </Layout>
     </ProtectedRoute>
   );
@@ -146,6 +144,7 @@ const App = () => {
           <Sonner />
           <BrowserRouter>
             <AuthProvider>
+              <Suspense fallback={<PageLoading fullScreen />}>
               <Routes>
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/validar/:hash" element={<ValidateDocumentPage />} />
@@ -311,6 +310,14 @@ const App = () => {
                     />
                     <Route path="/settings/appearance" element={<AppearanceSettingsPage />} />
                     <Route
+                      path="/settings/backup"
+                      element={
+                        <ProtectedRoute requireRole="admin">
+                          <BackupPage />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
                       path="/settings/access-profile"
                       element={
                         <ProtectedRoute requireRole="admin">
@@ -355,6 +362,7 @@ const App = () => {
                     <Route path="*" element={<NotFound />} />
                   </Route>
               </Routes>
+              </Suspense>
             </AuthProvider>
           </BrowserRouter>
         </TooltipProvider>

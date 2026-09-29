@@ -18,7 +18,6 @@ import AutocompleteSelect from "@/components/AutocompleteSelect";
 import ClientCombobox from "@/components/ClientCombobox";
 import { getPatientRecordPath } from "@/utils/patientDisplayId";
 import { formatAgeLong, formatCurrencyBRL, formatDateBRForFileName, formatDateTime, slugifyFileName } from "@/lib/utils";
-import BudgetReportPdfContent from "@/components/BudgetReportPdfContent";
 import { useClientsList } from "@/hooks/useSupabaseClients";
 import { Link } from "react-router-dom";
 import { PageShell } from "@/components/saas/PageShell";
@@ -27,7 +26,7 @@ import { SectionCard } from "@/components/saas/SectionCard";
 import { DataTableFrame } from "@/components/saas/DataTableFrame";
 import { ArrowLeft, FileText, Filter, Sparkles, CheckCircle2, Ban, Trash2, Printer, Plus, Pencil } from "lucide-react";
 import { SiWhatsapp } from "react-icons/si";
-import { createPdfBlob, openPdf } from "@/lib/pdfExport";
+import { renderPdf, openPdf } from "@/lib/pdfExport";
 import { sendPdfViaWhatsApp } from "@/lib/whatsappShare";
 import { useCurrentUserProfile } from "@/hooks/useCurrentUserProfile";
 
@@ -265,8 +264,8 @@ const BudgetsPage: React.FC = () => {
         ].filter(Boolean).join(" - ")
       : (typeof addr === "string" ? addr : undefined);
 
-    const blob = await createPdfBlob(
-      <BudgetReportPdfContent
+    const blob = await renderPdf((K) =>
+      <K.BudgetReportPdfContent
         budget={b}
         userProfile={currentUserProfile}
         tutorAddress={addressLine}

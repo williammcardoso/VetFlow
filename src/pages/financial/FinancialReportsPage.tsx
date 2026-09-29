@@ -9,7 +9,6 @@ import { KpiStrip } from "@/components/saas/KpiStrip";
 import { PeriodFilter, describePeriod, periodRange } from "@/components/saas/PeriodFilter";
 import { DailyBarChart } from "@/components/saas/DailyBarChart";
 import { BarList } from "@/components/saas/BarList";
-import FinancialReportPdfContent from "@/components/FinancialReportPdfContent";
 import { IconChip, Panel, PaymentMethodBadge } from "@/components/finance/FinanceUI";
 import { ResultBreakdown } from "@/components/finance/ResultBreakdown";
 import { CONCEPTS, TONES, categoryVisual, movementVisual } from "@/components/finance/financeTheme";
@@ -22,7 +21,7 @@ import { lineProviderCost } from "@/lib/monthlyClosing";
 import { catalogCategoryLabel } from "@/lib/catalogCategories";
 import { computePeriodFinancials, isCancelled, isSale, revenueByCategory, sumByDay } from "@/lib/financialSummary";
 import { summarizeSaleItems } from "@/lib/salePayment";
-import { createPdfBlob, openPdf } from "@/lib/pdfExport";
+import { renderPdf, openPdf } from "@/lib/pdfExport";
 import { cn, formatCurrencyBRL, formatDateTime, getTodayLocalISO } from "@/lib/utils";
 import { getPatientRecordPath } from "@/utils/patientDisplayId";
 
@@ -185,8 +184,8 @@ const FinancialReportsPage: React.FC = () => {
   const handlePrintDetailedReport = async () => {
     setExportingPdf(true);
     try {
-      const blob = await createPdfBlob(
-        <FinancialReportPdfContent
+      const blob = await renderPdf((K) =>
+        <K.FinancialReportPdfContent
           periodLabel={periodLabel}
           faturamento={fin.faturado}
           recebido={fin.recebido}

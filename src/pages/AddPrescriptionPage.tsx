@@ -15,7 +15,6 @@ import PrescriptionMedicationForm, { MedicationData } from "@/components/Prescri
 import PrescriptionManipulatedForm from "@/components/PrescriptionManipulatedForm";
 import { refreshMedicationPosology } from "@/lib/posology";
 import { toast } from "sonner";
-import { PrescriptionPdfContent } from "@/components/PrescriptionPdfContent";
 import { PrescriptionEntry, ManipulatedPrescriptionData } from "@/types/medication";
 import { slugifyFileName, getTodayLocalISO, formatDateBRForFileName } from "@/lib/utils";
 import { usePrescriptions } from "@/hooks/usePrescriptions";
@@ -33,7 +32,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { createPdfBlob, downloadPdf, openPdf } from "@/lib/pdfExport";
+import { renderPdf, downloadPdf, openPdf } from "@/lib/pdfExport";
 import { useCurrentUserProfile } from "@/hooks/useCurrentUserProfile";
 
 function formatAddress(client: { address: { street?: string; number?: string; complement?: string; neighborhood?: string; city?: string; state?: string } }): string {
@@ -295,8 +294,8 @@ const AddPrescriptionPage = () => {
     }
 
     try {
-      const blob = await createPdfBlob(
-        PrescriptionPdfContent({
+      const blob = await renderPdf((K) =>
+        K.PrescriptionPdfContent({
           animalName: animal.name,
           animalId: animal.id,
           animalSpecies: animal.species,
@@ -344,8 +343,8 @@ const AddPrescriptionPage = () => {
     }
 
     try {
-      const blob = await createPdfBlob(
-        PrescriptionPdfContent({
+      const blob = await renderPdf((K) =>
+        K.PrescriptionPdfContent({
           animalName: animal.name,
           animalId: animal.id,
           animalSpecies: animal.species,

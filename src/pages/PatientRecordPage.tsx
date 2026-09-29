@@ -51,12 +51,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { PrescriptionPdfContent } from "@/components/PrescriptionPdfContent";
-import { ExamReportPdfContent } from "@/components/ExamReportPdfContent";
-import ExamReportPdfContentHemogramaOnePage from "@/components/ExamReportPdfContent_Hemograma_OnePage";
-import ExamReportPdfContentBioquimicoOnePage from "@/components/ExamReportPdfContent_Bioquimico_OnePage";
-import ExamReportPdfContentCitologiaOnePage from "@/components/ExamReportPdfContent_Citologia_OnePage";
-import ExamReportPdfContentTesteRapidoOnePage from "@/components/ExamReportPdfContent_TesteRapido_OnePage";
 import type { FinancialTransaction } from "@/mockData/financial";
 import { AppointmentEntry, BaseAppointmentDetails } from "@/types/appointment";
 import { updateAnimalDetails, getWeightHistory } from "@/lib/clientsApi";
@@ -66,7 +60,8 @@ import { useFinancialTransactions } from "@/hooks/useFinancialTransactions";
 import { useAppointments } from "@/hooks/useAppointments";
 import { usePrescriptions } from "@/hooks/usePrescriptions";
 import { useExams } from "@/hooks/useExams";
-import ExamTrendCard from "@/components/patient/exams/ExamTrendCard";
+// Gráfico de evolução: a biblioteca de gráficos só desce se o card aparecer.
+const ExamTrendCard = React.lazy(() => import("@/components/patient/exams/ExamTrendCard"));
 import { useCatalog } from "@/hooks/useCatalog";
 import { useRegistryList } from "@/hooks/useRegistryList";
 import * as financialApi from "@/lib/financialApi";
@@ -75,9 +70,7 @@ import { fetchHemogramReferences } from "@/constants/examReferences";
 import { mockCompanySettings } from "@/mockData/settings";
 import AutocompleteSelect from "@/components/AutocompleteSelect";
 import CurrencyInput from "@/components/CurrencyInput";
-import BudgetReportPdfContent from "@/components/BudgetReportPdfContent";
-import DocumentPdfContent from "@/components/DocumentPdfContent";
-import ExamRequestPdfContent, { type ExamRequestPdfData } from "@/components/ExamRequestPdfContent";
+import type { ExamRequestPdfData } from "@/components/ExamRequestPdfContent";
 import PatientDocumentSignDialog from "@/components/PatientDocumentSignDialog";
 import { getPatientDocumentSignatures } from "@/lib/patientDocumentSignatureApi";
 import { EXAM_REQUEST_MARKER } from "@/lib/examRequestMarker";
@@ -140,7 +133,7 @@ import {
 } from "@/lib/documentsApi";
 import { useClientWithAnimals, useAnimalRefByPatientCode } from "@/hooks/useSupabaseClients";
 import { useQueryClient } from "@tanstack/react-query";
-import { createPdfBlob, downloadPdf, openPdf } from "@/lib/pdfExport";
+import { renderPdf, downloadPdf, openPdf } from "@/lib/pdfExport";
 import { sendPdfViaWhatsApp as sendPdfViaWhatsAppShared, openWhatsAppChat } from "@/lib/whatsappShare";
 import { useCurrentUserProfile } from "@/hooks/useCurrentUserProfile";
 import { useAuth } from "@/contexts/AuthContext";
@@ -855,7 +848,7 @@ const PatientRecordPage = () => {
     await refetchBudgets();
   };
   const printBudget = async (b: Budget) => {
-    const blob = await createPdfBlob(<BudgetReportPdfContent budget={b} userProfile={currentUserProfile} catalogItems={catalogItems} />);
+    const blob = await renderPdf((K) => <K.BudgetReportPdfContent budget={b} userProfile={currentUserProfile} catalogItems={catalogItems} />);
     await openPdf({
       blob,
       fileName: `${slugifyFileName("orcamento", b.animalName || currentAnimal?.name, formatDateBRForFileName(b.date))}.pdf`,
@@ -865,7 +858,7 @@ const PatientRecordPage = () => {
 
   const sendBudgetViaWhatsApp = async (b: Budget) => {
     try {
-      const blob = await createPdfBlob(<BudgetReportPdfContent budget={b} userProfile={currentUserProfile} catalogItems={catalogItems} />);
+      const blob = await renderPdf((K) => <K.BudgetReportPdfContent budget={b} userProfile={currentUserProfile} catalogItems={catalogItems} />);
       await sendPdfViaWhatsApp({
         blob,
         fileName: `${slugifyFileName("orcamento", b.animalName || currentAnimal?.name, formatDateBRForFileName(b.date))}.pdf`,
@@ -1823,7 +1816,9 @@ const PatientRecordPage = () => {
           </TabsContent>
 
           <TabsContent value="exams" className="mt-4 space-y-4">
-            <ExamTrendCard exams={examsList} species={currentAnimal.species} />
+            <React.Suspense fallback={null}>
+              <ExamTrendCard exams={examsList} species={currentAnimal.species} />
+            </React.Suspense>
             <Card className="vf-surface-card vf-tone-clinical card-hover rounded-md border border-border/80">
               {/* flex-col no celular: título + 2 botões numa linha só passavam
                   da largura da tela (arrasto lateral / botão por cima do título). */}
@@ -1911,8 +1906,8 @@ const PatientRecordPage = () => {
                                   // (que ficava em branco pra esse tipo — não tem seção própria pra
                                   // cytologyEntries) — usa o mesmo laudo compacto nos dois botões.
                                   if (exam.type === "Citologia") {
-                                    createPdfBlob(
-                                      <ExamReportPdfContentCitologiaOnePage
+                                    renderPdf((K) =>
+                                      <K.ExamReportPdfContentCitologiaOnePage
                                         animalName={currentAnimal.name}
                                         animalId={currentAnimal.id}
                                         displayId={getPatientDisplayId(currentAnimal.id, currentClient.animals)}
@@ -1939,8 +1934,8 @@ const PatientRecordPage = () => {
                                   // Teste Rápido também só tem o laudo compacto (não tem seção
                                   // própria pra rapidTestEntries no genérico) — mesmo padrão da Citologia.
                                   if (exam.type === "Teste Rápido") {
-                                    createPdfBlob(
-                                      <ExamReportPdfContentTesteRapidoOnePage
+                                    renderPdf((K) =>
+                                      <K.ExamReportPdfContentTesteRapidoOnePage
                                         animalName={currentAnimal.name}
                                         animalId={currentAnimal.id}
                                         displayId={getPatientDisplayId(currentAnimal.id, currentClient.animals)}
@@ -1965,8 +1960,8 @@ const PatientRecordPage = () => {
                                     return;
                                   }
                                   const hemogramRefs = await fetchHemogramReferences();
-                                  createPdfBlob(
-                                    <ExamReportPdfContent
+                                  renderPdf((K) =>
+                                    <K.ExamReportPdfContent
                                       animalName={currentAnimal.name}
                                       animalId={currentAnimal.id}
                                       displayId={getPatientDisplayId(currentAnimal.id, currentClient.animals)}
@@ -2001,8 +1996,8 @@ const PatientRecordPage = () => {
                                   onClick={async () => {
                                     const tutorAddress = `${currentClient.address.street}, ${currentClient.address.number} - ${currentClient.address.city} - ${currentClient.address.state}`;
                                     const hemogramRefs = await fetchHemogramReferences();
-                                    createPdfBlob(
-                                      <ExamReportPdfContentHemogramaOnePage
+                                    renderPdf((K) =>
+                                      <K.ExamReportPdfContentHemogramaOnePage
                                         animalName={currentAnimal.name}
                                         animalId={currentAnimal.id}
                                         displayId={getPatientDisplayId(currentAnimal.id, currentClient.animals)}
@@ -2038,8 +2033,8 @@ const PatientRecordPage = () => {
                                   size="icon"
                                   onClick={() => {
                                     const tutorAddress = `${currentClient.address.street}, ${currentClient.address.number} - ${currentClient.address.city} - ${currentClient.address.state}`;
-                                    createPdfBlob(
-                                      <ExamReportPdfContentBioquimicoOnePage
+                                    renderPdf((K) =>
+                                      <K.ExamReportPdfContentBioquimicoOnePage
                                         animalName={currentAnimal.name}
                                         animalId={currentAnimal.id}
                                         displayId={getPatientDisplayId(currentAnimal.id, currentClient.animals)}
@@ -2082,8 +2077,8 @@ const PatientRecordPage = () => {
                                     const tutorAddress = `${currentClient.address.street}, ${currentClient.address.number} - ${currentClient.address.city} - ${currentClient.address.state}`;
                                     const displayId = getPatientDisplayId(currentAnimal.id, currentClient.animals);
                                     const blob = exam.type === "Hemograma Completo"
-                                      ? await createPdfBlob(
-                                          <ExamReportPdfContentHemogramaOnePage
+                                      ? await renderPdf(async (K) =>
+                                          <K.ExamReportPdfContentHemogramaOnePage
                                             animalName={currentAnimal.name}
                                             animalId={currentAnimal.id}
                                             displayId={displayId}
@@ -2096,8 +2091,8 @@ const PatientRecordPage = () => {
                                           />
                                         )
                                       : exam.type === "Bioquímico"
-                                        ? await createPdfBlob(
-                                            <ExamReportPdfContentBioquimicoOnePage
+                                        ? await renderPdf((K) =>
+                                            <K.ExamReportPdfContentBioquimicoOnePage
                                               animalName={currentAnimal.name}
                                               animalId={currentAnimal.id}
                                               displayId={displayId}
@@ -2109,8 +2104,8 @@ const PatientRecordPage = () => {
                                             />
                                           )
                                         : exam.type === "Citologia"
-                                          ? await createPdfBlob(
-                                              <ExamReportPdfContentCitologiaOnePage
+                                          ? await renderPdf((K) =>
+                                              <K.ExamReportPdfContentCitologiaOnePage
                                                 animalName={currentAnimal.name}
                                                 animalId={currentAnimal.id}
                                                 displayId={displayId}
@@ -2124,8 +2119,8 @@ const PatientRecordPage = () => {
                                               />
                                             )
                                           : exam.type === "Teste Rápido"
-                                            ? await createPdfBlob(
-                                                <ExamReportPdfContentTesteRapidoOnePage
+                                            ? await renderPdf((K) =>
+                                                <K.ExamReportPdfContentTesteRapidoOnePage
                                                   animalName={currentAnimal.name}
                                                   animalId={currentAnimal.id}
                                                   displayId={displayId}
@@ -2138,8 +2133,8 @@ const PatientRecordPage = () => {
                                                   exam={exam}
                                                 />
                                               )
-                                          : await createPdfBlob(
-                                            <ExamReportPdfContent
+                                          : await renderPdf(async (K) =>
+                                            <K.ExamReportPdfContent
                                               animalName={currentAnimal.name}
                                               animalId={currentAnimal.id}
                                               displayId={displayId}
@@ -2371,9 +2366,9 @@ const PatientRecordPage = () => {
                         if (doc.source === "editor" && doc.content) {
                           try {
                             const blob = examRequestData
-                              ? await createPdfBlob(<ExamRequestPdfContent data={examRequestData} />)
-                              : await createPdfBlob(
-                                  <DocumentPdfContent
+                              ? await renderPdf((K) => <K.ExamRequestPdfContent data={examRequestData} />)
+                              : await renderPdf(async (K) =>
+                                  <K.DocumentPdfContent
                                     documentName={doc.name}
                                     content={replaceTemplateVariables(doc.content || "", currentAnimal, currentClient, currentUserProfile)}
                                     assinaturas={await getAssinaturasForPdf()}
@@ -2413,9 +2408,9 @@ const PatientRecordPage = () => {
                         if (doc.source === "editor" && doc.content) {
                           try {
                             const blob = examRequestData
-                              ? await createPdfBlob(<ExamRequestPdfContent data={examRequestData} />)
-                              : await createPdfBlob(
-                                  <DocumentPdfContent
+                              ? await renderPdf((K) => <K.ExamRequestPdfContent data={examRequestData} />)
+                              : await renderPdf(async (K) =>
+                                  <K.DocumentPdfContent
                                     documentName={doc.name}
                                     content={replaceTemplateVariables(doc.content || "", currentAnimal, currentClient, currentUserProfile)}
                                     assinaturas={await getAssinaturasForPdf()}
@@ -2445,9 +2440,9 @@ const PatientRecordPage = () => {
                       const buildDocumentBlob = async (): Promise<Blob | null> => {
                         if (doc.source === "editor" && doc.content) {
                           return examRequestData
-                            ? await createPdfBlob(<ExamRequestPdfContent data={examRequestData} />)
-                            : await createPdfBlob(
-                                <DocumentPdfContent
+                            ? await renderPdf((K) => <K.ExamRequestPdfContent data={examRequestData} />)
+                            : await renderPdf(async (K) =>
+                                <K.DocumentPdfContent
                                   documentName={doc.name}
                                   content={replaceTemplateVariables(doc.content || "", currentAnimal, currentClient, currentUserProfile)}
                                   assinaturas={await getAssinaturasForPdf()}
@@ -2742,8 +2737,8 @@ const PatientRecordPage = () => {
                                     toast.error("Erro: Dados do cliente ou animal não disponíveis para impressão.");
                                     return;
                                   }
-                                  createPdfBlob(
-                                    PrescriptionPdfContent({
+                                  renderPdf((K) =>
+                                    K.PrescriptionPdfContent({
                                       animalName: currentAnimal.name,
                                       animalId: currentAnimal.id,
                                       displayId: getPatientDisplayId(currentAnimal.id, currentClient.animals),
@@ -2790,8 +2785,8 @@ const PatientRecordPage = () => {
                                     toast.error("Erro: Dados do cliente ou animal não disponíveis.");
                                     return;
                                   }
-                                  createPdfBlob(
-                                    PrescriptionPdfContent({
+                                  renderPdf((K) =>
+                                    K.PrescriptionPdfContent({
                                       animalName: currentAnimal.name,
                                       animalId: currentAnimal.id,
                                       displayId: getPatientDisplayId(currentAnimal.id, currentClient.animals),
@@ -2841,8 +2836,8 @@ const PatientRecordPage = () => {
                                     toast.error("Erro: Dados do cliente ou animal não disponíveis.");
                                     return;
                                   }
-                                  const blob = await createPdfBlob(
-                                    PrescriptionPdfContent({
+                                  const blob = await renderPdf((K) =>
+                                    K.PrescriptionPdfContent({
                                       animalName: currentAnimal.name,
                                       animalId: currentAnimal.id,
                                       displayId: getPatientDisplayId(currentAnimal.id, currentClient.animals),

@@ -46,11 +46,10 @@ import DateInputBR, { isoToBR } from "@/components/appointments/inputs/DateInput
 import DatePickerBR from "@/components/appointments/inputs/DatePickerBR";
 import LegacyConsultationForm from "@/components/appointments/forms/LegacyConsultationForm";
 
-import AppointmentPdfContent from "@/components/AppointmentPdfContent";
 import { removeAppointmentDraft, upsertAppointmentDraft } from "@/lib/appointmentDrafts";
 import { buildConsultationContext, fetchAISuggestions, type ChatMessage } from "@/lib/aiAssistant";
 import AISuggestionsView from "@/components/AISuggestionsView";
-import { createPdfBlob, openPdf } from "@/lib/pdfExport";
+import { renderPdf, openPdf } from "@/lib/pdfExport";
 
 interface AppointmentFormProps {
   animalId: string;
@@ -800,8 +799,8 @@ export default function AppointmentForm({
       return;
     }
 
-    const blob = await createPdfBlob(
-      <AppointmentPdfContent
+    const blob = await renderPdf((K) =>
+      <K.AppointmentPdfContent
         appointment={appointmentForPdf}
         clientName={clientName}
         animalName={animal.name}

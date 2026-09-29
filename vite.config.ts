@@ -20,13 +20,18 @@ export default defineConfig(() => ({
   build: {
     rollupOptions: {
       output: {
+        // Antes tudo de node_modules ia num "vendor" único de 3,4 MB, baixado
+        // inteiro no primeiro acesso. Agora só o núcleo (React e Supabase, que
+        // a abertura usa de qualquer jeito) tem arquivo fixo; o resto o Rollup
+        // divide conforme o uso — PDF, editor de texto, gráficos e Excel só
+        // descem quando uma tela que usa é aberta.
+        // Não forçar essas bibliotecas grandes em chunks próprios: o Rollup
+        // puxa junto dependências pequenas compartilhadas (clsx etc.) e a tela
+        // inicial passava a importar o chunk inteiro do PDF/gráficos.
         manualChunks(id) {
-          if (id.includes("node_modules")) {
-            if (id.includes("@tiptap")) return "vendor-tiptap";
-            if (id.includes("@supabase")) return "vendor-supabase";
-            if (id.includes("react-pdf") || id.includes("@react-pdf")) return "vendor-pdf";
-            return "vendor";
-          }
+          if (!id.includes("node_modules")) return;
+          if (id.includes("@supabase")) return "vendor-supabase";
+          if (/[\\/]node_modules[\\/](react|react-dom|scheduler|react-router|react-router-dom|@remix-run)[\\/]/.test(id)) return "vendor-react";
         },
       },
     },

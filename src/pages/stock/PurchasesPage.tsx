@@ -24,8 +24,8 @@ import {
   getPurchaseItemsByTransactionIds,
   type PurchaseItem as StoredPurchaseItem,
 } from "@/lib/purchaseItemsApi";
-import { createPdfBlob, openPdf } from "@/lib/pdfExport";
-import PurchaseReceiptPdfContent, { type PurchaseReceiptPurchase } from "@/components/PurchaseReceiptPdfContent";
+import { renderPdf, openPdf } from "@/lib/pdfExport";
+import type { PurchaseReceiptPurchase } from "@/components/PurchaseReceiptPdfContent";
 import { formatItemQty, parseItemQty, formatDateTime, generateUUID, cn } from "@/lib/utils";
 import CurrencyInput from "@/components/CurrencyInput";
 import SmartComboInput, { type SmartComboInputHandle } from "@/components/SmartComboInput";
@@ -591,7 +591,7 @@ const PurchasesPage: React.FC = () => {
         itemized: r.itemized,
         installments: r.installments,
       }));
-      const blob = await createPdfBlob(<PurchaseReceiptPdfContent purchases={purchases} />);
+      const blob = await renderPdf((K) => <K.PurchaseReceiptPdfContent purchases={purchases} />);
       await openPdf({
         blob,
         fileName: `compras_almoxarifado_${iso(new Date())}.pdf`,

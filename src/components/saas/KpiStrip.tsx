@@ -32,9 +32,23 @@ const COLS: Record<number, string> = {
  * Indicadores da tela: cartões com ícone colorido do conceito (mesma
  * linguagem do Painel), rótulo curto em caixa alta, número em negrito.
  */
-export function KpiStrip({ items, loading, className }: { items: KpiItem[]; loading?: boolean; className?: string }) {
+/**
+ * `compactOnPhone`: no celular, 2 cartões por linha e sem o ícone — para
+ * contagens curtas (não use com valores em R$, que não cabem).
+ */
+export function KpiStrip({
+  items,
+  loading,
+  className,
+  compactOnPhone,
+}: {
+  items: KpiItem[];
+  loading?: boolean;
+  className?: string;
+  compactOnPhone?: boolean;
+}) {
   return (
-    <div className={cn("grid gap-3", COLS[items.length] ?? "grid-cols-2 xl:grid-cols-4", className)}>
+    <div className={cn("grid gap-3", COLS[items.length] ?? "grid-cols-2 xl:grid-cols-4", compactOnPhone && "max-sm:grid-cols-2", className)}>
       {items.map((item) => {
         const icon = item.icon ?? item.concept?.icon;
         const tone = item.tone ?? item.concept?.tone ?? "slate";
@@ -65,7 +79,7 @@ export function KpiStrip({ items, loading, className }: { items: KpiItem[]; load
                 </>
               )}
             </div>
-            {icon ? <IconChip icon={icon} tone={tone} size="lg" /> : null}
+            {icon ? <IconChip icon={icon} tone={tone} size="lg" className={cn(compactOnPhone && "max-sm:hidden")} /> : null}
           </div>
         );
         const base = cn(
