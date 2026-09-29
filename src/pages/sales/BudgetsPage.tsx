@@ -9,17 +9,15 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { getCatalog as getCatalogApi } from "@/lib/catalogApi";
 import type { CatalogItem } from "@/mockData/catalog";
-import { addFinancialTransaction } from "@/lib/financialApi";
-import { addSaleItems } from "@/lib/saleItemsApi";
-import { fulfillSaleLines } from "@/lib/saleFulfillment";
-import { resolveCartLineCosts } from "@/lib/saleCosting";
-import { getBudgets, addBudget, updateBudget, updateBudgetStatus, removeBudget, setBudgetPaymentMethod } from "@/lib/budgetsApi";
+import { getBudgets, addBudget, updateBudget, updateBudgetStatus, removeBudget } from "@/lib/budgetsApi";
+import { budgetTotal } from "@/lib/budgetConversion";
+import { ConvertBudgetDialog } from "@/components/sales/ConvertBudgetDialog";
 import type { Budget } from "@/mockData/budgets";
 import { useRegistryList } from "@/hooks/useRegistryList";
 import AutocompleteSelect from "@/components/AutocompleteSelect";
 import ClientCombobox from "@/components/ClientCombobox";
 import { getPatientRecordPath } from "@/utils/patientDisplayId";
-import { formatAgeLong, formatCurrencyBRL, formatDateBRForFileName, formatDateTime, formatItemQty, slugifyFileName } from "@/lib/utils";
+import { formatAgeLong, formatCurrencyBRL, formatDateBRForFileName, formatDateTime, slugifyFileName } from "@/lib/utils";
 import BudgetReportPdfContent from "@/components/BudgetReportPdfContent";
 import { useClientsList } from "@/hooks/useSupabaseClients";
 import { Link } from "react-router-dom";
@@ -235,108 +233,11 @@ const BudgetsPage: React.FC = () => {
     }
   };
 
-  const [pmByBudget, setPmByBudget] = React.useState<Record<string, string | undefined>>({});
-
-  const convertBudget = async (budgetId: string) => {
-    const budget = budgets.find(b => b.id === budgetId);
-    if (!budget) return;
-    if (budget.status === "converted") {
-      toast.error("Este orçamento já foi convertido.");
-      return;
-    }
-    const pmName = pmByBudget[budgetId] ?? budget.paymentMethod;
-    if (!pmName) {
-      toast.error("Selecione a forma de pagamento antes de converter.");
-      return;
-    }
-    // O valor da venda é o NEGOCIADO (com desconto/acréscimo), não o bruto.
-    const itemsSubtotal = budget.items.reduce((sum, it) => sum + it.qty * it.price, 0);
-    const budgetDiscount = budget.discountAmount ?? 0;
-    const budgetSurcharge = budget.surchargeAmount ?? 0;
-    const total = Math.max(0, itemsSubtotal - budgetDiscount + budgetSurcharge);
-    const catalogLines = budget.items.filter((it) => findCatalogItem(it.itemId));
-    const customLines = budget.items.filter((it) => !findCatalogItem(it.itemId));
-    const catalogById = new Map(catalogItems.map((c) => [c.id, c]));
-    const resolved = await resolveCartLineCosts(
-      catalogLines.map((it) => ({ catalogItemId: it.itemId, quantity: it.qty })),
-      catalogById
-    );
-    const totalCost =
-      catalogLines.reduce((sum, it) => {
-        const r = resolved.get(it.itemId);
-        return sum + (r?.unitCost ?? 0) * it.qty;
-      }, 0);
-    const now = new Date();
-    const clientLabel = budget.clientName ? ` para ${budget.clientName}` : "";
-
-    setSaving(true);
-    try {
-      const transaction = await addFinancialTransaction({
-        date: now.toISOString().split("T")[0],
-        time: now.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
-        description: `Venda${clientLabel}: ${budget.items.map(i => formatItemQty(i.name, i.qty)).join(", ")}`,
-        type: "income",
-        amount: total,
-        category: "Venda de Produtos",
-        relatedClientId: budget.clientId,
-        relatedAnimalId: budget.animalId,
-        paymentMethod: pmName,
-        status: "pending",
-        supplierCost: totalCost,
-        discountAmount: budgetDiscount > 0 ? budgetDiscount : undefined,
-        surchargeAmount: budgetSurcharge > 0 ? budgetSurcharge : undefined,
-        observations: budget.notes || undefined,
-      });
-      if (!transaction) {
-        toast.error("Falha ao gerar a venda. O orçamento não foi convertido.");
-        return;
-      }
-
-      if (catalogLines.length > 0) {
-        await fulfillSaleLines({
-          saleId: transaction.id,
-          catalog: catalogItems,
-          lines: catalogLines.map((it) => {
-            const catItem = findCatalogItem(it.itemId)!;
-            return {
-              catalogItemId: it.itemId,
-              name: it.name,
-              type: catItem.type,
-              category: catItem.category,
-              quantity: it.qty,
-              unitPrice: it.price,
-            };
-          }),
-        });
-      }
-
-      // Itens personalizados (fora do catálogo): sem estoque/BOM
-      if (customLines.length > 0) {
-        await addSaleItems(
-          transaction.id,
-          customLines.map((it) => ({
-            catalogItemId: it.itemId,
-            name: it.name,
-            type: "service" as const,
-            quantity: it.qty,
-            unitPrice: it.price,
-            cost: 0,
-            productCost: 0,
-            providerCost: 0,
-            subtotal: it.price * it.qty,
-          }))
-        );
-      }
-
-      // Guarda a forma usada, senão o campo volta vazio depois da conversão.
-      await setBudgetPaymentMethod(budgetId, pmName);
-      await updateBudgetStatus(budgetId, "converted");
-      await refreshBudgets();
-      toast.success("Orçamento convertido em venda. Veja em Vendas.");
-    } finally {
-      setSaving(false);
-    }
-  };
+  // Converter: janela única (ConvertBudgetDialog) que pergunta o pagamento
+  // uma vez só — recebido agora (a venda já nasce paga) ou fica a receber.
+  // Antes a forma era escolhida num seletor na linha e a venda nascia
+  // "pendente", pedindo a forma de pagamento de novo na baixa.
+  const [budgetToConvert, setBudgetToConvert] = React.useState<Budget | null>(null);
 
   const cancelBudget = async (budgetId: string) => {
     await updateBudgetStatus(budgetId, "cancelled");
@@ -665,14 +566,12 @@ const BudgetsPage: React.FC = () => {
                 <TableHead>Animal</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Total</TableHead>
-                <TableHead>Pagamento</TableHead>
                 <TableHead className="text-right">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {budgets.map(b => {
-                const itemsTotal = b.items.reduce((sum, it) => sum + it.qty * it.price, 0);
-                const total = Math.max(0, itemsTotal - (b.discountAmount ?? 0) + (b.surchargeAmount ?? 0));
+                const total = budgetTotal(b);
                 const client = b.clientId ? clients.find(c => c.id === b.clientId) : undefined;
                 const animal = b.animalId ? client?.animals.find(a => a.id === b.animalId) : undefined;
                 const tutorLabel = client?.name || b.clientName || "-";
@@ -709,25 +608,10 @@ const BudgetsPage: React.FC = () => {
                         {BUDGET_STATUS[b.status]?.label ?? b.status}
                       </span>
                     </TableCell>
-                    <TableCell>{formatCurrencyBRL(total)}</TableCell>
-                    <TableCell>
-                      {b.status === "converted" || b.status === "cancelled" ? (
-                        // Já fechado: mostra o que foi usado, sem permitir troca
-                        // (mudar aqui não alteraria a venda já gerada).
-                        <span className="text-sm text-muted-foreground">
-                          {b.paymentMethod || "—"}
-                        </span>
-                      ) : (
-                        <Select value={pmByBudget[b.id]} onValueChange={(v) => setPmByBudget(prev => ({ ...prev, [b.id]: v }))}>
-                          <SelectTrigger className="h-8 text-sm bg-input"><SelectValue placeholder="Selecione" /></SelectTrigger>
-                          <SelectContent>
-                            {paymentMethods.length > 0 ? paymentMethods.map(pm => (
-                              <SelectItem key={pm.id} value={pm.name}>{pm.name}</SelectItem>
-                            )) : (
-                              <SelectItem value="none" disabled>Cadastre formas em Financeiro &gt; Formas de Pagamento</SelectItem>
-                            )}
-                          </SelectContent>
-                        </Select>
+                    <TableCell className="tabular-nums">
+                      {formatCurrencyBRL(total)}
+                      {b.status === "converted" && b.paymentMethod && (
+                        <span className="block text-xs text-muted-foreground">{b.paymentMethod}</span>
                       )}
                     </TableCell>
                     <TableCell>
@@ -737,7 +621,7 @@ const BudgetsPage: React.FC = () => {
                         <Button
                           size="sm"
                           className="h-8 gap-1.5 rounded-lg bg-emerald-600 text-xs font-semibold text-white shadow-sm hover:bg-emerald-700"
-                          onClick={() => void convertBudget(b.id)}
+                          onClick={() => setBudgetToConvert(b)}
                           disabled={saving || b.status === "converted" || b.status === "cancelled"}
                         >
                           <CheckCircle2 className="h-3.5 w-3.5" /> Converter
@@ -793,6 +677,21 @@ const BudgetsPage: React.FC = () => {
             </TableBody>
           </Table>
         </DataTableFrame>
+        <ConvertBudgetDialog
+          open={!!budgetToConvert}
+          onOpenChange={(open) => { if (!open) setBudgetToConvert(null); }}
+          budget={budgetToConvert}
+          catalogItems={catalogItems}
+          methods={paymentMethods}
+          clientName={budgetToConvert ? (clients.find((c) => c.id === budgetToConvert.clientId)?.name ?? budgetToConvert.clientName) : undefined}
+          animalName={
+            budgetToConvert
+              ? (clients.find((c) => c.id === budgetToConvert.clientId)?.animals.find((a) => a.id === budgetToConvert.animalId)?.name ??
+                budgetToConvert.animalName)
+              : undefined
+          }
+          onDone={refreshBudgets}
+        />
         {budgets.length === 0 && isClientsError ? (
           <p className="mt-2 text-muted-foreground">Falha ao carregar clientes do banco.</p>
         ) : null}

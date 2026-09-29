@@ -1,26 +1,27 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
 import { addFinancialTransaction } from "@/lib/financialApi";
 import { getCatalog } from "@/lib/catalogApi";
 import type { CatalogItem } from "@/mockData/catalog";
 import { useClientsList } from "@/hooks/useSupabaseClients";
 import { useRegistryList } from "@/hooks/useRegistryList";
-import { ShoppingCart, Plus, Trash2, CheckCircle, ArrowLeft, Package } from "lucide-react";
+import { ShoppingCart, Plus, Trash2, Loader2, Receipt, Package, Stethoscope } from "lucide-react";
 import ClientCombobox from "@/components/ClientCombobox";
 import SmartComboInput, { type SmartComboInputHandle } from "@/components/SmartComboInput";
 import { PageShell } from "@/components/saas/PageShell";
 import { PageHeader } from "@/components/saas/PageHeader";
+import { PaymentChoice } from "@/components/sales/PaymentChoice";
 import { groupRepassesByProvider, resolveCostProvider } from "@/lib/costProviders";
-import { formatCurrencyBRL, formatItemQty } from "@/lib/utils";
+import { formatCurrencyBRL, formatItemQty, getTodayLocalISO } from "@/lib/utils";
 import { resolveCartLineCosts } from "@/lib/saleCosting";
 import { fulfillSaleLines } from "@/lib/saleFulfillment";
+import { nowTimeHHMM, receiveSalePayment, toCents, type PayMode } from "@/lib/salePayment";
 
 interface CartItem {
   catalogItemId: string;
@@ -49,9 +50,14 @@ const POSPage = () => {
   const quantity = Number(quantityInput.replace(",", ".")) || 0;
   const [selectedClientId, setSelectedClientId] = useState<string>("");
   const [selectedAnimalId, setSelectedAnimalId] = useState<string>("");
+  // Venda de balcão é paga na hora quase sempre: "Recebido agora" é o padrão
+  // e a venda já nasce quitada (antes ficava "pendente" e a baixa, em
+  // Recebimentos, perguntava a forma de pagamento de novo).
+  const [payMode, setPayMode] = useState<PayMode>("now");
   const [paymentMethod, setPaymentMethod] = useState<string>("");
   const [installments, setInstallments] = useState<number>(1);
   const [passTaxes, setPassTaxes] = useState(false);
+  const [showAdjustments, setShowAdjustments] = useState(false);
   const [discountPct, setDiscountPct] = useState<string>("");
   const [discountVal, setDiscountVal] = useState<string>("");
   const [surchargePct, setSurchargePct] = useState<string>("");
@@ -129,73 +135,9 @@ const POSPage = () => {
     setQuantityInput("1");
     itemComboRef.current?.reset();
     itemComboRef.current?.focus();
-    toast.success(`${catalogItem.name} adicionado.`);
   };
 
   const handleRemove = (id: string) => setCart(prev => prev.filter(i => i.catalogItemId !== id));
-
-  const handleProcessSale = async () => {
-    if (cart.length === 0) { toast.error("Carrinho vazio."); return; }
-    if (!selectedClientId) { toast.error("Selecione o cliente."); return; }
-    if (!paymentMethod) { toast.error("Selecione a forma de pagamento."); return; }
-    setProcessing(true);
-    try {
-      const clientName = clients.find(c => c.id === selectedClientId)?.name || "";
-      const animalName = selectedAnimalId
-        ? clients.find(c => c.id === selectedClientId)?.animals.find(a => a.id === selectedAnimalId)?.name
-        : undefined;
-      const now = new Date();
-      const description = `Venda para ${clientName}${animalName ? ` (${animalName})` : ""}: ${cart.map(i => formatItemQty(i.name, i.quantity)).join(", ")}`;
-      const transaction = await addFinancialTransaction({
-        date: now.toISOString().split("T")[0],
-        time: now.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
-        description,
-        type: "income",
-        amount: totalFinal,
-        category: "Venda de Produtos",
-        relatedClientId: selectedClientId,
-        relatedAnimalId: selectedAnimalId || undefined,
-        paymentMethod,
-        status: "pending",
-        supplierCost: totalCost,
-        financialFee: financialFee > 0 ? financialFee : undefined,
-        discountAmount: discountAmount > 0 ? discountAmount : undefined,
-        surchargeAmount: surchargeManual > 0 ? surchargeManual : undefined,
-        paymentInstallments: allowsInstallments && installments > 1
-          ? installments
-          : undefined,
-      });
-
-      if (transaction) {
-        await fulfillSaleLines({
-          saleId: transaction.id,
-          catalog,
-          lines: cart.map((item) => ({
-            catalogItemId: item.catalogItemId,
-            name: item.name,
-            type: item.type,
-            category: item.category,
-            quantity: item.quantity,
-            unitPrice: item.price,
-          })),
-        });
-      }
-      toast.success("Venda registrada com sucesso!");
-      setCart([]);
-      setSelectedClientId("");
-      setSelectedAnimalId("");
-      setPaymentMethod("");
-      setInstallments(1);
-      setPassTaxes(false);
-      setDiscountPct(""); setDiscountVal("");
-      setSurchargePct(""); setSurchargeVal("");
-      navigate("/sales/my-sales");
-    } catch {
-      toast.error("Erro ao registrar venda.");
-    } finally {
-      setProcessing(false);
-    }
-  };
 
   const selectedPaymentMethod = paymentMethods.find(pm => pm.name === paymentMethod);
   const allowsInstallments = selectedPaymentMethod?.installments === true;
@@ -207,27 +149,31 @@ const POSPage = () => {
     ? (installmentRates[String(allowsInstallments ? installments : 1)] ?? paymentFee)
     : paymentFee;
 
-  // Taxa financeira em valor
-  const taxAmount = subtotal * (effectiveFeeRate / 100);
+  // Taxa financeira em valor (em centavos: 3,15% de 250 = 7,875 gravava meio centavo)
+  const taxAmount = toCents(subtotal * (effectiveFeeRate / 100));
   const financialFee = passTaxes ? taxAmount : 0;
 
   // Desconto
-  const discountAmount = discountVal
-    ? parseFloat(discountVal) || 0
-    : discountPct
-    ? subtotal * ((parseFloat(discountPct) || 0) / 100)
-    : 0;
+  const discountAmount = toCents(
+    discountVal
+      ? parseFloat(discountVal) || 0
+      : discountPct
+      ? subtotal * ((parseFloat(discountPct) || 0) / 100)
+      : 0
+  );
 
   // Acréscimo (manual + taxa repassada)
-  const surchargeManual = surchargeVal
-    ? parseFloat(surchargeVal) || 0
-    : surchargePct
-    ? subtotal * ((parseFloat(surchargePct) || 0) / 100)
-    : 0;
+  const surchargeManual = toCents(
+    surchargeVal
+      ? parseFloat(surchargeVal) || 0
+      : surchargePct
+      ? subtotal * ((parseFloat(surchargePct) || 0) / 100)
+      : 0
+  );
   const surchargeTotal = surchargeManual + financialFee;
 
-  // Total final
-  const totalFinal = subtotal + surchargeTotal - discountAmount;
+  // Total final (desconto maior que o subtotal não deixa o total negativo)
+  const totalFinal = Math.max(0, toCents(subtotal + surchargeTotal - discountAmount));
 
   const handleDiscountPct = (v: string) => {
     setDiscountPct(v);
@@ -250,392 +196,376 @@ const POSPage = () => {
     setSurchargePct(val > 0 && subtotal > 0 ? ((val / subtotal) * 100).toFixed(2) : "");
   };
 
+  const handleProcessSale = async () => {
+    if (processing) return;
+    if (cart.length === 0) { toast.error("Carrinho vazio."); return; }
+    if (!selectedClientId) { toast.error("Selecione o cliente."); return; }
+    if (payMode === "now" && !paymentMethod) { toast.error("Escolha a forma de pagamento."); return; }
+    setProcessing(true);
+    try {
+      const client = clients.find(c => c.id === selectedClientId);
+      const clientName = client?.name || "";
+      const animalName = selectedAnimalId ? client?.animals.find(a => a.id === selectedAnimalId)?.name : undefined;
+      const description = `Venda para ${clientName}${animalName ? ` (${animalName})` : ""}: ${cart.map(i => formatItemQty(i.name, i.quantity)).join(", ")}`;
+      const transaction = await addFinancialTransaction({
+        // Data/hora LOCAIS (toISOString é UTC: depois das 21h a venda caía no dia seguinte).
+        date: getTodayLocalISO(),
+        time: nowTimeHHMM(),
+        description,
+        type: "income",
+        amount: totalFinal,
+        category: "Venda de Produtos",
+        relatedClientId: selectedClientId,
+        relatedAnimalId: selectedAnimalId || undefined,
+        paymentMethod: paymentMethod || undefined,
+        status: totalFinal > 0 ? "pending" : "paid",
+        supplierCost: totalCost,
+        financialFee: financialFee > 0 ? financialFee : undefined,
+        discountAmount: discountAmount > 0 ? discountAmount : undefined,
+        surchargeAmount: surchargeManual > 0 ? surchargeManual : undefined,
+        paymentInstallments: allowsInstallments && installments > 1
+          ? installments
+          : undefined,
+      });
+      if (!transaction) {
+        toast.error("Erro ao registrar a venda. Nada foi gravado — tente de novo.");
+        return;
+      }
+
+      await fulfillSaleLines({
+        saleId: transaction.id,
+        catalog,
+        lines: cart.map((item) => ({
+          catalogItemId: item.catalogItemId,
+          name: item.name,
+          type: item.type,
+          category: item.category,
+          quantity: item.quantity,
+          unitPrice: item.price,
+        })),
+      });
+
+      if (payMode === "now" && totalFinal > 0) {
+        const received = await receiveSalePayment({
+          sale: transaction,
+          paymentMethod,
+          clientName,
+          animalName,
+        });
+        if (received) toast.success(`Venda concluída — ${formatCurrencyBRL(totalFinal)} recebido (${paymentMethod}).`);
+        else toast.warning("Venda registrada, mas o recebimento não foi gravado. Use “Receber” na lista de vendas.");
+      } else {
+        toast.success(totalFinal > 0 ? `Venda registrada — fica a receber ${formatCurrencyBRL(totalFinal)}.` : "Venda registrada.");
+      }
+      setCart([]);
+      setSelectedClientId("");
+      setSelectedAnimalId("");
+      setPayMode("now");
+      setPaymentMethod("");
+      setInstallments(1);
+      setPassTaxes(false);
+      setShowAdjustments(false);
+      setDiscountPct(""); setDiscountVal("");
+      setSurchargePct(""); setSurchargeVal("");
+      navigate("/sales/my-sales");
+    } catch {
+      toast.error("Erro ao registrar venda.");
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const canSubmit = cart.length > 0 && !!selectedClientId && (payMode === "later" || !!paymentMethod) && !processing;
+  const adjustmentsOpen = showAdjustments || !!discountVal || !!discountPct || !!surchargeVal || !!surchargePct;
+  const repasses = groupRepassesByProvider(cart);
+
   return (
-    <PageShell>
+    <PageShell className="space-y-4 sm:space-y-5">
       <PageHeader
-        title="Ponto de Venda"
-        description="Registre vendas de produtos e serviços."
+        title="Ponto de venda"
+        description="Venda de balcão de produtos e serviços."
         icon={ShoppingCart}
         module="sales"
         breadcrumb={<>Painel &gt; Vendas &gt; PDV</>}
+        className="mb-0 sm:mb-0"
         actions={
           <Button asChild variant="outline">
             <Link to="/sales/my-sales">
-              <ArrowLeft className="mr-2 h-4 w-4" /> Voltar
+              <Receipt className="mr-2 h-4 w-4" /> Ver vendas
             </Link>
           </Button>
         }
       />
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        {/* Coluna esquerda — seleção de itens */}
-        <div className="lg:col-span-2 space-y-4">
-          <Card className="vf-surface-card vf-tone-sales rounded-xl">
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-base font-semibold">
-                <Package className="h-4 w-4 text-[hsl(var(--vf-sales))]" /> Adicionar item
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex flex-wrap items-end gap-3">
-                <div className="flex-1 min-w-[200px]">
-                  <Label className="text-xs text-muted-foreground">Produto / Serviço</Label>
-                  <SmartComboInput
-                    ref={itemComboRef}
-                    options={catalog.map(item => ({
-                      value: item.id,
-                      label: `${item.name} — ${formatCurrencyBRL(item.price)}${item.cost ? ` (custo: ${formatCurrencyBRL(item.cost)})` : ""}`,
-                    }))}
-                    onSelect={(id) => setSelectedItemId(id)}
-                    placeholder="Digite o nome do produto/serviço..."
-                    emptyLabel="Nenhum item encontrado."
-                    className="mt-1"
-                  />
-                </div>
-                <div className="w-24 shrink-0">
-                  <Label className="text-xs text-muted-foreground">Quantidade</Label>
-                  <Input
-                    inputMode="decimal"
-                    value={quantityInput}
-                    onChange={(e) => {
-                      const v = e.target.value;
-                      if (v === "" || /^[0-9]*[.,]?[0-9]*$/.test(v)) setQuantityInput(v);
-                    }}
-                    className="mt-1 h-10 border border-border bg-card text-sm"
-                  />
-                </div>
-                <Button
-                  onClick={handleAddToCart}
-                  className="h-10 px-5 bg-[hsl(var(--vf-sales))] text-white font-semibold rounded-xl hover:bg-[hsl(var(--vf-sales)/0.9)] transition-all shrink-0"
-                >
-                  <Plus className="h-4 w-4 mr-1" /> Adicionar
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+      {/* xl, não lg: o breakpoint ignora o menu lateral — com ele aberto, em
+          telas de ~1024px as duas colunas espremiam o carrinho. */}
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_23rem]">
+        {/* Itens */}
+        <section className="min-w-0 overflow-hidden rounded-2xl border border-border/80 bg-card shadow-sm" aria-label="Itens da venda">
+          <div className="flex flex-wrap items-end gap-2 border-b border-border/70 p-3 sm:gap-3 sm:p-4">
+            <div className="min-w-[12rem] flex-1">
+              <Label htmlFor="posItem" className="text-sm font-medium">Produto ou serviço</Label>
+              <SmartComboInput
+                id="posItem"
+                ref={itemComboRef}
+                options={catalog.map(item => ({
+                  value: item.id,
+                  label: `${item.name} — ${formatCurrencyBRL(item.price)}`,
+                }))}
+                onSelect={(id) => setSelectedItemId(id)}
+                placeholder="Digite o nome do produto ou serviço"
+                emptyLabel="Nenhum item encontrado."
+                className="mt-1.5"
+              />
+            </div>
+            <div className="w-20 shrink-0">
+              <Label htmlFor="posQty" className="text-sm font-medium">Qtd.</Label>
+              <Input
+                id="posQty"
+                inputMode="decimal"
+                value={quantityInput}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  if (v === "" || /^[0-9]*[.,]?[0-9]*$/.test(v)) setQuantityInput(v);
+                }}
+                onKeyDown={(e) => { if (e.key === "Enter") handleAddToCart(); }}
+                className="mt-1.5 h-10 rounded-lg bg-input"
+              />
+            </div>
+            <Button onClick={handleAddToCart} className="h-10 shrink-0 px-4 font-semibold">
+              <Plus className="mr-1.5 h-4 w-4" /> Adicionar
+            </Button>
+          </div>
 
-          {/* Tabela do carrinho */}
-          {cart.length > 0 && (
-            <Card className="vf-surface-card vf-tone-sales rounded-xl">
-              <CardContent className="pt-4">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Item</TableHead>
-                      <TableHead className="text-center w-16">Qtd</TableHead>
-                      <TableHead className="text-right w-28">Preço</TableHead>
-                      <TableHead className="text-right w-28">Custo</TableHead>
-                      <TableHead className="text-right w-28">Subtotal</TableHead>
-                      <TableHead className="w-10" />
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {cart.map(item => (
-                      <TableRow key={item.catalogItemId}>
-                        <TableCell className="font-medium">
-                          <div>{item.name}</div>
-                          {item.cost > 0 && resolveCostProvider(item.costProvider, item.category, item.cost) && (
-                            <div className="text-[11px] text-amber-700">
-                              → {resolveCostProvider(item.costProvider, item.category, item.cost)}
-                            </div>
+          {cart.length === 0 ? (
+            <div className="px-4 py-14 text-center">
+              <ShoppingCart className="mx-auto h-8 w-8 text-muted-foreground/40" aria-hidden />
+              <p className="mt-2 text-sm font-medium text-foreground">Nenhum item na venda</p>
+              <p className="mt-1 text-sm text-muted-foreground">Busque um produto ou serviço acima para começar.</p>
+            </div>
+          ) : (
+            <>
+              <ul className="divide-y divide-border/70">
+                {cart.map(item => {
+                  const provider = item.cost > 0 ? resolveCostProvider(item.costProvider, item.category, item.cost) : undefined;
+                  const Icon = item.type === "product" ? Package : Stethoscope;
+                  return (
+                    <li key={item.catalogItemId} className="flex items-center gap-3 px-3 py-3 sm:px-4">
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground" aria-hidden>
+                        <Icon className="h-4 w-4" />
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="break-words font-medium leading-snug text-foreground">{item.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {item.quantity} × {formatCurrencyBRL(item.price)}
+                          {item.cost > 0 && (
+                            <> · custo {formatCurrencyBRL(item.cost)}{provider ? ` → ${provider}` : ""}</>
                           )}
-                        </TableCell>
-                        <TableCell className="text-center">{item.quantity}</TableCell>
-                        <TableCell className="text-right text-sm">
-                          {formatCurrencyBRL(item.price)}
-                        </TableCell>
-                        <TableCell className="text-right text-sm text-muted-foreground">
-                          {item.cost > 0
-                            ? formatCurrencyBRL(item.cost)
-                            : "-"}
-                        </TableCell>
-                        <TableCell className="text-right font-semibold">
-                          {formatCurrencyBRL(item.price * item.quantity)}
-                        </TableCell>
-                        <TableCell>
-                          <button
-                            onClick={() => handleRemove(item.catalogItemId)}
-                            className="h-7 w-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-red-500 hover:bg-red-50 transition-colors"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                        </p>
+                      </div>
+                      <p className="shrink-0 font-semibold tabular-nums text-foreground">{formatCurrencyBRL(item.price * item.quantity)}</p>
+                      <button
+                        type="button"
+                        onClick={() => handleRemove(item.catalogItemId)}
+                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-red-50 hover:text-red-600"
+                        aria-label={`Remover ${item.name}`}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
 
-                {/* Resumo de lucro */}
-                <div className="mt-4 rounded-lg bg-muted/40 p-3 flex flex-wrap gap-4 text-sm">
-                  <div>
-                    <span className="text-muted-foreground">Faturamento bruto</span>
-                    <div className="font-bold text-base">
-                      {formatCurrencyBRL(subtotal)}
-                    </div>
-                  </div>
-                  {totalCost > 0 && (
-                    <>
-                      <div>
-                        <span className="text-muted-foreground">Repasses</span>
-                        <div className="font-bold text-base text-amber-600">
-                          − {formatCurrencyBRL(totalCost)}
-                        </div>
-                        <div className="mt-0.5 space-y-0.5">
-                          {groupRepassesByProvider(cart).map((row) => (
-                            <div key={row.provider} className="text-[11px] text-amber-700/80">
-                              {row.provider}: {formatCurrencyBRL(row.amount)}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground">Lucro estimado</span>
-                        <div className={`font-bold text-base ${lucroEstimado >= 0 ? "text-emerald-600" : "text-red-600"}`}>
-                          {formatCurrencyBRL(lucroEstimado)}
-                          <span className="text-xs ml-1">
-                            ({subtotal > 0 ? Math.round((lucroEstimado/subtotal)*100) : 0}% margem)
-                          </span>
-                        </div>
-                      </div>
-                    </>
+              {/* Resumo interno (não vai pro cliente): quanto sobra depois dos repasses. */}
+              <div className="grid grid-cols-2 gap-px border-t border-border/70 bg-border/70 sm:grid-cols-3">
+                <div className="bg-muted/30 px-4 py-3">
+                  <p className="text-xs text-muted-foreground">Faturamento bruto</p>
+                  <p className="font-semibold tabular-nums text-foreground">{formatCurrencyBRL(subtotal)}</p>
+                </div>
+                <div className="bg-muted/30 px-4 py-3">
+                  <p className="text-xs text-muted-foreground">Repasses</p>
+                  <p className="font-semibold tabular-nums text-foreground">{totalCost > 0 ? `− ${formatCurrencyBRL(totalCost)}` : "—"}</p>
+                  {repasses.length > 0 && (
+                    <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground">
+                      {repasses.map((row) => `${row.provider}: ${formatCurrencyBRL(row.amount)}`).join(" · ")}
+                    </p>
                   )}
                 </div>
-              </CardContent>
-            </Card>
-          )}
-        </div>
-
-        {/* Coluna direita — checkout */}
-        <div>
-          <Card className="vf-surface-card vf-tone-sales rounded-xl sticky top-4">
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-base font-semibold">
-                <CheckCircle className="h-4 w-4 text-emerald-600" /> Finalizar venda
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <Label className="text-xs text-muted-foreground">Cliente *</Label>
-                <ClientCombobox
-                  clients={clients}
-                  value={selectedClientId || undefined}
-                  onChange={(id) => {
-                    setSelectedClientId(id || "");
-                    setSelectedAnimalId("");
-                  }}
-                  className="mt-1 h-10"
-                />
-              </div>
-
-              {selectedClientId && filteredAnimals.length > 0 && (
-                <div>
-                  <Label className="text-xs text-muted-foreground">Animal (opcional)</Label>
-                  <Select value={selectedAnimalId || "__none__"} onValueChange={(v) => setSelectedAnimalId(v === "__none__" ? "" : v)}>
-                    <SelectTrigger className="mt-1 h-10 w-full border border-border bg-card text-sm">
-                      <SelectValue placeholder="Nenhum" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="__none__">Nenhum</SelectItem>
-                      {filteredAnimals.map(a => (
-                        <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                <div className="col-span-2 bg-muted/30 px-4 py-3 sm:col-span-1">
+                  <p className="text-xs text-muted-foreground">Lucro estimado</p>
+                  <p className={`font-semibold tabular-nums ${lucroEstimado >= 0 ? "text-emerald-700" : "text-red-700"}`}>
+                    {formatCurrencyBRL(lucroEstimado)}
+                    <span className="ml-1 text-xs font-normal text-muted-foreground">
+                      ({subtotal > 0 ? Math.round((lucroEstimado / subtotal) * 100) : 0}%)
+                    </span>
+                  </p>
                 </div>
-              )}
+              </div>
+            </>
+          )}
+        </section>
 
-              <div>
-                <Label className="text-xs text-muted-foreground">
-                  Forma de pagamento *
+        {/* Pagamento */}
+        <aside className="min-w-0">
+          <section className="space-y-4 rounded-2xl border border-border/80 bg-card p-4 shadow-sm xl:sticky xl:top-4" aria-label="Pagamento">
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium">
+                Cliente<span className="text-destructive" aria-hidden> *</span>
+              </Label>
+              <ClientCombobox
+                clients={clients}
+                value={selectedClientId || undefined}
+                onChange={(id) => {
+                  setSelectedClientId(id || "");
+                  setSelectedAnimalId("");
+                }}
+                className="h-10"
+              />
+              {isClientsError && <p className="text-xs text-destructive">Falha ao carregar clientes.</p>}
+            </div>
+
+            {selectedClientId && filteredAnimals.length > 0 && (
+              <div className="relative space-y-1.5">
+                <Label className="text-sm font-medium">
+                  Animal <span className="font-normal text-muted-foreground">(opcional)</span>
                 </Label>
-                <Select
-                  value={paymentMethod}
-                  onValueChange={(v) => {
-                    setPaymentMethod(v);
-                    if (!v.toLowerCase().includes("parcel")) {
-                      setInstallments(1);
-                    }
-                  }}
-                >
-                  <SelectTrigger className="mt-1 h-10 w-full border border-border bg-card text-sm">
-                    <SelectValue placeholder="Selecione..." />
+                <Select value={selectedAnimalId || "__none__"} onValueChange={(v) => setSelectedAnimalId(v === "__none__" ? "" : v)}>
+                  <SelectTrigger className="h-10 rounded-lg bg-input">
+                    <SelectValue placeholder="Nenhum" />
                   </SelectTrigger>
                   <SelectContent>
-                    {paymentMethods.map(pm => (
-                      <SelectItem key={pm.id} value={pm.name}>
-                        {pm.name}
-                      </SelectItem>
+                    <SelectItem value="__none__">Nenhum</SelectItem>
+                    {filteredAnimals.map(a => (
+                      <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
+            )}
 
-              {allowsInstallments && (
-                <div>
-                  <Label className="text-xs text-muted-foreground">
-                    Número de parcelas
-                  </Label>
-                  <Select value={String(installments)} onValueChange={(v) => setInstallments(Number(v))}>
-                    <SelectTrigger className="mt-1 h-10 w-full border border-border bg-card text-sm">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {[1,2,3,4,5,6,7,8,9,10,11,12].map(n => {
-                        const rate = installmentRates ? (installmentRates[String(n)] ?? paymentFee) : paymentFee;
-                        const parcelVal = totalFinal / n;
-                        return (
-                          <SelectItem key={n} value={String(n)}>
-                            {n === 1
-                              ? `À vista — taxa ${rate}%`
-                              : `${n}x de ${formatCurrencyBRL(parcelVal)} — taxa ${rate}%`}
-                          </SelectItem>
-                        );
-                      })}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
+            <PaymentChoice
+              idPrefix="pos"
+              mode={payMode}
+              onModeChange={setPayMode}
+              method={paymentMethod || undefined}
+              onMethodChange={(v) => {
+                setPaymentMethod(v ?? "");
+                setInstallments(1);
+              }}
+              methods={paymentMethods}
+            />
 
-              {/* Desconto e Acréscimo */}
-              {cart.length > 0 && (
-                <div className="rounded-xl border border-border bg-muted/20 p-3 space-y-3">
-                  <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                    Desconto / Acréscimo
-                  </div>
-
-                  {/* Desconto */}
-                  <div>
-                    <Label className="text-xs text-muted-foreground">Desconto</Label>
-                    <div className="flex gap-2 mt-1">
-                      <div className="relative w-20">
-                        <Input
-                          value={discountPct}
-                          onChange={(e) => handleDiscountPct(e.target.value)}
-                          className="h-9 text-sm pr-6 border border-border"
-                          placeholder="0"
-                          type="number"
-                          min="0"
-                          max="100"
-                        />
-                        <span className="absolute right-2 top-2 text-xs text-muted-foreground">%</span>
-                      </div>
-                      <div className="relative flex-1">
-                        <Input
-                          value={discountVal}
-                          onChange={(e) => handleDiscountVal(e.target.value)}
-                          className="h-9 text-sm pl-6 border border-border"
-                          placeholder="0,00"
-                          type="number"
-                          min="0"
-                        />
-                        <span className="absolute left-2 top-2 text-xs text-muted-foreground">R$</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Acréscimo */}
-                  <div>
-                    <Label className="text-xs text-muted-foreground">Acréscimo manual</Label>
-                    <div className="flex gap-2 mt-1">
-                      <div className="relative w-20">
-                        <Input
-                          value={surchargePct}
-                          onChange={(e) => handleSurchargePct(e.target.value)}
-                          className="h-9 text-sm pr-6 border border-border"
-                          placeholder="0"
-                          type="number"
-                          min="0"
-                        />
-                        <span className="absolute right-2 top-2 text-xs text-muted-foreground">%</span>
-                      </div>
-                      <div className="relative flex-1">
-                        <Input
-                          value={surchargeVal}
-                          onChange={(e) => handleSurchargeVal(e.target.value)}
-                          className="h-9 text-sm pl-6 border border-border"
-                          placeholder="0,00"
-                          type="number"
-                          min="0"
-                        />
-                        <span className="absolute left-2 top-2 text-xs text-muted-foreground">R$</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Switch repassar taxas */}
-                  {effectiveFeeRate > 0 && (
-                    <div className="flex items-center justify-between pt-1 border-t border-border">
-                      <div>
-                        <div className="text-xs font-medium text-foreground">Repassar taxa ao cliente</div>
-                        <div className="text-xs text-muted-foreground">
-                          Taxa {effectiveFeeRate}% = {formatCurrencyBRL(taxAmount)}
-                        </div>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setPassTaxes(!passTaxes)}
-                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                          passTaxes ? 'bg-[hsl(var(--vf-sales))]' : 'bg-muted-foreground/30'
-                        }`}
-                      >
-                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                          passTaxes ? 'translate-x-6' : 'translate-x-1'
-                        }`} />
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              <div className="rounded-lg border border-border bg-muted/30 p-3">
-                <div className="space-y-1.5 text-sm">
-                  <div className="flex justify-between text-muted-foreground">
-                    <span>Subtotal</span>
-                    <span>{formatCurrencyBRL(subtotal)}</span>
-                  </div>
-                  {discountAmount > 0 && (
-                    <div className="flex justify-between text-emerald-600">
-                      <span>Desconto ({discountPct}%)</span>
-                      <span>- {formatCurrencyBRL(discountAmount)}</span>
-                    </div>
-                  )}
-                  {surchargeManual > 0 && (
-                    <div className="flex justify-between text-amber-600">
-                      <span>Acréscimo</span>
-                      <span>+ {formatCurrencyBRL(surchargeManual)}</span>
-                    </div>
-                  )}
-                  {financialFee > 0 && (
-                    <div className="flex justify-between text-amber-600">
-                      <span>Taxa operadora ({effectiveFeeRate}%)</span>
-                      <span>+ {formatCurrencyBRL(financialFee)}</span>
-                    </div>
-                  )}
-                  <div className="flex justify-between font-bold text-base pt-1.5 border-t border-border">
-                    <span>Total</span>
-                    <span className="text-[hsl(var(--vf-sales))]">
-                      {formatCurrencyBRL(totalFinal)}
-                    </span>
-                  </div>
-                  {allowsInstallments && installments > 1 && (
-                    <div className="text-xs text-center text-muted-foreground">
-                      {installments}x de {formatCurrencyBRL(totalFinal / installments)}
-                    </div>
-                  )}
-                </div>
+            {allowsInstallments && (
+              <div className="relative space-y-1.5">
+                <Label className="text-sm font-medium">Parcelas</Label>
+                <Select value={String(installments)} onValueChange={(v) => setInstallments(Number(v))}>
+                  <SelectTrigger className="h-10 rounded-lg bg-input">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(n => {
+                      const rate = installmentRates ? (installmentRates[String(n)] ?? paymentFee) : paymentFee;
+                      return (
+                        <SelectItem key={n} value={String(n)}>
+                          {n === 1
+                            ? `À vista — taxa ${rate}%`
+                            : `${n}x de ${formatCurrencyBRL(totalFinal / n)} — taxa ${rate}%`}
+                        </SelectItem>
+                      );
+                    })}
+                  </SelectContent>
+                </Select>
               </div>
+            )}
 
-              <Button
-                onClick={handleProcessSale}
-                disabled={cart.length === 0 || !selectedClientId || !paymentMethod || processing}
-                className="w-full h-11 bg-[hsl(var(--vf-sales))] text-white font-bold rounded-xl shadow-md hover:bg-[hsl(var(--vf-sales)/0.9)] transition-all"
-              >
-                <CheckCircle className="mr-2 h-4 w-4" />
-                {processing ? "Processando..." : "Confirmar Venda"}
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
+            {effectiveFeeRate > 0 && subtotal > 0 && (
+              <label className="flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-border px-3 py-2.5">
+                <span className="min-w-0">
+                  <span className="block text-sm font-medium text-foreground">Repassar taxa ao cliente</span>
+                  <span className="block text-xs text-muted-foreground">
+                    Taxa {effectiveFeeRate}% = {formatCurrencyBRL(taxAmount)}
+                  </span>
+                </span>
+                <Switch checked={passTaxes} onCheckedChange={setPassTaxes} />
+              </label>
+            )}
+
+            {cart.length > 0 && (
+              adjustmentsOpen ? (
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label className="text-sm font-medium">Desconto</Label>
+                    <div className="flex gap-1.5">
+                      <div className="relative w-16 shrink-0">
+                        <Input value={discountPct} onChange={(e) => handleDiscountPct(e.target.value)} className="h-9 rounded-lg bg-input pr-5 text-sm" placeholder="0" type="number" min="0" max="100" aria-label="Desconto em %" />
+                        <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">%</span>
+                      </div>
+                      <Input value={discountVal} onChange={(e) => handleDiscountVal(e.target.value)} className="h-9 min-w-0 rounded-lg bg-input text-sm" placeholder="R$ 0,00" type="number" min="0" aria-label="Desconto em reais" />
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-sm font-medium">Acréscimo</Label>
+                    <div className="flex gap-1.5">
+                      <div className="relative w-16 shrink-0">
+                        <Input value={surchargePct} onChange={(e) => handleSurchargePct(e.target.value)} className="h-9 rounded-lg bg-input pr-5 text-sm" placeholder="0" type="number" min="0" aria-label="Acréscimo em %" />
+                        <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">%</span>
+                      </div>
+                      <Input value={surchargeVal} onChange={(e) => handleSurchargeVal(e.target.value)} className="h-9 min-w-0 rounded-lg bg-input text-sm" placeholder="R$ 0,00" type="number" min="0" aria-label="Acréscimo em reais" />
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <button type="button" className="text-sm font-medium text-primary hover:underline" onClick={() => setShowAdjustments(true)}>
+                  + Desconto ou acréscimo
+                </button>
+              )
+            )}
+
+            <div className="space-y-1 border-t border-border pt-3 text-sm">
+              <div className="flex justify-between text-muted-foreground">
+                <span>Subtotal</span>
+                <span className="tabular-nums">{formatCurrencyBRL(subtotal)}</span>
+              </div>
+              {discountAmount > 0 && (
+                <div className="flex justify-between text-muted-foreground">
+                  <span>Desconto{discountPct ? ` (${discountPct}%)` : ""}</span>
+                  <span className="tabular-nums">− {formatCurrencyBRL(discountAmount)}</span>
+                </div>
+              )}
+              {surchargeManual > 0 && (
+                <div className="flex justify-between text-muted-foreground">
+                  <span>Acréscimo</span>
+                  <span className="tabular-nums">+ {formatCurrencyBRL(surchargeManual)}</span>
+                </div>
+              )}
+              {financialFee > 0 && (
+                <div className="flex justify-between text-muted-foreground">
+                  <span>Taxa da operadora ({effectiveFeeRate}%)</span>
+                  <span className="tabular-nums">+ {formatCurrencyBRL(financialFee)}</span>
+                </div>
+              )}
+              <div className="flex items-baseline justify-between pt-1">
+                <span className="font-medium text-foreground">Total</span>
+                <span className="text-2xl font-semibold tabular-nums tracking-tight text-foreground">{formatCurrencyBRL(totalFinal)}</span>
+              </div>
+              {allowsInstallments && installments > 1 && (
+                <p className="text-right text-xs text-muted-foreground">
+                  {installments}x de {formatCurrencyBRL(totalFinal / installments)}
+                </p>
+              )}
+            </div>
+
+            <Button onClick={() => void handleProcessSale()} disabled={!canSubmit} className="h-11 w-full text-base font-semibold">
+              {processing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {processing
+                ? "Registrando..."
+                : payMode === "now" && totalFinal > 0
+                  ? `Receber ${formatCurrencyBRL(totalFinal)}`
+                  : "Registrar venda"}
+            </Button>
+          </section>
+        </aside>
       </div>
     </PageShell>
   );

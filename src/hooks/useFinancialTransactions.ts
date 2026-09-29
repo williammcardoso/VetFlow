@@ -10,8 +10,9 @@ export function useFinancialTransactions(): {
   const [transactions, setTransactions] = useState<FinancialTransaction[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Recarrega em segundo plano: `loading` só no primeiro carregamento — antes
+  // a lista inteira sumia ("Carregando...") a cada venda/recebimento salvo.
   const refetch = useCallback(async () => {
-    setLoading(true);
     const data = await financialApi.getFinancialTransactions();
     setTransactions(data);
     setLoading(false);

@@ -1,330 +1,445 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import { FaPlus, FaDollarSign, FaCalendarAlt, FaTag, FaPaw, FaEye } from "@/components/icons/fa";
+import { Plus, Receipt, Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { cn, formatCurrencyBRL } from "@/lib/utils";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
+import { cn, formatCurrencyBRL, formatDateTime } from "@/lib/utils";
 import { useFinancialTransactions } from "@/hooks/useFinancialTransactions";
 import { useClientsList } from "@/hooks/useSupabaseClients";
+import { useRegistryList } from "@/hooks/useRegistryList";
 import { PageShell } from "@/components/saas/PageShell";
 import { PageHeader } from "@/components/saas/PageHeader";
-import { SectionCard } from "@/components/saas/SectionCard";
-import { ToolbarRow } from "@/components/saas/ToolbarRow";
-import { ShoppingCart, Sparkles, Filter, ArrowLeft, User, PawPrint, Calendar, CreditCard, Banknote } from "lucide-react";
+import { KpiStrip } from "@/components/saas/KpiStrip";
+import { PeriodFilter, isWithinPeriod, periodRange } from "@/components/saas/PeriodFilter";
 import SaleDetailModal from "@/components/SaleDetailModal";
 import CancelSaleDialog from "@/components/CancelSaleDialog";
-import ClientCombobox from "@/components/ClientCombobox";
 import DeleteSaleDialog from "@/components/DeleteSaleDialog";
+import { ReceivePaymentDialog } from "@/components/sales/ReceivePaymentDialog";
+import { SaleStatusBadge } from "@/components/sales/SaleStatusBadge";
+import {
+  receiptMethodsBySale,
+  saleBalance,
+  saleStatus,
+  summarizeSaleItems,
+  type SaleStatusKey,
+} from "@/lib/salePayment";
 import type { FinancialTransaction } from "@/mockData/financial";
+import type { Animal, Client } from "@/types/client";
+
+type StatusFilter = "all" | "open" | "paid" | "cancelled";
+
+const STATUS_FILTERS: Array<{ key: StatusFilter; label: string }> = [
+  { key: "all", label: "Todas" },
+  { key: "open", label: "A receber" },
+  { key: "paid", label: "Pagas" },
+  { key: "cancelled", label: "Canceladas" },
+];
+
+const matchesStatus = (key: SaleStatusKey, filter: StatusFilter) =>
+  filter === "all" ||
+  (filter === "open" && (key === "open" || key === "partial")) ||
+  (filter === "paid" && key === "paid") ||
+  (filter === "cancelled" && key === "cancelled");
+
+// Mesmas colunas no cabeçalho e nas linhas. xl, não xl: com o menu lateral
+// aberto, uma tela de 1024px deixa ~770px — as 5 colunas espremiam os itens
+// (e nome longo de exame invadia a coluna do cliente). Abaixo disso fica o
+// formato de lista do celular.
+const COLUMNS =
+  "xl:grid xl:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)_7.5rem_7.5rem_minmax(8.5rem,auto)] xl:items-center xl:gap-4";
+
+const PAGE_SIZE = 30;
+
+const norm = (s: string | undefined) =>
+  (s || "")
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "")
+    .toLowerCase()
+    .trim();
+
+const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+
+function formatAnimalAge(birthday?: string): string | undefined {
+  if (!birthday) return undefined;
+  const birth = new Date(`${birthday}T00:00:00`);
+  if (Number.isNaN(birth.getTime())) return undefined;
+  const now = new Date();
+  const totalMonths = (now.getFullYear() - birth.getFullYear()) * 12 + (now.getMonth() - birth.getMonth());
+  if (totalMonths < 12) return totalMonths === 1 ? "1 mes" : `${totalMonths} meses`;
+  const y = Math.floor(totalMonths / 12);
+  const m = totalMonths % 12;
+  const anoStr = y === 1 ? "1 ano" : `${y} anos`;
+  const mesStr = m === 1 ? "1 mes" : m > 1 ? `${m} meses` : "";
+  return mesStr ? `${anoStr} e ${mesStr}` : anoStr;
+}
+
+function formatClientAddress(client?: Client): string | undefined {
+  const a = client?.address;
+  if (!a) return undefined;
+  if (typeof a === "string") return a;
+  const parts = [
+    a.street && a.number ? `${a.street}, ${a.number}` : a.street,
+    a.complement,
+    a.neighborhood,
+    a.city,
+    a.cep ? `CEP ${a.cep}` : undefined,
+  ].filter(Boolean);
+  return parts.length > 0 ? parts.join(" · ") : undefined;
+}
 
 const SalesPage = () => {
   const { data: dbClients, isError: isClientsError } = useClientsList();
-  const { transactions: mockFinancialTransactions, loading, refetch } = useFinancialTransactions();
-  const clients = dbClients || [];
-  // Filtros
-  const [clientId, setClientId] = React.useState<string | undefined>(undefined);
-  const [animalId, setAnimalId] = React.useState<string | undefined>(undefined);
-  const [dateFrom, setDateFrom] = React.useState<string>("");
-  const [dateTo, setDateTo] = React.useState<string>("");
-  const [paymentMethod, setPaymentMethod] = React.useState<string | undefined>(undefined);
-  const [status, setStatus] = React.useState<'paid' | 'partial' | 'pending' | 'cancelled' | 'all'>('all');
+  const { transactions, loading, refetch } = useFinancialTransactions();
+  const { list: paymentMethods } = useRegistryList("paymentMethods");
+  const clients = React.useMemo(() => dbClients || [], [dbClients]);
+
+  const [period, setPeriod] = React.useState(() => periodRange("this-month"));
+  const [search, setSearch] = React.useState("");
+  const [status, setStatus] = React.useState<StatusFilter>("all");
+  const [method, setMethod] = React.useState<string>("all");
+  const [visible, setVisible] = React.useState(PAGE_SIZE);
+
   const [selectedSale, setSelectedSale] = React.useState<FinancialTransaction | null>(null);
   const [saleToCancel, setSaleToCancel] = React.useState<FinancialTransaction | null>(null);
   const [saleToDelete, setSaleToDelete] = React.useState<FinancialTransaction | null>(null);
+  const [saleToReceive, setSaleToReceive] = React.useState<FinancialTransaction | null>(null);
 
-  const paymentMethods = React.useMemo(() => {
-    const pmList = Array.from(new Set(mockFinancialTransactions
-      .filter(t => t.type === 'income' && t.category === 'Venda de Produtos' && t.paymentMethod)
-      .map(t => t.paymentMethod as string)));
-    return pmList;
-  }, [mockFinancialTransactions]);
+  React.useEffect(() => setVisible(PAGE_SIZE), [period, search, status, method]);
 
-  const animals = React.useMemo(() => {
-    if (!clientId) return [];
-    const client = clients.find(c => c.id === clientId);
-    return client?.animals || [];
-  }, [clientId, clients]);
+  const clientById = React.useMemo(() => new Map(clients.map((c) => [c.id, c])), [clients]);
+  const animalOf = React.useCallback(
+    (sale?: FinancialTransaction | null): Animal | undefined =>
+      sale?.relatedClientId && sale.relatedAnimalId
+        ? clientById.get(sale.relatedClientId)?.animals.find((a) => a.id === sale.relatedAnimalId)
+        : undefined,
+    [clientById]
+  );
 
-  // Filtrar transações de venda
-  const salesTransactions = React.useMemo(() => {
-    return mockFinancialTransactions
-      .filter((t) => t.type === 'income' && t.category === 'Venda de Produtos')
-      .filter(t => !clientId || t.relatedClientId === clientId)
-      .filter(t => !animalId || t.relatedAnimalId === animalId)
-      .filter(t => !paymentMethod || t.paymentMethod === paymentMethod)
-      .filter(t => status === 'all' ? true : (t.status || 'pending') === status)
-      .filter(t => {
-        if (!dateFrom && !dateTo) return true;
-        const dt = new Date(`${t.date}T${t.time}`);
-        const from = dateFrom ? new Date(`${dateFrom}T00:00`) : undefined;
-        const to = dateTo ? new Date(`${dateTo}T23:59`) : undefined;
-        return (!from || dt >= from) && (!to || dt <= to);
-      })
-      .sort((a, b) => {
-        const dateTimeA = new Date(`${a.date}T${a.time}`);
-        const dateTimeB = new Date(`${b.date}T${b.time}`);
-        return dateTimeB.getTime() - dateTimeA.getTime();
-      });
-  }, [mockFinancialTransactions, clientId, animalId, paymentMethod, status, dateFrom, dateTo]);
+  const allSales = React.useMemo(
+    () => transactions.filter((t) => t.type === "income" && t.category === "Venda de Produtos"),
+    [transactions]
+  );
+  // A venda do prontuário não guardava a forma de pagamento — ela vem do recebimento.
+  const methodsBySale = React.useMemo(() => receiptMethodsBySale(transactions), [transactions]);
+  const methodsOf = React.useCallback(
+    (sale: FinancialTransaction) => (sale.paymentMethod ? [sale.paymentMethod] : methodsBySale.get(sale.id) ?? []),
+    [methodsBySale]
+  );
 
-  const formatDateTime = (dateString: string, timeString: string) => {
-    if (!dateString) return "N/A";
-    const [year, month, day] = dateString.split('-');
-    return `${day}/${month}/${year} ${timeString}`;
+  const methodOptions = React.useMemo(() => {
+    const names = new Set<string>(paymentMethods.map((pm) => pm.name).filter(Boolean));
+    allSales.forEach((s) => methodsOf(s).forEach((m) => names.add(m)));
+    return Array.from(names).sort((a, b) => a.localeCompare(b, "pt-BR"));
+  }, [paymentMethods, allSales, methodsOf]);
+
+  // Período + busca + forma (a situação é aplicada depois, para contar cada uma).
+  const scoped = React.useMemo(() => {
+    const q = norm(search);
+    return allSales.filter((s) => {
+      if (!isWithinPeriod(s.date, period.from, period.to)) return false;
+      if (method !== "all" && !methodsOf(s).includes(method)) return false;
+      if (!q) return true;
+      const client = s.relatedClientId ? clientById.get(s.relatedClientId) : undefined;
+      const animal = animalOf(s);
+      return norm(`${client?.name ?? ""} ${animal?.name ?? ""} ${s.description}`).includes(q);
+    });
+  }, [allSales, period, method, search, clientById, animalOf, methodsOf]);
+
+  const counts = React.useMemo(() => {
+    const c: Record<StatusFilter, number> = { all: scoped.length, open: 0, paid: 0, cancelled: 0 };
+    for (const s of scoped) {
+      const key = saleStatus(s).key;
+      if (key === "open" || key === "partial") c.open++;
+      else if (key === "paid") c.paid++;
+      else c.cancelled++;
+    }
+    return c;
+  }, [scoped]);
+
+  const rows = React.useMemo(() => scoped.filter((s) => matchesStatus(saleStatus(s).key, status)), [scoped, status]);
+
+  const kpis = React.useMemo(() => {
+    const active = scoped.filter((s) => s.status !== "cancelled");
+    const sold = active.reduce((sum, s) => sum + s.amount, 0);
+    const received = active.reduce((sum, s) => sum + Math.min(s.amount, s.paidAmount || 0), 0);
+    // "A receber" olha TODAS as datas: conta em aberto não pode sumir atrás do filtro de período.
+    const openSales = allSales.filter((s) => saleBalance(s) > 0);
+    return {
+      sold,
+      count: active.length,
+      received,
+      ticket: active.length > 0 ? sold / active.length : 0,
+      open: openSales.reduce((sum, s) => sum + saleBalance(s), 0),
+      openCount: openSales.length,
+    };
+  }, [scoped, allSales]);
+
+  const shown = rows.slice(0, visible);
+  const remaining = rows.length - shown.length;
+  const isFiltering = Boolean(search.trim()) || status !== "all" || method !== "all";
+
+  const clearFilters = () => {
+    setSearch("");
+    setStatus("all");
+    setMethod("all");
   };
 
-  const getAnimalName = (clientId?: string, animalId?: string) => {
-    if (!clientId || !animalId) return 'N/A';
-    const client = clients.find(c => c.id === clientId);
-    const animal = client?.animals.find(a => a.id === animalId);
-    return animal?.name || 'N/A';
-  };
-
-  const statusConfig: Record<string, { label: string; className: string }> = {
-    paid:      { label: 'Pago',      className: 'bg-emerald-100 text-emerald-700 border border-emerald-200' },
-    partial:   { label: 'Parcial',   className: 'bg-blue-100 text-blue-700 border border-blue-200' },
-    pending:   { label: 'Pendente',  className: 'bg-amber-100 text-amber-700 border border-amber-200' },
-    cancelled: { label: 'Cancelado', className: 'bg-red-100 text-red-700 border border-red-200' },
-  };
-
-  const getClientName = (clientId?: string) =>
-    clientId ? (clients.find(c => c.id === clientId)?.name || undefined) : undefined;
-
-  const getSaleItemsSummary = (description: string): string => {
-    const colonIdx = description.indexOf(": ");
-    if (colonIdx === -1) return description;
-    const items = description.slice(colonIdx + 2)
-      .split(", ")
-      .map(item => item.replace(/\s+x\d+$/, "").trim());
-    if (items.length <= 2) return items.join(" · ");
-    return `${items.slice(0, 2).join(" · ")} +${items.length - 2} item${items.length - 2 > 1 ? "s" : ""}`;
-  };
+  const detailClient = selectedSale?.relatedClientId ? clientById.get(selectedSale.relatedClientId) : undefined;
+  const detailAnimal = animalOf(selectedSale);
+  const receiveClient = saleToReceive?.relatedClientId ? clientById.get(saleToReceive.relatedClientId) : undefined;
+  const cancelClient = saleToCancel?.relatedClientId ? clientById.get(saleToCancel.relatedClientId) : undefined;
 
   return (
-    <PageShell>
+    <PageShell className="space-y-4 sm:space-y-5">
       <PageHeader
-        title="Minhas Vendas"
-        description="Visualize e gerencie todas as transações de vendas."
-        icon={ShoppingCart}
+        title="Vendas"
+        description="Tudo o que foi vendido — no PDV, no prontuário ou por orçamento."
+        icon={Receipt}
         module="sales"
-        breadcrumb={<>Painel &gt; Vendas &gt; Minhas Vendas</>}
+        breadcrumb={<>Painel &gt; Vendas</>}
+        className="mb-0 sm:mb-0"
         actions={
-          <Button asChild variant="outline" className="rounded-xl border-border/70">
-            <Link to="/">
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Voltar ao painel
-            </Link>
-          </Button>
+          <>
+            <Button asChild variant="outline" className="flex-1 sm:flex-none">
+              <Link to="/sales/receipts">Recebimentos</Link>
+            </Button>
+            <Button asChild className="flex-1 font-semibold sm:flex-none">
+              <Link to="/sales/pos">
+                <Plus className="mr-2 h-4 w-4" /> Nova venda
+              </Link>
+            </Button>
+          </>
         }
       />
 
-      <SectionCard
-        title="Filtros de vendas"
-        description="Filtre por cliente, pagamento, status e período."
-        icon={Filter}
-        tone="sales"
-      >
-        <ToolbarRow>
-          <div className="grid w-full grid-cols-1 gap-2 md:grid-cols-6">
-            <div>
-              <label className="text-xs text-muted-foreground">Cliente</label>
-              <ClientCombobox
-                clients={clients}
-                value={clientId}
-                onChange={(id) => { setClientId(id); setAnimalId(undefined); }}
-                placeholder="Todos"
-                allLabel="Todos"
-                className="h-8 bg-input"
+      <KpiStrip
+        loading={loading}
+        items={[
+          {
+            label: "Vendido no período",
+            value: formatCurrencyBRL(kpis.sold),
+            hint: plural(kpis.count, "venda", "vendas"),
+          },
+          {
+            label: "Recebido",
+            value: formatCurrencyBRL(kpis.received),
+            hint: kpis.sold > 0 ? `${Math.round((kpis.received / kpis.sold) * 100)}% do vendido` : "—",
+          },
+          {
+            label: "A receber",
+            value: formatCurrencyBRL(kpis.open),
+            hint: kpis.openCount > 0 ? `${plural(kpis.openCount, "venda", "vendas")} · todas as datas` : "Nada em aberto",
+            tone: kpis.open > 0 ? "warning" : "default",
+            onClick:
+              kpis.openCount > 0
+                ? () => {
+                    setStatus("open");
+                    setPeriod(periodRange("all"));
+                  }
+                : undefined,
+          },
+          {
+            label: "Ticket médio",
+            value: formatCurrencyBRL(kpis.ticket),
+            hint: "por venda no período",
+          },
+        ]}
+      />
+
+      <section className="overflow-hidden rounded-2xl border border-border/80 bg-card shadow-sm" aria-label="Lista de vendas">
+        {/* Busca, período, situação e forma */}
+        <div className="space-y-3 border-b border-border/70 p-3 sm:p-4">
+          <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
+            <div className="relative min-w-0 flex-1">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
+              <Input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Buscar por tutor, pet ou item"
+                aria-label="Buscar vendas"
+                enterKeyHint="search"
+                autoComplete="off"
+                className="h-10 rounded-xl bg-input pl-9 pr-9"
               />
+              {search && (
+                <button
+                  type="button"
+                  onClick={() => setSearch("")}
+                  className="absolute right-1.5 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                  aria-label="Limpar busca"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
             </div>
-            <div>
-              <label className="text-xs text-muted-foreground">Animal</label>
-              <Select onValueChange={(v) => setAnimalId(v === "all" ? undefined : v)} value={animalId ?? "all"}>
-                <SelectTrigger className="h-8 bg-input"><SelectValue placeholder="Todos" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos</SelectItem>
-                  {animals.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
+            <PeriodFilter from={period.from} to={period.to} onChange={setPeriod} />
+          </div>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div role="radiogroup" aria-label="Situação" className="inline-flex w-full overflow-x-auto rounded-xl bg-muted p-1 sm:w-auto">
+              {STATUS_FILTERS.map(({ key, label }) => {
+                const active = status === key;
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    role="radio"
+                    aria-checked={active}
+                    onClick={() => setStatus(key)}
+                    className={cn(
+                      "flex-1 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium transition-colors sm:flex-none",
+                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60",
+                      active ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    {label}
+                    <span className="ml-1.5 text-xs tabular-nums text-muted-foreground">{counts[key]}</span>
+                  </button>
+                );
+              })}
             </div>
-            <div>
-              <label className="text-xs text-muted-foreground">Pagamento</label>
-              <Select onValueChange={(v) => setPaymentMethod(v === "all" ? undefined : v)} value={paymentMethod ?? "all"}>
-                <SelectTrigger className="h-8 bg-input"><SelectValue placeholder="Todos" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos</SelectItem>
-                  {paymentMethods.map(pm => <SelectItem key={pm} value={pm}>{pm}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <label className="text-xs text-muted-foreground">Status</label>
-              <Select onValueChange={(v) => setStatus(v as any)} value={status}>
-                <SelectTrigger className="h-8 bg-input"><SelectValue placeholder="Todos" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos</SelectItem>
-                  <SelectItem value="paid">Pago</SelectItem>
-                  <SelectItem value="partial">Parcial</SelectItem>
-                  <SelectItem value="pending">Pendente</SelectItem>
-                  <SelectItem value="cancelled">Cancelado</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <label className="text-xs text-muted-foreground">De</label>
-              <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="h-8 bg-input" />
-            </div>
-            <div>
-              <label className="text-xs text-muted-foreground">Até</label>
-              <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="h-8 bg-input" />
+            <Select value={method} onValueChange={setMethod}>
+              <SelectTrigger className="h-9 w-full rounded-lg bg-input sm:w-52" aria-label="Forma de pagamento">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent align="end">
+                <SelectItem value="all">Todas as formas</SelectItem>
+                {methodOptions.map((m) => (
+                  <SelectItem key={m} value={m}>
+                    {m}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        {/* Cabeçalho das colunas (computador) */}
+        <div className="hidden border-b border-border/70 bg-muted/30 px-4 py-2 text-xs font-medium text-muted-foreground xl:block">
+          <div className={COLUMNS}>
+            <span>Venda</span>
+            <span>Cliente</span>
+            <span>Data</span>
+            <span className="text-right">Valor</span>
+            <span className="text-right">Situação</span>
+          </div>
+        </div>
+
+        {loading ? (
+          <ul className="divide-y divide-border/70" aria-hidden>
+            {Array.from({ length: 6 }, (_, i) => (
+              <li key={i} className="space-y-2 px-4 py-3.5">
+                <Skeleton className="h-4 w-1/3" />
+                <Skeleton className="h-3 w-1/4" />
+              </li>
+            ))}
+          </ul>
+        ) : rows.length === 0 ? (
+          <div className="px-4 py-12 text-center">
+            <p className="text-sm font-medium text-foreground">
+              {allSales.length === 0 ? "Nenhuma venda registrada ainda" : "Nenhuma venda encontrada"}
+            </p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {allSales.length === 0
+                ? "As vendas do PDV, do prontuário e dos orçamentos aparecem aqui."
+                : "Mude o período ou a busca para ver outras vendas."}
+            </p>
+            <div className="mt-4">
+              {allSales.length === 0 ? (
+                <Button asChild>
+                  <Link to="/sales/pos">
+                    <Plus className="mr-2 h-4 w-4" /> Nova venda
+                  </Link>
+                </Button>
+              ) : (
+                isFiltering && (
+                  <Button variant="outline" onClick={clearFilters}>
+                    <X className="mr-2 h-4 w-4" /> Limpar filtros
+                  </Button>
+                )
+              )}
             </div>
           </div>
-        </ToolbarRow>
-      </SectionCard>
-
-      <SectionCard
-        title="Transações de venda"
-        description="Recebimentos, saldo e status comercial por lançamento."
-        icon={Sparkles}
-        tone="sales"
-      >
-        <Card className="vf-surface-card vf-tone-sales rounded-2xl border-border/80">
-          <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 space-y-0 p-3 pb-3 sm:p-6 sm:pb-3">
-            <CardTitle className="flex items-center gap-2 text-lg font-semibold text-foreground">
-              <FaDollarSign className="h-5 w-5 text-vf-sales" /> Transações de Venda
-            </CardTitle>
-            <Link to="/sales/pos">
-              <Button size="sm" className="rounded-xl bg-[hsl(var(--vf-sales))] text-white hover:bg-[hsl(var(--vf-sales)/0.9)]">
-                <FaPlus className="h-4 w-4 mr-2" /> Nova Venda
-              </Button>
-            </Link>
-          </CardHeader>
-          <CardContent className="px-3 pb-3 pt-0 sm:px-6 sm:pb-6">
-            {loading ? (
-              <p className="text-muted-foreground py-4">Carregando vendas...</p>
-            ) : salesTransactions.length > 0 ? (
-              <div className="space-y-4">
-                {salesTransactions.map((transaction) => {
-                  const saldo = Math.max(0, transaction.amount - (transaction.paidAmount || 0));
-                  return (
-                    <Card key={transaction.id} className="vf-surface-card vf-tone-sales card-hover rounded-xl border border-border/80 bg-card p-3 sm:p-4 shadow-sm">
-                      {/* Linha 1: badge status + descrição resumida + valores */}
-                      <div className="flex flex-col gap-3 mb-3 sm:flex-row sm:items-start sm:justify-between">
-                        <div className="flex flex-col gap-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                              statusConfig[transaction.status || 'pending']?.className || statusConfig.pending.className
-                            }`}>
-                              {statusConfig[transaction.status || 'pending']?.label || 'Pendente'}
-                            </span>
-                            {getClientName(transaction.relatedClientId) && (
-                              <span className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground">
-                                <User className="h-3 w-3" /> {getClientName(transaction.relatedClientId)}
-                              </span>
-                            )}
-                            {transaction.relatedAnimalId && getAnimalName(transaction.relatedClientId, transaction.relatedAnimalId) !== 'N/A' && (
-                              <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-                                <PawPrint className="h-3 w-3" /> {getAnimalName(transaction.relatedClientId, transaction.relatedAnimalId)}
-                              </span>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-2 flex-wrap mt-0.5">
-                            <span className="inline-flex items-center rounded-md bg-[hsl(var(--vf-sales)/0.1)] px-2 py-0.5 text-xs font-semibold text-[hsl(var(--vf-sales))]">
-                              PDV
-                            </span>
-                            <p className="min-w-0 break-words text-sm font-semibold text-foreground lg:truncate lg:max-w-[380px]">
-                              {getSaleItemsSummary(transaction.description)}
-                            </p>
-                          </div>
-                          <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground mt-0.5">
-                            <span className="inline-flex items-center gap-1"><Calendar className="h-3 w-3" /> {formatDateTime(transaction.date, transaction.time)}</span>
-                            {transaction.paymentMethod && (
-                              <span className="inline-flex items-center gap-1">
-                                <CreditCard className="h-3 w-3" /> {transaction.paymentMethod}
-                                {transaction.paymentInstallments && transaction.paymentInstallments > 1
-                                  ? ` · ${transaction.paymentInstallments}x de ${formatCurrencyBRL(transaction.amount / transaction.paymentInstallments)}`
-                                  : ""}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Valores */}
-                        <div className="grid grid-cols-3 gap-2 rounded-lg bg-muted/40 px-2 py-1.5 sm:flex sm:items-center sm:gap-4 sm:shrink-0 sm:bg-transparent sm:p-0">
-                          <div className="sm:text-right">
-                            <div className="text-xs text-muted-foreground">Total</div>
-                            <div className="text-sm sm:text-base font-bold text-[hsl(var(--vf-sales))]">
-                              {formatCurrencyBRL(transaction.amount)}
-                            </div>
-                          </div>
-                          <div className="sm:text-right">
-                            <div className="text-xs text-muted-foreground">Pago</div>
-                            <div className="text-sm sm:text-base font-bold text-emerald-600">
-                              {formatCurrencyBRL(transaction.paidAmount || 0)}
-                            </div>
-                          </div>
-                          <div className="sm:text-right">
-                            <div className="text-xs text-muted-foreground">Saldo</div>
-                            <div className={`text-sm sm:text-base font-bold ${saldo > 0 ? 'text-amber-600' : 'text-gray-400'}`}>
-                              {formatCurrencyBRL(saldo)}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Linha 2: ações */}
-                      <div className="flex flex-wrap justify-end gap-2 pt-2 border-t border-border/50">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="rounded-md hover:bg-muted hover:text-foreground transition-colors"
-                          onClick={() => setSelectedSale(transaction)}
+        ) : (
+          <>
+            <ul className="divide-y divide-border/70">
+              {shown.map((sale) => {
+                const client = sale.relatedClientId ? clientById.get(sale.relatedClientId) : undefined;
+                const animal = animalOf(sale);
+                const st = saleStatus(sale);
+                const balance = saleBalance(sale);
+                const methods = methodsOf(sale);
+                const who = [client?.name, animal?.name && `(${animal.name})`].filter(Boolean).join(" ");
+                return (
+                  <li key={sale.id} className="relative px-3 py-3 transition-colors hover:bg-muted/40 sm:px-4">
+                    <div className={cn("flex flex-col gap-2", COLUMNS)}>
+                      <div className="min-w-0">
+                        {/* Botão "esticado": a linha toda abre o detalhe; o "Receber" fica por cima (z-10). */}
+                        <button
+                          type="button"
+                          onClick={() => setSelectedSale(sale)}
+                          className="block w-full text-left font-medium leading-snug text-foreground after:absolute after:inset-0 focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-inset focus-visible:after:ring-primary/60"
                         >
-                          <FaEye className="h-4 w-4 mr-2" /> Ver detalhes
-                        </Button>
-                        {(transaction.status || 'pending') !== 'cancelled' &&
-                         (transaction.status || 'pending') !== 'paid' && (
-                          <Link to={`/sales/receipts?saleId=${transaction.id}&amount=${Math.max(0, transaction.amount - (transaction.paidAmount || 0))}`}>
-                            <Button size="sm" className="h-8 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 font-semibold">
-                              <Banknote className="h-4 w-4 mr-1.5" /> Dar baixa
+                          <span className={cn("[overflow-wrap:anywhere]", st.key === "cancelled" && "text-muted-foreground line-through")}>
+                            {summarizeSaleItems(sale.description, 3)}
+                          </span>
+                        </button>
+                        <p className="mt-0.5 text-xs text-muted-foreground">
+                          <span className="xl:hidden">
+                            {[who, formatDateTime(sale.date, sale.time)].filter(Boolean).join(" · ")}
+                            {methods.length > 0 && " · "}
+                          </span>
+                          {methods.join(" + ")}
+                          {methods.length === 0 && <span className="hidden xl:inline">—</span>}
+                        </p>
+                      </div>
+                      <p className="hidden min-w-0 truncate text-sm text-foreground xl:block" title={who}>
+                        {who || <span className="text-muted-foreground">Sem cliente</span>}
+                      </p>
+                      <p className="hidden text-sm tabular-nums text-muted-foreground xl:block">
+                        {formatDateTime(sale.date)}
+                        <span className="block text-xs">{sale.time}</span>
+                      </p>
+                      <div className="flex items-center justify-between gap-3 xl:contents">
+                        <div className="xl:text-right">
+                          <p className={cn("font-semibold tabular-nums text-foreground", st.key === "cancelled" && "text-muted-foreground")}>
+                            {formatCurrencyBRL(sale.amount)}
+                          </p>
+                          {st.key === "partial" && <p className="text-xs text-amber-800">falta {formatCurrencyBRL(balance)}</p>}
+                        </div>
+                        <div className="flex items-center justify-end gap-2">
+                          <SaleStatusBadge sale={sale} />
+                          {balance > 0 && (
+                            <Button size="sm" className="relative z-10 h-8 font-semibold" onClick={() => setSaleToReceive(sale)}>
+                              Receber
                             </Button>
-                          </Link>
-                        )}
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-8 rounded-lg border-red-200 text-red-700 hover:bg-red-50"
-                          disabled={(transaction.status || 'pending') === 'cancelled'}
-                          onClick={() => setSaleToCancel(transaction)}
-                        >
-                          Cancelar
-                        </Button>
-                        {(transaction.paidAmount || 0) === 0 &&
-                         (transaction.status || 'pending') !== 'cancelled' && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-8 rounded-lg border-red-200 text-red-700 hover:bg-red-50"
-                            onClick={() => setSaleToDelete(transaction)}
-                          >
-                            Excluir
-                          </Button>
-                        )}
+                          )}
+                        </div>
                       </div>
-                    </Card>
-                  );
-                })}
-              </div>
-            ) : (
-              <p className="text-muted-foreground py-4">
-                {isClientsError ? "Falha ao carregar clientes." : "Nenhuma venda registrada."}
-              </p>
-            )}
-          </CardContent>
-        </Card>
-      </SectionCard>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/70 px-4 py-2.5 text-xs text-muted-foreground">
+              <span aria-live="polite">
+                {remaining > 0
+                  ? `Mostrando ${shown.length} de ${plural(rows.length, "venda", "vendas")}`
+                  : plural(rows.length, "venda", "vendas")}
+              </span>
+              {remaining > 0 && (
+                <Button variant="ghost" size="sm" className="h-8" onClick={() => setVisible((v) => v + PAGE_SIZE)}>
+                  Mostrar mais ({remaining})
+                </Button>
+              )}
+            </div>
+          </>
+        )}
+        {isClientsError && (
+          <p className="border-t border-border/70 px-4 py-2 text-xs text-destructive">Falha ao carregar clientes — os nomes podem não aparecer.</p>
+        )}
+      </section>
 
       <SaleDetailModal
         open={!!selectedSale}
@@ -332,88 +447,25 @@ const SalesPage = () => {
         onClose={() => setSelectedSale(null)}
         onRequestCancel={(sale) => { setSelectedSale(null); setSaleToCancel(sale); }}
         onRequestDelete={(sale) => { setSelectedSale(null); setSaleToDelete(sale); }}
-        clientName={getClientName(selectedSale?.relatedClientId)}
-        clientPhone={
-          selectedSale?.relatedClientId
-            ? clients.find(c => c.id === selectedSale.relatedClientId)?.phone || undefined
-            : undefined
-        }
-        clientAddress={
-          selectedSale?.relatedClientId
-            ? (() => {
-                const client = clients.find(c => c.id === selectedSale.relatedClientId);
-                if (!client?.address) return undefined;
-                const a = client.address;
-                if (typeof a === "string") return a;
-                const parts = [
-                  a.street && a.number ? `${a.street}, ${a.number}` : a.street,
-                  a.complement,
-                  a.neighborhood,
-                  a.city,
-                  a.cep ? `CEP ${a.cep}` : undefined,
-                ].filter(Boolean);
-                return parts.length > 0 ? parts.join(" · ") : undefined;
-              })()
-            : undefined
-        }
-        animalName={
-          selectedSale?.relatedClientId && selectedSale?.relatedAnimalId
-            ? clients
-                .find(c => c.id === selectedSale.relatedClientId)
-                ?.animals.find(a => a.id === selectedSale.relatedAnimalId)
-                ?.name
-            : undefined
-        }
-        animalSpecies={
-          selectedSale?.relatedClientId && selectedSale?.relatedAnimalId
-            ? clients
-                .find(c => c.id === selectedSale.relatedClientId)
-                ?.animals.find(a => a.id === selectedSale.relatedAnimalId)
-                ?.species
-            : undefined
-        }
-        animalBreed={
-          selectedSale?.relatedClientId && selectedSale?.relatedAnimalId
-            ? clients
-                .find(c => c.id === selectedSale.relatedClientId)
-                ?.animals.find(a => a.id === selectedSale.relatedAnimalId)
-                ?.breed
-            : undefined
-        }
-        animalAge={
-          selectedSale?.relatedClientId && selectedSale?.relatedAnimalId
-            ? (() => {
-                const animal = clients
-                  .find(c => c.id === selectedSale.relatedClientId)
-                  ?.animals.find(a => a.id === selectedSale.relatedAnimalId);
-                if (!animal?.birthday) return undefined;
-                if (animal.birthday) {
-                  const birth = new Date(animal.birthday);
-                  const now = new Date();
-                  const years = now.getFullYear() - birth.getFullYear();
-                  const months = now.getMonth() - birth.getMonth();
-                  const totalMonths = years * 12 + months;
-                  if (totalMonths < 12) {
-                    return totalMonths === 1 ? "1 mes" : `${totalMonths} meses`;
-                  }
-                  const y = Math.floor(totalMonths / 12);
-                  const m = totalMonths % 12;
-                  const anoStr = y === 1 ? "1 ano" : `${y} anos`;
-                  const mesStr = m === 1 ? "1 mes" : m > 1 ? `${m} meses` : "";
-                  return mesStr ? `${anoStr} e ${mesStr}` : anoStr;
-                }
-                return undefined;
-              })()
-            : undefined
-        }
-        animalPatientCode={
-          selectedSale?.relatedClientId && selectedSale?.relatedAnimalId
-            ? clients
-                .find(c => c.id === selectedSale.relatedClientId)
-                ?.animals.find(a => a.id === selectedSale.relatedAnimalId)
-                ?.patientCode
-            : undefined
-        }
+        onRequestReceive={(sale) => { setSelectedSale(null); setSaleToReceive(sale); }}
+        clientName={detailClient?.name}
+        clientPhone={detailClient?.mainPhoneContact || undefined}
+        clientAddress={formatClientAddress(detailClient)}
+        animalName={detailAnimal?.name}
+        animalSpecies={detailAnimal?.species}
+        animalBreed={detailAnimal?.breed}
+        animalAge={formatAnimalAge(detailAnimal?.birthday)}
+        animalPatientCode={detailAnimal?.patientCode}
+      />
+
+      <ReceivePaymentDialog
+        open={!!saleToReceive}
+        onOpenChange={(open) => { if (!open) setSaleToReceive(null); }}
+        sale={saleToReceive}
+        clientName={receiveClient?.name}
+        animalName={animalOf(saleToReceive)?.name}
+        methods={paymentMethods}
+        onDone={refetch}
       />
 
       <CancelSaleDialog
@@ -421,20 +473,9 @@ const SalesPage = () => {
         sale={saleToCancel}
         onClose={() => setSaleToCancel(null)}
         onCancelled={() => { void refetch(); }}
-        clientName={getClientName(saleToCancel?.relatedClientId)}
-        clientPhone={
-          saleToCancel?.relatedClientId
-            ? clients.find(c => c.id === saleToCancel.relatedClientId)?.phone || undefined
-            : undefined
-        }
-        animalName={
-          saleToCancel?.relatedClientId && saleToCancel?.relatedAnimalId
-            ? clients
-                .find(c => c.id === saleToCancel.relatedClientId)
-                ?.animals.find(a => a.id === saleToCancel.relatedAnimalId)
-                ?.name
-            : undefined
-        }
+        clientName={cancelClient?.name}
+        clientPhone={cancelClient?.mainPhoneContact || undefined}
+        animalName={animalOf(saleToCancel)?.name}
       />
 
       <DeleteSaleDialog

@@ -1,49 +1,28 @@
-import React, { useMemo, useState, useEffect, useRef } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { cn, formatCurrencyBRL, formatDateTime, formatItemQty } from "@/lib/utils";
-import { getPeriodLabel } from "@/lib/printReport";
+import { FileDown, FileText, Wallet } from "lucide-react";
 import { toast } from "sonner";
-import FinancialReportPdfContent from "@/components/FinancialReportPdfContent";
-import { createPdfBlob, openPdf } from "@/lib/pdfExport";
-import type { FinancialTransaction } from "@/mockData/financial";
-import { useFinancialTransactions } from "@/hooks/useFinancialTransactions";
-import { getSaleItemsBySaleIds, type SaleItem } from "@/lib/saleItemsApi";
-import { getPatientRecordPath } from "@/utils/patientDisplayId";
-import { groupRepassesByProvider, resolveCostProvider } from "@/lib/costProviders";
-import { classifyTransaction } from "@/lib/financialTransactionDisplay";
-import { useClientsList } from "@/hooks/useSupabaseClients";
-import {
-  ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
-} from "@/components/ui/chart";
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  LineChart,
-  Line,
-  PieChart,
-  Pie,
-  Cell,
-  Legend,
-} from "recharts";
-import { FileText, Printer, Wallet, TrendingUp, PieChart as PieChartIcon } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { PageShell } from "@/components/saas/PageShell";
 import { PageHeader } from "@/components/saas/PageHeader";
+import { KpiStrip } from "@/components/saas/KpiStrip";
+import { PeriodFilter, describePeriod, periodRange } from "@/components/saas/PeriodFilter";
+import { DailyBarChart } from "@/components/saas/DailyBarChart";
+import { BarList } from "@/components/saas/BarList";
+import FinancialReportPdfContent from "@/components/FinancialReportPdfContent";
+import { useFinancialTransactions } from "@/hooks/useFinancialTransactions";
+import { useClientsList } from "@/hooks/useSupabaseClients";
+import { useCatalog } from "@/hooks/useCatalog";
+import { getSaleItemsBySaleIds, type SaleItem } from "@/lib/saleItemsApi";
+import { resolveCostProvider } from "@/lib/costProviders";
+import { lineProviderCost } from "@/lib/monthlyClosing";
+import { catalogCategoryLabel } from "@/lib/catalogCategories";
+import { computePeriodFinancials, isCancelled, isSale, revenueByCategory, sumByDay } from "@/lib/financialSummary";
+import { summarizeSaleItems } from "@/lib/salePayment";
+import { classifyTransaction } from "@/lib/financialTransactionDisplay";
+import { createPdfBlob, openPdf } from "@/lib/pdfExport";
+import { cn, formatCurrencyBRL, formatDateTime, getTodayLocalISO } from "@/lib/utils";
+import { getPatientRecordPath } from "@/utils/patientDisplayId";
 
 type RepasseDetalhe = {
   id: string;
@@ -61,153 +40,85 @@ type RepasseDetalhe = {
   patientCode?: number;
 };
 
-const withinRange = (dateStr: string, from?: string, to?: string) => {
-  const dt = new Date(`${dateStr}T00:00`);
-  const f = from ? new Date(`${from}T00:00`) : undefined;
-  const t = to ? new Date(`${to}T23:59`) : undefined;
-  return (!f || dt >= f) && (!t || dt <= t);
-};
+const fmt = formatCurrencyBRL;
+const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+const pct = (part: number, total: number) => (total > 0 ? `${Math.round((part / total) * 100)}%` : "");
 
-const getDefaultPeriod = () => {
-  const now = new Date();
-  const y = now.getFullYear();
-  const m = String(now.getMonth() + 1).padStart(2, "0");
-  return {
-    from: `${y}-${m}-01`,
-    to: `${y}-${m}-${new Date(y, now.getMonth() + 1, 0).getDate()}`,
-  };
-};
-
-const PERIOD_OPTIONS = [
-  { value: "this_month", label: "Este mês" },
-  { value: "last_month", label: "Mês passado" },
-  { value: "last_3", label: "Últimos 3 meses" },
-  { value: "custom", label: "Escolher datas" },
+// Entradas = dinheiro que entrou (recebimentos); saídas = despesas. Antes a
+// venda e o recebimento dela entravam os dois como "entrada" — o mesmo
+// dinheiro contado duas vezes.
+const CASH_SERIES = [
+  { key: "entradas", label: "Entradas", color: "hsl(var(--primary))" },
+  { key: "saidas", label: "Saídas", color: "hsl(32 95% 52%)" },
 ];
 
-const CHART_COLORS = {
-  entradas: "hsl(142, 76%, 36%)",
-  saidas: "hsl(0, 84%, 60%)",
-  saldo: "hsl(215, 20%, 45%)",
-  pie: ["#059669", "#0d9488", "#0891b2", "#6366f1", "#8b5cf6", "#a855f7", "#d946ef", "#ec4899"],
-};
-
-const sumReceiptsForSaleLocal = (list: FinancialTransaction[], saleId: string) =>
-  list
-    .filter(
-      (t) =>
-        t.type === "income" &&
-        t.category === "Recebimento" &&
-        (t.saleId === saleId || (t.description || "").includes(saleId))
-    )
-    .reduce((s, r) => s + r.amount, 0);
-
 const FinancialReportsPage: React.FC = () => {
-  const { transactions: mockFinancialTransactions } = useFinancialTransactions();
+  const { transactions, loading } = useFinancialTransactions();
   const { data: clients = [] } = useClientsList();
-  const defaultPeriod = useMemo(getDefaultPeriod, []);
-  const [periodPreset, setPeriodPreset] = useState<string>("this_month");
-  const [dateFrom, setDateFrom] = useState<string>(defaultPeriod.from);
-  const [dateTo, setDateTo] = useState<string>(defaultPeriod.to);
+  const { items: catalog } = useCatalog();
+  const [period, setPeriod] = useState(() => periodRange("this-month"));
   const [periodSaleItems, setPeriodSaleItems] = useState<SaleItem[]>([]);
   const [providerFilter, setProviderFilter] = useState<string>("all");
   const [exportingPdf, setExportingPdf] = useState(false);
-  const detalhamentoRef = useRef<HTMLDivElement>(null);
+  const detalhamentoRef = useRef<HTMLElement>(null);
 
-  // Clique num prestador em "Repasses por prestador" (tabela ou pizza) já
-  // filtra e rola até "Pacientes com serviços externos" — antes só tinha
-  // como descobrir aquele filtro rolando a página e abrindo o Select.
-  const goToProviderDetail = (provider: string) => {
-    setProviderFilter(provider);
-    detalhamentoRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-  };
+  const periodLabel = describePeriod(period.from, period.to);
+  const inPeriod = (date: string) => (!period.from || date >= period.from) && (!period.to || date <= period.to);
 
+  const periodSaleIds = useMemo(
+    () =>
+      transactions
+        .filter((t) => isSale(t) && !isCancelled(t) && (!period.from || t.date >= period.from) && (!period.to || t.date <= period.to))
+        .map((t) => t.id)
+        .join(","),
+    [transactions, period]
+  );
   useEffect(() => {
-    const now = new Date();
-    const y = now.getFullYear();
-    const m = now.getMonth();
-    if (periodPreset === "this_month") {
-      setDateFrom(`${y}-${String(m + 1).padStart(2, "0")}-01`);
-      setDateTo(`${y}-${String(m + 1).padStart(2, "0")}-${new Date(y, m + 1, 0).getDate()}`);
-    } else if (periodPreset === "last_month") {
-      const lm = m === 0 ? 11 : m - 1;
-      const ly = m === 0 ? y - 1 : y;
-      setDateFrom(`${ly}-${String(lm + 1).padStart(2, "0")}-01`);
-      setDateTo(`${ly}-${String(lm + 1).padStart(2, "0")}-${new Date(ly, lm + 1, 0).getDate()}`);
-    } else if (periodPreset === "last_3") {
-      const threeMonthsAgo = new Date(now);
-      threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
-      setDateFrom(threeMonthsAgo.toISOString().split("T")[0]);
-      setDateTo(now.toISOString().split("T")[0]);
-    }
-  }, [periodPreset]);
-
-  // Itens das vendas do período — base do relatório de repasses por prestador
-  useEffect(() => {
-    const saleIds = mockFinancialTransactions
-      .filter(
-        (t) =>
-          withinRange(t.date, dateFrom, dateTo) &&
-          t.type === "income" &&
-          t.category === "Venda de Produtos" &&
-          (t.status || "pending") !== "cancelled"
-      )
-      .map((t) => t.id);
-    let cancelled = false;
-    getSaleItemsBySaleIds(saleIds).then((items) => {
-      if (!cancelled) setPeriodSaleItems(items);
+    let stale = false;
+    getSaleItemsBySaleIds(periodSaleIds ? periodSaleIds.split(",") : []).then((items) => {
+      if (!stale) setPeriodSaleItems(items);
     });
     setProviderFilter("all");
     return () => {
-      cancelled = true;
+      stale = true;
     };
-  }, [mockFinancialTransactions, dateFrom, dateTo]);
+  }, [periodSaleIds]);
+
+  const fin = useMemo(
+    () => computePeriodFinancials(transactions, periodSaleItems, period.from, period.to),
+    [transactions, periodSaleItems, period]
+  );
+  const c = fin.closing;
+  const saidasOperacionais = fin.otherExpenses.reduce((s, t) => s + t.amount, 0);
 
   const clientById = useMemo(() => {
     const map = new Map<string, { name: string; animals: Map<string, { name: string; patientCode?: number }> }>();
-    for (const c of clients) {
+    for (const cl of clients) {
       const animals = new Map<string, { name: string; patientCode?: number }>();
-      for (const a of c.animals || []) {
-        animals.set(a.id, { name: a.name, patientCode: a.patientCode });
-      }
-      map.set(c.id, { name: c.name, animals });
+      for (const a of cl.animals || []) animals.set(a.id, { name: a.name, patientCode: a.patientCode });
+      map.set(cl.id, { name: cl.name, animals });
     }
     return map;
   }, [clients]);
+  const catalogById = useMemo(() => new Map(catalog.map((item) => [item.id, item])), [catalog]);
 
   const repassesDetalhados = useMemo((): RepasseDetalhe[] => {
-    const saleById = new Map(
-      mockFinancialTransactions
-        .filter(
-          (t) =>
-            withinRange(t.date, dateFrom, dateTo) &&
-            t.type === "income" &&
-            t.category === "Venda de Produtos" &&
-            (t.status || "pending") !== "cancelled"
-        )
-        .map((t) => [t.id, t] as const)
-    );
-
+    const saleById = new Map(fin.sales.map((t) => [t.id, t] as const));
     const rows: RepasseDetalhe[] = [];
     for (const item of periodSaleItems) {
-      const line = (item.cost || 0) * (item.quantity || 0);
+      const line = lineProviderCost(item);
       if (line <= 0) continue;
       const sale = saleById.get(item.saleId);
       if (!sale) continue;
-      const provider =
-        resolveCostProvider(item.costProvider, item.category, item.cost) || "Prestador externo";
       const client = sale.relatedClientId ? clientById.get(sale.relatedClientId) : undefined;
-      const animal =
-        sale.relatedAnimalId && client
-          ? client.animals.get(sale.relatedAnimalId)
-          : undefined;
+      const animal = sale.relatedAnimalId && client ? client.animals.get(sale.relatedAnimalId) : undefined;
       rows.push({
         id: item.id,
         date: sale.date,
         time: sale.time,
         saleId: sale.id,
         serviceName: item.name,
-        provider,
+        provider: resolveCostProvider(item.costProvider, item.category, item.cost) || "Prestador externo",
         amount: line,
         quantity: item.quantity,
         clientId: sale.relatedClientId,
@@ -217,146 +128,57 @@ const FinancialReportsPage: React.FC = () => {
         patientCode: animal?.patientCode,
       });
     }
+    return rows.sort((a, b) => `${b.date}T${b.time || "00:00"}`.localeCompare(`${a.date}T${a.time || "00:00"}`));
+  }, [periodSaleItems, fin.sales, clientById]);
 
-    return rows.sort((a, b) => {
-      const A = new Date(`${a.date}T${a.time || "00:00"}`).getTime();
-      const B = new Date(`${b.date}T${b.time || "00:00"}`).getTime();
-      return B - A;
-    });
-  }, [periodSaleItems, mockFinancialTransactions, dateFrom, dateTo, clientById]);
+  const repassesPorPrestador = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const r of repassesDetalhados) map.set(r.provider, (map.get(r.provider) || 0) + r.amount);
+    return Array.from(map.entries())
+      .map(([provider, amount]) => ({ provider, amount }))
+      .sort((a, b) => b.amount - a.amount);
+  }, [repassesDetalhados]);
+  const totalRepassesItens = repassesPorPrestador.reduce((s, r) => s + r.amount, 0);
 
-  const filteredRepassesDetalhados = useMemo(() => {
-    if (providerFilter === "all") return repassesDetalhados;
-    return repassesDetalhados.filter((r) => r.provider === providerFilter);
-  }, [repassesDetalhados, providerFilter]);
+  const filteredRepasses = useMemo(
+    () => (providerFilter === "all" ? repassesDetalhados : repassesDetalhados.filter((r) => r.provider === providerFilter)),
+    [repassesDetalhados, providerFilter]
+  );
 
-  const { faturamento, recebido, saidas, comprasAlmoxarifado, movimentos, totalEmAberto, chartByDay, receitasPorCategoria, despesasPorCategoria, totalRepasses, lucroReal, margemReal, totalTaxas, liquidoReal, margemLiquida, repassesPorPrestador } =
-    useMemo(() => {
-      const allInPeriod = mockFinancialTransactions.filter((t) =>
-        withinRange(t.date, dateFrom, dateTo)
-      );
+  const porCategoria = useMemo(() => revenueByCategory(periodSaleItems, catalogById), [periodSaleItems, catalogById]);
+  const totalItens = porCategoria.reduce((s, r) => s + r.value, 0);
 
-      // Vendas emitidas no período (faturamento)
-      const faturamento = allInPeriod
-        .filter(t => t.type === 'income' &&
-                     t.category === 'Venda de Produtos' &&
-                     (t.status || 'pending') !== 'cancelled')
-        .reduce((s, t) => s + t.amount, 0);
+  const despesasPorCategoria = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const t of [...fin.purchases, ...fin.otherExpenses]) {
+      const key = t.category === "Estoque" ? "Compras do almoxarifado" : t.category || "Outras";
+      map.set(key, (map.get(key) || 0) + t.amount);
+    }
+    return Array.from(map.entries())
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value);
+  }, [fin.purchases, fin.otherExpenses]);
+  const totalDespesas = despesasPorCategoria.reduce((s, r) => s + r.value, 0);
 
-      // Pagamentos recebidos no período (caixa)
-      const recebido = allInPeriod
-        .filter(t => t.type === 'income' && t.category === 'Recebimento')
-        .reduce((s, t) => s + t.amount, 0);
+  const cashByDay = useMemo(() => {
+    const values = sumByDay(fin.receipts, "entradas");
+    return sumByDay([...fin.purchases, ...fin.otherExpenses], "saidas", values);
+  }, [fin.receipts, fin.purchases, fin.otherExpenses]);
 
-      // Compras de estoque do período (Almoxarifado) — desde 2026-08-07 é daqui
-      // que vem o custo de insumo, agregado por mês. Entra no lucro real, igual
-      // ao Fechamento 50/50.
-      const comprasAlmoxarifado = allInPeriod
-        .filter((t) => t.type === "expense" && t.category === "Estoque")
-        .reduce((s, t) => s + t.amount, 0);
+  const movimentos = useMemo(
+    () =>
+      transactions
+        .filter((t) => inPeriod(t.date))
+        .sort((a, b) => `${b.date}T${b.time || "00:00"}`.localeCompare(`${a.date}T${a.time || "00:00"}`)),
+    // inPeriod depende só de period
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [transactions, period]
+  );
 
-      // Saídas operacionais — despesas que NÃO são compra de almoxarifado.
-      // Exibidas à parte; não entram no lucro real (mesma regra do 50/50).
-      const saidas = allInPeriod
-        .filter((t) => t.type === "expense" && t.category !== "Estoque")
-        .reduce((s, t) => s + t.amount, 0);
-
-      const movimentos = [...allInPeriod].sort((a, b) => {
-        const A = new Date(`${a.date}T${a.time || "00:00"}`).getTime();
-        const B = new Date(`${b.date}T${b.time || "00:00"}`).getTime();
-        return B - A;
-      });
-
-      const byDay: Record<string, { entradas: number; saidas: number }> = {};
-      allInPeriod.forEach((t) => {
-        if (!byDay[t.date]) byDay[t.date] = { entradas: 0, saidas: 0 };
-        if (t.type === "income") byDay[t.date].entradas += t.amount;
-        else byDay[t.date].saidas += t.amount;
-      });
-      const chartByDay = Object.entries(byDay)
-        .map(([date, v]) => ({
-          date: new Date(date + "T12:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "short" }),
-          dateFull: date,
-          entradas: Math.round(v.entradas * 100) / 100,
-          saidas: Math.round(v.saidas * 100) / 100,
-          saldo: Math.round((v.entradas - v.saidas) * 100) / 100,
-        }))
-        .sort((a, b) => a.dateFull.localeCompare(b.dateFull));
-
-      const recCat: Record<string, number> = {};
-      const desCat: Record<string, number> = {};
-      allInPeriod.forEach((t) => {
-        const cat = t.category || "Outros";
-        if (t.type === "income") {
-          recCat[cat] = (recCat[cat] || 0) + t.amount;
-        } else {
-          desCat[cat] = (desCat[cat] || 0) + t.amount;
-        }
-      });
-      // Filtra categoria com total <= 0 (ex.: mais estorno que venda nova no
-      // período) — um gráfico de pizza não tem como desenhar fatia negativa.
-      const receitasPorCategoria = Object.entries(recCat)
-        .filter(([, value]) => value > 0)
-        .map(([name, value]) => ({ name, value: Math.round(value * 100) / 100 }));
-      const despesasPorCategoria = Object.entries(desCat)
-        .filter(([, value]) => value > 0)
-        .map(([name, value]) => ({ name, value: Math.round(value * 100) / 100 }));
-
-      // A receber geral (todas as vendas não quitadas, todos os períodos)
-      const salesAll = mockFinancialTransactions.filter(
-        t => t.type === 'income' &&
-             t.category === 'Venda de Produtos' &&
-             (t.status || 'pending') !== 'cancelled'
-      );
-      const totalEmAberto = salesAll.reduce((s, sale) => {
-        const paid = sumReceiptsForSaleLocal(mockFinancialTransactions, sale.id);
-        return s + Math.max(0, sale.amount - paid);
-      }, 0);
-
-      const vendasDoPeriodo = allInPeriod.filter(
-        t => t.type === 'income' && t.category === 'Venda de Produtos' && (t.status || 'pending') !== 'cancelled'
-      );
-
-      // Taxas de operadora repassadas ao cliente
-      const totalTaxas = vendasDoPeriodo.reduce((s, t) => s + (t.financialFee ?? 0), 0);
-
-      const repassesPorPrestador = groupRepassesByProvider(periodSaleItems);
-      const totalRepassesPorItem = repassesPorPrestador.reduce((s, r) => s + r.amount, 0);
-      // Soma vendas com sale_items (custo por item, atual) só com vendas SEM
-      // nenhum sale_item (legado puro) — antes escolhia um total OU outro
-      // pra todo o período, e se houvesse os dois tipos misturados, o
-      // repasse das vendas legadas sumia silenciosamente da soma.
-      const saleIdsWithItems = new Set(periodSaleItems.map((i) => i.saleId));
-      const totalRepassesLegado = vendasDoPeriodo
-        .filter((t) => !saleIdsWithItems.has(t.id))
-        .reduce((s, t) => s + (t.supplierCost ?? 0), 0);
-      const totalRepasses = totalRepassesPorItem + totalRepassesLegado;
-      const lucroReal = faturamento - totalRepasses - comprasAlmoxarifado;
-      const liquidoReal = faturamento - totalRepasses - comprasAlmoxarifado - totalTaxas;
-      const margemReal = faturamento > 0 ? Math.round((lucroReal / faturamento) * 100) : 0;
-      const margemLiquida = faturamento > 0 ? Math.round((liquidoReal / faturamento) * 100) : 0;
-
-      return {
-        faturamento,
-        recebido,
-        saidas,
-        comprasAlmoxarifado,
-        movimentos,
-        totalEmAberto,
-        chartByDay,
-        receitasPorCategoria,
-        despesasPorCategoria,
-        totalRepasses,
-        lucroReal,
-        margemReal,
-        totalTaxas,
-        liquidoReal,
-        margemLiquida,
-        repassesPorPrestador,
-      };
-    }, [mockFinancialTransactions, dateFrom, dateTo, periodSaleItems]);
-
-  const periodLabel = getPeriodLabel(periodPreset, dateFrom, dateTo);
+  const goToProviderDetail = (provider: string) => {
+    setProviderFilter((prev) => (prev === provider ? "all" : provider));
+    detalhamentoRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
 
   const handlePrintDetailedReport = async () => {
     setExportingPdf(true);
@@ -364,24 +186,24 @@ const FinancialReportsPage: React.FC = () => {
       const blob = await createPdfBlob(
         <FinancialReportPdfContent
           periodLabel={periodLabel}
-          faturamento={faturamento}
-          recebido={recebido}
-          totalRepasses={totalRepasses}
-          totalTaxas={totalTaxas}
-          lucroReal={lucroReal}
-          margemReal={margemReal}
-          liquidoReal={liquidoReal}
-          margemLiquida={margemLiquida}
-          comprasAlmoxarifado={comprasAlmoxarifado}
-          saidas={saidas}
-          totalEmAberto={totalEmAberto}
+          faturamento={fin.faturado}
+          recebido={fin.recebido}
+          totalRepasses={c.custoRepasses + c.custoProdutos}
+          totalTaxas={c.taxasCartao}
+          lucroReal={c.lucroLiquido + c.taxasCartao}
+          margemReal={c.bruto > 0 ? Math.round(((c.lucroLiquido + c.taxasCartao) / c.bruto) * 100) : 0}
+          liquidoReal={c.lucroLiquido}
+          margemLiquida={c.margemPct}
+          comprasAlmoxarifado={c.custoCompras}
+          saidas={saidasOperacionais}
+          totalEmAberto={fin.openTotal}
           providerFilterLabel={providerFilter !== "all" ? providerFilter : undefined}
           repassesPorPrestador={repassesPorPrestador}
-          repassesDetalhados={filteredRepassesDetalhados}
+          repassesDetalhados={filteredRepasses}
           movimentos={movimentos}
         />
       );
-      await openPdf({ blob, fileName: `relatorio-financeiro-${new Date().toISOString().slice(0, 10)}.pdf` });
+      await openPdf({ blob, fileName: `relatorio-financeiro-${getTodayLocalISO()}.pdf` });
     } catch {
       toast.error("Erro ao gerar PDF do relatório.");
     } finally {
@@ -389,606 +211,275 @@ const FinancialReportsPage: React.FC = () => {
     }
   };
 
-  const barChartConfig = {
-    entradas: { label: "Entradas", color: CHART_COLORS.entradas },
-    saidas: { label: "Saídas", color: CHART_COLORS.saidas },
-  };
-
-  const lineChartConfig = {
-    entradas: { label: "Entradas", color: CHART_COLORS.entradas },
-    saidas: { label: "Saídas", color: CHART_COLORS.saidas },
-    saldo: { label: "Saldo do dia", color: CHART_COLORS.saldo },
-  };
+  const resultRows: Array<{ key: string; label: string; value: number; hint?: string }> = [
+    { key: "bruto", label: "Faturamento bruto", value: c.bruto, hint: plural(c.salesCount, "venda", "vendas") },
+    { key: "repasses", label: "Repasses a prestadores", value: -c.custoRepasses },
+    ...(c.custoProdutos > 0 ? [{ key: "produtos", label: "Custo de produtos", value: -c.custoProdutos, hint: "vendas antigas" }] : []),
+    { key: "compras", label: "Compras do almoxarifado", value: -c.custoCompras },
+    { key: "taxas", label: "Taxas de cartão", value: -c.taxasCartao, hint: "repassadas ao cliente" },
+  ];
 
   return (
-    <PageShell>
+    <PageShell className="space-y-4 sm:space-y-5">
       <PageHeader
-        title="Relatório Financeiro"
-        description={`Indicadores e gráficos de entradas/saídas. Período ativo: ${periodLabel}.`}
+        title="Relatório financeiro"
+        description={`Resultado, repasses e movimentações · ${periodLabel}`}
         icon={FileText}
         module="finance"
         breadcrumb={<>Painel &gt; Financeiro &gt; Relatórios</>}
+        className="mb-0 sm:mb-0"
         actions={
-          <div className="flex flex-wrap items-center gap-2 print:hidden">
-            <Select value={periodPreset} onValueChange={setPeriodPreset}>
-              <SelectTrigger className="h-9 w-[180px] border border-border bg-card">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {PERIOD_OPTIONS.map((o) => (
-                  <SelectItem key={o.value} value={o.value}>
-                    {o.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {periodPreset === "custom" && (
-              <>
-                <Input
-                  type="date"
-                  value={dateFrom}
-                  onChange={(e) => setDateFrom(e.target.value)}
-                  className="h-9 w-32 border border-border bg-card"
-                />
-                <Input
-                  type="date"
-                  value={dateTo}
-                  onChange={(e) => setDateTo(e.target.value)}
-                  className="h-9 w-32 border border-border bg-card"
-                />
-              </>
-            )}
-            <Button variant="outline" onClick={() => void handlePrintDetailedReport()} disabled={exportingPdf} className="gap-2">
-              <Printer className="h-4 w-4" /> {exportingPdf ? "Gerando PDF..." : "Imprimir PDF"}
+          <>
+            <Button asChild variant="outline" className="flex-1 sm:flex-none">
+              <Link to="/financial">
+                <Wallet className="mr-2 h-4 w-4" /> Visão geral
+              </Link>
             </Button>
-            <Link to="/financial">
-              <Button variant="ghost" className="gap-2 text-muted-foreground">
-                <Wallet className="h-4 w-4" /> Ir para Financeiro
-              </Button>
-            </Link>
-          </div>
+            <Button variant="outline" className="flex-1 sm:flex-none" onClick={() => void handlePrintDetailedReport()} disabled={exportingPdf}>
+              <FileDown className="mr-2 h-4 w-4" /> {exportingPdf ? "Gerando..." : "PDF"}
+            </Button>
+          </>
         }
       />
 
-      <div className="space-y-5">
-        {/* KPIs */}
-        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
-          {/* Faturamento bruto */}
-          <Card className="vf-surface-card vf-tone-finance card-hover rounded-xl border-border/80">
-            <CardContent className="p-4">
-              <div className="text-xs text-emerald-700 font-medium uppercase tracking-wide">
-                Faturamento Bruto
-              </div>
-              <div className="text-2xl font-bold text-emerald-800 mt-1">
-                {formatCurrencyBRL(faturamento)}
-              </div>
-              <div className="text-xs text-muted-foreground mt-1">Total vendido no período</div>
-            </CardContent>
-          </Card>
+      <PeriodFilter from={period.from} to={period.to} onChange={setPeriod} className="print:hidden" />
 
-          {/* Recebido no caixa */}
-          <Card className="vf-surface-card vf-tone-finance card-hover rounded-xl border-border/80">
-            <CardContent className="p-4">
-              <div className="text-xs text-teal-700 font-medium uppercase tracking-wide">
-                Recebido no Caixa
-              </div>
-              <div className="text-2xl font-bold text-teal-700 mt-1">
-                {formatCurrencyBRL(recebido)}
-              </div>
-              <div className="text-xs text-muted-foreground mt-1">
-                Pagamentos confirmados
-              </div>
-            </CardContent>
-          </Card>
+      <KpiStrip
+        loading={loading}
+        items={[
+          { label: "Faturamento bruto", value: fmt(fin.faturado), hint: plural(fin.sales.length, "venda", "vendas") },
+          { label: "Recebido no caixa", value: fmt(fin.recebido), hint: plural(fin.receipts.length, "lançamento", "lançamentos") },
+          {
+            label: "Lucro líquido",
+            value: fmt(c.lucroLiquido),
+            hint: `margem ${c.margemPct}% · ${fmt(c.metadeClinica)} cada parte`,
+            tone: c.lucroLiquido < 0 ? "negative" : "positive",
+          },
+          {
+            label: "A receber",
+            value: fmt(fin.openTotal),
+            hint: fin.openSales.length > 0 ? `${plural(fin.openSales.length, "venda", "vendas")} · todas as datas` : "Nada em aberto",
+            tone: fin.openTotal > 0 ? "warning" : "default",
+          },
+        ]}
+      />
 
-          {/* Repasses */}
-          <Card className="vf-surface-card vf-tone-finance card-hover rounded-xl border-border/80">
-            <CardContent className="p-4">
-              <div className="text-xs text-amber-700 font-medium uppercase tracking-wide">
-                Repasses a Prestadores
-              </div>
-              <div className="text-2xl font-bold text-amber-700 mt-1">
-                − {formatCurrencyBRL(totalRepasses)}
-              </div>
-              <div className="text-xs text-muted-foreground mt-1">
-                Labs, especialistas e fornecedores
-              </div>
-            </CardContent>
-          </Card>
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.25fr)]">
+        <section className="overflow-hidden rounded-2xl border border-border/80 bg-card shadow-sm print:break-inside-avoid" aria-label="Resultado">
+          <div className="flex items-baseline justify-between gap-2 border-b border-border/70 px-4 py-3">
+            <h2 className="text-base font-semibold text-foreground">Resultado</h2>
+            <Link to="/financial/monthly-closing" className="text-xs font-medium text-primary hover:underline print:hidden">
+              Fechamento 50/50
+            </Link>
+          </div>
+          <ul className="divide-y divide-border/70 text-sm">
+            {resultRows.map((row) => (
+              <li key={row.key} className="flex items-center justify-between gap-3 px-4 py-2.5">
+                <span className="min-w-0">
+                  {row.key !== "bruto" ? "− " : ""}
+                  {row.label}
+                  {row.hint && <span className="ml-1.5 text-xs text-muted-foreground">{row.hint}</span>}
+                </span>
+                <span className="shrink-0 tabular-nums">{fmt(Math.abs(row.value))}</span>
+              </li>
+            ))}
+            <li className="flex items-center justify-between gap-3 bg-muted/30 px-4 py-3">
+              <span className="font-semibold">
+                = Lucro líquido <span className="ml-1 text-xs font-normal text-muted-foreground">margem {c.margemPct}%</span>
+              </span>
+              <span className={cn("shrink-0 text-base font-semibold tabular-nums", c.lucroLiquido < 0 ? "text-red-700" : "text-emerald-700")}>
+                {c.lucroLiquido < 0 ? `− ${fmt(Math.abs(c.lucroLiquido))}` : fmt(c.lucroLiquido)}
+              </span>
+            </li>
+            <li className="flex items-center justify-between gap-3 px-4 py-2.5 text-muted-foreground">
+              <span>Saídas operacionais <span className="text-xs">(fora do 50/50)</span></span>
+              <span className="shrink-0 tabular-nums">{fmt(saidasOperacionais)}</span>
+            </li>
+          </ul>
+        </section>
 
-          {/* Taxas de operadora */}
-          <Card className="vf-surface-card vf-tone-finance card-hover rounded-xl border-border/80">
-            <CardContent className="p-4">
-              <div className="text-xs text-orange-700 font-medium uppercase tracking-wide">
-                Taxas de Operadora
-              </div>
-              <div className="text-2xl font-bold text-orange-700 mt-1">
-                − {formatCurrencyBRL(totalTaxas)}
-              </div>
-              <div className="text-xs text-muted-foreground mt-1">
-                Taxas repassadas ao cliente
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Compras do almoxarifado */}
-          <Card className="vf-surface-card vf-tone-finance card-hover rounded-xl border-border/80">
-            <CardContent className="p-4">
-              <div className="text-xs text-amber-700 font-medium uppercase tracking-wide">
-                Compras do Almoxarifado
-              </div>
-              <div className="text-2xl font-bold text-amber-700 mt-1">
-                − {formatCurrencyBRL(comprasAlmoxarifado)}
-              </div>
-              <div className="text-xs text-muted-foreground mt-1">
-                Insumos retirados do estoque (rateio 50/50)
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Lucro líquido real */}
-          <Card className="vf-surface-card vf-tone-finance card-hover rounded-xl border-border/80">
-            <CardContent className="p-4">
-              <div className={`text-xs font-medium uppercase tracking-wide ${liquidoReal >= 0 ? "text-emerald-700" : "text-red-700"}`}>
-                Lucro Líquido Real
-              </div>
-              <div className={`text-2xl font-bold mt-1 ${liquidoReal >= 0 ? "text-emerald-700" : "text-red-700"}`}>
-                {formatCurrencyBRL(liquidoReal)}
-              </div>
-              <div className="text-xs text-muted-foreground mt-1">
-                Faturamento − repasses − almoxarifado − taxas · margem {margemLiquida}%
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Lucro real */}
-          <Card className="vf-surface-card vf-tone-finance card-hover rounded-xl border-border/80">
-            <CardContent className="p-4">
-              <div className={`text-xs font-medium uppercase tracking-wide ${lucroReal >= 0 ? "text-teal-700" : "text-red-700"}`}>
-                Lucro Real Estimado
-              </div>
-              <div className={`text-2xl font-bold mt-1 ${lucroReal >= 0 ? "text-teal-700" : "text-red-700"}`}>
-                {formatCurrencyBRL(lucroReal)}
-              </div>
-              <div className="text-xs text-muted-foreground mt-1">
-                Sem as taxas de operadora · margem {margemReal}%
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Saídas */}
-          <Card className="vf-surface-card vf-tone-finance card-hover rounded-xl border-border/80">
-            <CardContent className="p-4">
-              <div className="text-xs text-red-700 font-medium uppercase tracking-wide">Saídas Operacionais</div>
-              <div className="text-2xl font-bold text-red-800 mt-1">
-                {formatCurrencyBRL(saidas)}
-              </div>
-              <div className="text-xs text-muted-foreground mt-1">Despesas do período (fora almoxarifado)</div>
-            </CardContent>
-          </Card>
-
-          {/* A receber */}
-          <Card className="vf-surface-card vf-tone-finance card-hover rounded-xl border-border/80">
-            <CardContent className="p-4">
-              <div className="text-xs text-amber-700 font-medium uppercase tracking-wide">A Receber</div>
-              <div className="text-2xl font-bold text-amber-800 mt-1">
-                {formatCurrencyBRL(totalEmAberto)}
-              </div>
-              <div className="text-xs text-muted-foreground mt-1">Vendas em aberto</div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Repasses por prestador */}
-        <Card className="vf-surface-card vf-tone-finance card-hover rounded-xl border-border/80 print:break-inside-avoid">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base flex items-center gap-2">
-              <PieChartIcon className="h-4 w-4 text-amber-700" /> Repasses por prestador
-            </CardTitle>
-            <p className="text-sm text-muted-foreground font-normal">
-              Quanto deve ser repassado a cada lab, especialista ou fornecedor no período.
-            </p>
-          </CardHeader>
-          <CardContent>
-            {repassesPorPrestador.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-6 text-center">
-                Nenhum repasse no período. Cadastre o custo e o prestador nos itens do catálogo.
-              </p>
+        <section className="min-w-0 overflow-hidden rounded-2xl border border-border/80 bg-card shadow-sm print:break-inside-avoid" aria-label="Entradas e saídas por dia">
+          <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-border/70 px-4 py-3">
+            <h2 className="text-base font-semibold text-foreground">Entradas e saídas por dia</h2>
+            <span className="flex items-center gap-3 text-xs text-muted-foreground">
+              {CASH_SERIES.map((s) => (
+                <span key={s.key} className="inline-flex items-center gap-1.5">
+                  <span className="h-2.5 w-2.5 rounded-[2px]" style={{ background: s.color }} aria-hidden />
+                  {s.label}
+                </span>
+              ))}
+            </span>
+          </div>
+          <div className="p-3 sm:p-4">
+            {Object.keys(cashByDay).length === 0 ? (
+              <div className="flex h-[240px] items-center justify-center text-sm text-muted-foreground">Nenhuma movimentação no período.</div>
             ) : (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="py-2 h-auto">Prestador</TableHead>
-                        <TableHead className="py-2 h-auto text-right">Valor</TableHead>
-                        <TableHead className="py-2 h-auto text-right">%</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {repassesPorPrestador.map((row) => (
-                        <TableRow
-                          key={row.provider}
-                          onClick={() => goToProviderDetail(row.provider)}
-                          title="Ver quais itens vendidos geraram esse repasse"
-                          className="cursor-pointer hover:bg-amber-50"
-                        >
-                          <TableCell className="py-2 font-medium text-amber-800 underline decoration-dotted decoration-amber-400">
-                            {row.provider}
-                          </TableCell>
-                          <TableCell className="py-2 text-right font-semibold text-amber-700">
-                            {formatCurrencyBRL(row.amount)}
-                          </TableCell>
-                          <TableCell className="py-2 text-right text-muted-foreground">
-                            {totalRepasses > 0 ? Math.round((row.amount / totalRepasses) * 100) : 0}%
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                      <TableRow className="border-t border-b-0 bg-muted/30 hover:bg-muted/30">
-                        <TableCell className="py-2 font-semibold">Total</TableCell>
-                        <TableCell className="py-2 text-right font-bold text-amber-700">
-                          {formatCurrencyBRL(totalRepasses)}
-                        </TableCell>
-                        <TableCell className="py-2 text-right text-muted-foreground">100%</TableCell>
-                      </TableRow>
-                    </TableBody>
-                  </Table>
-                  <p className="mt-2 text-xs text-muted-foreground print:hidden">
-                    Clique num prestador pra ver quais pacientes/serviços geraram aquele repasse.
-                  </p>
-                </div>
-                <ChartContainer
-                  config={repassesPorPrestador.reduce(
-                    (acc, _, i) => ({ ...acc, [i]: { color: CHART_COLORS.pie[i % CHART_COLORS.pie.length] } }),
-                    {}
-                  )}
-                  className="h-[240px] w-full"
-                >
-                  <PieChart>
-                    <Pie
-                      data={repassesPorPrestador.map((r) => ({ name: r.provider, value: r.amount }))}
-                      dataKey="value"
-                      nameKey="name"
-                      cx="50%"
-                      cy="50%"
-                      outerRadius={80}
-                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                      onClick={(entry: { name: string }) => goToProviderDetail(entry.name)}
-                      className="cursor-pointer"
-                    >
-                      {repassesPorPrestador.map((_, i) => (
-                        <Cell key={i} fill={CHART_COLORS.pie[i % CHART_COLORS.pie.length]} className="cursor-pointer" />
-                      ))}
-                    </Pie>
-                    <ChartTooltip formatter={(v: number) => formatCurrencyBRL(v)} />
-                  </PieChart>
-                </ChartContainer>
-              </div>
+              <DailyBarChart values={cashByDay} series={CASH_SERIES} from={period.from} to={period.to} className="h-[240px] w-full" />
             )}
-          </CardContent>
-        </Card>
-
-        {/* Detalhamento: paciente x prestador */}
-        <Card
-          ref={detalhamentoRef}
-          className={cn(
-            "vf-surface-card vf-tone-finance card-hover rounded-xl border-border/80 print:break-inside-avoid transition-shadow",
-            providerFilter !== "all" && "ring-2 ring-amber-400/60"
-          )}
-        >
-          <CardHeader className="pb-2">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <CardTitle className="text-base flex items-center gap-2">
-                  <FileText className="h-4 w-4 text-amber-700" /> Pacientes com serviços externos
-                </CardTitle>
-                <p className="text-sm text-muted-foreground font-normal mt-1">
-                  Quem utilizou cada prestador (lab, especialista, etc.) no período.
-                </p>
-              </div>
-              {repassesPorPrestador.length > 0 && (
-                <Select value={providerFilter} onValueChange={setProviderFilter}>
-                  <SelectTrigger className="h-9 w-[220px] border border-border bg-card print:hidden">
-                    <SelectValue placeholder="Filtrar prestador" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos os prestadores</SelectItem>
-                    {repassesPorPrestador.map((r) => (
-                      <SelectItem key={r.provider} value={r.provider}>
-                        {r.provider}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-            </div>
-          </CardHeader>
-          <CardContent>
-            {filteredRepassesDetalhados.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-6 text-center">
-                Nenhum paciente com repasse no período
-                {providerFilter !== "all" ? " para este prestador" : ""}.
-              </p>
-            ) : (
-              <div className="overflow-x-auto max-h-[420px] overflow-y-auto">
-                <Table>
-                  <TableHeader className="sticky top-0 bg-card z-10">
-                    <TableRow>
-                      <TableHead className="py-2 h-auto">Data</TableHead>
-                      <TableHead className="py-2 h-auto">Paciente</TableHead>
-                      <TableHead className="py-2 h-auto">Tutor</TableHead>
-                      <TableHead className="py-2 h-auto">Serviço</TableHead>
-                      <TableHead className="py-2 h-auto">Prestador</TableHead>
-                      <TableHead className="py-2 h-auto text-right">Repasse</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredRepassesDetalhados.map((row) => (
-                      <TableRow key={row.id}>
-                        <TableCell className="py-2 whitespace-nowrap text-muted-foreground">
-                          {formatDateTime(row.date, row.time)}
-                        </TableCell>
-                        <TableCell className="py-2">
-                          {row.clientId && row.animalId ? (
-                            <Link
-                              to={getPatientRecordPath(row.clientId, row.animalId, row.patientCode)}
-                              className="font-medium text-foreground hover:text-[hsl(var(--vf-finance))] hover:underline"
-                            >
-                              {row.animalName}
-                              {row.patientCode != null && (
-                                <span className="ml-1 text-xs text-muted-foreground">#{row.patientCode}</span>
-                              )}
-                            </Link>
-                          ) : (
-                            <span className="font-medium">{row.animalName}</span>
-                          )}
-                        </TableCell>
-                        <TableCell className="py-2 text-muted-foreground">{row.clientName}</TableCell>
-                        <TableCell className="py-2">
-                          {row.serviceName}
-                          {row.quantity > 1 && (
-                            <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-100 px-1 text-[10px] font-bold leading-none text-amber-800">
-                              {row.quantity}
-                            </span>
-                          )}
-                        </TableCell>
-                        <TableCell className="py-2">
-                          <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200">
-                            {row.provider}
-                          </span>
-                        </TableCell>
-                        <TableCell className="py-2 text-right font-semibold text-amber-700 whitespace-nowrap">
-                          {formatCurrencyBRL(row.amount)}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                  <TableFooter>
-                    <TableRow className="bg-muted/30 hover:bg-muted/30">
-                      <TableCell colSpan={5} className="py-2 font-semibold">
-                        Total{providerFilter !== "all" ? ` · ${providerFilter}` : ""}
-                        <span className="ml-2 text-xs font-normal text-muted-foreground">
-                          ({filteredRepassesDetalhados.length} {filteredRepassesDetalhados.length === 1 ? "item" : "itens"})
-                        </span>
-                      </TableCell>
-                      <TableCell className="py-2 text-right font-bold text-amber-700">
-                        {formatCurrencyBRL(
-                          filteredRepassesDetalhados.reduce((s, r) => s + r.amount, 0)
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  </TableFooter>
-                </Table>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Gráfico de barras: Entradas x Saídas por dia */}
-        <Card className="vf-surface-card vf-tone-finance card-hover rounded-xl border-border/80 print:break-inside-avoid">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base flex items-center gap-2">
-              <TrendingUp className="h-4 w-4 text-primary" /> Entradas e saídas por dia
-            </CardTitle>
-            <p className="text-sm text-muted-foreground font-normal">
-              Valores diários no período selecionado.
-            </p>
-          </CardHeader>
-          <CardContent>
-            {chartByDay.length === 0 ? (
-              <div className="h-[280px] flex items-center justify-center text-muted-foreground text-sm">
-                Nenhum dado no período.
-              </div>
-            ) : (
-              <ChartContainer config={barChartConfig} className="h-[280px] w-full">
-                <BarChart data={chartByDay} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                  <XAxis dataKey="date" tick={{ fontSize: 11 }} />
-                  <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `R$ ${(v / 1000).toFixed(0)}k`} />
-                  <ChartTooltip content={<ChartTooltipContent formatter={(v) => [formatCurrencyBRL(Number(v)), undefined]} />} />
-                  <Legend />
-                  <Bar dataKey="entradas" fill={CHART_COLORS.entradas} radius={[4, 4, 0, 0]} name="Entradas" />
-                  <Bar dataKey="saidas" fill={CHART_COLORS.saidas} radius={[4, 4, 0, 0]} name="Saídas" />
-                </BarChart>
-              </ChartContainer>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Linha: evolução do saldo dia a dia (opcional) + Pizzas lado a lado */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-          {/* Gráfico de linha: evolução diária */}
-          <Card className="vf-surface-card vf-tone-finance card-hover rounded-xl border-border/80 print:break-inside-avoid">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base flex items-center gap-2">
-                <TrendingUp className="h-4 w-4 text-primary" /> Evolução diária
-              </CardTitle>
-              <p className="text-sm text-muted-foreground font-normal">
-                Entradas, saídas e saldo por dia.
-              </p>
-            </CardHeader>
-            <CardContent>
-              {chartByDay.length === 0 ? (
-                <div className="h-[240px] flex items-center justify-center text-muted-foreground text-sm">
-                  Nenhum dado no período.
-                </div>
-              ) : (
-                <ChartContainer config={lineChartConfig} className="h-[240px] w-full">
-                  <LineChart data={chartByDay} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                    <XAxis dataKey="date" tick={{ fontSize: 11 }} />
-                    <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `R$ ${(v / 1000).toFixed(0)}k`} />
-                    <ChartTooltip content={<ChartTooltipContent formatter={(v) => [formatCurrencyBRL(Number(v)), undefined]} />} />
-                    <Legend />
-                    <Line type="monotone" dataKey="entradas" stroke={CHART_COLORS.entradas} strokeWidth={2} dot={{ r: 3 }} name="Entradas" />
-                    <Line type="monotone" dataKey="saidas" stroke={CHART_COLORS.saidas} strokeWidth={2} dot={{ r: 3 }} name="Saídas" />
-                    <Line type="monotone" dataKey="saldo" stroke={CHART_COLORS.saldo} strokeWidth={2} dot={{ r: 3 }} name="Saldo do dia" />
-                  </LineChart>
-                </ChartContainer>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Gráfico de pizza: Receitas por categoria */}
-          <Card className="vf-surface-card vf-tone-finance card-hover rounded-xl border-border/80 print:break-inside-avoid">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base flex items-center gap-2">
-                <PieChartIcon className="h-4 w-4 text-primary" /> Receitas por categoria
-              </CardTitle>
-              <p className="text-sm text-muted-foreground font-normal">
-                Composição das entradas no período.
-              </p>
-            </CardHeader>
-            <CardContent>
-              {receitasPorCategoria.length === 0 ? (
-                <div className="h-[240px] flex items-center justify-center text-muted-foreground text-sm">
-                  Nenhuma receita no período.
-                </div>
-              ) : (
-                <ChartContainer
-                  config={receitasPorCategoria.reduce((acc, _, i) => ({ ...acc, [i]: { color: CHART_COLORS.pie[i % CHART_COLORS.pie.length] } }), {})}
-                  className="h-[240px] w-full"
-                >
-                  <PieChart>
-                    <Pie
-                      data={receitasPorCategoria}
-                      dataKey="value"
-                      nameKey="name"
-                      cx="50%"
-                      cy="50%"
-                      outerRadius={80}
-                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                    >
-                      {receitasPorCategoria.map((_, i) => (
-                        <Cell key={i} fill={CHART_COLORS.pie[i % CHART_COLORS.pie.length]} />
-                      ))}
-                    </Pie>
-                    <ChartTooltip formatter={(v: number) => formatCurrencyBRL(v)} />
-                  </PieChart>
-                </ChartContainer>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Gráfico de pizza: Despesas por categoria */}
-        <Card className="vf-surface-card vf-tone-finance card-hover rounded-xl border-border/80 print:break-inside-avoid">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base flex items-center gap-2">
-              <PieChartIcon className="h-4 w-4 text-primary" /> Despesas por categoria
-            </CardTitle>
-            <p className="text-sm text-muted-foreground font-normal">
-              Composição das saídas no período.
-            </p>
-          </CardHeader>
-          <CardContent>
-            {despesasPorCategoria.length === 0 ? (
-              <div className="h-[240px] flex items-center justify-center text-muted-foreground text-sm">
-                Nenhuma despesa no período.
-              </div>
-            ) : (
-              <ChartContainer
-                config={despesasPorCategoria.reduce((acc, _, i) => ({ ...acc, [i]: { color: CHART_COLORS.pie[i % CHART_COLORS.pie.length] } }), {})}
-                className="h-[240px] w-full"
-              >
-                <PieChart>
-                  <Pie
-                    data={despesasPorCategoria}
-                    dataKey="value"
-                    nameKey="name"
-                    cx="50%"
-                    cy="50%"
-                    outerRadius={80}
-                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                  >
-                    {despesasPorCategoria.map((_, i) => (
-                      <Cell key={i} fill={CHART_COLORS.pie[i % CHART_COLORS.pie.length]} />
-                    ))}
-                  </Pie>
-                  <ChartTooltip formatter={(v: number) => formatCurrencyBRL(v)} />
-                </PieChart>
-              </ChartContainer>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Detalhamento: tabela de movimentos */}
-        <Card className="vf-surface-card vf-tone-finance card-hover rounded-xl border-border/80 print:break-before-auto">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base font-semibold">Detalhamento dos movimentos</CardTitle>
-            <p className="text-sm text-muted-foreground font-normal">
-              Lista de entradas e saídas do período.
-            </p>
-          </CardHeader>
-          <CardContent>
-            {movimentos.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-6 text-center">Nenhum movimento no período.</p>
-            ) : (
-              <div className="overflow-x-auto max-h-[400px] overflow-y-auto">
-                <Table>
-                  <TableHeader className="sticky top-0 bg-card">
-                    <TableRow>
-                      <TableHead className="py-2 h-auto">Data</TableHead>
-                      <TableHead className="py-2 h-auto">Descrição</TableHead>
-                      <TableHead className="py-2 h-auto">Categoria</TableHead>
-                      <TableHead className="py-2 h-auto text-right">Valor</TableHead>
-                      <TableHead className="py-2 h-auto">Tipo</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {movimentos.map((t) => {
-                      const kind = classifyTransaction(t);
-                      return (
-                        <TableRow key={t.id}>
-                          <TableCell className="py-2">{formatDateTime(t.date, t.time)}</TableCell>
-                          <TableCell className="py-2">{t.description}</TableCell>
-                          <TableCell className="py-2 text-muted-foreground">{t.category}</TableCell>
-                          <TableCell className="text-right py-2 font-medium">
-                            <span className={cn("tabular-nums", kind.amountClass)}>
-                              {kind.signal}
-                              {formatCurrencyBRL(Math.abs(t.amount))}
-                            </span>
-                          </TableCell>
-                          <TableCell className="py-2">{kind.label}</TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        <p className="text-xs text-muted-foreground print:block hidden">
-          Relatório gerado em{" "}
-          {formatDateTime(
-            new Date().toISOString().split("T")[0],
-            new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })
-          )}{" "}
-          — Período: {periodLabel}
-        </p>
+          </div>
+        </section>
       </div>
+
+      <div className="grid gap-4 xl:grid-cols-2">
+        <section className="overflow-hidden rounded-2xl border border-border/80 bg-card shadow-sm print:break-inside-avoid" aria-label="Faturamento por categoria">
+          <div className="flex items-baseline justify-between gap-2 border-b border-border/70 px-4 py-3">
+            <h2 className="text-base font-semibold text-foreground">Faturamento por categoria</h2>
+            <span className="text-xs text-muted-foreground">itens vendidos</span>
+          </div>
+          <div className="p-3 sm:p-4">
+            {porCategoria.length === 0 ? (
+              <p className="py-8 text-center text-sm text-muted-foreground">Nenhum item vendido no período.</p>
+            ) : (
+              <BarList
+                items={porCategoria.map((row) => ({
+                  key: row.category ?? "",
+                  label: catalogCategoryLabel(row.category),
+                  value: row.value,
+                  hint: pct(row.value, totalItens),
+                }))}
+              />
+            )}
+          </div>
+        </section>
+
+        <section className="overflow-hidden rounded-2xl border border-border/80 bg-card shadow-sm print:break-inside-avoid" aria-label="Despesas por categoria">
+          <div className="flex items-baseline justify-between gap-2 border-b border-border/70 px-4 py-3">
+            <h2 className="text-base font-semibold text-foreground">Despesas por categoria</h2>
+            <span className="text-xs tabular-nums text-muted-foreground">{fmt(totalDespesas)}</span>
+          </div>
+          <div className="p-3 sm:p-4">
+            {despesasPorCategoria.length === 0 ? (
+              <p className="py-8 text-center text-sm text-muted-foreground">Nenhuma despesa no período.</p>
+            ) : (
+              <BarList
+                items={despesasPorCategoria.map((row) => ({
+                  key: row.name,
+                  label: row.name,
+                  value: row.value,
+                  hint: pct(row.value, totalDespesas),
+                }))}
+              />
+            )}
+          </div>
+        </section>
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,0.8fr)_minmax(0,1.4fr)]">
+        <section className="overflow-hidden rounded-2xl border border-border/80 bg-card shadow-sm print:break-inside-avoid" aria-label="Repasses por prestador">
+          <div className="flex items-baseline justify-between gap-2 border-b border-border/70 px-4 py-3">
+            <h2 className="text-base font-semibold text-foreground">Repasses por prestador</h2>
+            <span className="text-xs tabular-nums text-muted-foreground">{fmt(totalRepassesItens)}</span>
+          </div>
+          <div className="p-3 sm:p-4">
+            {repassesPorPrestador.length === 0 ? (
+              <p className="py-8 text-center text-sm text-muted-foreground">
+                Nenhum repasse no período. O custo e o prestador ficam no cadastro do item (catálogo).
+              </p>
+            ) : (
+              <>
+                <BarList
+                  items={repassesPorPrestador.map((r) => ({
+                    key: r.provider,
+                    label: r.provider,
+                    value: r.amount,
+                    hint: pct(r.amount, totalRepassesItens),
+                  }))}
+                  onSelect={goToProviderDetail}
+                  selectedKey={providerFilter === "all" ? undefined : providerFilter}
+                />
+                <p className="mt-2 text-xs text-muted-foreground print:hidden">Clique num prestador para ver os pacientes e serviços.</p>
+              </>
+            )}
+          </div>
+        </section>
+
+        <section
+          ref={detalhamentoRef}
+          className="min-w-0 scroll-mt-4 overflow-hidden rounded-2xl border border-border/80 bg-card shadow-sm print:break-inside-avoid"
+          aria-label="Pacientes com serviços externos"
+        >
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/70 px-4 py-3">
+            <h2 className="text-base font-semibold text-foreground">
+              Serviços externos{providerFilter !== "all" && <span className="font-normal text-muted-foreground"> · {providerFilter}</span>}
+            </h2>
+            {providerFilter !== "all" && (
+              <Button variant="ghost" size="sm" className="h-8 print:hidden" onClick={() => setProviderFilter("all")}>
+                Ver todos
+              </Button>
+            )}
+          </div>
+          {filteredRepasses.length === 0 ? (
+            <p className="px-4 py-10 text-center text-sm text-muted-foreground">Nenhum paciente com repasse no período.</p>
+          ) : (
+            <>
+              <ul className="max-h-[420px] divide-y divide-border/70 overflow-y-auto">
+                {filteredRepasses.map((row) => (
+                  <li key={row.id} className="flex items-center gap-3 px-4 py-2.5">
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm text-foreground">
+                        {row.clientId && row.animalId ? (
+                          <Link
+                            to={getPatientRecordPath(row.clientId, row.animalId, row.patientCode)}
+                            className="font-medium hover:text-primary hover:underline"
+                          >
+                            {row.animalName}
+                          </Link>
+                        ) : (
+                          <span className="font-medium">{row.animalName}</span>
+                        )}
+                        <span className="text-muted-foreground"> · {row.clientName}</span>
+                      </p>
+                      <p className="truncate text-xs text-muted-foreground">
+                        {row.serviceName}
+                        {row.quantity > 1 && ` × ${row.quantity}`} · {row.provider} · {formatDateTime(row.date)}
+                      </p>
+                    </div>
+                    <span className="shrink-0 text-sm font-semibold tabular-nums">{fmt(row.amount)}</span>
+                  </li>
+                ))}
+              </ul>
+              <div className="flex items-center justify-between border-t border-border/70 bg-muted/30 px-4 py-2.5 text-sm">
+                <span className="text-muted-foreground">{plural(filteredRepasses.length, "item", "itens")}</span>
+                <span className="font-semibold tabular-nums">{fmt(filteredRepasses.reduce((s, r) => s + r.amount, 0))}</span>
+              </div>
+            </>
+          )}
+        </section>
+      </div>
+
+      <section className="overflow-hidden rounded-2xl border border-border/80 bg-card shadow-sm" aria-label="Movimentações">
+        <div className="flex items-baseline justify-between gap-2 border-b border-border/70 px-4 py-3">
+          <h2 className="text-base font-semibold text-foreground">Movimentações</h2>
+          <span className="text-xs text-muted-foreground">{plural(movimentos.length, "lançamento", "lançamentos")}</span>
+        </div>
+        {movimentos.length === 0 ? (
+          <p className="px-4 py-10 text-center text-sm text-muted-foreground">Nenhum movimento no período.</p>
+        ) : (
+          <ul className="max-h-[480px] divide-y divide-border/70 overflow-y-auto">
+            {movimentos.map((t) => {
+              const kind = classifyTransaction(t);
+              const out = t.amount < 0 || t.type === "expense";
+              return (
+                <li key={t.id} className="flex items-center gap-3 px-4 py-2.5">
+                  <div className="min-w-0 flex-1">
+                    <p className={cn("truncate text-sm text-foreground", isSale(t) && isCancelled(t) && "text-muted-foreground line-through")}>
+                      {isSale(t) ? summarizeSaleItems(t.description, 3) : t.description}
+                    </p>
+                    <p className="truncate text-xs text-muted-foreground">
+                      {kind.label}
+                      {t.paymentMethod ? ` · ${t.paymentMethod}` : ""} · {formatDateTime(t.date, t.time)}
+                      {isSale(t) && isCancelled(t) ? " · cancelada" : ""}
+                    </p>
+                  </div>
+                  <span className="shrink-0 text-sm font-medium tabular-nums text-foreground">
+                    {out ? `− ${fmt(Math.abs(t.amount))}` : fmt(t.amount)}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </section>
     </PageShell>
   );
 };

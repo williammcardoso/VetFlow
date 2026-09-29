@@ -1,20 +1,18 @@
 import {
   addFinancialTransaction,
-  getFinancialTransactions,
+  getFinancialTransaction,
+  listReceiptsForSale,
   updateFinancialTransaction,
 } from "@/lib/financialApi";
+import { getTodayLocalISO } from "@/lib/utils";
+import { nowTimeHHMM } from "@/lib/salePayment";
 import { getSaleConsumptions, getSaleItems } from "@/lib/saleItemsApi";
 import { adjustStock } from "@/lib/catalogApi";
 import type { FinancialTransaction } from "@/mockData/financial";
 
+/** Recebimentos (e estornos) da venda — busca só os dela, não a tabela inteira. */
 export async function getReceiptsForSale(saleId: string): Promise<FinancialTransaction[]> {
-  const list = await getFinancialTransactions();
-  return list.filter(
-    (t) =>
-      t.type === "income" &&
-      t.category === "Recebimento" &&
-      (t.saleId === saleId || (t.description || "").includes(saleId))
-  );
+  return listReceiptsForSale(saleId);
 }
 
 /** Só os recebimentos de verdade (positivos) — exclui estornos já lançados
@@ -41,14 +39,15 @@ export async function cancelSaleWithReversal(params: {
   reason: string;
 }): Promise<CancelSaleResult | null> {
   const { saleId, reason } = params;
-  const list = await getFinancialTransactions();
-  const sale = list.find((t) => t.id === saleId && t.category === "Venda de Produtos");
+  const found = await getFinancialTransaction(saleId);
+  const sale = found && found.category === "Venda de Produtos" ? found : null;
   if (!sale) return null;
   if ((sale.status || "pending") === "cancelled") return null;
 
+  // Data/hora locais (toISOString é UTC: depois das 21h caía no dia seguinte).
   const now = new Date();
-  const date = now.toISOString().split("T")[0];
-  const time = now.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  const date = getTodayLocalISO();
+  const time = nowTimeHHMM(now);
 
   // 1) Lançamento negativo para cada recebimento registrado nesta venda —
   // só os positivos, para não "des-estornar" um estorno anterior se essa

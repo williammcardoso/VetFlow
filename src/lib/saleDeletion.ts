@@ -1,4 +1,4 @@
-import { deleteFinancialTransaction, getFinancialTransactions } from "@/lib/financialApi";
+import { deleteFinancialTransaction, getFinancialTransaction } from "@/lib/financialApi";
 import { deleteSaleItems, getSaleConsumptions, getSaleItems } from "@/lib/saleItemsApi";
 import { adjustStock } from "@/lib/catalogApi";
 import { getReceiptsForSale } from "@/lib/saleCancellation";
@@ -8,9 +8,8 @@ export type DeleteSaleOutcome =
   | { success: false; reason: "not_found" | "has_receipts" };
 
 export async function deleteSaleIfEligible(saleId: string): Promise<DeleteSaleOutcome> {
-  const list = await getFinancialTransactions();
-  const sale = list.find((t) => t.id === saleId && t.category === "Venda de Produtos");
-  if (!sale) return { success: false, reason: "not_found" };
+  const sale = await getFinancialTransaction(saleId);
+  if (!sale || sale.category !== "Venda de Produtos") return { success: false, reason: "not_found" };
 
   const receipts = await getReceiptsForSale(saleId);
   if (receipts.length > 0) return { success: false, reason: "has_receipts" };

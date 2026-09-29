@@ -4,7 +4,7 @@ import React, { useMemo, useState, useEffect, useCallback } from "react";
 import { Link, useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { format } from "date-fns";
 import {
-  FaArrowLeft, FaUsers, FaPaw, FaPlus, FaEye, FaStethoscope, FaCalendarAlt, FaDollarSign, FaSyringe, FaWeightHanging, FaFileAlt, FaClipboardList, FaCommentAlt, FaHeart, FaMale, FaUser, FaPrint, FaDownload, FaTimes, FaSave, FaBalanceScale, FaFileMedical, FaExclamationTriangle, FaFlask, FaTag, FaBox, FaClock, FaMoneyBillWave, FaArrowUp, FaArrowDown, FaTrashAlt, FaPrescriptionBottleAlt, FaEdit, FaIdCard, FaPhone, FaUndo, FaShoppingCart, FaHandHoldingUsd, FaFileSignature, FaCopy
+  FaArrowLeft, FaUsers, FaPaw, FaPlus, FaEye, FaStethoscope, FaCalendarAlt, FaDollarSign, FaSyringe, FaWeightHanging, FaFileAlt, FaClipboardList, FaCommentAlt, FaHeart, FaMale, FaUser, FaPrint, FaDownload, FaTimes, FaSave, FaBalanceScale, FaFileMedical, FaExclamationTriangle, FaFlask, FaTag, FaBox, FaClock, FaMoneyBillWave, FaArrowUp, FaArrowDown, FaTrashAlt, FaPrescriptionBottleAlt, FaEdit, FaIdCard, FaPhone, FaFileSignature, FaCopy
 } from "react-icons/fa";
 import { SiWhatsapp } from "react-icons/si";
 import { FaMapMarkerAlt } from "react-icons/fa";
@@ -36,10 +36,9 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
 import { PrescriptionEntry } from "@/types/medication";
-import { cn, formatAgeLong, formatDateBRForFileName, formatDateTime, formatItemQty, parseLocalDate, slugifyFileName } from "@/lib/utils";
+import { cn, formatAgeLong, formatCurrencyBRL, formatDateBRForFileName, formatDateTime, formatItemQty, getTodayLocalISO, parseLocalDate, slugifyFileName } from "@/lib/utils";
 import { displayAppointmentType } from "@/lib/appointmentDisplay";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -101,15 +100,33 @@ import {
   AlertCircle,
   BadgeDollarSign,
   UserRound,
-  CreditCard,
-  User,
   Sparkles,
   Loader2,
+  MoreHorizontal,
+  Plus,
+  Undo2,
 } from "lucide-react";
 import { Calendar } from "lucide-react";
 import SaleDetailModal from "@/components/SaleDetailModal";
 import CancelSaleDialog from "@/components/CancelSaleDialog";
 import DeleteSaleDialog from "@/components/DeleteSaleDialog";
+import { PaymentChoice, paymentMethodIcon } from "@/components/sales/PaymentChoice";
+import { ReceivePaymentDialog } from "@/components/sales/ReceivePaymentDialog";
+import { ConvertBudgetDialog } from "@/components/sales/ConvertBudgetDialog";
+import { SaleStatusBadge } from "@/components/sales/SaleStatusBadge";
+import { budgetTotal as budgetNegotiatedTotal } from "@/lib/budgetConversion";
+import {
+  buildSaleObservations,
+  isReceiptOfSale,
+  nowTimeHHMM,
+  parseSaleObservations,
+  receiptMethodsBySale,
+  receiveSalePayment,
+  saleBalance,
+  saleStatus,
+  summarizeSaleItems,
+  type PayMode,
+} from "@/lib/salePayment";
 
 import {
   readPatientDocuments,
@@ -162,23 +179,7 @@ const calculateAge = (birthday: string) => {
 // Item em edição nos formulários de venda/orçamento (carrinho antes de salvar).
 type SaleItemMeta = { itemId: string; name: string; type: "product" | "service"; qty: number; unitPrice: number };
 
-// A venda manual do prontuário grava financial_transactions/sale_items de
-// verdade (nunca foi local) — só o vínculo com o atendimento não tinha coluna
-// própria. Guardamos como uma tag no início de `observations` (campo que já
-// existe na tabela e não era exibido em nenhum outro lugar do sistema).
-const APPOINTMENT_TAG_RE = /^@apt:(\S+)\n?/;
-const buildSaleObservations = (appointmentId: string | undefined, text: string): string | undefined => {
-  const tag = appointmentId ? `@apt:${appointmentId}` : "";
-  const combined = [tag, text.trim()].filter(Boolean).join("\n");
-  return combined || undefined;
-};
-const parseSaleObservations = (raw: string | undefined): { appointmentId?: string; text?: string } => {
-  if (!raw) return {};
-  const m = raw.match(APPOINTMENT_TAG_RE);
-  if (!m) return { text: raw };
-  const rest = raw.slice(m[0].length);
-  return { appointmentId: m[1], text: rest || undefined };
-};
+// Vínculo venda ↔ atendimento: buildSaleObservations/parseSaleObservations (lib/salePayment).
 
 // Helper para identidade visual por tipo de evento
 const EVENT_STYLES: Record<string, { dot: string; badge: string }> = {
@@ -223,16 +224,6 @@ const SCHEDULE_STATUS_LABEL: Record<string, string> = {
   cancelled: "Cancelado",
 };
 
-// PatientRecordPage
-const sumReceiptsForSaleLocal = (list: FinancialTransaction[], saleId: string) =>
-  list
-    .filter(
-      (t) =>
-        t.type === "income" &&
-        t.category === "Recebimento" &&
-        (t.saleId === saleId || (t.description || "").includes(saleId))
-    )
-    .reduce((s, r) => s + r.amount, 0);
 
 /**
  * Documentos "Pedido de Exame" carregam os dados estruturados num comentário
@@ -552,26 +543,34 @@ const PatientRecordPage = () => {
 
   const [isTutorExpanded, setIsTutorExpanded] = useState(false);
 
-  const animalFinancialTransactions = mockFinancialTransactions.filter(
-    (t) =>
-      t.relatedAnimalId === animalId &&
-      !(t.type === 'income' && t.category === 'Venda de Produtos')
+  // Vendas deste paciente (as mais recentes primeiro) e os pagamentos delas.
+  const animalSalesTransactions = useMemo(
+    () =>
+      mockFinancialTransactions.filter(
+        (t) => t.relatedAnimalId === animalId && t.type === "income" && t.category === "Venda de Produtos"
+      ),
+    [mockFinancialTransactions, animalId]
   );
-
-  const animalSalesTransactions = mockFinancialTransactions.filter(
-    (t) => t.relatedAnimalId === animalId && t.type === 'income' && t.category === 'Venda de Produtos'
-  );
-
-  const [financeModalOpen, setFinanceModalOpen] = useState(false);
-  const [financeForm, setFinanceForm] = useState({ description: "", amount: "", type: "income" as "income" | "expense", category: "", paymentMethod: "" });
 
   const animalReceipts = useMemo(() => {
     return mockFinancialTransactions
       .filter((t) => t.relatedAnimalId === animalId && t.type === "income" && t.category === "Recebimento")
-      .sort((a, b) => new Date(`${b.date}T${b.time}`).getTime() - new Date(`${a.date}T${a.time}`).getTime());
+      .sort((a, b) => `${b.date}T${b.time}`.localeCompare(`${a.date}T${a.time}`));
   }, [mockFinancialTransactions, animalId]);
 
-  const [confirmOverpayProntuario, setConfirmOverpayProntuario] = useState<{ saleId: string; remaining: number; payAmount: number } | null>(null);
+  // Forma de pagamento de cada venda: a venda do prontuário não guardava a
+  // forma (ela só existia no recebimento).
+  const receiptMethods = useMemo(() => receiptMethodsBySale(mockFinancialTransactions), [mockFinancialTransactions]);
+
+  const salesTotals = useMemo(() => {
+    const active = animalSalesTransactions.filter((s) => s.status !== "cancelled");
+    return {
+      total: active.reduce((sum, s) => sum + s.amount, 0),
+      received: active.reduce((sum, s) => sum + Math.min(s.amount, s.paidAmount || 0), 0),
+      open: active.reduce((sum, s) => sum + saleBalance(s), 0),
+    };
+  }, [animalSalesTransactions]);
+
   const [receiptIdToRefund, setReceiptIdToRefund] = useState<string | null>(null);
 
   // Orçamentos deste paciente — mesma tabela/API real usada em /sales/budgets
@@ -593,7 +592,10 @@ const PatientRecordPage = () => {
   const [selectedPdvSale, setSelectedPdvSale] = useState<import("@/mockData/financial").FinancialTransaction | null>(null);
   const [pdvSaleToCancel, setPdvSaleToCancel] = useState<import("@/mockData/financial").FinancialTransaction | null>(null);
   const [pdvSaleToDelete, setPdvSaleToDelete] = useState<import("@/mockData/financial").FinancialTransaction | null>(null);
-  const [saleDate, setSaleDate] = useState<string>(new Date().toISOString().split("T")[0]);
+  const [saleDate, setSaleDate] = useState<string>(getTodayLocalISO());
+  // Pagamento na própria venda: quase toda venda é paga na hora.
+  const [salePayMode, setSalePayMode] = useState<PayMode>("now");
+  const [salePaymentMethod, setSalePaymentMethod] = useState<string | undefined>(undefined);
   const [saleAppointmentId, setSaleAppointmentId] = useState<string>("");
   const [saleResponsible, setSaleResponsible] = useState<string>("");
   const [saleObservations, setSaleObservations] = useState<string>("");
@@ -625,171 +627,99 @@ const PatientRecordPage = () => {
   };
 
   const [savingSale, setSavingSale] = useState(false);
+
+  // "Nova venda" já vem vinculada ao atendimento de hoje (se houver) e com
+  // "Recebido agora" marcado.
+  const openNewSale = () => {
+    const today = getTodayLocalISO();
+    setSaleDate(today);
+    setSaleAppointmentId(animalAppointments.find((a) => a.date === today)?.id ?? "");
+    setSaleResponsible("");
+    setSaleObservations("");
+    setSaleItems([]);
+    setSaleSelectedItemId("");
+    setSaleQty(1);
+    setSaleUnitPrice(0);
+    setSalePayMode("now");
+    setSalePaymentMethod(undefined);
+    setSaleModalOpen(true);
+  };
+
   const handleSaveSale = async () => {
     if (savingSale) return;
     if (saleItems.length === 0) { toast.error("Adicione itens à venda."); return; }
     if (!currentClient || !currentAnimal) { toast.error("Cliente/animal não encontrados."); return; }
+    if (salePayMode === "now" && !salePaymentMethod) { toast.error("Escolha a forma de pagamento."); return; }
+    if (saleDate > getTodayLocalISO()) { toast.error("A data da venda não pode ser futura."); return; }
     setSavingSale(true);
     try {
+      // Nome do tutor/pet em vez do ID cru do atendimento — o vínculo com o
+      // atendimento fica na tag de observations (buildSaleObservations).
+      const description = `Venda: ${currentClient.name} (${currentAnimal.name}) — ${saleItems.map(i => formatItemQty(i.name, i.qty)).join(", ")}`;
+      const responsible = saleResponsible.trim() || (saleAppointmentId ? animalAppointments.find(a => a.id === saleAppointmentId)?.vet : undefined) || undefined;
+      const time = nowTimeHHMM();
 
-    // Nome do tutor/pet em vez do ID cru do atendimento — o ID continua
-    // salvo em appointmentId (abaixo) para fins de vínculo, só não aparece
-    // mais no texto que o Financeiro exibe pro usuário.
-    const description = `Venda: ${currentClient.name} (${currentAnimal.name}) — ${saleItems.map(i => formatItemQty(i.name, i.qty)).join(", ")}`;
+      const tx = await financialApi.addFinancialTransaction({
+        date: saleDate,
+        time,
+        description,
+        type: "income",
+        amount: saleTotal,
+        category: "Venda de Produtos",
+        relatedAnimalId: currentAnimal.id,
+        relatedClientId: currentClient.id,
+        paymentMethod: salePaymentMethod,
+        status: "pending",
+        responsible,
+        observations: buildSaleObservations(saleAppointmentId || undefined, saleObservations),
+      });
+      if (!tx) { toast.error("Erro ao registrar a venda. Nada foi gravado — tente de novo."); return; }
 
-    const responsible = saleResponsible || (saleAppointmentId ? animalAppointments.find(a => a.id === saleAppointmentId)?.vet : undefined) || undefined;
+      // Itens de verdade (sale_items) + baixa de estoque — mesmo fluxo do PDV
+      // (é o que o relatório de repasses e o Fechamento 50/50 leem).
+      await fulfillSaleLines({
+        saleId: tx.id,
+        catalog: catalogItemsFromHook,
+        lines: saleItems.map((it) => ({
+          catalogItemId: it.itemId,
+          name: it.name,
+          type: it.type,
+          quantity: it.qty,
+          unitPrice: it.unitPrice,
+        })),
+      });
 
-    const tx = await financialApi.addFinancialTransaction({
-      date: saleDate,
-      time: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
-      description,
-      type: "income",
-      amount: saleTotal,
-      category: "Venda de Produtos",
-      relatedAnimalId: currentAnimal.id,
-      relatedClientId: currentClient.id,
-      status: "pending",
-      responsible,
-      observations: buildSaleObservations(saleAppointmentId || undefined, saleObservations),
-    });
-    const nextId = tx?.id;
-    if (!nextId) { toast.error("Erro ao registrar venda."); return; }
-
-    // Grava os itens de verdade (sale_items) e baixa estoque de produtos +
-    // insumos de composição — mesmo fluxo do PDV. Antes essa venda só gravava
-    // a transação e mexia no estoque na mão, sem sale_items: ficava invisível
-    // pro relatório de repasses e pro Fechamento 50/50 (que leem sale_items).
-    await fulfillSaleLines({
-      saleId: nextId,
-      catalog: catalogItemsFromHook,
-      lines: saleItems.map((it) => ({
-        catalogItemId: it.itemId,
-        name: it.name,
-        type: it.type,
-        quantity: it.qty,
-        unitPrice: it.unitPrice,
-      })),
-    });
-    await refetchCatalog();
-    await refetchFinancial();
-
-    setSaleModalOpen(false);
-    setSaleDate(new Date().toISOString().split("T")[0]);
-    setSaleAppointmentId(""); setSaleResponsible(""); setSaleObservations(""); setSaleItems([]);
-    toast.success("Venda registrada com sucesso!");
+      // "Recebido agora": a baixa sai junto, na data da venda. Antes era outra
+      // sub-aba, escolhendo a venda e a forma de pagamento de novo.
+      let received = false;
+      if (salePayMode === "now" && saleTotal > 0) {
+        received = await receiveSalePayment({
+          sale: tx,
+          paymentMethod: salePaymentMethod,
+          date: saleDate,
+          time,
+          clientName: currentClient.name,
+          animalName: currentAnimal.name,
+        });
+      }
+      await Promise.all([refetchCatalog(), refetchFinancial()]);
+      setSaleModalOpen(false);
+      setSaleItems([]);
+      if (salePayMode === "now" && saleTotal > 0) {
+        if (received) toast.success(`Venda registrada e recebida (${salePaymentMethod}).`);
+        else toast.warning("Venda registrada, mas o recebimento não foi gravado. Use “Receber” na venda.");
+      } else {
+        toast.success(`Venda registrada — fica a receber ${formatCurrencyBRL(saleTotal)}.`);
+      }
     } finally {
       setSavingSale(false);
     }
   };
 
 
-  const getPaidForSale = (saleId: string): number => sumReceiptsForSaleLocal(mockFinancialTransactions, saleId);
-  const getFinancialStatusForSale = (saleId: string, saleAmount: number): "paid" | "partial" | "pending" => {
-    const paid = getPaidForSale(saleId);
-    if (paid >= saleAmount) return "paid";
-    if (paid > 0) return "partial";
-    return "pending";
-  };
-
-  const [paymentSaleId, setPaymentSaleId] = useState<string | undefined>(undefined);
-  const [paymentDate, setPaymentDate] = useState<string>(new Date().toISOString().split("T")[0]);
-  const [paymentTime, setPaymentTime] = useState<string>(new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }));
-  const [paymentAmount, setPaymentAmount] = useState<number>(0);
-  const [paymentMethodId, setPaymentMethodId] = useState<string | undefined>(undefined);
-  const [paymentObservations, setPaymentObservations] = useState<string>("");
-
-  const canRegisterPayment = (saleId: string): boolean => {
-    const sale = animalSalesTransactions.find(s => s.id === saleId);
-    if (!sale) return false;
-    if (sale.status === "cancelled") return false;
-    return getFinancialStatusForSale(saleId, sale.amount) !== "paid";
-  };
-
-  // Preencher valor com saldo ao selecionar a venda
-  useEffect(() => {
-    if (!paymentSaleId) return;
-    const sale = animalSalesTransactions.find((s) => s.id === paymentSaleId);
-    if (sale) {
-      const paid = getPaidForSale(sale.id);
-      setPaymentAmount(Math.max(0, sale.amount - paid));
-    }
-  }, [paymentSaleId, animalSalesTransactions, mockFinancialTransactions]);
-
-  const [savingPayment, setSavingPayment] = useState(false);
-  const doRegisterPaymentProntuario = async (saleId: string, amount: number) => {
-    if (savingPayment) return;
-    setSavingPayment(true);
-    try {
-      const pmName = paymentMethodId ? (pmRegistry.find((pm) => pm.id === paymentMethodId)?.name || undefined) : undefined;
-      const description = currentClient && currentAnimal
-        ? `Recebimento: ${currentClient.name} (${currentAnimal.name})`
-        : undefined;
-      await financialApi.registerReceiptWithSale({
-        saleId,
-        amount,
-        date: paymentDate,
-        time: paymentTime,
-        paymentMethod: pmName,
-        description,
-        relatedClientId: currentClient?.id,
-        relatedAnimalId: currentAnimal?.id,
-      });
-      await refetchFinancial();
-    } finally {
-      setSavingPayment(false);
-    }
-    setPaymentSaleId(undefined);
-    setPaymentDate(new Date().toISOString().split("T")[0]);
-    setPaymentTime(new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }));
-    setPaymentAmount(0);
-    setPaymentMethodId(undefined);
-    setPaymentObservations("");
-    toast.success("Pagamento registrado!");
-  };
-
-  const handleAddPayment = () => {
-    if (!paymentSaleId) {
-      toast.error("Selecione a venda vinculada.");
-      return;
-    }
-    const saleMeta = animalSalesTransactions.find((s) => s.id === paymentSaleId);
-    if (!saleMeta) {
-      toast.error("Venda não encontrada.");
-      return;
-    }
-    if (!canRegisterPayment(paymentSaleId)) {
-      toast.error("Esta venda já está PAGA. Não é possível registrar novas baixas.");
-      return;
-    }
-    if (paymentAmount <= 0) {
-      toast.error("Informe um valor de pagamento válido.");
-      return;
-    }
-    if (!paymentMethodId) {
-      toast.error("Selecione a forma de pagamento.");
-      return;
-    }
-    const today = new Date().toISOString().split("T")[0];
-    if (paymentDate > today) {
-      toast.error("Data do pagamento não pode ser futura.");
-      return;
-    }
-
-    const paid = getPaidForSale(paymentSaleId);
-    const remaining = Math.max(0, saleMeta.amount - paid);
-    if (paymentAmount > remaining) {
-      setConfirmOverpayProntuario({ saleId: paymentSaleId, remaining, payAmount: paymentAmount });
-      return;
-    }
-
-    doRegisterPaymentProntuario(paymentSaleId, paymentAmount);
-  };
-
-  const handleConfirmOverpayProntuario = () => {
-    if (!confirmOverpayProntuario) return;
-    doRegisterPaymentProntuario(confirmOverpayProntuario.saleId, confirmOverpayProntuario.remaining);
-    setConfirmOverpayProntuario(null);
-  };
+  // "Receber": uma janela só (ReceivePaymentDialog), já com saldo e forma de
+  // pagamento preenchidos — a mesma de Vendas e Recebimentos.
+  const [saleToReceive, setSaleToReceive] = useState<FinancialTransaction | null>(null);
 
   const handleConfirmEstorno = async () => {
     if (!receiptIdToRefund) return;
@@ -810,7 +740,7 @@ const PatientRecordPage = () => {
   const BUDGET_VALIDITY_DAYS = 15;
 
   const [budgetModalOpen, setBudgetModalOpen] = useState(false);
-  const [budgetDate, setBudgetDate] = useState<string>(new Date().toISOString().split("T")[0]);
+  const [budgetDate, setBudgetDate] = useState<string>(getTodayLocalISO());
   const [budgetSelectedItemId, setBudgetSelectedItemId] = useState<string>("");
   const [budgetQty, setBudgetQty] = useState<number>(1);
   const [budgetUnitPrice, setBudgetUnitPrice] = useState<number>(0);
@@ -845,7 +775,7 @@ const PatientRecordPage = () => {
     return today > exp && b.status !== "converted" && b.status !== "cancelled";
   };
   const resetBudgetForm = () => {
-    setBudgetDate(new Date().toISOString().split("T")[0]);
+    setBudgetDate(getTodayLocalISO());
     setBudgetItems([]); setBudgetQty(1); setBudgetUnitPrice(0); setBudgetObservations("");
     setEditingBudgetId(null);
   };
@@ -888,7 +818,7 @@ const PatientRecordPage = () => {
           animalId: currentAnimal.id,
           clientName: currentClient.name,
           animalName: currentAnimal.name,
-          clientPhone: currentClient.phone || undefined,
+          clientPhone: currentClient.mainPhoneContact || undefined,
           date: budgetDate,
           items: itemsPayload,
           notes: budgetObservations || undefined,
@@ -943,96 +873,32 @@ const PatientRecordPage = () => {
     }
   };
 
-  const [convertModalOpen, setConvertModalOpen] = useState(false);
-  const [convertTargetBudgetId, setConvertTargetBudgetId] = useState<string | null>(null);
-  const [convertAppointmentId, setConvertAppointmentId] = useState<string>("");
-
-  const openConvertModal = (id: string) => {
-    setConvertTargetBudgetId(id);
-    setConvertAppointmentId("");
-    setConvertModalOpen(true);
-  };
-  const [convertingBudget, setConvertingBudget] = useState(false);
-  const confirmConvert = async () => {
-    if (convertingBudget) return;
-    if (!convertTargetBudgetId) return;
-    if (!convertAppointmentId) { toast.error("Selecione um atendimento para converter em venda."); return; }
-    setConvertingBudget(true);
-    try {
-      const ok = await convertBudgetToSale(convertTargetBudgetId, convertAppointmentId);
-      if (ok) {
-        setConvertModalOpen(false);
-        setConvertTargetBudgetId(null);
-        setConvertAppointmentId("");
-      }
-    } finally {
-      setConvertingBudget(false);
+  // Converter: mesma janela (e mesma regra de valor/custo) da tela de
+  // Orçamentos — antes o prontuário ignorava desconto/acréscimo negociados.
+  const [budgetToConvert, setBudgetToConvert] = useState<Budget | null>(null);
+  const openConvertModal = (b: Budget) => {
+    if (isBudgetExpired(b)) {
+      toast.error(`Orçamento vencido (validade de ${BUDGET_VALIDITY_DAYS} dias). Edite a data para converter.`);
+      return;
     }
+    setBudgetToConvert(b);
   };
 
-  const convertBudgetToSale = async (id: string, appointmentId: string): Promise<boolean> => {
-    const b = patientBudgets.find(x => x.id === id);
-    if (!b) return false;
-    if (isBudgetExpired(b)) { toast.error("Orçamento expirado. Não é possível converter."); return false; }
-    if (!currentClient || !currentAnimal) { toast.error("Cliente/animal não encontrados."); return false; }
+  const [financeTab, setFinanceTab] = useState<"vendas" | "orcamentos">("vendas");
 
-    const tx = await financialApi.addFinancialTransaction({
-      date: new Date().toISOString().split("T")[0],
-      time: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
-      description: `Orçamento convertido: ${b.items.map(i => formatItemQty(i.name, i.qty)).join(", ")}`,
-      type: "income",
-      amount: b.items.reduce((s, it) => s + it.qty * it.price, 0),
-      category: "Venda de Produtos",
-      relatedAnimalId: currentAnimal.id,
-      relatedClientId: currentClient.id,
-      status: "pending",
-      observations: buildSaleObservations(appointmentId, b.notes || ""),
-    });
-    const nextId = tx?.id;
-    if (!nextId) return false;
-
-    await fulfillSaleLines({
-      saleId: nextId,
-      catalog: catalogItemsFromHook,
-      lines: b.items.map((it) => {
-        const catItem = catalogItemsFromHook.find((c) => c.id === it.itemId);
-        return {
-          catalogItemId: it.itemId,
-          name: it.name,
-          type: catItem?.type || "product",
-          quantity: it.qty,
-          unitPrice: it.price,
-        };
-      }),
-    });
-    await refetchCatalog();
-    await refetchFinancial();
-
-    const converted = await budgetsApi.updateBudgetStatus(id, "converted");
-    if (!converted) { toast.error("Venda criada, mas falhou marcar o orçamento como convertido."); }
-    await refetchBudgets();
-
-    toast.success("Orçamento convertido em venda.");
-    return true;
-  };
-
-  const [financeTab, setFinanceTab] = useState<'orcamentos'|'vendas'|'financeiro'>('orcamentos');
-
+  // Link direto "?paySaleId=<venda>": abre o Financeiro já no "Receber" dela.
   useEffect(() => {
-    const paySaleId = searchParams.get('paySaleId');
-    if (paySaleId) {
-      setActiveTab('financial');
-      setFinanceTab('financeiro');
-      setPaymentSaleId(paySaleId);
-    }
-  }, [searchParams]);
-
-  const handlePayShortcut = (saleId: string) => {
-    setActiveTab('financial');
-    setFinanceTab('financeiro');
-    setPaymentSaleId(saleId);
-    setSearchParams({ paySaleId: saleId });
-  };
+    const paySaleId = searchParams.get("paySaleId");
+    if (!paySaleId) return;
+    const sale = animalSalesTransactions.find((s) => s.id === paySaleId);
+    if (!sale) return; // espera as vendas carregarem
+    setActiveTab("financial");
+    setFinanceTab("vendas");
+    if (saleBalance(sale) > 0) setSaleToReceive(sale);
+    const next = new URLSearchParams(searchParams);
+    next.delete("paySaleId");
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams, animalSalesTransactions]);
 
   const formatAgeLabel = (birthday?: string) => {
     if (!birthday) return "-";
@@ -1589,26 +1455,16 @@ const PatientRecordPage = () => {
                 {/* FINANCEIRO */}
                 <div className="rounded-xl border border-border bg-white p-3 h-full">
                   {(() => {
-                    // "Recebimento" é o pagamento de uma venda já contada em
-                    // "Venda de Produtos" — contar os dois somava a mesma venda
-                    // em dobro; e vendas canceladas não são mais receita.
-                    const income = mockFinancialTransactions
-                      .filter((t) => t.relatedAnimalId === animalId && t.type === 'income' && t.category !== 'Recebimento' && t.status !== 'cancelled')
-                      .reduce((s, t) => s + t.amount, 0);
-                    const expense = mockFinancialTransactions
-                      .filter((t) => t.relatedAnimalId === animalId && t.type === 'expense' && t.status !== 'cancelled')
-                      .reduce((s, t) => s + t.amount, 0);
-                    const net = income - expense;
-                    const pending = Math.max(
-                      0,
-                      animalSalesTransactions
-                        .filter((s) => s.status !== "cancelled")
-                        .reduce((sum, s) => sum + s.amount, 0) -
-                        animalReceipts.reduce((sum, r) => sum + r.amount, 0)
-                    );
-
-                    const fmt = (v: number) =>
-                      new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
+                    // Mesmos números da aba Financeiro (salesTotals): o que falta
+                    // receber e o total vendido para o paciente. Clicar abre a aba.
+                    const openFinancial = () => {
+                      setActiveTab("financial");
+                      setFinanceTab("vendas");
+                      requestAnimationFrame(() =>
+                        document.querySelector('[aria-label="Financeiro do paciente"]')?.scrollIntoView({ behavior: "smooth", block: "start" })
+                      );
+                    };
+                    const hasOpen = salesTotals.open > 0;
 
                     return (
                       <div className="h-full">
@@ -1623,21 +1479,31 @@ const PatientRecordPage = () => {
                         </div>
 
                         <div className="mt-3 grid grid-cols-2 gap-2">
-                          <div className="min-w-0 rounded-xl border border-border bg-white px-2.5 py-2 sm:px-3 sm:py-2.5">
+                          <button
+                            type="button"
+                            onClick={openFinancial}
+                            className="min-w-0 rounded-xl border border-border bg-white px-2.5 py-2 text-left transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 sm:px-3 sm:py-2.5"
+                          >
                             <div className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm text-muted-foreground">
-                              <AlertCircle className="h-4 w-4 shrink-0 text-rose-600" strokeWidth={1.6} />
-                              <span className="font-medium text-foreground/70">Pendências</span>
+                              <AlertCircle className={cn("h-4 w-4 shrink-0", hasOpen ? "text-amber-600" : "text-muted-foreground")} strokeWidth={1.6} />
+                              <span className="font-medium text-foreground/70">A receber</span>
                             </div>
-                            <div className="mt-1 break-words text-base font-semibold text-rose-600">{fmt(pending)}</div>
-                          </div>
+                            <div className={cn("mt-1 break-words text-base font-semibold tabular-nums", hasOpen ? "text-amber-700" : "text-foreground")}>
+                              {formatCurrencyBRL(salesTotals.open)}
+                            </div>
+                          </button>
 
-                          <div className="min-w-0 rounded-xl border border-border bg-white px-2.5 py-2 sm:px-3 sm:py-2.5">
+                          <button
+                            type="button"
+                            onClick={openFinancial}
+                            className="min-w-0 rounded-xl border border-border bg-white px-2.5 py-2 text-left transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 sm:px-3 sm:py-2.5"
+                          >
                             <div className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm text-muted-foreground">
                               <BadgeDollarSign className="h-4 w-4 shrink-0 text-emerald-600" strokeWidth={1.6} />
-                              <span className="font-medium text-foreground/70">Saldo financeiro</span>
+                              <span className="font-medium text-foreground/70">Total em vendas</span>
                             </div>
-                            <div className="mt-1 break-words text-base font-semibold text-emerald-700">{fmt(net)}</div>
-                          </div>
+                            <div className="mt-1 break-words text-base font-semibold tabular-nums text-foreground">{formatCurrencyBRL(salesTotals.total)}</div>
+                          </button>
                         </div>
                       </div>
                     );
@@ -3170,415 +3036,262 @@ const PatientRecordPage = () => {
           </TabsContent>
 
           <TabsContent value="financial" className="mt-4">
-            <Card className="vf-surface-card vf-tone-finance rounded-[12px]">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 p-4 pb-3 sm:p-6 sm:pb-3">
-                <CardTitle className="flex items-center gap-2 text-lg font-semibold text-foreground">
-                  <FaMoneyBillWave className="h-5 w-5 text-primary" /> Financeiro
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="px-3 pb-4 pt-0 sm:px-6 sm:pb-6">
-                <Tabs value={financeTab} onValueChange={(v) => setFinanceTab(v as any)} className="w-full">
-                  {/* Celular: as 3 sub-abas dividem a largura (grid) — em linha
-                      com px-4 cada uma passavam da tela. */}
-                  <TabsList className="grid h-auto w-full grid-cols-3 rounded-lg bg-muted/60 p-1 mb-3 sm:mb-4 sm:inline-flex sm:h-9 sm:w-auto">
-                    <TabsTrigger value="orcamentos" className="flex min-w-0 items-center gap-1 sm:gap-1.5 px-1.5 sm:px-4 text-xs sm:text-sm font-medium rounded-md">
-                      <span className="hidden sm:inline">📋</span> Orçamentos
-                      {patientBudgets.length > 0 && (
-                        <span className="sm:ml-1 rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-bold">
-                          {patientBudgets.length}
-                        </span>
-                      )}
+            {/* Vendas e pagamentos numa lista só (antes: sub-abas "Vendas" e
+                "Financeiro", com a baixa num formulário à parte). */}
+            <Tabs value={financeTab} onValueChange={(v) => setFinanceTab(v as "vendas" | "orcamentos")} className="w-full">
+              <section className="overflow-hidden rounded-2xl border border-border/80 bg-card shadow-sm" aria-label="Financeiro do paciente">
+                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/70 p-3 sm:p-4">
+                  <TabsList className="h-auto rounded-xl bg-muted p-1">
+                    <TabsTrigger value="vendas" className="rounded-lg px-3 py-1.5 text-sm font-medium data-[state=active]:shadow-sm">
+                      Vendas
+                      <span className="ml-1.5 text-xs tabular-nums text-muted-foreground">{animalSalesTransactions.length}</span>
                     </TabsTrigger>
-                    <TabsTrigger value="vendas" className="flex min-w-0 items-center gap-1 sm:gap-1.5 px-1.5 sm:px-4 text-xs sm:text-sm font-medium rounded-md">
-                      <span className="hidden sm:inline">🛒</span> Vendas
-                      {animalSalesTransactions.length > 0 && (
-                        <span className="sm:ml-1 rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-bold">
-                          {animalSalesTransactions.length}
-                        </span>
-                      )}
-                    </TabsTrigger>
-                    <TabsTrigger value="financeiro" className="flex min-w-0 items-center gap-1 sm:gap-1.5 px-1.5 sm:px-4 text-xs sm:text-sm font-medium rounded-md">
-                      <span className="hidden sm:inline">💰</span> Financeiro
+                    <TabsTrigger value="orcamentos" className="rounded-lg px-3 py-1.5 text-sm font-medium data-[state=active]:shadow-sm">
+                      Orçamentos
+                      <span className="ml-1.5 text-xs tabular-nums text-muted-foreground">{patientBudgets.length}</span>
                     </TabsTrigger>
                   </TabsList>
+                  {financeTab === "vendas" ? (
+                    <Button onClick={openNewSale} className="font-semibold max-sm:w-full">
+                      <Plus className="mr-1.5 h-4 w-4" /> Nova venda
+                    </Button>
+                  ) : (
+                    <Button onClick={() => { resetBudgetForm(); setBudgetModalOpen(true); }} className="font-semibold max-sm:w-full">
+                      <Plus className="mr-1.5 h-4 w-4" /> Novo orçamento
+                    </Button>
+                  )}
+                </div>
 
-                  <TabsContent value="orcamentos">
-                    <div className="bg-muted/40 p-2 sm:p-4 rounded-[12px]">
-                      <div className="flex justify-end mb-3">
-                        <Button
-                          size="sm"
-                          onClick={() => { resetBudgetForm(); setBudgetModalOpen(true); }}
-                          className="w-full sm:w-auto rounded-md font-semibold transition-all duration-200 shadow-sm hover:shadow-md"
-                        >
-                          <FaPlus className="h-4 w-4 mr-2" /> Novo Orçamento
-                        </Button>
-                      </div>
-                      <Card className="vf-surface-card vf-tone-finance rounded-[12px]">
-                        <CardHeader className="p-3 pb-2 sm:p-6 sm:pb-2">
-                          <CardTitle className="text-base">Orçamentos</CardTitle>
-                        </CardHeader>
-                        <CardContent className="p-3 pt-0 sm:p-6 sm:pt-0">
-                          {patientBudgets.length === 0 ? (
-                            <p className="text-muted-foreground">Nenhum orçamento registrado.</p>
-                          ) : (
-                            <div className="space-y-3">
-                              {patientBudgets.map(b => {
-                                const total = b.items.reduce((s, it) => s + it.qty * it.price, 0);
-                                const expired = isBudgetExpired(b);
-                                const statusDisplay = expired && b.status !== "converted" && b.status !== "cancelled" ? "expired" : b.status;
-                                const canConvert = !expired && b.status !== "cancelled" && b.status !== "converted";
-                                const statusLabel: Record<string, string> = {
-                                  draft: "Rascunho", approved: "Aprovado", converted: "Convertido",
-                                  cancelled: "Cancelado", expired: "Expirado",
-                                };
-                                const badgeClass =
-                                  statusDisplay === "converted" ? "bg-[hsl(var(--vf-clinical))] text-white" :
-                                  statusDisplay === "approved" ? "bg-emerald-600 text-white" :
-                                  statusDisplay === "expired" ? "bg-red-600 text-white" :
-                                  statusDisplay === "cancelled" ? "bg-gray-300 text-gray-900" :
-                                  "bg-[hsl(var(--vf-clinical))] text-white";
-                                return (
-                                  <Card key={b.id} className="p-3 sm:p-4 vf-surface-card vf-tone-finance rounded-[12px]">
-                                    <div className="flex items-center justify-between gap-2">
-                                      <div className="flex items-center gap-2">
-                                        <Badge className={`px-2 py-0.5 text-xs rounded-full ${badgeClass}`}>
-                                          {statusLabel[statusDisplay] || statusDisplay}
-                                        </Badge>
-                                      </div>
-                                      <div className="text-sm font-semibold text-green-700">
-                                        {new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(total)}
-                                      </div>
-                                    </div>
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-1 sm:gap-2 mt-2 text-sm text-muted-foreground">
-                                      <div className="flex items-center gap-1"><FaCalendarAlt className="h-3 w-3 shrink-0" /> {formatDateTime(b.date)}</div>
-                                      <div className="flex items-center gap-1"><FaTag className="h-3 w-3 shrink-0" /> Validade: {BUDGET_VALIDITY_DAYS} dia(s)</div>
-                                      {b.notes && <div className="flex min-w-0 items-start gap-1"><FaTag className="mt-1 h-3 w-3 shrink-0" /> <span className="min-w-0 break-words">Obs.: {b.notes}</span></div>}
-                                    </div>
-                                    {/* flex-wrap: 6 botões numa linha sem quebra passavam da tela
-                                        no celular (o motivo da página "arrastar pros lados"). */}
-                                    <div className="flex flex-wrap justify-end gap-2 mt-3">
-                                      <Button variant="outline" size="sm" onClick={()=>startEditBudget(b)} disabled={statusDisplay==="converted" || statusDisplay==="cancelled"}>Editar</Button>
-                                      <Button variant="outline" size="sm" onClick={()=>void approveBudget(b.id)} disabled={statusDisplay==="converted" || statusDisplay==="cancelled"}>Aprovar</Button>
-                                      <Button variant="outline" size="sm" onClick={()=>void cancelBudget(b.id)} disabled={statusDisplay==="converted" || statusDisplay==="cancelled"}>Cancelar</Button>
-                                      <Button variant="outline" size="sm" onClick={()=>void printBudget(b)}>Imprimir</Button>
-                                      <Button
-                                        variant="outline"
-                                        size="icon"
-                                        title="Enviar orçamento por WhatsApp (com link do PDF, sem precisar anexar)"
-                                        onClick={()=>void sendBudgetViaWhatsApp(b)}
-                                      >
-                                        <SiWhatsapp className="h-4 w-4 text-[#25D366]" />
-                                      </Button>
-                                      <Button size="sm" onClick={()=>openConvertModal(b.id)} disabled={!canConvert} className="w-full sm:w-auto rounded-md">
-                                        Converter em venda
-                                      </Button>
-                                    </div>
-                                  </Card>
-                                );
-                              })}
-                            </div>
-                          )}
-                        </CardContent>
-                      </Card>
+                <TabsContent value="vendas" className="m-0">
+                  {animalSalesTransactions.length === 0 ? (
+                    <div className="px-4 py-12 text-center">
+                      <p className="text-sm font-medium text-foreground">Nenhuma venda para este paciente</p>
+                      <p className="mt-1 text-sm text-muted-foreground">Registre o que foi cobrado no atendimento em “Nova venda”.</p>
                     </div>
-                  </TabsContent>
-
-                  <TabsContent value="vendas">
-                    <div className="bg-muted/40 p-2 sm:p-4 rounded-[12px]">
-                      <div className="flex justify-end mb-3">
-                        <Button
-                          size="sm"
-                          onClick={() => { setSaleResponsible(""); setSaleModalOpen(true); }}
-                          className="w-full sm:w-auto rounded-md font-semibold transition-all duration-200 shadow-sm hover:shadow-md"
-                        >
-                          <FaPlus className="h-4 w-4 mr-2" /> Adicionar Venda
-                        </Button>
+                  ) : (
+                    <>
+                      <div className="flex flex-wrap gap-x-6 gap-y-1 border-b border-border/70 bg-muted/30 px-4 py-2.5 text-sm">
+                        <span className="text-muted-foreground">
+                          Total <span className="font-semibold tabular-nums text-foreground">{formatCurrencyBRL(salesTotals.total)}</span>
+                        </span>
+                        <span className="text-muted-foreground">
+                          Recebido <span className="font-semibold tabular-nums text-foreground">{formatCurrencyBRL(salesTotals.received)}</span>
+                        </span>
+                        {salesTotals.open > 0 && (
+                          <span className="text-amber-800">
+                            A receber <span className="font-semibold tabular-nums">{formatCurrencyBRL(salesTotals.open)}</span>
+                          </span>
+                        )}
                       </div>
-                      {animalSalesTransactions.length === 0 ? (
-                        <p className="text-muted-foreground">Nenhuma venda registrada.</p>
-                      ) : (
-                        <div className="space-y-2">
-                          {animalSalesTransactions.map(t => {
-                            const statusConfig: Record<string, { label: string; className: string }> = {
-                              paid:      { label: 'Pago',      className: 'bg-emerald-100 text-emerald-700' },
-                              partial:   { label: 'Parcial',   className: 'bg-blue-100 text-blue-700' },
-                              pending:   { label: 'Pendente',  className: 'bg-amber-100 text-amber-700' },
-                              cancelled: { label: 'Cancelado', className: 'bg-red-100 text-red-700' },
-                            };
-                            const st = statusConfig[t.status || 'pending'] || statusConfig.pending;
-                            const saldo = Math.max(0, t.amount - (t.paidAmount || 0));
-                            const { appointmentId: linkedAppointmentId } = parseSaleObservations(t.observations);
-                            const app = linkedAppointmentId ? animalAppointments.find(a => a.id === linkedAppointmentId) : undefined;
-                            return (
-                              <Card key={t.id} className="p-3 sm:p-4 vf-surface-card vf-tone-finance rounded-xl">
-                                {/* Celular: Total/Pago/Saldo descem pra uma faixa de 3
-                                    colunas embaixo — lado a lado com a descrição (~290px
-                                    fixos) empurravam o card pra fora da tela. */}
-                                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                                  <div className="flex flex-col gap-1 min-w-0">
-                                    <div className="flex items-center gap-2 flex-wrap">
-                                      <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${st.className}`}>
-                                        {st.label}
-                                      </span>
-                                      <span className="text-xs text-muted-foreground">
-                                        {formatDateTime(t.date, t.time)}
-                                      </span>
-                                      {t.paymentMethod && (
-                                        <span className="text-xs text-muted-foreground inline-flex items-center gap-1">
-                                          <CreditCard className="h-3 w-3" /> {t.paymentMethod}
-                                        </span>
-                                      )}
-                                      {t.responsible && (
-                                        <span className="text-xs text-muted-foreground inline-flex items-center gap-1">
-                                          <User className="h-3 w-3" /> {t.responsible}
-                                        </span>
-                                      )}
-                                    </div>
-                                    <p className="text-sm font-semibold text-foreground truncate sm:max-w-[400px]">
-                                      {(() => {
-                                        const colonIdx = t.description.indexOf(": ");
-                                        if (colonIdx === -1) return t.description;
-                                        const items = t.description
-                                          .slice(colonIdx + 2)
-                                          .split(", ")
-                                          .map(item => item.replace(/\s+x\d+$/, "").trim());
-                                        if (items.length <= 2) return items.join(" · ");
-                                        return `${items.slice(0, 2).join(" · ")} +${items.length - 2} item${items.length - 2 > 1 ? "s" : ""}`;
-                                      })()}
-                                    </p>
-                                    <span className="text-xs text-muted-foreground inline-flex items-start gap-1">
-                                      <StethoscopeIcon className="mt-0.5 h-3 w-3 shrink-0 text-teal-500" />
-                                      <span className="min-w-0 break-words">{app ? `Atendimento: ${displayAppointmentType(app.type)} · ${app.vet}` : "Atendimento não vinculado"}</span>
-                                    </span>
-                                  </div>
-                                  <div className="grid grid-cols-3 gap-2 rounded-lg bg-muted/40 px-2 py-1.5 sm:flex sm:items-center sm:gap-4 sm:shrink-0 sm:bg-transparent sm:p-0 sm:text-right">
-                                    <div>
-                                      <div className="text-xs text-muted-foreground">Total</div>
-                                      <div className="whitespace-nowrap text-sm sm:text-base font-bold text-green-600">
-                                        {new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(t.amount)}
-                                      </div>
-                                    </div>
-                                    <div>
-                                      <div className="text-xs text-muted-foreground">Pago</div>
-                                      <div className="whitespace-nowrap text-sm sm:text-base font-bold">
-                                        {new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(t.paidAmount || 0)}
-                                      </div>
-                                    </div>
-                                    <div>
-                                      <div className="text-xs text-muted-foreground">Saldo</div>
-                                      <div className={`whitespace-nowrap text-sm sm:text-base font-bold ${saldo > 0 ? 'text-amber-600' : 'text-gray-400'}`}>
-                                        {new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(saldo)}
-                                      </div>
-                                    </div>
-                                  </div>
+                      <ul className="divide-y divide-border/70">
+                        {animalSalesTransactions.map((t) => {
+                          const balance = saleBalance(t);
+                          const status = saleStatus(t);
+                          const { appointmentId: linkedAppointmentId } = parseSaleObservations(t.observations);
+                          const app = linkedAppointmentId ? animalAppointments.find((a) => a.id === linkedAppointmentId) : undefined;
+                          const methods = t.paymentMethod ? [t.paymentMethod] : receiptMethods.get(t.id) ?? [];
+                          const meta = [
+                            formatDateTime(t.date, t.time),
+                            methods.join(" + "),
+                            app ? [displayAppointmentType(app.type), app.vet].filter(Boolean).join(" · ") : "",
+                          ].filter(Boolean);
+                          return (
+                            <li key={t.id} className="relative flex flex-col gap-2 px-3 py-3 transition-colors hover:bg-muted/40 sm:flex-row sm:items-center sm:gap-4 sm:px-4">
+                              <div className="min-w-0 flex-1">
+                                {/* Botão "esticado": a linha toda abre o detalhe; o "Receber" fica por cima (z-10). */}
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedPdvSale(t)}
+                                  className="block w-full text-left font-medium leading-snug text-foreground after:absolute after:inset-0 focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-inset focus-visible:after:ring-primary/60"
+                                >
+                                  <span className={cn("[overflow-wrap:anywhere]", status.key === "cancelled" && "text-muted-foreground line-through")}>
+                                    {summarizeSaleItems(t.description, 3)}
+                                  </span>
+                                </button>
+                                <p className="mt-0.5 text-xs text-muted-foreground">{meta.join(" · ")}</p>
+                              </div>
+                              <div className="flex items-center justify-between gap-3 sm:shrink-0 sm:justify-end">
+                                <div className="sm:text-right">
+                                  <p className="font-semibold tabular-nums text-foreground">{formatCurrencyBRL(t.amount)}</p>
+                                  {status.key === "partial" && (
+                                    <p className="text-xs text-amber-800">falta {formatCurrencyBRL(balance)}</p>
+                                  )}
                                 </div>
-                                <div className="flex justify-end gap-2 mt-2 pt-2 border-t border-border/50">
-                                  {t.status !== "cancelled" && (
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      className="h-7 text-xs rounded-lg text-amber-700 border-amber-300 hover:bg-amber-50"
-                                      onClick={() => setPdvSaleToCancel(t)}
-                                    >
-                                      Cancelar venda
+                                <div className="flex items-center gap-2">
+                                  <SaleStatusBadge sale={t} />
+                                  {balance > 0 && (
+                                    <Button size="sm" className="relative z-10 h-8 font-semibold" onClick={() => setSaleToReceive(t)}>
+                                      Receber
                                     </Button>
                                   )}
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-7 text-xs rounded-lg hover:bg-muted"
-                                    onClick={() => setSelectedPdvSale(t)}
-                                  >
-                                    Ver detalhes
-                                  </Button>
                                 </div>
-                              </Card>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  </TabsContent>
+                              </div>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </>
+                  )}
 
-                  <TabsContent value="financeiro">
-                    <div className="bg-muted/40 p-2 sm:p-4 rounded-[12px] space-y-4">
-                      <div className="grid grid-cols-1 lg:grid-cols-[35%_65%] gap-3 sm:gap-4">
-                        <Card className="min-w-0 vf-surface-card vf-tone-finance rounded-xl transition-all duration-200 hover:shadow-md">
-                          <CardHeader className="p-3 pb-2 sm:p-6 sm:pb-2">
-                            <CardTitle className="text-base flex items-center gap-2">
-                              <FaHandHoldingUsd className="h-4 w-4 text-emerald-600" /> Registrar pagamento
-                            </CardTitle>
-                          </CardHeader>
-                          <CardContent className="space-y-3 p-3 pt-0 sm:p-6 sm:pt-0">
-                            <div>
-                              <Label className="flex items-center gap-1"><FaShoppingCart className="h-3 w-3 text-muted-foreground" /> Venda</Label>
-                              <Select value={paymentSaleId || ""} onValueChange={(v) => setPaymentSaleId(v)}>
-                                <SelectTrigger className="bg-input border border-border rounded-md h-9 mt-1"><SelectValue placeholder="Selecione a venda" /></SelectTrigger>
-                                <SelectContent>
-                                  {animalSalesTransactions
-                                    .filter(s => s.status !== "cancelled" && getPaidForSale(s.id) < s.amount)
-                                    .map(s => {
-                                      const paid = getPaidForSale(s.id);
-                                      const saldo = Math.max(0, s.amount - paid);
-                                      const { appointmentId: linkedId } = parseSaleObservations(s.observations);
-                                      const app = linkedId ? animalAppointments.find(a => a.id === linkedId) : undefined;
-                                      return (
-                                        <SelectItem key={s.id} value={s.id}>
-                                          {app ? `${displayAppointmentType(app.type)} • ${app.vet}` : formatDateTime(s.date, s.time)} — Total {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(s.amount)} • Saldo {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(saldo)}
-                                        </SelectItem>
-                                      );
-                                    })}
-                                </SelectContent>
-                              </Select>
-                            </div>
-                            {paymentSaleId && (() => {
-                              const s = animalSalesTransactions.find((x) => x.id === paymentSaleId);
-                              const saldo = s ? Math.max(0, s.amount - getPaidForSale(s.id)) : 0;
-                              return (
-                                <p className="text-sm font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
-                                  Saldo pendente: {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(saldo)}
+                  {animalReceipts.length > 0 && (
+                    <>
+                      <h3 className="border-y border-border/70 bg-muted/30 px-4 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                        Pagamentos recebidos
+                      </h3>
+                      <ul className="divide-y divide-border/70">
+                        {animalReceipts.map((r) => {
+                          const sale = animalSalesTransactions.find((s) => isReceiptOfSale(r, s.id));
+                          const isReversal = r.amount < 0;
+                          const MethodIcon = paymentMethodIcon({ name: r.paymentMethod || "" });
+                          return (
+                            <li key={r.id} className="flex items-center gap-3 px-3 py-2.5 sm:px-4">
+                              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground" aria-hidden>
+                                {isReversal ? <Undo2 className="h-4 w-4" /> : <MethodIcon className="h-4 w-4" />}
+                              </span>
+                              <div className="min-w-0 flex-1">
+                                <p className="text-sm font-medium text-foreground">
+                                  {isReversal ? "Estorno" : r.paymentMethod || "Pagamento"}
                                 </p>
-                              );
-                            })()}
-                            <div className="grid grid-cols-2 gap-2">
-                              <div>
-                                <Label><FaCalendarAlt className="h-3 w-3 inline mr-1 text-muted-foreground" /> Data</Label>
-                                <Input type="date" value={paymentDate} onChange={(e)=>setPaymentDate(e.target.value)} className="h-9 bg-input border border-border rounded-md mt-1" />
+                                <p className="truncate text-xs text-muted-foreground">
+                                  {formatDateTime(r.date, r.time)} · {sale ? summarizeSaleItems(sale.description, 2) : r.description}
+                                </p>
                               </div>
-                              <div>
-                                <Label><FaClock className="h-3 w-3 inline mr-1 text-muted-foreground" /> Hora</Label>
-                                <Input value={paymentTime} onChange={(e)=>setPaymentTime(e.target.value)} className="h-9 bg-input border border-border rounded-md mt-1" />
-                              </div>
-                            </div>
-                            <div>
-                              <Label>Valor</Label>
-                              <CurrencyInput value={paymentAmount} onValueChange={setPaymentAmount} className="h-9 w-full border border-border rounded-md mt-1" />
-                            </div>
-                            <div>
-                              <Label className="flex items-center gap-1">Método de pagamento</Label>
-                              <Select value={paymentMethodId || ""} onValueChange={setPaymentMethodId}>
-                                <SelectTrigger className="bg-input border border-border rounded-md h-9 mt-1"><SelectValue placeholder="Selecione" /></SelectTrigger>
-                                <SelectContent>
-                                  {pmRegistry.map(pm => (
-                                    <SelectItem key={pm.id} value={pm.id}>{pm.name}</SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </div>
-                            <div>
-                              <Label>Observações</Label>
-                              <Textarea value={paymentObservations} onChange={(e)=>setPaymentObservations(e.target.value)} className="bg-input border border-border rounded-md mt-1" />
-                            </div>
-                            <div className="flex justify-end pt-1">
-                              <Button onClick={handleAddPayment} disabled={savingPayment} className="w-full sm:w-auto rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 font-semibold transition-all duration-200 shadow-sm hover:shadow-md">
-                                <FaHandHoldingUsd className="h-4 w-4 mr-2" />
-                                {savingPayment ? "Salvando..." : "Registrar pagamento"}
-                              </Button>
-                            </div>
-                          </CardContent>
-                        </Card>
+                              <p className={cn("shrink-0 text-sm font-semibold tabular-nums", isReversal ? "text-red-700" : "text-foreground")}>
+                                {isReversal ? `− ${formatCurrencyBRL(Math.abs(r.amount))}` : formatCurrencyBRL(r.amount)}
+                              </p>
+                              {/* Estornar = desfazer esta baixa (o valor volta a ficar em aberto). Venda
+                                  cancelada já tem o estorno automático — desfazer aqui deixaria o saldo negativo. */}
+                              {!isReversal && sale?.status !== "cancelled" && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-8 shrink-0 px-2 text-muted-foreground hover:bg-amber-50 hover:text-amber-800"
+                                  onClick={() => setReceiptIdToRefund(r.id)}
+                                  title="Estornar pagamento"
+                                  aria-label="Estornar pagamento"
+                                >
+                                  <Undo2 className="h-4 w-4 sm:mr-1.5" />
+                                  <span className="hidden sm:inline">Estornar</span>
+                                </Button>
+                              )}
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </>
+                  )}
+                </TabsContent>
 
-                        <AlertDialog open={!!confirmOverpayProntuario} onOpenChange={(open) => !open && setConfirmOverpayProntuario(null)}>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle className="flex items-center gap-2 text-amber-600">
-                                <FaExclamationTriangle className="h-5 w-5" />
-                                Valor maior que o saldo
-                              </AlertDialogTitle>
-                              <AlertDialogDescription>
-                                O valor informado (R$ {confirmOverpayProntuario ? new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2 }).format(confirmOverpayProntuario.payAmount) : "0,00"}) é maior que o saldo pendente (R$ {confirmOverpayProntuario ? new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2 }).format(confirmOverpayProntuario.remaining) : "0,00"}). Deseja registrar apenas o saldo desta venda?
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                              <AlertDialogAction onClick={handleConfirmOverpayProntuario} disabled={savingPayment} className="bg-emerald-600 hover:bg-emerald-700">
-                                {savingPayment ? "Salvando..." : "Registrar apenas o saldo"}
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-
-                        <Card className="min-w-0 vf-surface-card vf-tone-finance rounded-xl transition-all duration-200 hover:shadow-md">
-                          <CardHeader className="p-3 pb-2 sm:p-6 sm:pb-2">
-                            <CardTitle className="text-base flex items-center gap-2">
-                              <FaMoneyBillWave className="h-4 w-4 text-emerald-600" /> Pagamentos registrados
-                            </CardTitle>
-                          </CardHeader>
-                          <CardContent className="p-3 pt-0 sm:p-6 sm:pt-0">
-                            {animalReceipts.length === 0 ? (
-                              <p className="text-muted-foreground">Nenhum pagamento registrado.</p>
-                            ) : (
-                              <div className="overflow-x-auto">
-                                <Table>
-                                  <TableHeader>
-                                    <TableRow>
-                                      <TableHead>Venda</TableHead>
-                                      <TableHead>Data</TableHead>
-                                      <TableHead className="text-right">Valor</TableHead>
-                                      <TableHead>Método</TableHead>
-                                      <TableHead className="text-right w-24">Ações</TableHead>
-                                    </TableRow>
-                                  </TableHeader>
-                                  <TableBody>
-                                    {animalReceipts.map((r, index) => {
-                                      const sale = animalSalesTransactions.find((s) => s.id === r.saleId);
-                                      const { appointmentId: linkedId } = parseSaleObservations(sale?.observations);
-                                      const appointment = linkedId ? animalAppointments.find((a) => a.id === linkedId) : undefined;
-                                      const saleLabel = appointment
-                                        ? `${displayAppointmentType(appointment.type)} • ${appointment.vet}`
-                                        : sale
-                                          ? formatDateTime(sale.date, sale.time)
-                                          : r.description || "Venda";
-                                      return (
-                                        <TableRow key={r.id} className={cn(index % 2 === 1 && "bg-muted/30", "transition-colors")}>
-                                          <TableCell className="font-medium max-w-[180px] truncate" title={saleLabel}>{saleLabel}</TableCell>
-                                          <TableCell>{formatDateTime(r.date, r.time)}</TableCell>
-                                          <TableCell className="text-right font-bold text-emerald-600">{new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(r.amount)}</TableCell>
-                                          <TableCell>{r.paymentMethod || "-"}</TableCell>
-                                          <TableCell className="text-right">
-                                            <Button variant="ghost" size="sm" className="text-amber-700 hover:text-amber-800 hover:bg-amber-50" onClick={() => setReceiptIdToRefund(r.id)} title="Estornar pagamento">
-                                              <FaUndo className="h-4 w-4 mr-1" /> Estornar
-                                            </Button>
-                                          </TableCell>
-                                        </TableRow>
-                                      );
-                                    })}
-                                  </TableBody>
-                                </Table>
-                              </div>
-                            )}
-                          </CardContent>
-                        </Card>
-                      </div>
-
-                      <AlertDialog open={!!receiptIdToRefund} onOpenChange={(open) => !open && setReceiptIdToRefund(null)}>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle className="flex items-center gap-2 text-amber-600">
-                              <FaUndo className="h-5 w-5" /> Estornar pagamento
-                            </AlertDialogTitle>
-                            <AlertDialogDescription>
-                              O valor deste recebimento voltará a aparecer como saldo pendente na venda. Confirma o estorno?
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                            <AlertDialogAction onClick={handleConfirmEstorno} className="bg-amber-600 hover:bg-amber-700">
-                              Estornar
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
+                <TabsContent value="orcamentos" className="m-0">
+                  {patientBudgets.length === 0 ? (
+                    <div className="px-4 py-12 text-center">
+                      <p className="text-sm font-medium text-foreground">Nenhum orçamento para este paciente</p>
+                      <p className="mt-1 text-sm text-muted-foreground">Monte uma proposta em “Novo orçamento” e envie pelo WhatsApp.</p>
                     </div>
-                  </TabsContent>
-                </Tabs>
-              </CardContent>
-            </Card>
+                  ) : (
+                    <ul className="divide-y divide-border/70">
+                      {patientBudgets.map((b) => {
+                        const total = budgetNegotiatedTotal(b);
+                        const expired = isBudgetExpired(b);
+                        const closed = b.status === "converted" || b.status === "cancelled";
+                        const canConvert = !expired && !closed;
+                        const validUntil = parseLocalDate(b.date);
+                        validUntil.setDate(validUntil.getDate() + BUDGET_VALIDITY_DAYS);
+                        const validLabel = format(validUntil, "dd/MM/yyyy");
+                        const badge: Record<string, { label: string; className: string }> = {
+                          draft: { label: "Rascunho", className: "bg-muted text-muted-foreground ring-border" },
+                          approved: { label: "Aprovado", className: "bg-sky-50 text-sky-700 ring-sky-600/15" },
+                          converted: { label: "Virou venda", className: "bg-emerald-50 text-emerald-700 ring-emerald-600/15" },
+                          cancelled: { label: "Cancelado", className: "bg-muted text-muted-foreground ring-border" },
+                          expired: { label: "Vencido", className: "bg-red-50 text-red-700 ring-red-600/15" },
+                        };
+                        const st = badge[expired ? "expired" : b.status] ?? badge.draft;
+                        const names = b.items.map((it) => it.name);
+                        return (
+                          <li key={b.id} className="flex flex-col gap-2 px-3 py-3 sm:flex-row sm:items-center sm:gap-4 sm:px-4">
+                            <div className="min-w-0 flex-1">
+                              <p className={cn("break-words font-medium leading-snug text-foreground", b.status === "cancelled" && "text-muted-foreground line-through")}>
+                                {names.slice(0, 3).join(" · ")}
+                                {names.length > 3 && <span className="text-muted-foreground"> +{names.length - 3}</span>}
+                              </p>
+                              <p className="mt-0.5 text-xs text-muted-foreground">
+                                {formatDateTime(b.date)}
+                                {!closed && (expired ? ` · venceu em ${validLabel}` : ` · válido até ${validLabel}`)}
+                                {b.notes && <> · {b.notes}</>}
+                              </p>
+                            </div>
+                            <div className="flex flex-wrap items-center justify-between gap-2 sm:shrink-0 sm:justify-end">
+                              <p className="font-semibold tabular-nums text-foreground">{formatCurrencyBRL(total)}</p>
+                              <div className="flex items-center gap-1.5">
+                                <span className={cn("inline-flex items-center whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset", st.className)}>
+                                  {st.label}
+                                </span>
+                                {canConvert && (
+                                  <Button size="sm" className="h-8 font-semibold" onClick={() => openConvertModal(b)}>
+                                    Converter em venda
+                                  </Button>
+                                )}
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8"
+                                  title="Enviar orçamento por WhatsApp (com link do PDF, sem precisar anexar)"
+                                  aria-label="Enviar orçamento por WhatsApp"
+                                  onClick={() => void sendBudgetViaWhatsApp(b)}
+                                >
+                                  <SiWhatsapp className="h-4 w-4 text-[#25D366]" />
+                                </Button>
+                                <DropdownMenu modal={false}>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Mais ações do orçamento">
+                                      <MoreHorizontal className="h-4 w-4" />
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end">
+                                    {!closed && <DropdownMenuItem onClick={() => startEditBudget(b)}>Editar</DropdownMenuItem>}
+                                    {!closed && b.status !== "approved" && (
+                                      <DropdownMenuItem onClick={() => void approveBudget(b.id)}>Marcar como aprovado</DropdownMenuItem>
+                                    )}
+                                    <DropdownMenuItem onClick={() => void printBudget(b)}>Imprimir (PDF)</DropdownMenuItem>
+                                    {!closed && (
+                                      <DropdownMenuItem className="text-red-700 focus:text-red-700" onClick={() => void cancelBudget(b.id)}>
+                                        Cancelar orçamento
+                                      </DropdownMenuItem>
+                                    )}
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              </div>
+                            </div>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </TabsContent>
+              </section>
+            </Tabs>
+
+            <AlertDialog open={!!receiptIdToRefund} onOpenChange={(open) => !open && setReceiptIdToRefund(null)}>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Estornar pagamento?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    O valor deste recebimento volta a aparecer como “a receber” na venda.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Voltar</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleConfirmEstorno} className="bg-amber-600 hover:bg-amber-700">
+                    Estornar
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
 
             <Dialog open={budgetModalOpen} onOpenChange={(open) => { setBudgetModalOpen(open); if (!open) resetBudgetForm(); }}>
-              <DialogContent className="sm:max-w-3xl">
+              <DialogContent className="max-h-[92vh] min-w-0 overflow-y-auto sm:max-w-2xl">
                 <DialogHeader>
-                  <DialogTitle>{editingBudgetId ? "Editar Orçamento" : "Novo Orçamento"}</DialogTitle>
+                  <DialogTitle>{editingBudgetId ? "Editar orçamento" : "Novo orçamento"}</DialogTitle>
                   <DialogDescription>
                     {editingBudgetId
                       ? "Adicione ou remova itens e salve para atualizar a proposta existente."
@@ -3586,116 +3299,113 @@ const PatientRecordPage = () => {
                   </DialogDescription>
                 </DialogHeader>
 
-                <div className="space-y-4">
-                  {/* grid-cols-1 no celular (empilha) — antes era grid-cols-12
-                      fixo em qualquer tela, então no celular os spans (ex.:
-                      col-span-6) forçavam colunas implícitas extras, o campo
-                      ficava espremido/sobreposto e o modal inteiro passava a
-                      exigir scroll horizontal pra alcançar até os botões. */}
-                  <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 sm:items-end">
-                    <div className="sm:col-span-2">
-                      <Label>Data</Label>
-                      <Input type="date" value={budgetDate} onChange={(e)=>setBudgetDate(e.target.value)} className="h-9 bg-input border border-border rounded-md" />
-                    </div>
-                    <div className="sm:col-span-6">
-                      <Label>Item</Label>
+                <div className="min-w-0 space-y-4">
+                  {/* Itens — mesmo formato do modal de venda */}
+                  <div className="flex flex-wrap items-end gap-2">
+                    <div className="min-w-[12rem] flex-[1_1_16rem] space-y-1.5">
+                      <Label>Produto ou serviço</Label>
                       <AutocompleteSelect
                         value={budgetSelectedItemId}
                         onChange={setBudgetSelectedItemId}
-                        options={catalogItems.map(ci => ({ value: ci.id, label: `${ci.name} — ${new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(ci.price)}` }))}
-                        placeholder="Selecione um item"
-                        className="bg-input border border-border rounded-md"
+                        options={catalogItems.map(ci => ({ value: ci.id, label: `${ci.name} — ${formatCurrencyBRL(ci.price)}` }))}
+                        placeholder="Buscar no catálogo"
                       />
                     </div>
-                    <div className="sm:col-span-2">
-                      <Label>Qtd</Label>
-                      <Input type="number" value={budgetQty} onChange={(e)=>setBudgetQty(Number(e.target.value)||0)} className="h-9 bg-input border border-border rounded-md" />
+                    <div className="w-20 space-y-1.5">
+                      <Label htmlFor="budgetQty">Qtd.</Label>
+                      <Input
+                        id="budgetQty"
+                        type="number"
+                        min={1}
+                        value={budgetQty}
+                        onChange={(e)=>setBudgetQty(Number(e.target.value)||0)}
+                        onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addItemToBudget(); } }}
+                        className="h-10 rounded-lg bg-input"
+                      />
                     </div>
-                    <div className="sm:col-span-2">
-                      <Label>Preço Unitário</Label>
-                      <CurrencyInput value={budgetUnitPrice} onValueChange={setBudgetUnitPrice} className="h-9 w-full border border-border rounded-md" />
+                    <div className="w-32 space-y-1.5">
+                      <Label htmlFor="budgetPrice">Preço</Label>
+                      <CurrencyInput id="budgetPrice" value={budgetUnitPrice} onValueChange={setBudgetUnitPrice} className="h-10 w-full rounded-lg" />
                     </div>
+                    <Button type="button" variant="outline" onClick={addItemToBudget} className="h-10">
+                      <Plus className="mr-1.5 h-4 w-4" /> Adicionar
+                    </Button>
                   </div>
 
-                  <div className="flex justify-end">
-                    <Button onClick={addItemToBudget} className="h-9 px-4 w-full sm:w-auto">Adicionar</Button>
-                  </div>
-
-                  {budgetItems.length > 0 && (
-                    <div className="overflow-x-auto">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Item</TableHead>
-                            <TableHead>Tipo</TableHead>
-                            <TableHead>Qtd</TableHead>
-                            <TableHead>Preço</TableHead>
-                            <TableHead className="text-right">Subtotal</TableHead>
-                            <TableHead className="text-right">Ações</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {budgetItems.map((it, idx)=>(
-                            <TableRow key={`${it.itemId}-${idx}`}>
-                              <TableCell className="font-medium">{it.name}</TableCell>
-                              <TableCell className="capitalize">{it.type}</TableCell>
-                              <TableCell>{it.qty}</TableCell>
-                              <TableCell>{new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(it.unitPrice)}</TableCell>
-                              <TableCell className="text-right">{new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(it.qty*it.unitPrice)}</TableCell>
-                              <TableCell className="text-right">
-                                <Button variant="ghost" size="icon" onClick={()=>removeBudgetItem(it.itemId, idx)}>
-                                  <FaTrashAlt className="h-4 w-4 text-destructive" />
-                                </Button>
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                      <div className="flex justify-between mt-2 text-sm font-semibold">
-                        <span>Total:</span>
-                        <span>{new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(budgetTotal)}</span>
-                      </div>
-                    </div>
+                  {budgetItems.length > 0 ? (
+                    <ul className="divide-y divide-border/70 overflow-hidden rounded-xl border border-border">
+                      {budgetItems.map((it, idx) => (
+                        <li key={`${it.itemId}-${idx}`} className="flex items-center gap-3 px-3 py-2">
+                          <div className="min-w-0 flex-1">
+                            <p className="break-words text-sm font-medium text-foreground">{it.name}</p>
+                            <p className="text-xs text-muted-foreground">{it.qty} × {formatCurrencyBRL(it.unitPrice)}</p>
+                          </div>
+                          <span className="shrink-0 text-sm font-semibold tabular-nums">{formatCurrencyBRL(it.qty * it.unitPrice)}</span>
+                          <button
+                            type="button"
+                            onClick={() => removeBudgetItem(it.itemId, idx)}
+                            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-red-50 hover:text-red-600"
+                            aria-label={`Remover ${it.name}`}
+                          >
+                            <FaTrashAlt className="h-3.5 w-3.5" />
+                          </button>
+                        </li>
+                      ))}
+                      {(() => {
+                        // Desconto/acréscimo negociados na tela de Orçamentos continuam valendo ao editar aqui.
+                        const existing = editingBudgetId ? patientBudgets.find((b) => b.id === editingBudgetId) : undefined;
+                        const discount = existing?.discountAmount ?? 0;
+                        const surcharge = existing?.surchargeAmount ?? 0;
+                        return (
+                          <li className="space-y-0.5 bg-muted/30 px-3 py-2 text-sm">
+                            {discount > 0 && (
+                              <div className="flex justify-between text-muted-foreground">
+                                <span>Desconto</span>
+                                <span className="tabular-nums">− {formatCurrencyBRL(discount)}</span>
+                              </div>
+                            )}
+                            {surcharge > 0 && (
+                              <div className="flex justify-between text-muted-foreground">
+                                <span>Acréscimo</span>
+                                <span className="tabular-nums">+ {formatCurrencyBRL(surcharge)}</span>
+                              </div>
+                            )}
+                            <div className="flex items-baseline justify-between">
+                              <span className="font-medium text-foreground">Total</span>
+                              <span className="text-lg font-semibold tabular-nums text-foreground">
+                                {formatCurrencyBRL(Math.max(0, budgetTotal - discount + surcharge))}
+                              </span>
+                            </div>
+                          </li>
+                        );
+                      })()}
+                    </ul>
+                  ) : (
+                    <p className="rounded-xl border border-dashed border-border px-3 py-4 text-center text-sm text-muted-foreground">
+                      Nenhum item adicionado ainda.
+                    </p>
                   )}
 
-                  <div>
-                    <Label>Observações</Label>
-                    <Textarea value={budgetObservations} onChange={(e)=>setBudgetObservations(e.target.value)} className="bg-input border border-border rounded-md" />
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="col-span-2 space-y-1.5 sm:col-span-1">
+                      <Label htmlFor="budgetDate">Data</Label>
+                      <Input id="budgetDate" type="date" value={budgetDate} onChange={(e)=>setBudgetDate(e.target.value)} className="h-10 rounded-lg bg-input" />
+                    </div>
+                    <p className="col-span-2 self-end pb-2 text-xs text-muted-foreground sm:col-span-1">
+                      Válido por {BUDGET_VALIDITY_DAYS} dias a partir da data.
+                    </p>
+                    <div className="col-span-2 space-y-1.5">
+                      <Label htmlFor="budgetNotes">Observações <span className="font-normal text-muted-foreground">(opcional)</span></Label>
+                      <Textarea id="budgetNotes" rows={2} value={budgetObservations} onChange={(e)=>setBudgetObservations(e.target.value)} className="rounded-lg bg-input" />
+                    </div>
                   </div>
                 </div>
 
-                <p className="text-xs text-muted-foreground">Validade: {BUDGET_VALIDITY_DAYS} dia(s) a partir da data do orçamento.</p>
-                <DialogFooter>
+                <DialogFooter className="gap-2 sm:gap-0">
                   <Button variant="outline" onClick={()=>{ setBudgetModalOpen(false); resetBudgetForm(); }}>Cancelar</Button>
-                  <Button onClick={() => void saveBudget()} disabled={savingBudget}>
-                    {savingBudget ? "Salvando..." : editingBudgetId ? "Salvar alterações" : "Salvar Orçamento"}
+                  <Button onClick={() => void saveBudget()} disabled={savingBudget || budgetItems.length === 0} className="font-semibold">
+                    {savingBudget ? "Salvando..." : editingBudgetId ? "Salvar alterações" : "Salvar orçamento"}
                   </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-
-            <Dialog open={convertModalOpen} onOpenChange={setConvertModalOpen}>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Converter Orçamento em Venda</DialogTitle>
-                  <DialogDescription>Selecione o atendimento para criar a venda.</DialogDescription>
-                </DialogHeader>
-                <div className="space-y-3">
-                  <div>
-                    <Label>Atendimento</Label>
-                    <Select value={convertAppointmentId} onValueChange={setConvertAppointmentId}>
-                      <SelectTrigger className="bg-input border border-border rounded-md h-9"><SelectValue placeholder="Selecione" /></SelectTrigger>
-                      <SelectContent>
-                        {animalAppointments.map(a => (
-                          <SelectItem key={a.id} value={a.id}>{displayAppointmentType(a.type)} • {formatDateTime(a.date, a.time)}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <DialogFooter>
-                  <Button variant="outline" onClick={()=>setConvertModalOpen(false)}>Cancelar</Button>
-                  <Button onClick={confirmConvert} disabled={convertingBudget}>{convertingBudget ? "Convertendo..." : "Converter"}</Button>
                 </DialogFooter>
               </DialogContent>
             </Dialog>
@@ -3706,8 +3416,9 @@ const PatientRecordPage = () => {
               onClose={() => setSelectedPdvSale(null)}
               onRequestCancel={(sale) => { setSelectedPdvSale(null); setPdvSaleToCancel(sale); }}
               onRequestDelete={(sale) => { setSelectedPdvSale(null); setPdvSaleToDelete(sale); }}
+              onRequestReceive={(sale) => { setSelectedPdvSale(null); setSaleToReceive(sale); }}
               clientName={currentClient?.name}
-              clientPhone={currentClient?.phone || undefined}
+              clientPhone={currentClient?.mainPhoneContact || undefined}
               clientAddress={
                 (() => {
                   const a = currentClient?.address;
@@ -3759,7 +3470,7 @@ const PatientRecordPage = () => {
         onClose={() => setPdvSaleToCancel(null)}
         onCancelled={() => { void refetchFinancial(); }}
         clientName={currentClient?.name}
-        clientPhone={currentClient?.phone || undefined}
+        clientPhone={currentClient?.mainPhoneContact || undefined}
         animalName={currentAnimal?.name}
       />
 
@@ -3768,6 +3479,36 @@ const PatientRecordPage = () => {
         sale={pdvSaleToDelete}
         onClose={() => setPdvSaleToDelete(null)}
         onDeleted={() => { void refetchFinancial(); }}
+      />
+
+      <ReceivePaymentDialog
+        open={!!saleToReceive}
+        onOpenChange={(open) => { if (!open) setSaleToReceive(null); }}
+        sale={saleToReceive}
+        clientName={currentClient?.name}
+        animalName={currentAnimal?.name}
+        methods={pmRegistry}
+        onDone={refetchFinancial}
+      />
+
+      <ConvertBudgetDialog
+        open={!!budgetToConvert}
+        onOpenChange={(open) => { if (!open) setBudgetToConvert(null); }}
+        budget={budgetToConvert}
+        catalogItems={catalogItemsFromHook}
+        methods={pmRegistry}
+        appointments={animalAppointments.map((a) => ({
+          id: a.id,
+          label: `${displayAppointmentType(a.type)} • ${formatDateTime(a.date, a.time)}`,
+        }))}
+        defaultAppointmentId={animalAppointments.find((a) => a.date === getTodayLocalISO())?.id}
+        responsibleFor={(id) => (id ? animalAppointments.find((a) => a.id === id)?.vet || undefined : undefined)}
+        clientName={currentClient?.name}
+        animalName={currentAnimal?.name}
+        onDone={async () => {
+          await Promise.all([refetchBudgets(), refetchFinancial(), refetchCatalog()]);
+          setFinanceTab("vendas");
+        }}
       />
 
       <Dialog open={observationModalOpen} onOpenChange={setObservationModalOpen}>
@@ -4047,114 +3788,135 @@ const PatientRecordPage = () => {
         </AlertDialogContent>
       </AlertDialog>
 
-      <Dialog open={saleModalOpen} onOpenChange={setSaleModalOpen}>
-        <DialogContent className="sm:max-w-3xl transition-all duration-200">
+      <Dialog open={saleModalOpen} onOpenChange={(open) => { if (!savingSale) setSaleModalOpen(open); }}>
+        <DialogContent className="max-h-[92vh] min-w-0 overflow-y-auto sm:max-w-2xl">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <FaShoppingCart className="h-5 w-5 text-primary" /> Adicionar Venda
-            </DialogTitle>
-            <DialogDescription>Registre tudo que foi cobrado neste atendimento. A venda ficará vinculada ao atendimento e ao paciente.</DialogDescription>
+            <DialogTitle>Nova venda</DialogTitle>
+            <DialogDescription>
+              {currentAnimal && currentClient
+                ? `${currentAnimal.name} · ${currentClient.name}`
+                : "Registre o que foi cobrado no atendimento."}
+            </DialogDescription>
           </DialogHeader>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <Label>Data</Label>
-              <Input type="date" value={saleDate} onChange={(e) => setSaleDate(e.target.value)} className="h-9 bg-input border border-border rounded-md" />
-            </div>
-            <div>
-              <Label>Atendimento vinculado (opcional)</Label>
-              <Select value={saleAppointmentId || "__none__"} onValueChange={(v) => setSaleAppointmentId(v === "__none__" ? "" : v)}>
-                <SelectTrigger className="bg-input border border-border rounded-md h-9"><SelectValue placeholder="Nenhum (opcional)" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__none__">Nenhum</SelectItem>
-                  {animalAppointments.map(a => (
-                    <SelectItem key={a.id} value={a.id}>{displayAppointmentType(a.type)} • {formatDateTime(a.date, a.time)}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-5 gap-2 items-end">
-              <div className="sm:col-span-2">
-                <Label>Item</Label>
-                <AutocompleteSelect
-                  value={saleSelectedItemId}
-                  onChange={setSaleSelectedItemId}
-                  options={catalogItems.map(ci => ({ value: ci.id, label: `${ci.name} — ${new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(ci.price)}` }))}
-                  placeholder="Selecione um item"
-                  className="bg-input border border-border rounded-md"
-                />
-              </div>
-              <div>
-                <Label>Qtd</Label>
-                <Input type="number" value={saleQty} onChange={(e) => setSaleQty(Number(e.target.value) || 0)} className="h-9 bg-input border border-border rounded-md" />
-              </div>
-              <div>
-                <Label>Preço Unitário</Label>
-                <CurrencyInput value={saleUnitPrice} onValueChange={setSaleUnitPrice} className="h-9 w-full border border-border rounded-md" />
-              </div>
-              <div>
-                <Button onClick={addItemToSale} className="h-9 w-full px-4 sm:w-auto">Adicionar</Button>
-              </div>
-            </div>
-            {saleItems.length > 0 && (
-              <div className="sm:col-span-2">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Item</TableHead>
-                      <TableHead>Tipo</TableHead>
-                      <TableHead>Qtd</TableHead>
-                      <TableHead>Preço</TableHead>
-                      <TableHead className="text-right">Subtotal</TableHead>
-                      <TableHead className="text-right">Ações</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {saleItems.map((it, idx) => (
-                      <TableRow key={`${it.itemId}-${idx}`}>
-                        <TableCell className="font-medium">{it.name}</TableCell>
-                        <TableCell className="capitalize">{it.type}</TableCell>
-                        <TableCell>{it.qty}</TableCell>
-                        <TableCell>{new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(it.unitPrice)}</TableCell>
-                        <TableCell className="text-right">
-                          {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(it.qty * it.unitPrice)}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Button variant="ghost" size="icon" onClick={() => removeSaleItem(it.itemId, idx)}>
-                            <FaTrashAlt className="h-4 w-4 text-destructive" />
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-                <div className="flex justify-between mt-2 text-sm font-semibold">
-                  <span>Total:</span>
-                  <span>{new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(saleTotal)}</span>
+
+          <div className="min-w-0 space-y-5">
+            {/* Itens */}
+            <div className="space-y-2">
+              <div className="flex flex-wrap items-end gap-2">
+                <div className="min-w-[12rem] flex-[1_1_16rem] space-y-1.5">
+                  <Label>Produto ou serviço</Label>
+                  <AutocompleteSelect
+                    value={saleSelectedItemId}
+                    onChange={setSaleSelectedItemId}
+                    options={catalogItems.map(ci => ({ value: ci.id, label: `${ci.name} — ${formatCurrencyBRL(ci.price)}` }))}
+                    placeholder="Buscar no catálogo"
+                  />
                 </div>
+                <div className="w-20 space-y-1.5">
+                  <Label htmlFor="saleQty">Qtd.</Label>
+                  <Input
+                    id="saleQty"
+                    type="number"
+                    min={1}
+                    value={saleQty}
+                    onChange={(e) => setSaleQty(Number(e.target.value) || 0)}
+                    onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addItemToSale(); } }}
+                    className="h-10 rounded-lg bg-input"
+                  />
+                </div>
+                <div className="w-32 space-y-1.5">
+                  <Label htmlFor="salePrice">Preço</Label>
+                  <CurrencyInput id="salePrice" value={saleUnitPrice} onValueChange={setSaleUnitPrice} className="h-10 w-full rounded-lg" />
+                </div>
+                <Button type="button" variant="outline" onClick={addItemToSale} className="h-10">
+                  <Plus className="mr-1.5 h-4 w-4" /> Adicionar
+                </Button>
               </div>
-            )}
-            <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-2 mt-3">
-              <div>
-                <Label>Responsável</Label>
+
+              {saleItems.length > 0 ? (
+                <ul className="divide-y divide-border/70 overflow-hidden rounded-xl border border-border">
+                  {saleItems.map((it, idx) => (
+                    <li key={`${it.itemId}-${idx}`} className="flex items-center gap-3 px-3 py-2">
+                      <div className="min-w-0 flex-1">
+                        <p className="break-words text-sm font-medium text-foreground">{it.name}</p>
+                        <p className="text-xs text-muted-foreground">{it.qty} × {formatCurrencyBRL(it.unitPrice)}</p>
+                      </div>
+                      <span className="shrink-0 text-sm font-semibold tabular-nums">{formatCurrencyBRL(it.qty * it.unitPrice)}</span>
+                      <button
+                        type="button"
+                        onClick={() => removeSaleItem(it.itemId, idx)}
+                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-red-50 hover:text-red-600"
+                        aria-label={`Remover ${it.name}`}
+                      >
+                        <FaTrashAlt className="h-3.5 w-3.5" />
+                      </button>
+                    </li>
+                  ))}
+                  <li className="flex items-baseline justify-between bg-muted/30 px-3 py-2">
+                    <span className="text-sm font-medium text-foreground">Total</span>
+                    <span className="text-lg font-semibold tabular-nums text-foreground">{formatCurrencyBRL(saleTotal)}</span>
+                  </li>
+                </ul>
+              ) : (
+                <p className="rounded-xl border border-dashed border-border px-3 py-4 text-center text-sm text-muted-foreground">
+                  Nenhum item adicionado ainda.
+                </p>
+              )}
+            </div>
+
+            <PaymentChoice
+              idPrefix="prontuarioSale"
+              mode={salePayMode}
+              onModeChange={setSalePayMode}
+              method={salePaymentMethod}
+              onMethodChange={setSalePaymentMethod}
+              methods={pmRegistry}
+            />
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="relative col-span-2 space-y-1.5 sm:col-span-1">
+                <Label>Atendimento <span className="font-normal text-muted-foreground">(opcional)</span></Label>
+                <Select value={saleAppointmentId || "__none__"} onValueChange={(v) => setSaleAppointmentId(v === "__none__" ? "" : v)}>
+                  <SelectTrigger className="h-10 rounded-lg bg-input"><SelectValue placeholder="Sem vínculo" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">Sem vínculo</SelectItem>
+                    {animalAppointments.map(a => (
+                      <SelectItem key={a.id} value={a.id}>{displayAppointmentType(a.type)} • {formatDateTime(a.date, a.time)}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="col-span-2 space-y-1.5 sm:col-span-1">
+                <Label htmlFor="saleDate">Data</Label>
+                <Input id="saleDate" type="date" value={saleDate} max={getTodayLocalISO()} onChange={(e) => setSaleDate(e.target.value)} className="h-10 rounded-lg bg-input" />
+              </div>
+              <div className="col-span-2 space-y-1.5 sm:col-span-1">
+                <Label htmlFor="saleResponsible">Responsável <span className="font-normal text-muted-foreground">(opcional)</span></Label>
                 <Input
+                  id="saleResponsible"
                   value={saleResponsible}
+                  placeholder={(saleAppointmentId && animalAppointments.find(a => a.id === saleAppointmentId)?.vet) || ""}
                   onChange={(e) => setSaleResponsible(e.target.value)}
-                  className="h-9 bg-input border border-border rounded-md"
+                  className="h-10 rounded-lg bg-input"
                 />
               </div>
-              <div className="sm:col-span-2">
-                <Label>Observações</Label>
-                <Textarea
-                  value={saleObservations}
-                  onChange={(e) => setSaleObservations(e.target.value)}
-                  className="bg-input border border-border rounded-md"
-                />
+              <div className="col-span-2 space-y-1.5">
+                <Label htmlFor="saleNotes">Observações <span className="font-normal text-muted-foreground">(opcional)</span></Label>
+                <Textarea id="saleNotes" rows={2} value={saleObservations} onChange={(e) => setSaleObservations(e.target.value)} className="rounded-lg bg-input" />
               </div>
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setSaleModalOpen(false)}>Cancelar</Button>
-            <Button onClick={handleSaveSale} disabled={savingSale}>{savingSale ? "Salvando..." : "Salvar Venda"}</Button>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setSaleModalOpen(false)} disabled={savingSale}>Cancelar</Button>
+            <Button onClick={() => void handleSaveSale()} disabled={savingSale || saleItems.length === 0} className="font-semibold">
+              {savingSale && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {savingSale
+                ? "Salvando..."
+                : salePayMode === "now" && saleTotal > 0
+                  ? `Registrar e receber ${formatCurrencyBRL(saleTotal)}`
+                  : "Registrar venda"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

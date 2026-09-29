@@ -49,7 +49,9 @@ export async function fulfillSaleLines(params: {
       catalogItemId: line.catalogItemId,
       name: line.name,
       type: line.type,
-      category: line.category,
+      // Sem categoria informada, vem do catálogo — as vendas do prontuário
+      // gravavam sale_items sem categoria e o relatório por categoria ficava vazio.
+      category: line.category ?? catalogById.get(line.catalogItemId)?.category,
       quantity: qty,
       unitPrice: line.unitPrice,
       productCost: unitProduct,

@@ -44,14 +44,16 @@ export function getMonthBounds(year: number, month: number): { from: string; to:
   return { from, to };
 }
 
-function lineProductCost(item: SaleItem): number {
+/** Custo de produto embutido no item (vendas antigas, antes do almoxarifado). */
+export function lineProductCost(item: SaleItem): number {
   if (item.productCost != null) return item.productCost * item.quantity;
   // Legacy: sem split — se tem prestador, não conta como produto
   if (item.costProvider) return 0;
   return (item.cost || 0) * item.quantity;
 }
 
-function lineProviderCost(item: SaleItem): number {
+/** Repasse a prestador (lab, especialista...) do item. */
+export function lineProviderCost(item: SaleItem): number {
   if (item.providerCost != null) return item.providerCost * item.quantity;
   if (item.costProvider) return (item.cost || 0) * item.quantity;
   return 0;

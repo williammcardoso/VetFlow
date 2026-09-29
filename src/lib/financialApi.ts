@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { FinancialTransaction, OverallFinancialSummary } from "@/mockData/financial";
+import { fetchAllPages } from "@/lib/supabasePaging";
 
 const TABLE = "financial_transactions";
 
@@ -33,12 +34,32 @@ function rowToTransaction(r: Record<string, unknown>): FinancialTransaction {
 }
 
 export async function getFinancialTransactions(): Promise<FinancialTransaction[]> {
-  const { data, error } = await supabase.from(TABLE).select("*").order("date", { ascending: false }).order("time", { ascending: false });
+  // Paginado: o Supabase corta em 1000 linhas por consulta, e a tabela passa
+  // disso em poucos meses (venda + recebimento por atendimento).
+  const { data, error } = await fetchAllPages<Record<string, unknown>>((from, to) =>
+    supabase
+      .from(TABLE)
+      .select("*")
+      .order("date", { ascending: false })
+      .order("time", { ascending: false })
+      .order("id", { ascending: true })
+      .range(from, to)
+  );
   if (error) {
     console.error("[getFinancialTransactions] error", error);
     return [];
   }
-  return (data || []).map(rowToTransaction);
+  return data.map(rowToTransaction);
+}
+
+/** Um lançamento pelo id (null se não existe). */
+export async function getFinancialTransaction(id: string): Promise<FinancialTransaction | null> {
+  const { data, error } = await supabase.from(TABLE).select("*").eq("id", id).maybeSingle();
+  if (error) {
+    console.error("[getFinancialTransaction] error", error);
+    return null;
+  }
+  return data ? rowToTransaction(data as Record<string, unknown>) : null;
 }
 
 export async function getOverallFinancialSummary(): Promise<OverallFinancialSummary> {
@@ -120,17 +141,73 @@ export async function updateFinancialTransaction(id: string, changes: Partial<Fi
   return true;
 }
 
-export async function sumReceiptsForSale(saleId: string): Promise<number> {
-  const list = await getFinancialTransactions();
-  const receipts = list.filter(
-    (t) =>
-      t.type === "income" &&
-      t.category === "Recebimento" &&
-      (t.saleId === saleId || (t.description || "").includes(saleId))
-  );
-  return receipts.reduce((s, r) => s + r.amount, 0);
+/**
+ * Recebimentos (e estornos) de uma venda, do mais antigo pro mais novo.
+ * `description` cobre recebimentos antigos, gravados antes da coluna
+ * sale_id, que traziam o id da venda no texto.
+ */
+export async function listReceiptsForSale(saleId: string): Promise<FinancialTransaction[]> {
+  const { data, error } = await supabase
+    .from(TABLE)
+    .select("*")
+    .eq("type", "income")
+    .eq("category", "Recebimento")
+    .or(`sale_id.eq.${saleId},description.ilike.*${saleId}*`)
+    .order("date", { ascending: true })
+    .order("time", { ascending: true });
+  if (error) {
+    console.error("[listReceiptsForSale] error", error);
+    return [];
+  }
+  return (data || []).map((r) => rowToTransaction(r as Record<string, unknown>));
 }
 
+/**
+ * Total recebido de uma venda (estornos entram negativos e já descontam).
+ * Busca só os recebimentos daquela venda — antes carregava a tabela financeira
+ * inteira a cada baixa. `description` cobre recebimentos antigos, gravados
+ * antes da coluna sale_id, que traziam o id da venda no texto.
+ */
+export async function sumReceiptsForSale(saleId: string): Promise<number> {
+  const { data, error } = await supabase
+    .from(TABLE)
+    .select("amount")
+    .eq("type", "income")
+    .eq("category", "Recebimento")
+    .or(`sale_id.eq.${saleId},description.ilike.*${saleId}*`);
+  if (error) {
+    console.error("[sumReceiptsForSale] error", error);
+    return 0;
+  }
+  return (data || []).reduce((s, r) => s + Number((r as { amount: number }).amount || 0), 0);
+}
+
+/**
+ * Recalcula pago/status de uma venda a partir dos recebimentos dela.
+ * Comparação em centavos (0,1 + 0,2 ≠ 0,3 em ponto flutuante) e venda
+ * cancelada continua cancelada — antes, estornar um pagamento de venda
+ * cancelada a "reabria" como pendente/paga.
+ */
+async function refreshSalePaidStatus(saleId: string): Promise<void> {
+  const paid = await sumReceiptsForSale(saleId);
+  const { data, error } = await supabase.from(TABLE).select("*").eq("id", saleId).maybeSingle();
+  if (error || !data) return;
+  const sale = rowToTransaction(data as Record<string, unknown>);
+  if (sale.category !== "Venda de Produtos") return;
+  const paidCents = Math.round(paid * 100);
+  const amountCents = Math.round(sale.amount * 100);
+  const status: FinancialTransaction["status"] =
+    sale.status === "cancelled"
+      ? "cancelled"
+      : paidCents >= amountCents
+        ? "paid"
+        : paidCents > 0
+          ? "partial"
+          : "pending";
+  await updateFinancialTransaction(sale.id, { paidAmount: Math.round(paid * 100) / 100, status });
+}
+
+/** Mesma coisa que addReceipt com venda obrigatória (nome mantido por compatibilidade). */
 export async function registerReceiptWithSale(data: {
   saleId: string;
   amount: number;
@@ -140,29 +217,12 @@ export async function registerReceiptWithSale(data: {
   description?: string;
   relatedClientId?: string;
   relatedAnimalId?: string;
-}): Promise<void> {
-  await addFinancialTransaction({
-    date: data.date,
-    time: data.time,
-    description: data.description || `Recebimento da venda ${data.saleId}`,
-    type: "income",
-    amount: data.amount,
-    category: "Recebimento",
-    paymentMethod: data.paymentMethod,
-    saleId: data.saleId,
-    relatedClientId: data.relatedClientId,
-    relatedAnimalId: data.relatedAnimalId,
-  });
-  const paid = await sumReceiptsForSale(data.saleId);
-  const list = await getFinancialTransactions();
-  const sale = list.find((t) => t.id === data.saleId && t.category === "Venda de Produtos");
-  if (sale) {
-    const newStatus: FinancialTransaction["status"] =
-      paid >= sale.amount ? "paid" : paid > 0 ? "partial" : "pending";
-    await updateFinancialTransaction(sale.id, { paidAmount: paid, status: newStatus });
-  }
+  observations?: string;
+}): Promise<boolean> {
+  return addReceipt({ ...data, description: data.description || "Recebimento de venda" });
 }
 
+/** Registra um recebimento (baixa). Com saleId, atualiza pago/status da venda. Retorna se gravou. */
 export async function addReceipt(data: {
   saleId?: string;
   amount: number;
@@ -173,11 +233,14 @@ export async function addReceipt(data: {
   date?: string;
   time?: string;
   observations?: string;
-}): Promise<void> {
+}): Promise<boolean> {
   const now = new Date();
-  await addFinancialTransaction({
-    date: data.date || now.toISOString().split("T")[0],
-    time: data.time || now.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const created = await addFinancialTransaction({
+    // Data/hora LOCAIS: toISOString() é UTC — depois das 21h o recebimento
+    // caía no dia seguinte.
+    date: data.date || `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`,
+    time: data.time || `${pad(now.getHours())}:${pad(now.getMinutes())}`,
     description: data.description || "Recebimento",
     type: "income",
     amount: data.amount,
@@ -188,15 +251,9 @@ export async function addReceipt(data: {
     relatedAnimalId: data.relatedAnimalId,
     observations: data.observations,
   });
-  if (data.saleId) {
-    const paid = await sumReceiptsForSale(data.saleId);
-    const list = await getFinancialTransactions();
-    const sale = list.find((t) => t.id === data.saleId && t.category === "Venda de Produtos");
-    if (sale) {
-      const newStatus = paid >= sale.amount ? "paid" : paid > 0 ? "partial" : "pending";
-      await updateFinancialTransaction(sale.id, { paidAmount: paid, status: newStatus });
-    }
-  }
+  if (!created) return false;
+  if (data.saleId) await refreshSalePaidStatus(data.saleId);
+  return true;
 }
 
 export async function deleteFinancialTransaction(id: string): Promise<boolean> {
@@ -209,23 +266,15 @@ export async function deleteFinancialTransaction(id: string): Promise<boolean> {
 }
 
 export async function removeReceipt(receiptId: string): Promise<boolean> {
-  const list = await getFinancialTransactions();
-  const removed = list.find((t) => t.id === receiptId);
-  if (!removed) return false;
+  const { data: row } = await supabase.from(TABLE).select("*").eq("id", receiptId).maybeSingle();
+  if (!row) return false;
+  const removed = rowToTransaction(row as Record<string, unknown>);
   const saleId = removed.category === "Recebimento" && removed.saleId ? removed.saleId : undefined;
   const { error } = await supabase.from(TABLE).delete().eq("id", receiptId);
   if (error) {
     console.error("[removeReceipt] error", error);
     return false;
   }
-  if (saleId) {
-    const paid = await sumReceiptsForSale(saleId);
-    const sale = list.find((t) => t.id === saleId && t.category === "Venda de Produtos");
-    if (sale) {
-      const newStatus: FinancialTransaction["status"] =
-        paid >= sale.amount ? "paid" : paid > 0 ? "partial" : "pending";
-      await updateFinancialTransaction(sale.id, { paidAmount: paid, status: newStatus });
-    }
-  }
+  if (saleId) await refreshSalePaidStatus(saleId);
   return true;
 }

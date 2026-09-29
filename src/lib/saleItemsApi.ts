@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { chunk, fetchAllPages } from "@/lib/supabasePaging";
 
 export interface SaleItem {
   id: string;
@@ -142,18 +143,24 @@ export async function addSaleItems(
   return inserted;
 }
 
-/** Busca itens de várias vendas (ex.: relatório de repasses por prestador). */
+/**
+ * Busca itens de várias vendas (ex.: relatório de repasses por prestador).
+ * Em lotes (cada id vai na URL) e paginado (máx. 1000 linhas por consulta).
+ */
 export async function getSaleItemsBySaleIds(saleIds: string[]): Promise<SaleItem[]> {
   if (saleIds.length === 0) return [];
-  const { data, error } = await supabase
-    .from("sale_items")
-    .select("*")
-    .in("sale_id", saleIds);
-  if (error) {
-    console.error("[getSaleItemsBySaleIds] error", error);
-    return [];
+  const out: SaleItem[] = [];
+  for (const ids of chunk(Array.from(new Set(saleIds)))) {
+    const { data, error } = await fetchAllPages<Record<string, unknown>>((from, to) =>
+      supabase.from("sale_items").select("*").in("sale_id", ids).order("id").range(from, to)
+    );
+    if (error) {
+      console.error("[getSaleItemsBySaleIds] error", error);
+      return [];
+    }
+    out.push(...data.map(rowToSaleItem));
   }
-  return (data || []).map(rowToSaleItem);
+  return out;
 }
 
 export async function getSaleConsumptions(saleId: string): Promise<SaleItemConsumption[]> {
@@ -172,15 +179,18 @@ export async function getSaleConsumptionsBySaleIds(
   saleIds: string[]
 ): Promise<SaleItemConsumption[]> {
   if (saleIds.length === 0) return [];
-  const { data, error } = await supabase
-    .from("sale_item_consumptions")
-    .select("*")
-    .in("sale_id", saleIds);
-  if (error) {
-    console.error("[getSaleConsumptionsBySaleIds] error", error);
-    return [];
+  const out: SaleItemConsumption[] = [];
+  for (const ids of chunk(Array.from(new Set(saleIds)))) {
+    const { data, error } = await fetchAllPages<Record<string, unknown>>((from, to) =>
+      supabase.from("sale_item_consumptions").select("*").in("sale_id", ids).order("id").range(from, to)
+    );
+    if (error) {
+      console.error("[getSaleConsumptionsBySaleIds] error", error);
+      return [];
+    }
+    out.push(...data.map(rowToConsumption));
   }
-  return (data || []).map(rowToConsumption);
+  return out;
 }
 
 export async function deleteSaleItems(saleId: string): Promise<boolean> {
