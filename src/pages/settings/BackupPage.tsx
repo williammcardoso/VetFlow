@@ -18,40 +18,26 @@ import { TONES } from "@/components/finance/financeTheme";
 import {
   BACKUP_REMINDER_DAYS,
   BACKUP_TABLES,
+  backupFileStamp,
   buildBackup,
   cellValue,
+  downloadBackupJson,
   getLastBackupAt,
   setLastBackupAt,
   tableColumns,
   type BackupFile,
 } from "@/lib/backupApi";
+import { RestorePanel } from "@/components/backup/RestorePanel";
 import { exportRowsToXlsx } from "@/lib/xlsxExport";
-import { cn, formatDateBRForFileName, toLocalISODate } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 
 const GROUPS = Array.from(new Set(BACKUP_TABLES.map((t) => t.group)));
-
-function fileStamp(date: Date): string {
-  const hh = String(date.getHours()).padStart(2, "0");
-  const mm = String(date.getMinutes()).padStart(2, "0");
-  return `${formatDateBRForFileName(toLocalISODate(date))}-${hh}h${mm}`;
-}
-
-function downloadBlob(blob: Blob, fileName: string) {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = fileName;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
 
 const plural = (n: number, one: string, many: string) => `${n.toLocaleString("pt-BR")} ${n === 1 ? one : many}`;
 
 // Backup com um clique: busca todas as tabelas e baixa um arquivo no
-// computador. O .json é a cópia completa (dá pra restaurar); a planilha é
-// para consultar no Excel.
+// computador. O .json é a cópia completa (restaura pelo painel abaixo); a
+// planilha é para consultar no Excel.
 const BackupPage: React.FC = () => {
   const [lastAt, setLastAt] = React.useState<Date | null>(() => getLastBackupAt());
   const [backup, setBackup] = React.useState<BackupFile | null>(null);
@@ -74,9 +60,9 @@ const BackupPage: React.FC = () => {
     setRunning(kind);
     try {
       const data = await ensureBackup();
-      const stamp = fileStamp(new Date(data.criadoEm));
+      const stamp = backupFileStamp(new Date(data.criadoEm));
       if (kind === "json") {
-        downloadBlob(new Blob([JSON.stringify(data)], { type: "application/json" }), `vetflow-backup-${stamp}.json`);
+        downloadBackupJson(data, `vetflow-backup-${stamp}.json`);
       } else {
         await exportRowsToXlsx(`vetflow-backup-${stamp}`, [
           {
@@ -117,7 +103,7 @@ const BackupPage: React.FC = () => {
     <PageShell className="space-y-4 sm:space-y-5">
       <PageHeader
         title="Backup dos dados"
-        description="Cópia completa dos dados da clínica, baixada no seu computador."
+        description="Cópia completa dos dados da clínica, baixada no seu computador — e como trazer de volta."
         icon={DatabaseBackup}
         module="settings"
         breadcrumb={<>Painel &gt; Configuração &gt; Backup</>}
@@ -159,7 +145,7 @@ const BackupPage: React.FC = () => {
                 <IconChip icon={running === "json" ? Loader2 : FileJson} tone="teal" className={running === "json" ? "[&_svg]:animate-spin" : ""} />
                 <span className="min-w-0">
                   <span className="block font-semibold text-foreground">Backup completo (.json)</span>
-                  <span className="block text-xs text-muted-foreground">Tudo, inclusive as assinaturas. É o arquivo para restaurar.</span>
+                  <span className="block text-xs text-muted-foreground">Tudo, inclusive assinaturas e anexos. É o arquivo para restaurar.</span>
                 </span>
               </button>
               <button
@@ -192,7 +178,7 @@ const BackupPage: React.FC = () => {
               <div className="rounded-xl border border-border bg-muted/30 px-3 py-2.5 text-sm">
                 <p className="font-semibold text-foreground">
                   {plural(totalRecords, "registro", "registros")} em {plural(Object.keys(backup.contagem).length, "tabela", "tabelas")}
-                  {Object.keys(backup.arquivos).length > 0 && ` · ${plural(Object.keys(backup.arquivos).length, "assinatura", "assinaturas")}`}
+                  {Object.keys(backup.arquivos).length > 0 && ` · ${plural(Object.keys(backup.arquivos).length, "arquivo", "arquivos")} (assinaturas e anexos)`}
                 </p>
                 {Object.entries(backup.falhas).map(([table, msg]) => (
                   <p key={table} className="mt-1 text-xs font-medium text-rose-700">
@@ -211,7 +197,7 @@ const BackupPage: React.FC = () => {
               ["Fora deste computador", "Google Drive, OneDrive ou um pendrive. Se o computador quebrar, o backup vai junto."],
               ["Não mande por WhatsApp", "Tem CPF, telefone e endereço dos clientes (LGPD). Guarde só em lugar seu."],
               ["Uma vez por semana", `O sininho lembra quando passar de ${BACKUP_REMINDER_DAYS} dias. Pode apagar os mais antigos e manter os últimos.`],
-              ["O que não entra", "Os PDFs (saem de novo a partir dos dados) e os usuários/senhas do sistema."],
+              ["O que não entra", "Os PDFs que o sistema gera (saem de novo a partir dos dados) e os usuários/senhas do sistema."],
             ].map(([title, text]) => (
               <li key={title} className="flex gap-2.5">
                 <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-violet-600" aria-hidden />
@@ -223,6 +209,8 @@ const BackupPage: React.FC = () => {
           </ul>
         </Panel>
       </div>
+
+      <RestorePanel />
 
       <Panel title="O que vai no backup" icon={Database} tone="sky" description={backup ? "Registros encontrados agora" : "Tudo o que o sistema guarda"}>
         <div className="grid gap-4 p-4 sm:grid-cols-2 xl:grid-cols-3">
