@@ -17,7 +17,8 @@ import { addExam, updateExam, getExamById } from "@/lib/examsApi";
 import {
   fetchHemogramReferences,
   fetchBiochemicalReferences,
-  saveBiochemicalReferenceIfMissing,
+  saveBiochemicalReference,
+  restoreBiochemicalReference,
   hemogramReferences as defaultHemogramReferencesFallback,
   type BiochemicalReferenceEntry,
 } from "@/constants/examReferences";
@@ -566,6 +567,46 @@ const AddExamPage = () => {
     setBioReferenceUnit(entry?.unit || "");
   }, [selectedEnzyme, customEnzyme, animalSpecies, biochemicalReferences]);
 
+  // O mín/máx/unidade digitados no lançamento passam a valer no cadastro
+  // (Cadastros > Referências de Exame) para a espécie do paciente — se a
+  // referência estava errada, corrigir aqui já corrige lá. Só grava se
+  // mudou; o aviso tem "Desfazer" (caso o número tenha ido pro campo errado).
+  const syncBiochemicalReference = async (enzymeName: string, minText: string, maxText: string, unitText: string) => {
+    if (!animalSpecies || !enzymeName.trim()) return;
+    const min = parseBrNumber(minText);
+    const max = parseBrNumber(maxText);
+    if (min === undefined || max === undefined) return;
+    if (min > max) {
+      toast.warning(`Referência de "${enzymeName}" não foi salva no cadastro: o mínimo está maior que o máximo.`);
+      return;
+    }
+    const { saved, change } = await saveBiochemicalReference(enzymeName.trim(), animalSpecies, { min, max, unit: unitText.trim() });
+    if (!saved || !change) return;
+    setBiochemicalReferences(await fetchBiochemicalReferences());
+    const fmt = (v?: number) => (v === undefined ? "?" : String(v).replace(".", ","));
+    const especie = animalSpecies === "dog" ? "cães" : "gatos";
+    const unit = change.next.unit ? ` ${change.next.unit}` : "";
+    const hadRange = change.previous && (change.previous.min !== undefined || change.previous.max !== undefined);
+    const message = hadRange
+      ? `Referência de ${change.enzymeName} (${especie}) corrigida no cadastro: ${fmt(change.previous?.min)}–${fmt(change.previous?.max)} → ${fmt(min)}–${fmt(max)}${unit}`
+      : `Referência de ${change.enzymeName} (${especie}) salva no cadastro: ${fmt(min)}–${fmt(max)}${unit}`;
+    toast.success(message, {
+      duration: 10_000,
+      action: {
+        label: "Desfazer",
+        onClick: () =>
+          void restoreBiochemicalReference(change).then(async (ok) => {
+            if (!ok) {
+              toast.error("Não foi possível desfazer. Corrija em Cadastros > Referências de Exame.");
+              return;
+            }
+            setBiochemicalReferences(await fetchBiochemicalReferences());
+            toast.info(`Referência de ${change.enzymeName} voltou ao valor anterior.`);
+          }),
+      },
+    });
+  };
+
   // Bioquímico: adicionar/remover/atualizar
   const handleAddBiochemical = async () => {
     const enzymeName = selectedEnzyme === "Outro" ? customEnzyme.trim() : (selectedEnzyme || "").trim();
@@ -602,32 +643,7 @@ const AddExamPage = () => {
     setBioReferenceUnit(""); // Resetar
     toast.success("Analito adicionado.");
 
-    // Se esse analito (pra essa espécie) ainda não tinha referência
-    // cadastrada, o mín/máx/unidade que acabou de ser digitado vira o
-    // cadastro central automaticamente — próxima vez já vem preenchido,
-    // em qualquer aparelho, sem precisar ir em Cadastros separadamente.
-    if (animalSpecies) {
-      const min = parseBrNumber(bioMinReference);
-      const max = parseBrNumber(bioMaxReference);
-      if (min !== undefined && max !== undefined) {
-        const { saved, blob } = await saveBiochemicalReferenceIfMissing(enzymeName, animalSpecies, {
-          min,
-          max,
-          unit: bioReferenceUnit.trim(),
-        });
-        if (saved && blob?.biochemical) {
-          setBiochemicalReferences((prev) => ({
-            ...prev,
-            [enzymeName]: {
-              unit: blob.biochemical![enzymeName]?.unit || bioReferenceUnit.trim(),
-              dog: { ...prev[enzymeName]?.dog, ...blob.biochemical![enzymeName]?.dog },
-              cat: { ...prev[enzymeName]?.cat, ...blob.biochemical![enzymeName]?.cat },
-            },
-          }));
-          toast.info(`Referência de "${enzymeName}" salva em Cadastros para uso futuro.`);
-        }
-      }
-    }
+    await syncBiochemicalReference(enzymeName, bioMinReference, bioMaxReference, bioReferenceUnit);
   };
 
   const handleRemoveBiochemical = (id: string) => {
@@ -1251,6 +1267,7 @@ const AddExamPage = () => {
                               <Input
                                 value={entry.minReference || ''}
                                 onChange={(e) => handleUpdateBiochemical(entry.id, "minReference", e.target.value)}
+                                onBlur={() => void syncBiochemicalReference(entry.enzyme, entry.minReference || "", entry.maxReference || "", entry.referenceUnit || "")}
                                 className="bg-input"
                               />
                             </div>
@@ -1259,6 +1276,7 @@ const AddExamPage = () => {
                               <Input
                                 value={entry.maxReference || ''}
                                 onChange={(e) => handleUpdateBiochemical(entry.id, "maxReference", e.target.value)}
+                                onBlur={() => void syncBiochemicalReference(entry.enzyme, entry.minReference || "", entry.maxReference || "", entry.referenceUnit || "")}
                                 className="bg-input"
                               />
                             </div>
@@ -1267,6 +1285,7 @@ const AddExamPage = () => {
                               <Input
                                 value={entry.referenceUnit || ''}
                                 onChange={(e) => handleUpdateBiochemical(entry.id, "referenceUnit", e.target.value)}
+                                onBlur={() => void syncBiochemicalReference(entry.enzyme, entry.minReference || "", entry.maxReference || "", entry.referenceUnit || "")}
                                 className="bg-input"
                               />
                             </div>

@@ -81,7 +81,7 @@ export interface BiochemicalReferenceEntry {
   cat: { min?: number; max?: number };
 }
 
-interface ExamReferencesBlob {
+export interface ExamReferencesBlob {
   hemogram?: Record<string, { dog?: Partial<HemogramReferenceValue>; cat?: Partial<HemogramReferenceValue> }>;
   biochemical?: Record<string, { unit?: string; dog?: { min?: number; max?: number }; cat?: { min?: number; max?: number } }>;
 }
@@ -242,35 +242,93 @@ export async function saveExamReferences(blob: ExamReferencesBlob): Promise<bool
   return true;
 }
 
+export type BiochemicalSpeciesRef = { min?: number; max?: number };
+export interface BiochemicalReferenceChange {
+  enzymeName: string;
+  species: "dog" | "cat";
+  /** Como estava antes (undefined = não tinha referência). */
+  previous?: { min?: number; max?: number; unit?: string };
+  next: { min: number; max: number; unit: string };
+}
+
 /**
- * Chamado ao lançar um exame bioquímico: se o analito (pra essa espécie)
- * ainda não tinha referência cadastrada, o mín/máx/unidade que o usuário
- * acabou de digitar na hora vira o cadastro central automaticamente — não
- * precisa ir em Cadastros > Referências de Exame separadamente. Só grava se
- * realmente estava faltando; nunca sobrescreve um valor já cadastrado (isso
- * continua sendo feito só pela tela de Cadastros, de propósito).
+ * Compara o que foi digitado no lançamento com o cadastro. Devolve o blob
+ * novo só se algo mudou (mín., máx. ou unidade); senão, null.
  */
-export async function saveBiochemicalReferenceIfMissing(
+export function planBiochemicalReferenceUpdate(
+  blob: ExamReferencesBlob,
   enzymeName: string,
   species: "dog" | "cat",
   values: { min: number; max: number; unit: string }
-): Promise<{ saved: boolean; blob?: ExamReferencesBlob }> {
-  const blob = await fetchExamReferencesRaw();
-  const existing = blob.biochemical?.[enzymeName]?.[species];
-  if (existing && typeof existing.min === "number" && typeof existing.max === "number") {
-    return { saved: false };
-  }
-
+): { nextBlob: ExamReferencesBlob; change: BiochemicalReferenceChange } | null {
   const current = blob.biochemical?.[enzymeName] || {};
-  const nextBiochemical = {
-    ...(blob.biochemical || {}),
-    [enzymeName]: {
-      unit: current.unit || values.unit,
-      dog: species === "dog" ? { ...current.dog, min: values.min, max: values.max } : current.dog,
-      cat: species === "cat" ? { ...current.cat, min: values.min, max: values.max } : current.cat,
+  const existing = current[species];
+  const unit = values.unit.trim() || current.unit || "";
+  const same = existing?.min === values.min && existing?.max === values.max && (current.unit || "") === unit;
+  if (same) return null;
+  const nextBlob: ExamReferencesBlob = {
+    ...blob,
+    biochemical: {
+      ...(blob.biochemical || {}),
+      [enzymeName]: {
+        ...current,
+        unit,
+        [species]: { ...existing, min: values.min, max: values.max },
+      },
     },
   };
-  const nextBlob: ExamReferencesBlob = { ...blob, biochemical: nextBiochemical };
-  const ok = await saveExamReferences(nextBlob);
-  return { saved: ok, blob: ok ? nextBlob : undefined };
+  return {
+    nextBlob,
+    change: {
+      enzymeName,
+      species,
+      previous: existing || current.unit ? { min: existing?.min, max: existing?.max, unit: current.unit } : undefined,
+      next: { min: values.min, max: values.max, unit },
+    },
+  };
+}
+
+// Uma gravação por vez: dois campos corrigidos em seguida não se atropelam
+// (cada um lê o cadastro já com a correção anterior).
+let referenceQueue: Promise<unknown> = Promise.resolve();
+
+/**
+ * Chamado ao lançar/corrigir um analito no exame bioquímico: o mín/máx/
+ * unidade digitados passam a valer no cadastro central (Cadastros >
+ * Referências de Exame) para essa espécie — inclusive corrigindo uma
+ * referência que estava errada. Só grava se mudou.
+ */
+export function saveBiochemicalReference(
+  enzymeName: string,
+  species: "dog" | "cat",
+  values: { min: number; max: number; unit: string }
+): Promise<{ saved: boolean; change?: BiochemicalReferenceChange; blob?: ExamReferencesBlob }> {
+  const run = async () => {
+    const blob = await fetchExamReferencesRaw();
+    const plan = planBiochemicalReferenceUpdate(blob, enzymeName, species, values);
+    if (!plan) return { saved: false };
+    const ok = await saveExamReferences(plan.nextBlob);
+    return ok ? { saved: true, change: plan.change, blob: plan.nextBlob } : { saved: false };
+  };
+  const result = referenceQueue.then(run, run);
+  referenceQueue = result.catch(() => undefined);
+  return result;
+}
+
+/** Volta a referência para como estava antes (o "Desfazer" do aviso). */
+export function restoreBiochemicalReference(change: BiochemicalReferenceChange): Promise<boolean> {
+  const run = async () => {
+    const blob = await fetchExamReferencesRaw();
+    const current = blob.biochemical?.[change.enzymeName] || {};
+    const prevSpecies =
+      change.previous && (change.previous.min !== undefined || change.previous.max !== undefined)
+        ? { ...current[change.species], min: change.previous.min, max: change.previous.max }
+        : undefined;
+    const entry = { ...current, unit: change.previous?.unit ?? current.unit, [change.species]: prevSpecies };
+    if (!prevSpecies) delete (entry as Record<string, unknown>)[change.species];
+    return saveExamReferences({ ...blob, biochemical: { ...(blob.biochemical || {}), [change.enzymeName]: entry } });
+  };
+  const result = referenceQueue.then(run, run);
+  referenceQueue = result.catch(() => undefined);
+  return result;
 }
