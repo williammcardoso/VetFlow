@@ -65,6 +65,7 @@ const PurchasesPage = lazyPage(() => import("./pages/stock/PurchasesPage"));
 const AccessProfilePage = lazyPage(() => import("./pages/settings/AccessProfilePage"));
 const AppearanceSettingsPage = lazyPage(() => import("./pages/settings/AppearanceSettingsPage"));
 const BackupPage = lazyPage(() => import("./pages/settings/BackupPage"));
+const NotificationSettingsPage = lazyPage(() => import("./pages/settings/NotificationSettingsPage"));
 
 const queryClient = new QueryClient();
 
@@ -309,6 +310,7 @@ const App = () => {
                       }
                     />
                     <Route path="/settings/appearance" element={<AppearanceSettingsPage />} />
+                    <Route path="/settings/notifications" element={<NotificationSettingsPage />} />
                     <Route
                       path="/settings/backup"
                       element={

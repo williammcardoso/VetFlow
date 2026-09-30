@@ -245,3 +245,18 @@ export async function unmarkReminderResolved(key: string): Promise<void> {
   const { error } = await supabase.from("reminder_log").delete().eq("reminder_key", key).eq("channel", RESOLVED_CHANNEL);
   if (error) console.warn("[reminder_log] não desfez no banco", error.message);
 }
+
+/**
+ * Anotação que vai para as Observações do prontuário quando o lembrete é
+ * dado como resolvido com "o que foi conversado".
+ */
+export function buildResolutionNote(
+  item: Pick<ReminderItem, "kind" | "dueDate" | "vaccine" | "appointmentType" | "appointmentDate">,
+  note: string
+): string {
+  const what =
+    item.kind === "vacina"
+      ? `Vacina ${item.vaccine || ""} prevista para ${formatBR(item.dueDate)}`.replace(/\s+/g, " ")
+      : `Acompanhamento previsto para ${formatBR(item.dueDate)} (após ${item.appointmentType} de ${formatBR(item.appointmentDate)})`;
+  return `${what} — contato com o tutor: ${note.trim()}`;
+}

@@ -5,8 +5,11 @@ import { useClientsList } from "@/hooks/useSupabaseClients";
 import { useAuth } from "@/contexts/AuthContext";
 import { openWhatsAppChat } from "@/lib/whatsappShare";
 import { mockCompanySettings } from "@/mockData/settings";
+import { addObservation, removeObservation } from "@/lib/observationsApi";
+import { displayAppointmentType } from "@/lib/appointmentDisplay";
 import {
   buildReminderMessage,
+  buildResolutionNote,
   getReminderStatus,
   markReminderResolved,
   markReminderSent,
@@ -84,29 +87,47 @@ export function useReminderSender() {
   );
 
   const unresolve = useCallback(
-    async (item: ReminderItem) => {
+    async (item: ReminderItem, observationId?: string) => {
       patch((prev) => {
         const next = { ...prev.resolved };
         delete next[item.key];
         return { ...prev, resolved: next };
       });
       await unmarkReminderResolved(item.key);
+      if (observationId) await removeObservation(observationId);
     },
     [patch]
   );
 
-  /** Dá como resolvido (sai da lista e do sininho), com "Desfazer" no aviso. */
+  /**
+   * Dá como resolvido (sai da lista e do sininho), com "Desfazer" no aviso.
+   * `note` (o que foi conversado) vira uma observação no prontuário do pet.
+   */
   const resolve = useCallback(
-    async (item: ReminderItem) => {
+    async (item: ReminderItem, note?: string) => {
       const info = animalMap.get(item.animalId);
       const at = new Date().toISOString();
       patch((prev) => ({ ...prev, resolved: { ...prev.resolved, [item.key]: at } }));
       // Grava antes de oferecer o "Desfazer" (senão o desfazer pode chegar ao banco antes da gravação).
       await markReminderResolved(item, { clientId: info?.client.id, sentBy: session?.username });
+      let observationId: string | undefined;
+      if (note?.trim()) {
+        const created = await addObservation(item.animalId, {
+          observation: buildResolutionNote(
+            { ...item, appointmentType: displayAppointmentType(item.appointmentType as never) || item.appointmentType },
+            note
+          ),
+          displayAsAlert: false,
+          createdBy: session?.username,
+        });
+        observationId = created?.id;
+        if (!created) toast.warning("Resolvido, mas a anotação não foi salva no prontuário. Tente registrar lá.");
+      }
       const pet = info?.animal.name ?? "Pet";
-      toast.success(`${item.kind === "vacina" ? "Vacina" : "Acompanhamento"} de ${pet} resolvido.`, {
-        action: { label: "Desfazer", onClick: () => void unresolve(item) },
-      });
+      toast.success(
+        `${item.kind === "vacina" ? "Vacina" : "Acompanhamento"} de ${pet} resolvido${observationId ? " e anotado no prontuário" : ""}.`,
+        { duration: 10_000, action: { label: "Desfazer", onClick: () => void unresolve(item, observationId) } }
+      );
     },
     [animalMap, patch, session?.username, unresolve]
   );

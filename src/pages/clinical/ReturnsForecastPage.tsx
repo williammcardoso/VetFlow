@@ -4,6 +4,7 @@ import { AlertTriangle, CalendarDays, Check, CheckCircle2, MessageCircle, Rotate
 import { SiWhatsapp } from "react-icons/si";
 import { useAppointments } from "@/hooks/useAppointments";
 import { reminderPhone, useReminderSender } from "@/hooks/useReminderSender";
+import { ResolveReminderDialog } from "@/components/reminders/ResolveReminderDialog";
 import { PageShell } from "@/components/saas/PageShell";
 import { PageHeader } from "@/components/saas/PageHeader";
 import { KpiStrip } from "@/components/saas/KpiStrip";
@@ -44,6 +45,7 @@ export default function ReturnsForecastPage() {
   const { appointments, loading: loadingAppointments } = useAppointments();
   const { animalMap, sent, resolved, remind, resolve, unresolve } = useReminderSender();
   const [period, setPeriod] = useState<PeriodFilter>("30");
+  const [resolving, setResolving] = useState<ReminderItem | null>(null);
 
   const everything = useMemo(() => buildReminders(appointments), [appointments]);
   const all = useMemo(() => everything.filter((r) => !resolved[r.key]), [everything, resolved]);
@@ -169,7 +171,7 @@ export default function ReturnsForecastPage() {
                   variant="outline"
                   className="h-9 gap-1.5 border-emerald-200 font-semibold text-emerald-800 hover:bg-emerald-50"
                   title="Já resolvido (ex.: acompanhamento feito pelo WhatsApp) — sai da lista sem mandar lembrete"
-                  onClick={() => void resolve(item)}
+                  onClick={() => setResolving(item)}
                 >
                   <Check className="h-4 w-4" aria-hidden />
                   Resolvido
@@ -312,6 +314,13 @@ export default function ReturnsForecastPage() {
           registrado depois. Se já resolveu de outro jeito (ex.: conversa pelo WhatsApp), toque em <strong>Resolvido</strong>.
         </span>
       </p>
+      <ResolveReminderDialog
+        item={resolving}
+        petName={resolving ? animalMap.get(resolving.animalId)?.animal.name : undefined}
+        clientName={resolving ? animalMap.get(resolving.animalId)?.client.name : undefined}
+        onClose={() => setResolving(null)}
+        onConfirm={(item, note) => resolve(item, note)}
+      />
     </PageShell>
   );
 }

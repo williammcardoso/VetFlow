@@ -40,6 +40,7 @@ import {
   Palette,
   KeyRound,
   DatabaseBackup,
+  BellRing,
   Clock,
   ExternalLink,
 } from "lucide-react";
@@ -117,6 +118,7 @@ const navItemsBase: NavItem[] = [
       { title: "Usuários", href: "/settings/user", icon: Users },
       { title: "Usuarios do sistema", href: "/settings/users-management", icon: Shield, requireRole: "admin" },
       { title: "Aparência", href: "/settings/appearance", icon: Palette },
+      { title: "Notificações", href: "/settings/notifications", icon: BellRing },
       { title: "Perfil de Acesso", href: "/settings/access-profile", icon: KeyRound, requireRole: "admin" },
       { title: "Backup dos dados", href: "/settings/backup", icon: DatabaseBackup, requireRole: "admin" },
     ],

@@ -1,6 +1,5 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
 import {
   Bell,
   CalendarClock,
@@ -9,8 +8,8 @@ import {
   ChevronRight,
   Clock,
   DatabaseBackup,
-  PackageMinus,
   RotateCcw,
+  Settings2,
   Syringe,
   type LucideIcon,
 } from "lucide-react";
@@ -19,17 +18,11 @@ import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { IconChip } from "@/components/finance/FinanceUI";
 import { TONES } from "@/components/finance/financeTheme";
-import { useSchedulesList } from "@/hooks/useSchedules";
-import { useAppointments } from "@/hooks/useAppointments";
-import { useReminderSender } from "@/hooks/useReminderSender";
-import { useAuth } from "@/contexts/AuthContext";
-import { getCatalog } from "@/lib/catalogApi";
-import { BACKUP_REMINDER_DAYS, daysSinceLastBackup } from "@/lib/backupApi";
-import { buildReminders } from "@/lib/reminders";
+import { ResolveReminderDialog } from "@/components/reminders/ResolveReminderDialog";
+import { useAppNotifications } from "@/hooks/useAppNotifications";
+import type { ReminderItem } from "@/lib/reminders";
 import {
-  buildNotifications,
   loadReadMap,
-  LOW_STOCK_QTY,
   saveReadMap,
   SECTION_HREF,
   SECTION_LABELS,
@@ -39,12 +32,11 @@ import {
 } from "@/lib/notifications";
 import { cn } from "@/lib/utils";
 
-const KIND_ICON: Record<NotificationKind, LucideIcon> = {
+export const KIND_ICON: Record<NotificationKind, LucideIcon> = {
   agenda: Clock,
   pendente: CalendarClock,
   vacina: Syringe,
   retorno: RotateCcw,
-  estoque: PackageMinus,
   backup: DatabaseBackup,
 };
 
@@ -53,40 +45,13 @@ const PER_SECTION = 3;
 
 // Sininho: cada item é um horário, um pet ou um aviso de verdade. Clicar
 // marca como lido e abre a tela; o item some sozinho quando se resolve.
+// O que aparece aqui é escolhido em Configuração › Notificações.
 export function NotificationBell() {
   const navigate = useNavigate();
-  const { session } = useAuth();
   const [open, setOpen] = React.useState(false);
   const [readMap, setReadMap] = React.useState<Record<string, number>>(() => loadReadMap());
-  // Recalcula o "em 25 min" a cada minuto.
-  const [now, setNow] = React.useState(() => new Date());
-  React.useEffect(() => {
-    const t = window.setInterval(() => setNow(new Date()), 60_000);
-    return () => window.clearInterval(t);
-  }, []);
-
-  const { data: schedules = [] } = useSchedulesList();
-  const { appointments } = useAppointments();
-  const { data: catalog = [] } = useQuery({ queryKey: ["catalog"], queryFn: getCatalog });
-  const { animalMap, sent, resolved, remind, resolve } = useReminderSender();
-
-  const notifications = React.useMemo(() => {
-    const pets = new Map<string, { animal: string; client: string }>();
-    for (const [id, info] of animalMap) pets.set(id, { animal: info.animal.name, client: info.client.name });
-    return buildNotifications({
-      now,
-      schedules,
-      reminders: buildReminders(appointments, now),
-      sent,
-      resolved,
-      pets,
-      lowStock: catalog
-        .filter((it) => it.type === "product" && it.active !== false && typeof it.stockQty === "number" && it.stockQty <= LOW_STOCK_QTY)
-        .map((it) => ({ id: it.id, name: it.name, qty: it.stockQty ?? 0 })),
-      backupDays: session?.role === "admin" ? daysSinceLastBackup(now) : undefined,
-      backupReminderDays: BACKUP_REMINDER_DAYS,
-    });
-  }, [now, schedules, appointments, sent, resolved, animalMap, catalog, session?.role]);
+  const [resolving, setResolving] = React.useState<ReminderItem | null>(null);
+  const { visible: notifications, animalMap, remind, resolve } = useAppNotifications();
 
   const unread = notifications.filter((n) => !readMap[n.id]).length;
 
@@ -188,7 +153,14 @@ export function NotificationBell() {
                               }
                             : undefined
                         }
-                        onResolve={n.reminder ? () => void resolve(n.reminder!) : undefined}
+                        onResolve={
+                          n.reminder
+                            ? () => {
+                                setOpen(false);
+                                setResolving(n.reminder!);
+                              }
+                            : undefined
+                        }
                       />
                     ))}
                   </ul>
@@ -197,10 +169,28 @@ export function NotificationBell() {
             })}
           </div>
         )}
-        <p className="border-t border-border bg-muted/30 px-3 py-2 text-[11px] text-muted-foreground">
-          Clicar marca como lido. Cada aviso some sozinho quando é resolvido — ou toque em ✓ para dar baixa.
+        <p className="flex items-start justify-between gap-3 border-t border-border bg-muted/30 px-3 py-2 text-[11px] text-muted-foreground">
+          <span className="min-w-0">Clicar marca como lido. Cada aviso some sozinho quando é resolvido — ou toque em ✓ para dar baixa.</span>
+          <button
+            type="button"
+            className="inline-flex shrink-0 items-center gap-1 font-semibold text-primary hover:underline"
+            onClick={() => {
+              setOpen(false);
+              navigate("/settings/notifications");
+            }}
+          >
+            <Settings2 className="h-3.5 w-3.5" aria-hidden />
+            Configurar
+          </button>
         </p>
       </PopoverContent>
+      <ResolveReminderDialog
+        item={resolving}
+        petName={resolving ? animalMap.get(resolving.animalId)?.animal.name : undefined}
+        clientName={resolving ? animalMap.get(resolving.animalId)?.client.name : undefined}
+        onClose={() => setResolving(null)}
+        onConfirm={(item, note) => resolve(item, note)}
+      />
     </Popover>
   );
 }

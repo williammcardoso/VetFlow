@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { buildNotifications, loadReadMap, saveReadMap, type NotificationInput } from "./notifications";
+import { buildNotifications, filterByPrefs, loadReadMap, saveReadMap, type NotificationInput } from "./notifications";
+import { DEFAULT_NOTIFICATION_PREFS, normalizePrefs } from "./notificationPrefs";
 import type { ReminderItem } from "./reminders";
 import type { ScheduleUI } from "./schedulesApi";
 
@@ -27,7 +28,6 @@ const base = (p: Partial<NotificationInput> = {}): NotificationInput => ({
   reminders: [],
   sent: {},
   pets: new Map([["a1", { animal: "Mel", client: "Ana" }]]),
-  lowStock: [],
   backupDays: undefined,
   backupReminderDays: 7,
   ...p,
@@ -59,13 +59,22 @@ describe("sininho: um item por coisa real", () => {
     const list = buildNotifications(base({ reminders: [rem({ key: "k1" }), rem({ key: "k2" })], resolved: { k1: "2026-09-30T09:00:00Z" } }));
     expect(list.map((n) => n.id)).toEqual(["lembrete:k2"]);
   });
-  it("estoque baixo é um item só, que acende de novo se a quantidade mudar", () => {
-    const low = [
-      { id: "1", name: "Dipirona", qty: 2 },
-      { id: "2", name: "Seringa", qty: 0 },
-    ];
-    const [n] = buildNotifications(base({ lowStock: low }));
-    expect(n).toMatchObject({ id: "estoque:2", title: "2 produtos com estoque baixo", detail: "Seringa (0), Dipirona (2)" });
+  it("prazos: antecedência e atrasados vêm das preferências", () => {
+    const reminders = [rem({ key: "perto", daysUntil: 2 }), rem({ key: "longe", daysUntil: 10 }), rem({ key: "velho", daysUntil: -20 })];
+    const ids = (prefs: { diasAntes: number; atrasadosAte: number }) => buildNotifications(base({ reminders, prefs })).map((n) => n.id).sort();
+    expect(ids({ diasAntes: 7, atrasadosAte: 30 })).toEqual(["lembrete:perto", "lembrete:velho"]);
+    expect(ids({ diasAntes: 15, atrasadosAte: 0 })).toEqual(["lembrete:longe", "lembrete:perto"]);
+  });
+  it("tipo desligado sai do sininho", () => {
+    const list = buildNotifications(
+      base({ schedules: [sched({ id: "s1", time: "10:30" })], reminders: [rem({ key: "v", kind: "vacina" }), rem({ key: "r", kind: "retorno" })] })
+    );
+    const off = filterByPrefs(list, { ...DEFAULT_NOTIFICATION_PREFS, agenda: false, vacinas: false });
+    expect(off.map((n) => n.kind)).toEqual(["retorno"]);
+  });
+  it("preferência salva torta é corrigida", () => {
+    expect(normalizePrefs({ agenda: false, diasAntes: "99", atrasadosAte: -5 })).toEqual({ ...DEFAULT_NOTIFICATION_PREFS, agenda: false, diasAntes: 60, atrasadosAte: 0 });
+    expect(normalizePrefs(null)).toEqual(DEFAULT_NOTIFICATION_PREFS);
   });
   it("backup só para admin e só quando atrasado", () => {
     expect(buildNotifications(base({ backupDays: undefined }))).toHaveLength(0);

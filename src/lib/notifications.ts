@@ -1,17 +1,18 @@
 import type { ReminderItem } from "@/lib/reminders";
+import { DEFAULT_NOTIFICATION_PREFS, type NotificationPrefs } from "@/lib/notificationPrefs";
 import type { ScheduleUI } from "@/lib/schedulesApi";
 
 // Sininho do cabeçalho: cada notificação é UM item de verdade (um horário,
 // um pet, um lembrete), com id próprio. Regras:
 // - clicar marca como lido (continua na lista, sem o ponto azul);
 // - o item some sozinho quando se resolve (horário passou/atendido,
-//   lembrete enviado, dado como resolvido ou dose aplicada, backup feito,
-//   estoque reposto);
+//   lembrete enviado, dado como resolvido ou dose aplicada, backup feito);
 // - item novo (id novo) acende de novo, mesmo que outro parecido já tenha
-//   sido lido.
+//   sido lido;
+// - cada tipo pode ser desligado em Configuração › Notificações.
 
-export type NotificationSection = "agora" | "lembretes" | "estoque" | "sistema";
-export type NotificationKind = "agenda" | "pendente" | "vacina" | "retorno" | "estoque" | "backup";
+export type NotificationSection = "agora" | "lembretes" | "sistema";
+export type NotificationKind = "agenda" | "pendente" | "vacina" | "retorno" | "backup";
 export type NotificationTone = "sky" | "amber" | "rose" | "orange" | "violet";
 
 export interface AppNotification {
@@ -31,24 +32,31 @@ export interface AppNotification {
 export const SECTION_LABELS: Record<NotificationSection, string> = {
   agora: "Agora",
   lembretes: "Vacinas e acompanhamentos",
-  estoque: "Estoque",
   sistema: "Sistema",
 };
 
-export const SECTION_ORDER: NotificationSection[] = ["agora", "lembretes", "estoque", "sistema"];
+export const SECTION_ORDER: NotificationSection[] = ["agora", "lembretes", "sistema"];
 
 /** Link do "ver todos" de cada seção. */
 export const SECTION_HREF: Record<NotificationSection, string> = {
   agora: "/agenda",
   lembretes: "/clinical/returns-forecast",
-  estoque: "/stock/products-services",
   sistema: "/settings/backup",
 };
 
-/** Lembrete atrasado há mais que isso sai do sininho (continua na tela de lembretes). */
-export const REMINDER_OVERDUE_DAYS = 30;
-export const REMINDER_AHEAD_DAYS = 7;
-export const LOW_STOCK_QTY = 5;
+/** Qual preferência liga/desliga cada tipo. */
+export const KIND_PREF: Record<NotificationKind, keyof NotificationPrefs> = {
+  agenda: "agenda",
+  pendente: "pendentes",
+  vacina: "vacinas",
+  retorno: "acompanhamentos",
+  backup: "backup",
+};
+
+/** Tira os tipos desligados nas preferências. */
+export function filterByPrefs(list: AppNotification[], prefs: NotificationPrefs): AppNotification[] {
+  return list.filter((n) => prefs[KIND_PREF[n.kind]] !== false);
+}
 
 export interface NotificationInput {
   now: Date;
@@ -60,7 +68,8 @@ export interface NotificationInput {
   resolved?: Record<string, string>;
   /** animal id → nome do pet e do tutor. */
   pets: Map<string, { animal: string; client: string }>;
-  lowStock: Array<{ id: string; name: string; qty: number }>;
+  /** Prazos (dias antes / atrasados até). Os liga/desliga são aplicados por filterByPrefs. */
+  prefs?: Pick<NotificationPrefs, "diasAntes" | "atrasadosAte">;
   /** Dias desde o último backup; null = nunca; undefined = não é admin (não mostra). */
   backupDays?: number | null;
   backupReminderDays: number;
@@ -144,9 +153,11 @@ export function buildNotifications(input: NotificationInput): AppNotification[] 
     }
   }
 
-  // Lembretes: da semana e atrasados recentes, ainda não avisados.
+  // Lembretes: dos próximos dias e atrasados recentes, ainda não avisados nem resolvidos.
+  const ahead = input.prefs?.diasAntes ?? DEFAULT_NOTIFICATION_PREFS.diasAntes;
+  const overdue = input.prefs?.atrasadosAte ?? DEFAULT_NOTIFICATION_PREFS.atrasadosAte;
   const reminders = input.reminders
-    .filter((r) => r.daysUntil <= REMINDER_AHEAD_DAYS && r.daysUntil >= -REMINDER_OVERDUE_DAYS && !input.sent[r.key] && !input.resolved?.[r.key])
+    .filter((r) => r.daysUntil <= ahead && r.daysUntil >= -overdue && !input.sent[r.key] && !input.resolved?.[r.key])
     // Mais perto da data primeiro (hoje, amanhã, atrasado há 2 dias...), o antigo por último.
     .sort((a, b) => Math.abs(a.daysUntil) - Math.abs(b.daysUntil) || a.daysUntil - b.daysUntil);
   for (const r of reminders) {
@@ -162,21 +173,6 @@ export function buildNotifications(input: NotificationInput): AppNotification[] 
       when: reminderWhen(r.daysUntil),
       href: "/clinical/returns-forecast",
       reminder: r,
-    });
-  }
-
-  // Estoque: um item só (lista longa vira ruído); acende de novo se a quantidade de produtos mudar.
-  if (input.lowStock.length > 0) {
-    const sorted = [...input.lowStock].sort((a, b) => a.qty - b.qty);
-    const names = sorted.slice(0, 3).map((p) => `${p.name} (${p.qty})`);
-    out.push({
-      id: `estoque:${input.lowStock.length}`,
-      section: "estoque",
-      kind: "estoque",
-      tone: "orange",
-      title: `${plural(input.lowStock.length, "produto", "produtos")} com estoque baixo`,
-      detail: sorted.length > 3 ? `${names.join(", ")} e mais ${sorted.length - 3}` : names.join(", "),
-      href: "/stock/products-services",
     });
   }
 

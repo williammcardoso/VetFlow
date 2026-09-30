@@ -104,3 +104,15 @@ describe("enviado × resolvido", () => {
     expect(status.resolved).toEqual({ b: "2026-09-30T11:00:00Z" });
   });
 });
+
+describe("anotação no prontuário", () => {
+  it("diz o que era, quando, e o que foi conversado", async () => {
+    const { buildResolutionNote } = await import("./reminders");
+    expect(
+      buildResolutionNote({ kind: "retorno", dueDate: "2026-09-26", appointmentType: "Consulta", appointmentDate: "2026-09-19" }, "  Está bem, sem coceira. ")
+    ).toBe("Acompanhamento previsto para 26/09/2026 (após Consulta de 19/09/2026) — contato com o tutor: Está bem, sem coceira.");
+    expect(
+      buildResolutionNote({ kind: "vacina", vaccine: "V10", dueDate: "2026-10-01", appointmentType: "Vacina", appointmentDate: "2025-10-01" }, "Vacinou em outro local.")
+    ).toBe("Vacina V10 prevista para 01/10/2026 — contato com o tutor: Vacinou em outro local.");
+  });
+});
