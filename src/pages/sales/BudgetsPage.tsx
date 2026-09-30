@@ -581,7 +581,7 @@ const BudgetsPage: React.FC = () => {
                   <TableRow key={b.id}>
                     <TableCell>
                       {formatDateTime(b.date)}
-                      <SentBadge type="budget" id={b.id} className="mt-0.5 flex" />
+                      <SentBadge type="budget" id={b.id} className="mt-0.5 flex whitespace-nowrap" />
                     </TableCell>
                     <TableCell>
                       {b.clientId && client ? (

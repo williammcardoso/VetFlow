@@ -69,6 +69,11 @@ import { fulfillSaleLines } from "@/lib/saleFulfillment";
 import { fetchHemogramReferences } from "@/constants/examReferences";
 import { customExamSummary, examDisplayName } from "@/lib/customExam";
 import { SentBadge } from "@/components/SentBadge";
+
+// Selo "Enviado N×": no celular vai na linha da data (à direita); do sm em
+// diante fica no canto inferior direito do cartão, na altura dessa linha —
+// sem criar linha extra.
+const SENT_BADGE_POS = "ml-auto sm:absolute sm:bottom-[18px] sm:right-4 sm:ml-0";
 import type { SendTrack } from "@/lib/sendLog";
 import { mockCompanySettings } from "@/mockData/settings";
 import AutocompleteSelect from "@/components/AutocompleteSelect";
@@ -1908,7 +1913,7 @@ const PatientRecordPage = () => {
                         <div
                           key={exam.id}
                           className={cn(
-                            "rounded-xl border bg-white p-3 sm:p-4 transition-all duration-200",
+                            "relative rounded-xl border bg-white p-3 sm:p-4 transition-all duration-200",
                             "hover:shadow-lg hover:-translate-y-0.5",
                             "border-[hsl(var(--vf-clinical))]/35 hover:shadow-[hsl(var(--vf-clinical))]/20"
                           )}
@@ -1921,7 +1926,7 @@ const PatientRecordPage = () => {
                                 <FaFlask className="h-5 w-5 sm:h-6 sm:w-6 text-vf-clinical" />
                               </div>
 
-                              <div className="min-w-0">
+                              <div className="min-w-0 flex-1">
                                 <div className="text-base font-bold text-vf-clinical break-words lg:truncate">{title}</div>
                                 <div className="mt-1 text-sm text-muted-foreground leading-relaxed line-clamp-2">
                                   {subtitle}
@@ -1936,8 +1941,8 @@ const PatientRecordPage = () => {
                                     <FaStethoscope className="h-4 w-4 shrink-0" />
                                     <span className="min-w-0 break-words">{exam.vet}</span>
                                   </span>
+                                  <SentBadge type="exam" id={exam.id} className={SENT_BADGE_POS} />
                                 </div>
-                                <SentBadge type="exam" id={exam.id} className="mt-1" />
                               </div>
                             </div>
 
@@ -2577,7 +2582,7 @@ const PatientRecordPage = () => {
                         <div
                           key={doc.id}
                           className={cn(
-                            "rounded-xl border bg-white p-3 sm:p-4 transition-all duration-200",
+                            "relative rounded-xl border bg-white p-3 sm:p-4 transition-all duration-200",
                             "hover:shadow-lg hover:-translate-y-0.5",
                             "border-slate-200 hover:shadow-slate-200/60"
                           )}
@@ -2589,7 +2594,7 @@ const PatientRecordPage = () => {
                               <div className="h-10 w-10 sm:h-12 sm:w-12 shrink-0 rounded-2xl bg-slate-50/70 flex items-center justify-center">
                                 <FaFileAlt className="h-5 w-5 sm:h-6 sm:w-6 text-slate-600" />
                               </div>
-                              <div className="min-w-0">
+                              <div className="min-w-0 flex-1">
                                 <div className="flex flex-wrap items-center gap-x-2 text-base font-bold text-slate-900">
                                   <span className="min-w-0 break-words lg:truncate">{doc.name}</span>
                                   {doc.source === "editor" && (
@@ -2601,8 +2606,8 @@ const PatientRecordPage = () => {
                                     <Calendar className="h-4 w-4 shrink-0 text-muted-foreground" />
                                     {formatDateTime(doc.date, doc.time)}
                                   </span>
+                                  <SentBadge type="document" id={doc.id} className={SENT_BADGE_POS} />
                                 </div>
-                                <SentBadge type="document" id={doc.id} className="mt-1" />
                               </div>
                             </div>
                             <div className="flex flex-wrap items-center justify-end gap-1 border-t border-border/60 pt-2 sm:shrink-0 sm:flex-nowrap sm:gap-2 sm:border-0 sm:pt-0">
@@ -2778,7 +2783,7 @@ const PatientRecordPage = () => {
                         <div
                           key={rx.id}
                           className={cn(
-                            "rounded-xl border bg-white p-3 sm:p-4 transition-all duration-200",
+                            "relative rounded-xl border bg-white p-3 sm:p-4 transition-all duration-200",
                             "hover:shadow-lg hover:-translate-y-0.5",
                             borderClass
                           )}
@@ -2789,7 +2794,7 @@ const PatientRecordPage = () => {
                                 <FaPrescriptionBottleAlt className={cn("h-5 w-5 sm:h-6 sm:w-6", iconClass)} />
                               </div>
 
-                              <div className="min-w-0">
+                              <div className="min-w-0 flex-1">
                                 <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                                   <span className={cn(
                                     "inline-flex shrink-0 items-center rounded-full px-2.5 py-1 text-[11px] font-extrabold tracking-wider sm:tracking-widest",
@@ -2802,6 +2807,7 @@ const PatientRecordPage = () => {
                                     {label}
                                   </span>
                                   <span className="text-xs text-muted-foreground">{formatDateTime(rx.date, rx.time)}</span>
+                                  <SentBadge type="prescription" id={rx.id} className={SENT_BADGE_POS} />
                                 </div>
 
                                 <div className={cn("mt-2 break-words text-[15px] sm:text-base font-semibold leading-snug", iconClass)}>
@@ -2812,7 +2818,6 @@ const PatientRecordPage = () => {
                                     {subtitle}
                                   </div>
                                 ) : null}
-                                <SentBadge type="prescription" id={rx.id} className="mt-1" />
                               </div>
                             </div>
 
@@ -3053,7 +3058,7 @@ const PatientRecordPage = () => {
                         <div
                           key={obs.id}
                           className={cn(
-                            "rounded-xl border bg-white p-3 sm:p-4 transition-all duration-200",
+                            "relative rounded-xl border bg-white p-3 sm:p-4 transition-all duration-200",
                             "hover:shadow-lg hover:-translate-y-0.5",
                             isAlert
                               ? "border-red-200 hover:shadow-red-200/60"
@@ -3369,8 +3374,8 @@ const PatientRecordPage = () => {
                                     <span className="font-medium text-emerald-700">desconto {formatCurrencyBRL(b.discountAmount ?? 0)}</span>
                                   )}
                                   {b.notes && <span className="italic">{b.notes}</span>}
+                                  <SentBadge type="budget" id={b.id} />
                                 </div>
-                                <SentBadge type="budget" id={b.id} className="mt-0.5" />
                               </div>
                               <div className="flex flex-wrap items-center justify-between gap-2 sm:shrink-0 sm:justify-end">
                                 <p className="text-base font-bold tabular-nums text-foreground">{formatCurrencyBRL(total)}</p>

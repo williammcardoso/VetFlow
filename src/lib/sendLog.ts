@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { getSession } from "@/lib/authApi";
 
 // Contador de envios ao tutor (WhatsApp): quantas vezes cada exame, receita,
 // orçamento ou documento foi mandado e quando foi a última. Tabela
@@ -64,13 +65,8 @@ export async function getSendLog(): Promise<Record<string, SendStat>> {
   return mergeSendEvents(error ? [] : ((data ?? []) as Array<{ item_key: string; sent_at: string }>), local);
 }
 
-function currentUsername(): string | null {
-  try {
-    return (JSON.parse(sessionStorage.getItem("vf:auth:session") || "null") as { username?: string } | null)?.username ?? null;
-  } catch {
-    return null;
-  }
-}
+// Mesma sessão do login (lê os dois lugares — "manter conectado" usa o localStorage).
+const currentUsername = (): string | null => getSession()?.username ?? null;
 
 /** Registra um envio (banco + aparelho) e avisa as telas abertas. */
 export async function recordSend(track: SendTrack): Promise<void> {
