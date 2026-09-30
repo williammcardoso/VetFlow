@@ -69,6 +69,7 @@ const navItemsBase: NavItem[] = [
       { title: "PDV", href: "/sales/pos", icon: DollarSign },
       { title: "Orçamentos", href: "/sales/budgets", icon: FileText },
       { title: "Recebimentos", href: "/sales/receipts", icon: Receipt },
+      { title: "Serviços e preços", href: "/stock/products-services", icon: Package },
       { title: "Lista de Preços", href: "/sales/price-list", icon: Tag },
       { title: "Relatório de vendas", href: "/sales/reports", icon: FileText },
     ],
@@ -81,17 +82,9 @@ const navItemsBase: NavItem[] = [
       { title: "Visão geral", href: "/financial", icon: Wallet },
       { title: "Relatórios", href: "/financial/reports", icon: FileText },
       { title: "Fechamento 50/50", href: "/financial/monthly-closing", icon: Scale },
+      { title: "Compras do almoxarifado", href: "/stock/purchases", icon: ShoppingCart },
       { title: "Clientes financeiros", href: "/sales/client-financial", icon: Users },
       { title: "Formas de pagamento", href: "/financial/payment-methods", icon: CreditCard },
-    ],
-  },
-  {
-    title: "Estoque",
-    icon: Package,
-    section: "Estoque",
-    subItems: [
-      { title: "Catálogo", href: "/stock/products-services", icon: Package },
-      { title: "Compras", href: "/stock/purchases", icon: ShoppingCart },
     ],
   },
   {

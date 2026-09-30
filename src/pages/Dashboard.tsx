@@ -1,6 +1,4 @@
 import { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { getCatalog as getCatalogApi } from "@/lib/catalogApi";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -21,10 +19,8 @@ import { SiWhatsapp } from "react-icons/si";
 import { sendAppointmentReminderViaWhatsApp } from "@/lib/whatsappShare";
 import {
   LayoutDashboard,
-  AlertTriangle,
   PawPrint,
   ShoppingCart,
-  Package,
   Stethoscope,
   Clock3,
   BarChart3,
@@ -48,7 +44,6 @@ const Dashboard = () => {
   const { data: schedules = [] } = useSchedulesList();
   const { update } = useScheduleMutations();
   const { appointments: allAppointments } = useAppointments();
-  const { data: catalogItems = [] } = useQuery({ queryKey: ["catalog"], queryFn: getCatalogApi });
   const now = new Date();
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
   const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
@@ -117,9 +112,6 @@ const Dashboard = () => {
     );
   }).length;
 
-  const lowStockCount = catalogItems.filter(
-    (it) => it.type === "product" && typeof it.stockQty === "number" && it.stockQty <= 5
-  ).length;
 
   const totalAnimals = (dbClients || []).reduce((acc, c) => acc + (c.animals?.length || 0), 0);
 
@@ -234,7 +226,6 @@ const Dashboard = () => {
       <DashboardStatusStrip
         attendedToday={appointmentsToday}
         weeklyAlerts={returnsThisWeek.length + vaccinesThisWeek.length}
-        lowStockCount={lowStockCount}
       />
 
       <Card className="rounded-2xl vf-surface-card vf-tone-clinical p-4 sm:p-5">
@@ -245,7 +236,7 @@ const Dashboard = () => {
           <BarChart3 className="h-[18px] w-[18px] text-vf-clinical" />
         </div>
 
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
           <Link
             to="/clinical/appointments-report?period=this_month"
             className="block min-h-[152px] rounded-2xl border border-emerald-200/80 bg-emerald-50/50 p-[18px] transition-all duration-200 hover:-translate-y-1 hover:border-emerald-400/70 hover:shadow-md"
@@ -293,19 +284,6 @@ const Dashboard = () => {
             <p className="mt-1.5 line-clamp-2 text-sm text-muted-foreground">Produção clínica nas últimas 24h. Ver relatório.</p>
           </Link>
 
-          <Link
-            to="/stock/products-services"
-            className="block min-h-[152px] rounded-2xl border border-amber-200/80 bg-amber-50/55 p-[18px] transition-all duration-200 hover:-translate-y-1 hover:border-amber-400/70 hover:shadow-md"
-          >
-            <div className="flex items-start justify-between gap-3">
-              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Estoque crítico</p>
-              <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-100 text-amber-800">
-                <AlertTriangle className="h-6 w-6" />
-              </span>
-            </div>
-            <p className="mt-2 text-4xl font-semibold tracking-tight text-amber-700">{lowStockCount}</p>
-            <p className="mt-1.5 line-clamp-2 text-sm text-muted-foreground">Itens com reposição operacional urgente.</p>
-          </Link>
         </div>
       </Card>
 
@@ -512,16 +490,16 @@ const Dashboard = () => {
             </Link>
 
             <Link
-              to="/stock/products-services"
-              className="group flex h-full min-h-[104px] rounded-xl border border-amber-300/80 bg-amber-50/65 p-4 transition-all duration-200 hover:-translate-y-1 hover:border-amber-500 hover:shadow-md"
+              to="/clinical/returns-forecast"
+              className="group flex h-full min-h-[104px] rounded-xl border border-orange-300/80 bg-orange-50/65 p-4 transition-all duration-200 hover:-translate-y-1 hover:border-orange-500 hover:shadow-md"
             >
               <div className="flex w-full items-start gap-2.5">
-                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-800">
-                  <Package className="h-6 w-6" />
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-orange-100 text-orange-700">
+                  <RotateCcw className="h-6 w-6" />
                 </span>
                 <div className="min-w-0">
-                  <p className="text-base font-semibold leading-tight text-foreground">Ver estoque</p>
-                  <p className="mt-0.5 line-clamp-2 text-sm leading-snug text-muted-foreground">Reposição e itens críticos.</p>
+                  <p className="text-base font-semibold leading-tight text-foreground">Vacinas e acompanhamentos</p>
+                  <p className="mt-0.5 line-clamp-2 text-sm leading-snug text-muted-foreground">Avisar tutores pelo WhatsApp.</p>
                 </div>
               </div>
             </Link>

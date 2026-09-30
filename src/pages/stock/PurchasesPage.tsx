@@ -605,11 +605,11 @@ const PurchasesPage: React.FC = () => {
   return (
     <PageShell>
       <PageHeader
-        title="Compras de Estoque"
+        title="Compras do almoxarifado"
         description="Lista de compras do Almoxarifado (Agropecuária) — o custo daqui entra no Fechamento 50/50 do mês."
         icon={ShoppingBag}
         module="stock"
-        breadcrumb={<>Painel &gt; Estoque &gt; Compras</>}
+        breadcrumb={<>Painel &gt; Financeiro &gt; Compras do almoxarifado</>}
       />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">

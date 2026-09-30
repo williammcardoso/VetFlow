@@ -304,11 +304,11 @@ const ProductsServicesPage: React.FC = () => {
   return (
     <PageShell>
       <PageHeader
-        title="Produtos e Serviços"
-        description="Gerencie o catálogo de produtos e serviços com atualização rápida de preços e estoque."
+        title="Serviços e preços"
+        description="Preço e custo de cada serviço (e dos insumos usados nele) — é daqui que saem a venda e o 50/50."
         icon={PackageSearch}
         module="stock"
-        breadcrumb={<>Painel &gt; Estoque &gt; Produtos e Serviços</>}
+        breadcrumb={<>Painel &gt; Comercial &gt; Serviços e preços</>}
         actions={
           <div className="flex items-center gap-2">
             <select
