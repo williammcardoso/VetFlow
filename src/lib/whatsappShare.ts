@@ -1,3 +1,4 @@
+import { recordSend, type SendTrack } from "@/lib/sendLog";
 import { toast } from "sonner";
 import { persistPdf, downloadPdf } from "@/lib/pdfExport";
 // `export let` atualizado por getCompanySettings() na abertura do app —
@@ -82,11 +83,13 @@ export async function sendPdfViaWhatsApp(opts: {
    * mensagem). Sem isso, usa o `title` e a data. O nome da clínica entra no
    * fim da descrição automaticamente. */
   preview?: { title?: string; description?: string };
-}): Promise<void> {
+  /** Registra o envio no contador "Enviado 2×" do item (exame, receita...). */
+  track?: SendTrack;
+}): Promise<boolean> {
   const num = normalizeBrazilPhone(opts.phone);
   if (!num) {
     toast.error("Este cliente não tem um telefone válido cadastrado. Atualize o telefone no cadastro do cliente para enviar por WhatsApp.");
-    return;
+    return false;
   }
 
   const buildMsg = (link?: string) => {
@@ -118,6 +121,8 @@ export async function sendPdfViaWhatsApp(opts: {
   if (pdfUrl) {
     window.open(`https://api.whatsapp.com/send?phone=${num}&text=${buildMsg(pdfUrl)}`, "_blank");
     toast.success("WhatsApp aberto com o link do documento.");
+    if (opts.track) void recordSend(opts.track);
+    return true;
   } else {
     // Não deu pra subir o PDF pro storage (ver console — [persistPdf] loga o motivo).
     // Cai pro download local, mas isso não é "sucesso equivalente" ao link, então
@@ -127,5 +132,7 @@ export async function sendPdfViaWhatsApp(opts: {
     await downloadPdf({ blob: opts.blob, fileName: opts.fileName, persist: false });
     window.open(`https://api.whatsapp.com/send?phone=${num}&text=${buildMsg()}`, "_blank");
     toast.warning("Não consegui gerar o link do PDF agora — baixei o arquivo, anexe manualmente no WhatsApp que abriu.");
+    if (opts.track) void recordSend(opts.track);
+    return true;
   }
 }

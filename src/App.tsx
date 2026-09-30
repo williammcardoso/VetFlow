@@ -29,6 +29,7 @@ const SpeciesPage = lazyPage(() => import("./pages/registrations/SpeciesPage"));
 const BreedsPage = lazyPage(() => import("./pages/registrations/BreedsPage"));
 const CoatTypesPage = lazyPage(() => import("./pages/registrations/CoatTypesPage"));
 const ExamReferencesPage = lazyPage(() => import("./pages/registrations/ExamReferencesPage"));
+const ExamTemplatesPage = lazyPage(() => import("./pages/registrations/ExamTemplatesPage"));
 const CompanySettingsPage = lazyPage(() => import("./pages/settings/CompanySettingsPage"));
 const AgendaAvailabilityPage = lazyPage(() => import("./pages/settings/AgendaAvailabilityPage"));
 const UserSettingsPage = lazyPage(() => import("./pages/settings/UserSettingsPage"));
@@ -276,6 +277,7 @@ const App = () => {
                     <Route path="/registrations/breeds" element={<BreedsPage />} />
                     <Route path="/registrations/coat-types" element={<CoatTypesPage />} />
                     <Route path="/registrations/exam-references" element={<ExamReferencesPage />} />
+                    <Route path="/registrations/exam-templates" element={<ExamTemplatesPage />} />
                     <Route path="/registrations/appointment-types" element={<AppointmentTypesPage />} />
                     <Route path="/registrations/vaccines" element={<VaccinesPage />} />
                     <Route path="/registrations/exams" element={<ExamsPage />} />

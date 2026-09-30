@@ -42,6 +42,7 @@ export const BACKUP_TABLES: BackupTable[] = [
   { table: "agenda_weekly_hours", label: "Horários da agenda pública", group: "Agenda", key: "weekday" },
   { table: "agenda_exceptions", label: "Exceções da agenda", group: "Agenda" },
   { table: "reminder_log", label: "Lembretes enviados (vacinas e acompanhamentos)", group: "Agenda", optional: true },
+  { table: "send_log", label: "Envios ao tutor (WhatsApp)", group: "Documentos", optional: true },
   { table: "budgets", label: "Orçamentos", group: "Vendas e financeiro" },
   { table: "budget_items", label: "Itens dos orçamentos", group: "Vendas e financeiro" },
   { table: "financial_transactions", label: "Vendas, recebimentos e despesas", group: "Vendas e financeiro" },

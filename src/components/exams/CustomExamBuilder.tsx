@@ -21,7 +21,16 @@ const ADD_ORDER: BlockKind[] = ["analito", "texto", "referencia", "secao"];
 
 // Monta o laudo de qualquer exame em blocos (tipo "Outro", Urinálise,
 // Fezes...). O formato vira modelo ao salvar o exame (lib/customExam).
-export function CustomExamBuilder({ blocks, onChange }: { blocks: CustomExamBlock[]; onChange: (blocks: CustomExamBlock[]) => void }) {
+export function CustomExamBuilder({
+  blocks,
+  onChange,
+  templateMode,
+}: {
+  blocks: CustomExamBlock[];
+  onChange: (blocks: CustomExamBlock[]) => void;
+  /** Editando um MODELO (Cadastros): sem resultado nem texto da conclusão — só o formato. */
+  templateMode?: boolean;
+}) {
   const lastAddedRef = React.useRef<string | null>(null);
 
   const update = (id: string, patch: Partial<CustomExamBlock>) =>
@@ -69,7 +78,7 @@ export function CustomExamBuilder({ blocks, onChange }: { blocks: CustomExamBloc
               <div className="flex min-w-0 items-center gap-2">
                 <IconChip icon={meta.icon} tone={meta.tone} size="sm" />
                 <span className={cn("truncate text-xs font-semibold uppercase tracking-wide", t.label)}>{meta.label}</span>
-                {block.kind === "analito" && <StatusBadge block={block} />}
+                {block.kind === "analito" && !templateMode && <StatusBadge block={block} />}
               </div>
               <div className="flex shrink-0 items-center">
                 <Button type="button" variant="ghost" size="icon" className="h-7 w-7" disabled={index === 0} onClick={() => move(index, -1)} aria-label="Subir bloco">
@@ -94,12 +103,14 @@ export function CustomExamBuilder({ blocks, onChange }: { blocks: CustomExamBloc
 
             {block.kind === "analito" && (
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 xl:grid-cols-12">
-                <Field label="Analito" className="col-span-2 xl:col-span-3">
+                <Field label="Analito" className={cn("col-span-2", templateMode ? "xl:col-span-4" : "xl:col-span-3")}>
                   <Input value={block.name} placeholder="Ex.: Reticulócitos absolutos" onChange={(e) => update(block.id, { name: e.target.value })} className="bg-input" />
                 </Field>
-                <Field label="Resultado" className="xl:col-span-2">
-                  <Input value={block.result} placeholder="Valor" onChange={(e) => update(block.id, { result: e.target.value })} className="bg-input font-semibold" />
-                </Field>
+                {!templateMode && (
+                  <Field label="Resultado" className="xl:col-span-2">
+                    <Input value={block.result} placeholder="Valor" onChange={(e) => update(block.id, { result: e.target.value })} className="bg-input font-semibold" />
+                  </Field>
+                )}
                 <Field label="Unidade" className="xl:col-span-2">
                   <Input value={block.unit || ""} placeholder="Ex.: /µL" onChange={(e) => update(block.id, { unit: e.target.value })} className="bg-input" />
                 </Field>
@@ -130,6 +141,9 @@ export function CustomExamBuilder({ blocks, onChange }: { blocks: CustomExamBloc
                     className="bg-input"
                   />
                 </Field>
+                {block.kind === "texto" && templateMode ? (
+                  <p className="text-xs text-muted-foreground">O texto (ex.: a conclusão) é escrito em cada exame.</p>
+                ) : (
                 <Field label={block.kind === "texto" ? "Texto" : "Valores (uma linha por faixa)"}>
                   <Textarea
                     value={block.text}
@@ -143,6 +157,7 @@ export function CustomExamBuilder({ blocks, onChange }: { blocks: CustomExamBloc
                     className="bg-input"
                   />
                 </Field>
+                )}
               </div>
             )}
 

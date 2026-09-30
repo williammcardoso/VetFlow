@@ -41,6 +41,7 @@ import {
   KeyRound,
   DatabaseBackup,
   BellRing,
+  LayoutTemplate,
   Clock,
   ExternalLink,
 } from "lucide-react";
@@ -98,6 +99,7 @@ const navItemsBase: NavItem[] = [
       { title: "Vacinas", href: "/registrations/vaccines", icon: ClipboardList },
       { title: "Exames", href: "/registrations/exams", icon: ClipboardList },
       { title: "Referências de exames", href: "/registrations/exam-references", icon: ClipboardList },
+      { title: "Modelos de exame", href: "/registrations/exam-templates", icon: LayoutTemplate },
       { title: "Editor de documento (livre)", href: "/registrations/document-model", icon: FileText },
       { title: "Biblioteca de Documentos (modelos oficiais)", href: "/registrations/document-library", icon: BookOpen },
     ],

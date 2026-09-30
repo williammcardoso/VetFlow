@@ -68,6 +68,8 @@ import * as financialApi from "@/lib/financialApi";
 import { fulfillSaleLines } from "@/lib/saleFulfillment";
 import { fetchHemogramReferences } from "@/constants/examReferences";
 import { customExamSummary, examDisplayName } from "@/lib/customExam";
+import { SentBadge } from "@/components/SentBadge";
+import type { SendTrack } from "@/lib/sendLog";
 import { mockCompanySettings } from "@/mockData/settings";
 import AutocompleteSelect from "@/components/AutocompleteSelect";
 import CurrencyInput from "@/components/CurrencyInput";
@@ -864,6 +866,7 @@ const PatientRecordPage = () => {
         blob,
         fileName: `${slugifyFileName("orcamento", b.animalName || currentAnimal?.name, formatDateBRForFileName(b.date))}.pdf`,
         folder: "budgets",
+        track: { type: "budget", id: b.id, animalId: currentAnimal?.id },
         title: "Orçamento",
         intro: `Olá! Segue o orçamento de *${b.animalName || currentAnimal?.name || "seu pet"}*.`,
         dateLabel: formatDateTime(b.date),
@@ -933,6 +936,7 @@ const PatientRecordPage = () => {
     intro: string;
     dateLabel: string;
     preview?: { title?: string; description?: string };
+    track?: SendTrack;
   }) => sendPdfViaWhatsAppShared({ ...opts, phone: currentClient?.mainPhoneContact });
 
   // ADDED: Navegar para a edição do animal
@@ -1933,6 +1937,7 @@ const PatientRecordPage = () => {
                                     <span className="min-w-0 break-words">{exam.vet}</span>
                                   </span>
                                 </div>
+                                <SentBadge type="exam" id={exam.id} className="mt-1" />
                               </div>
                             </div>
 
@@ -2228,6 +2233,7 @@ const PatientRecordPage = () => {
                                       blob,
                                       fileName: `${slugifyFileName("laudo", examDisplayName(exam), currentAnimal.name, formatDateBRForFileName(exam.date))}.pdf`,
                                       folder: "exams",
+                                      track: { type: "exam", id: exam.id, animalId: currentAnimal.id },
                                       title: `Resultado de Exame — ${examDisplayName(exam)}`,
                                       intro: `Olá! Segue o resultado do exame *${examDisplayName(exam)}* de *${currentAnimal.name}*.`,
                                       dateLabel: formatDateTime(exam.date, exam.time),
@@ -2552,6 +2558,7 @@ const PatientRecordPage = () => {
                           await sendPdfViaWhatsApp({
                             blob,
                             fileName: `${slugifyFileName(doc.name)}.pdf`,
+                            track: { type: "document", id: doc.id, animalId: currentAnimal?.id },
                             folder: "documents/generated",
                             title: doc.name,
                             intro: `Olá! Segue o documento *${doc.name}* de *${currentAnimal.name}*.`,
@@ -2595,6 +2602,7 @@ const PatientRecordPage = () => {
                                     {formatDateTime(doc.date, doc.time)}
                                   </span>
                                 </div>
+                                <SentBadge type="document" id={doc.id} className="mt-1" />
                               </div>
                             </div>
                             <div className="flex flex-wrap items-center justify-end gap-1 border-t border-border/60 pt-2 sm:shrink-0 sm:flex-nowrap sm:gap-2 sm:border-0 sm:pt-0">
@@ -2804,6 +2812,7 @@ const PatientRecordPage = () => {
                                     {subtitle}
                                   </div>
                                 ) : null}
+                                <SentBadge type="prescription" id={rx.id} className="mt-1" />
                               </div>
                             </div>
 
@@ -2947,6 +2956,7 @@ const PatientRecordPage = () => {
                                     blob,
                                     fileName: `${slugifyFileName("receita", currentAnimal.name, rx.date ? formatDateBRForFileName(rx.date) : "sem-data")}.pdf`,
                                     folder: "prescriptions",
+                                    track: { type: "prescription", id: rx.id, animalId: currentAnimal.id },
                                     title: "Receita Veterinária",
                                     intro: `Olá! Segue a receita de *${currentAnimal.name}*.`,
                                     dateLabel: formatDateTime(rx.date, rx.time),
@@ -3360,6 +3370,7 @@ const PatientRecordPage = () => {
                                   )}
                                   {b.notes && <span className="italic">{b.notes}</span>}
                                 </div>
+                                <SentBadge type="budget" id={b.id} className="mt-0.5" />
                               </div>
                               <div className="flex flex-wrap items-center justify-between gap-2 sm:shrink-0 sm:justify-end">
                                 <p className="text-base font-bold tabular-nums text-foreground">{formatCurrencyBRL(total)}</p>

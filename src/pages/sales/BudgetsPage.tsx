@@ -26,6 +26,7 @@ import { SectionCard } from "@/components/saas/SectionCard";
 import { DataTableFrame } from "@/components/saas/DataTableFrame";
 import { ArrowLeft, FileText, Filter, Sparkles, CheckCircle2, Ban, Trash2, Printer, Plus, Pencil } from "lucide-react";
 import { SiWhatsapp } from "react-icons/si";
+import { SentBadge } from "@/components/SentBadge";
 import { renderPdf, openPdf } from "@/lib/pdfExport";
 import { sendPdfViaWhatsApp } from "@/lib/whatsappShare";
 import { useCurrentUserProfile } from "@/hooks/useCurrentUserProfile";
@@ -296,6 +297,7 @@ const BudgetsPage: React.FC = () => {
         blob,
         fileName: `${slugifyFileName("orcamento", b.animalName, formatDateBRForFileName(b.date))}.pdf`,
         folder: "budgets",
+        track: { type: "budget", id: b.id, animalId: b.animalId },
         title: "Orçamento",
         intro: `Olá! Segue o orçamento de *${b.animalName || "seu pet"}*.`,
         dateLabel: formatDateTime(b.date),
@@ -577,7 +579,10 @@ const BudgetsPage: React.FC = () => {
                 const petLabel = animal?.name || b.animalName || "-";
                 return (
                   <TableRow key={b.id}>
-                    <TableCell>{formatDateTime(b.date)}</TableCell>
+                    <TableCell>
+                      {formatDateTime(b.date)}
+                      <SentBadge type="budget" id={b.id} className="mt-0.5 flex" />
+                    </TableCell>
                     <TableCell>
                       {b.clientId && client ? (
                         <Link
