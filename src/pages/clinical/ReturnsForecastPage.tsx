@@ -1,11 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { AlertTriangle, CalendarDays, CheckCircle2, MessageCircle, RotateCcw, Syringe } from "lucide-react";
 import { SiWhatsapp } from "react-icons/si";
-import { toast } from "sonner";
 import { useAppointments } from "@/hooks/useAppointments";
-import { useClientsList } from "@/hooks/useSupabaseClients";
-import { useAuth } from "@/contexts/AuthContext";
+import { reminderPhone, useReminderSender } from "@/hooks/useReminderSender";
 import { PageShell } from "@/components/saas/PageShell";
 import { PageHeader } from "@/components/saas/PageHeader";
 import { KpiStrip } from "@/components/saas/KpiStrip";
@@ -15,17 +13,8 @@ import { speciesIcon, speciesTone } from "@/components/clients/clientVisuals";
 import { Button } from "@/components/ui/button";
 import { getPatientRecordPath } from "@/utils/patientDisplayId";
 import { displayAppointmentType } from "@/lib/appointmentDisplay";
-import { openWhatsAppChat } from "@/lib/whatsappShare";
-import { mockCompanySettings } from "@/mockData/settings";
 import { cn } from "@/lib/utils";
-import {
-  buildReminderMessage,
-  buildReminders,
-  getSentReminders,
-  markReminderSent,
-  type ReminderItem,
-} from "@/lib/reminders";
-import type { Animal, Client } from "@/types/client";
+import { buildReminders, type ReminderItem } from "@/lib/reminders";
 
 type PeriodFilter = "7" | "30" | "90" | "all" | "overdue";
 
@@ -40,12 +29,6 @@ const formatBR = (iso: string) => {
   const [y, m, d] = iso.split("-");
   return `${d}/${m}/${y}`;
 };
-const phoneOf = (client?: Client) => {
-  const main = (client?.mainPhoneContact || "").replace(/\D/g, "");
-  if (main.length >= 10) return client?.mainPhoneContact;
-  const second = (client?.secondaryPhoneContact || "").replace(/\D/g, "");
-  return second.length >= 10 ? client?.secondaryPhoneContact : undefined;
-};
 
 function urgency(daysUntil: number): { label: string; tone: Tone } {
   if (daysUntil < 0) return { label: `atrasado há ${Math.abs(daysUntil)} ${Math.abs(daysUntil) === 1 ? "dia" : "dias"}`, tone: "rose" };
@@ -58,24 +41,8 @@ function urgency(daysUntil: number): { label: string; tone: Tone } {
 // toque (mensagem pronta), marcando quem já foi avisado.
 export default function ReturnsForecastPage() {
   const { appointments, loading: loadingAppointments } = useAppointments();
-  const { data: dbClients } = useClientsList();
-  const { session } = useAuth();
+  const { animalMap, sent, remind } = useReminderSender();
   const [period, setPeriod] = useState<PeriodFilter>("30");
-  const [sent, setSent] = useState<Record<string, string>>({});
-
-  useEffect(() => {
-    let alive = true;
-    void getSentReminders().then((map) => alive && setSent(map));
-    return () => {
-      alive = false;
-    };
-  }, []);
-
-  const animalMap = useMemo(() => {
-    const map = new Map<string, { animal: Animal; client: Client }>();
-    for (const client of dbClients || []) for (const animal of client.animals || []) map.set(animal.id, { animal, client });
-    return map;
-  }, [dbClients]);
 
   const all = useMemo(() => buildReminders(appointments), [appointments]);
   const overdueCount = all.filter((r) => r.daysUntil < 0).length;
@@ -89,29 +56,6 @@ export default function ReturnsForecastPage() {
   const vacinas = visible.filter((r) => r.kind === "vacina");
   const sentCount = visible.filter((r) => sent[r.key]).length;
   const periodText = period === "overdue" ? "atrasados" : period === "all" ? "a partir de hoje" : `nos próximos ${period} dias`;
-
-  const remind = async (item: ReminderItem) => {
-    const info = animalMap.get(item.animalId);
-    const phone = phoneOf(info?.client);
-    if (!phone) {
-      toast.error("Este cliente não tem telefone cadastrado. Atualize o cadastro para mandar o lembrete.");
-      return;
-    }
-    openWhatsAppChat(
-      phone,
-      buildReminderMessage({
-        kind: item.kind,
-        clientName: info?.client.name ?? "",
-        animalName: info?.animal.name ?? "seu pet",
-        dueDate: item.dueDate,
-        daysUntil: item.daysUntil,
-        vaccine: item.vaccine,
-        clinicName: mockCompanySettings.companyName,
-      })
-    );
-    const sentAt = await markReminderSent(item, { clientId: info?.client.id, sentBy: session?.username });
-    setSent((prev) => ({ ...prev, [item.key]: sentAt }));
-  };
 
   function renderList(items: ReminderItem[], empty: string) {
     if (loadingAppointments && items.length === 0) {
@@ -147,7 +91,7 @@ export default function ReturnsForecastPage() {
           const Species = speciesIcon(info?.animal.species);
           const u = urgency(item.daysUntil);
           const sentAt = sent[item.key];
-          const hasPhone = Boolean(phoneOf(info?.client));
+          const hasPhone = Boolean(reminderPhone(info?.client));
           return (
             <li key={item.key} className="flex flex-col gap-2 px-3 py-3 sm:flex-row sm:items-center sm:gap-3 sm:px-4">
               <div className="flex min-w-0 flex-1 items-start gap-3">

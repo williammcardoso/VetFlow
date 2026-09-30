@@ -11,17 +11,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Bell, HelpCircle, PanelLeft, PanelRight, Settings, LogOut } from "lucide-react";
+import { HelpCircle, PanelLeft, PanelRight, Settings, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useSchedulesList } from "@/hooks/useSchedules";
-import { useAppointments } from "@/hooks/useAppointments";
-import { getCatalog } from "@/mockData/catalog";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCurrentUserProfile } from "@/hooks/useCurrentUserProfile";
 import UserAvatarDisplay from "@/components/UserAvatarDisplay";
-import { BACKUP_REMINDER_DAYS, daysSinceLastBackup } from "@/lib/backupApi";
-import { buildReminders } from "@/lib/reminders";
+import { NotificationBell } from "@/components/NotificationBell";
 
 interface HeaderProps {
   onToggleMobileSidebar: () => void;
@@ -39,103 +35,6 @@ const Header: React.FC<HeaderProps> = ({
   const navigate = useNavigate();
   const { session, signOut } = useAuth();
   const { profile } = useCurrentUserProfile();
-
-  const { data: schedules = [] } = useSchedulesList();
-  const { appointments } = useAppointments();
-  const [dismissedNotifications, setDismissedNotifications] = React.useState<string[]>(() => {
-    try {
-      return JSON.parse(localStorage.getItem("vf_notifications_dismissed") || "[]");
-    } catch {
-      return [];
-    }
-  });
-
-  const notifications = React.useMemo(() => {
-    const now = new Date();
-    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
-    const normalizeStatus = (value: unknown) => {
-      const raw = String(value ?? "scheduled").toLowerCase().trim();
-      if (raw === "agendado") return "scheduled";
-      if (raw === "em atendimento") return "in_progress";
-      if (raw === "atendido") return "attended";
-      if (raw === "não atendido" || raw === "nao atendido") return "no_show";
-      if (raw === "cancelado") return "cancelled";
-      return raw;
-    };
-    const toDateTime = (s: { date: Date; time: string }) => {
-      const d = new Date(s.date);
-      const [h = 0, m = 0] = (s.time || "00:00").split(":").map(Number);
-      d.setHours(h, m, 0, 0);
-      return d;
-    };
-    const lowStockCount = getCatalog().filter((it) => it.type === "product" && (it.stockQty ?? 0) <= 5).length;
-    const upcoming2h = schedules.filter((s) => {
-      const status = normalizeStatus(s.status);
-      if (status !== "scheduled" && status !== "in_progress") return false;
-      const date = toDateTime(s);
-      const diff = date.getTime() - now.getTime();
-      return diff >= 0 && diff <= 2 * 60 * 60 * 1000;
-    }).length;
-    const unattended = schedules.filter((s) => {
-      const status = normalizeStatus(s.status);
-      const date = toDateTime(s);
-      return date >= startOfToday && date < now && (status === "scheduled" || status === "in_progress");
-    }).length;
-    // Mesma regra da tela de lembretes: ignora o que já foi resolvido.
-    const upcomingFollowUps = buildReminders(appointments, now).filter((r) => r.daysUntil >= 0 && r.daysUntil <= 7).length;
-
-    // Backup atrasado (só admin faz backup). O id muda por semana: se marcar
-    // como lido, volta a lembrar na semana seguinte enquanto não fizer.
-    const backupDays = session?.role === "admin" ? daysSinceLastBackup(now) : 0;
-    const backupLate = backupDays === null || (backupDays ?? 0) > BACKUP_REMINDER_DAYS;
-    const weekKey = Math.floor(now.getTime() / (7 * 86400000));
-
-    return [
-      {
-        id: `notif-backup-${weekKey}`,
-        title: "Backup dos dados",
-        description: backupDays === null ? "Nenhum backup feito neste computador ainda." : `Último backup há ${backupDays} dias.`,
-        href: "/settings/backup",
-        visible: session?.role === "admin" && backupLate,
-      },
-      {
-        id: "notif-upcoming-2h",
-        title: "Agenda imediata",
-        description: `${upcoming2h} atendimento(s) nas próximas 2h.`,
-        href: "/agenda",
-        visible: upcoming2h > 0,
-      },
-      {
-        id: "notif-unattended",
-        title: "Pendências de atendimento",
-        description: `${unattended} atendimento(s) sem conclusão.`,
-        href: "/agenda",
-        visible: unattended > 0,
-      },
-      {
-        id: "notif-follow-ups-7d",
-        title: "Vacinas e acompanhamentos",
-        description: `${upcomingFollowUps} lembrete(s) para os próximos 7 dias — avise pelo WhatsApp.`,
-        href: "/clinical/returns-forecast",
-        visible: upcomingFollowUps > 0,
-      },
-      {
-        id: "notif-low-stock",
-        title: "Estoque crítico",
-        description: `${lowStockCount} item(ns) com estoque baixo.`,
-        href: "/stock/products-services",
-        visible: lowStockCount > 0,
-      },
-    ].filter((n) => n.visible);
-  }, [schedules, appointments, session?.role]);
-
-  const unreadNotifications = notifications.filter((n) => !dismissedNotifications.includes(n.id));
-
-  const handleMarkAllRead = () => {
-    const ids = notifications.map((n) => n.id);
-    setDismissedNotifications(ids);
-    localStorage.setItem("vf_notifications_dismissed", JSON.stringify(ids));
-  };
 
   return (
     <header className="vf-topbar-shell sticky top-0 z-40 w-full border-b">
@@ -167,49 +66,7 @@ const Header: React.FC<HeaderProps> = ({
         <div className="flex-1" />
 
         <div className="flex items-center gap-0.5">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="relative h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted"
-              >
-                <Bell className="h-4 w-4" strokeWidth={1.55} />
-                {unreadNotifications.length > 0 && <span className="absolute top-2 right-2 h-1.5 w-1.5 rounded-full bg-red-500" />}
-                <span className="sr-only">Notificações</span>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-80" align="end">
-              <DropdownMenuLabel className="flex items-center justify-between">
-                <span>Notificações automáticas</span>
-                <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={handleMarkAllRead}>
-                  Marcar tudo como lido
-                </Button>
-              </DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              {notifications.length === 0 ? (
-                <DropdownMenuItem disabled>Sem notificações no momento.</DropdownMenuItem>
-              ) : (
-                notifications.map((notification) => (
-                  <DropdownMenuItem
-                    key={notification.id}
-                    onClick={() => {
-                      navigate(notification.href);
-                      setDismissedNotifications((prev) => {
-                        const next = Array.from(new Set([...prev, notification.id]));
-                        localStorage.setItem("vf_notifications_dismissed", JSON.stringify(next));
-                        return next;
-                      });
-                    }}
-                    className="flex cursor-pointer flex-col items-start gap-0.5 py-2"
-                  >
-                    <span className="text-sm font-semibold">{notification.title}</span>
-                    <span className="text-xs text-muted-foreground">{notification.description}</span>
-                  </DropdownMenuItem>
-                ))
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <NotificationBell />
 
           <Button
             asChild
