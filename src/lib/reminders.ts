@@ -148,65 +148,100 @@ export function buildReminderMessage(opts: {
   return lines.join("\n");
 }
 
-// ------------------------------------------------------------ enviados
-// Tabela reminder_log (migration 20260929120000). Enquanto ela não existir,
-// guarda no próprio aparelho — e continua funcionando.
-const LOCAL_KEY = "vf:reminders:sent";
+// ------------------------------------------------------------ enviados / resolvidos
+// Tabela reminder_log (migration 20260929120000). Cada linha é um evento:
+// channel "whatsapp" = lembrete enviado; channel "resolvido" = dado como
+// resolvido sem mandar lembrete (ex.: acompanhamento feito pelo WhatsApp).
+// Sem a tabela, guarda no próprio aparelho — e continua funcionando.
+const LOCAL_SENT = "vf:reminders:sent";
+const LOCAL_RESOLVED = "vf:reminders:resolved";
+export const RESOLVED_CHANNEL = "resolvido";
 
-export interface SentReminder {
-  key: string;
-  sentAt: string;
+export interface ReminderStatus {
+  /** chave → último envio pelo WhatsApp */
+  sent: Record<string, string>;
+  /** chave → quando foi dado como resolvido */
+  resolved: Record<string, string>;
 }
 
-function readLocal(): Record<string, string> {
+function readLocal(key: string): Record<string, string> {
   try {
-    return JSON.parse(localStorage.getItem(LOCAL_KEY) || "{}");
+    return JSON.parse(localStorage.getItem(key) || "{}");
   } catch {
     return {};
   }
 }
 
-function writeLocal(map: Record<string, string>) {
+function writeLocal(key: string, map: Record<string, string>) {
   try {
-    localStorage.setItem(LOCAL_KEY, JSON.stringify(map));
+    localStorage.setItem(key, JSON.stringify(map));
   } catch {
     /* modo privado */
   }
 }
 
-/** Lembretes já enviados (chave → data/hora do último envio). */
-export async function getSentReminders(): Promise<Record<string, string>> {
-  const merged = readLocal();
-  const { data, error } = await supabase
-    .from("reminder_log")
-    .select("reminder_key, sent_at")
-    .order("sent_at", { ascending: true })
-    .limit(1000);
-  if (!error) {
-    for (const row of (data ?? []) as Array<{ reminder_key: string; sent_at: string }>) {
-      if (!merged[row.reminder_key] || merged[row.reminder_key] < row.sent_at) merged[row.reminder_key] = row.sent_at;
-    }
+/** Junta as linhas do reminder_log com a reserva do aparelho. */
+export function mergeReminderRows(
+  rows: Array<{ reminder_key: string; sent_at: string; channel?: string | null }>,
+  local: ReminderStatus
+): ReminderStatus {
+  const sent = { ...local.sent };
+  const resolved = { ...local.resolved };
+  for (const row of rows) {
+    const target = row.channel === RESOLVED_CHANNEL ? resolved : sent;
+    if (!target[row.reminder_key] || target[row.reminder_key] < row.sent_at) target[row.reminder_key] = row.sent_at;
   }
-  return merged;
+  return { sent, resolved };
 }
 
-/** Marca como enviado (no banco e no aparelho). */
-export async function markReminderSent(
-  item: Pick<ReminderItem, "key" | "kind" | "animalId" | "dueDate">,
-  extra: { clientId?: string; sentBy?: string }
-): Promise<string> {
-  const sentAt = new Date().toISOString();
-  const local = readLocal();
-  local[item.key] = sentAt;
-  writeLocal(local);
+/** Lembretes já enviados e já resolvidos. */
+export async function getReminderStatus(): Promise<ReminderStatus> {
+  const local = { sent: readLocal(LOCAL_SENT), resolved: readLocal(LOCAL_RESOLVED) };
+  const { data, error } = await supabase
+    .from("reminder_log")
+    .select("reminder_key, sent_at, channel")
+    .order("sent_at", { ascending: false })
+    .limit(5000);
+  if (error) return local;
+  return mergeReminderRows((data ?? []) as Array<{ reminder_key: string; sent_at: string; channel: string }>, local);
+}
+
+type LogItem = Pick<ReminderItem, "key" | "kind" | "animalId" | "dueDate">;
+
+async function insertLog(item: LogItem, channel: string, extra: { clientId?: string; sentBy?: string }) {
   const { error } = await supabase.from("reminder_log").insert({
     reminder_key: item.key,
     kind: item.kind,
     animal_id: item.animalId,
     client_id: extra.clientId ?? null,
     due_date: item.dueDate,
+    channel,
     sent_by: extra.sentBy ?? null,
   });
   if (error) console.warn("[reminder_log] não gravou no banco (migration aplicada?)", error.message);
-  return sentAt;
+}
+
+/** Marca como enviado (no banco e no aparelho). */
+export async function markReminderSent(item: LogItem, extra: { clientId?: string; sentBy?: string }): Promise<string> {
+  const at = new Date().toISOString();
+  writeLocal(LOCAL_SENT, { ...readLocal(LOCAL_SENT), [item.key]: at });
+  await insertLog(item, "whatsapp", extra);
+  return at;
+}
+
+/** Dá como resolvido sem mandar lembrete — sai das listas e do sininho. */
+export async function markReminderResolved(item: LogItem, extra: { clientId?: string; sentBy?: string }): Promise<string> {
+  const at = new Date().toISOString();
+  writeLocal(LOCAL_RESOLVED, { ...readLocal(LOCAL_RESOLVED), [item.key]: at });
+  await insertLog(item, RESOLVED_CHANNEL, extra);
+  return at;
+}
+
+/** Desfaz o "resolvido" (volta para a lista). */
+export async function unmarkReminderResolved(key: string): Promise<void> {
+  const local = readLocal(LOCAL_RESOLVED);
+  delete local[key];
+  writeLocal(LOCAL_RESOLVED, local);
+  const { error } = await supabase.from("reminder_log").delete().eq("reminder_key", key).eq("channel", RESOLVED_CHANNEL);
+  if (error) console.warn("[reminder_log] não desfez no banco", error.message);
 }

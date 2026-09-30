@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import {
   Bell,
   CalendarClock,
+  Check,
   CheckCircle2,
   ChevronRight,
   Clock,
@@ -67,7 +68,7 @@ export function NotificationBell() {
   const { data: schedules = [] } = useSchedulesList();
   const { appointments } = useAppointments();
   const { data: catalog = [] } = useQuery({ queryKey: ["catalog"], queryFn: getCatalog });
-  const { animalMap, sent, remind } = useReminderSender();
+  const { animalMap, sent, resolved, remind, resolve } = useReminderSender();
 
   const notifications = React.useMemo(() => {
     const pets = new Map<string, { animal: string; client: string }>();
@@ -77,6 +78,7 @@ export function NotificationBell() {
       schedules,
       reminders: buildReminders(appointments, now),
       sent,
+      resolved,
       pets,
       lowStock: catalog
         .filter((it) => it.type === "product" && it.active !== false && typeof it.stockQty === "number" && it.stockQty <= LOW_STOCK_QTY)
@@ -84,7 +86,7 @@ export function NotificationBell() {
       backupDays: session?.role === "admin" ? daysSinceLastBackup(now) : undefined,
       backupReminderDays: BACKUP_REMINDER_DAYS,
     });
-  }, [now, schedules, appointments, sent, animalMap, catalog, session?.role]);
+  }, [now, schedules, appointments, sent, resolved, animalMap, catalog, session?.role]);
 
   const unread = notifications.filter((n) => !readMap[n.id]).length;
 
@@ -186,6 +188,7 @@ export function NotificationBell() {
                               }
                             : undefined
                         }
+                        onResolve={n.reminder ? () => void resolve(n.reminder!) : undefined}
                       />
                     ))}
                   </ul>
@@ -195,7 +198,7 @@ export function NotificationBell() {
           </div>
         )}
         <p className="border-t border-border bg-muted/30 px-3 py-2 text-[11px] text-muted-foreground">
-          Clicar marca como lido. Cada aviso some sozinho quando é resolvido.
+          Clicar marca como lido. Cada aviso some sozinho quando é resolvido — ou toque em ✓ para dar baixa.
         </p>
       </PopoverContent>
     </Popover>
@@ -207,11 +210,13 @@ function NotificationRow({
   read,
   onOpen,
   onRemind,
+  onResolve,
 }: {
   n: AppNotification;
   read: boolean;
   onOpen: () => void;
   onRemind?: () => void;
+  onResolve?: () => void;
 }) {
   const t = TONES[n.tone];
   return (
@@ -228,6 +233,19 @@ function NotificationRow({
           )}
         </span>
       </button>
+      {onResolve && (
+        <Button
+          type="button"
+          size="icon"
+          variant="outline"
+          onClick={onResolve}
+          className="mt-0.5 h-7 w-7 shrink-0 border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+          title="Resolvido (ex.: já conversou pelo WhatsApp) — sai da lista sem mandar lembrete"
+          aria-label={`Marcar como resolvido: ${n.title}`}
+        >
+          <Check className="h-4 w-4" aria-hidden />
+        </Button>
+      )}
       {onRemind && (
         <Button
           type="button"

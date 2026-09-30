@@ -5,7 +5,8 @@ import type { ScheduleUI } from "@/lib/schedulesApi";
 // um pet, um lembrete), com id próprio. Regras:
 // - clicar marca como lido (continua na lista, sem o ponto azul);
 // - o item some sozinho quando se resolve (horário passou/atendido,
-//   lembrete enviado ou dose aplicada, backup feito, estoque reposto);
+//   lembrete enviado, dado como resolvido ou dose aplicada, backup feito,
+//   estoque reposto);
 // - item novo (id novo) acende de novo, mesmo que outro parecido já tenha
 //   sido lido.
 
@@ -55,6 +56,8 @@ export interface NotificationInput {
   reminders: ReminderItem[];
   /** Lembretes já enviados (chave → quando). */
   sent: Record<string, string>;
+  /** Lembretes dados como resolvidos (ex.: acompanhamento feito por conversa). */
+  resolved?: Record<string, string>;
   /** animal id → nome do pet e do tutor. */
   pets: Map<string, { animal: string; client: string }>;
   lowStock: Array<{ id: string; name: string; qty: number }>;
@@ -143,7 +146,7 @@ export function buildNotifications(input: NotificationInput): AppNotification[] 
 
   // Lembretes: da semana e atrasados recentes, ainda não avisados.
   const reminders = input.reminders
-    .filter((r) => r.daysUntil <= REMINDER_AHEAD_DAYS && r.daysUntil >= -REMINDER_OVERDUE_DAYS && !input.sent[r.key])
+    .filter((r) => r.daysUntil <= REMINDER_AHEAD_DAYS && r.daysUntil >= -REMINDER_OVERDUE_DAYS && !input.sent[r.key] && !input.resolved?.[r.key])
     // Mais perto da data primeiro (hoje, amanhã, atrasado há 2 dias...), o antigo por último.
     .sort((a, b) => Math.abs(a.daysUntil) - Math.abs(b.daysUntil) || a.daysUntil - b.daysUntil);
   for (const r of reminders) {

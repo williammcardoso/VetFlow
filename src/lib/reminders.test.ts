@@ -87,3 +87,20 @@ describe("planilha do backup", () => {
     expect(String(cellValue("a".repeat(40_000))).length).toBeLessThan(32_767);
   });
 });
+
+describe("enviado × resolvido", () => {
+  it("separa pelo canal e fica com a data mais recente", async () => {
+    const { mergeReminderRows } = await import("./reminders");
+    const status = mergeReminderRows(
+      [
+        { reminder_key: "a", sent_at: "2026-09-29T10:00:00Z", channel: "whatsapp" },
+        { reminder_key: "a", sent_at: "2026-09-30T10:00:00Z", channel: "whatsapp" },
+        { reminder_key: "b", sent_at: "2026-09-30T11:00:00Z", channel: "resolvido" },
+        { reminder_key: "c", sent_at: "2026-09-30T12:00:00Z", channel: null },
+      ],
+      { sent: { d: "2026-09-01T00:00:00Z" }, resolved: {} }
+    );
+    expect(status.sent).toEqual({ a: "2026-09-30T10:00:00Z", c: "2026-09-30T12:00:00Z", d: "2026-09-01T00:00:00Z" });
+    expect(status.resolved).toEqual({ b: "2026-09-30T11:00:00Z" });
+  });
+});

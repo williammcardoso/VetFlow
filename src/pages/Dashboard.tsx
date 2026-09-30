@@ -41,6 +41,7 @@ import { PageShell } from "@/components/saas/PageShell";
 import { Link } from "react-router-dom";
 import { getPatientRecordPath } from "@/utils/patientDisplayId";
 import { buildReminders } from "@/lib/reminders";
+import { useReminderStatus } from "@/hooks/useReminderSender";
 
 const Dashboard = () => {
   const { data: dbClients, isError } = useClientsList();
@@ -156,9 +157,10 @@ const Dashboard = () => {
 
   // Mesma regra da tela de lembretes (lib/reminders): some o que já foi
   // resolvido (dose seguinte aplicada / paciente que já voltou).
+  const { resolved: resolvedReminders } = useReminderStatus();
   const weekReminders = useMemo(
-    () => buildReminders(allAppointments).filter((r) => r.daysUntil >= 0 && r.daysUntil <= 7),
-    [allAppointments]
+    () => buildReminders(allAppointments).filter((r) => r.daysUntil >= 0 && r.daysUntil <= 7 && !resolvedReminders[r.key]),
+    [allAppointments, resolvedReminders]
   );
 
   const returnsThisWeek = useMemo(() => {

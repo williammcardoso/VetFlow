@@ -55,6 +55,10 @@ describe("sininho: um item por coisa real", () => {
     expect(list.map((n) => n.id)).toEqual(["lembrete:k2"]);
     expect(list[0]).toMatchObject({ title: "V10 — Mel", tone: "rose", when: "atrasado há 3 dias" });
   });
+  it("lembrete dado como resolvido sai do sininho", () => {
+    const list = buildNotifications(base({ reminders: [rem({ key: "k1" }), rem({ key: "k2" })], resolved: { k1: "2026-09-30T09:00:00Z" } }));
+    expect(list.map((n) => n.id)).toEqual(["lembrete:k2"]);
+  });
   it("estoque baixo é um item só, que acende de novo se a quantidade mudar", () => {
     const low = [
       { id: "1", name: "Dipirona", qty: 2 },

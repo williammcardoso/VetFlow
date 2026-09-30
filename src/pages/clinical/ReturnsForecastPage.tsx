@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { AlertTriangle, CalendarDays, CheckCircle2, MessageCircle, RotateCcw, Syringe } from "lucide-react";
+import { AlertTriangle, CalendarDays, Check, CheckCircle2, MessageCircle, RotateCcw, Syringe, Undo2 } from "lucide-react";
 import { SiWhatsapp } from "react-icons/si";
 import { useAppointments } from "@/hooks/useAppointments";
 import { reminderPhone, useReminderSender } from "@/hooks/useReminderSender";
@@ -16,7 +16,7 @@ import { displayAppointmentType } from "@/lib/appointmentDisplay";
 import { cn } from "@/lib/utils";
 import { buildReminders, type ReminderItem } from "@/lib/reminders";
 
-type PeriodFilter = "7" | "30" | "90" | "all" | "overdue";
+type PeriodFilter = "7" | "30" | "90" | "all" | "overdue" | "resolved";
 
 const PERIODS: Array<{ key: PeriodFilter; label: string }> = [
   { key: "7", label: "7 dias" },
@@ -38,24 +38,32 @@ function urgency(daysUntil: number): { label: string; tone: Tone } {
 }
 
 // Previsão de vacinas e acompanhamentos → lembrete pelo WhatsApp com um
-// toque (mensagem pronta), marcando quem já foi avisado.
+// toque (mensagem pronta), marcando quem já foi avisado. "Resolvido" dá
+// baixa sem mandar nada (ex.: acompanhamento feito por conversa no WhatsApp).
 export default function ReturnsForecastPage() {
   const { appointments, loading: loadingAppointments } = useAppointments();
-  const { animalMap, sent, remind } = useReminderSender();
+  const { animalMap, sent, resolved, remind, resolve, unresolve } = useReminderSender();
   const [period, setPeriod] = useState<PeriodFilter>("30");
 
-  const all = useMemo(() => buildReminders(appointments), [appointments]);
+  const everything = useMemo(() => buildReminders(appointments), [appointments]);
+  const all = useMemo(() => everything.filter((r) => !resolved[r.key]), [everything, resolved]);
+  const resolvedItems = useMemo(
+    () => everything.filter((r) => resolved[r.key]).sort((a, b) => resolved[b.key].localeCompare(resolved[a.key])),
+    [everything, resolved]
+  );
   const overdueCount = all.filter((r) => r.daysUntil < 0).length;
   const visible = useMemo(() => {
+    if (period === "resolved") return resolvedItems;
     if (period === "overdue") return all.filter((r) => r.daysUntil < 0);
     if (period === "all") return all.filter((r) => r.daysUntil >= 0);
     return all.filter((r) => r.daysUntil >= 0 && r.daysUntil <= Number(period));
-  }, [all, period]);
+  }, [all, resolvedItems, period]);
 
   const retornos = visible.filter((r) => r.kind === "retorno");
   const vacinas = visible.filter((r) => r.kind === "vacina");
   const sentCount = visible.filter((r) => sent[r.key]).length;
-  const periodText = period === "overdue" ? "atrasados" : period === "all" ? "a partir de hoje" : `nos próximos ${period} dias`;
+  const periodText =
+    period === "resolved" ? "resolvidos" : period === "overdue" ? "atrasados" : period === "all" ? "a partir de hoje" : `nos próximos ${period} dias`;
 
   function renderList(items: ReminderItem[], empty: string) {
     if (loadingAppointments && items.length === 0) {
@@ -91,6 +99,7 @@ export default function ReturnsForecastPage() {
           const Species = speciesIcon(info?.animal.species);
           const u = urgency(item.daysUntil);
           const sentAt = sent[item.key];
+          const resolvedAt = resolved[item.key];
           const hasPhone = Boolean(reminderPhone(info?.client));
           return (
             <li key={item.key} className="flex flex-col gap-2 px-3 py-3 sm:flex-row sm:items-center sm:gap-3 sm:px-4">
@@ -126,19 +135,45 @@ export default function ReturnsForecastPage() {
                       </>
                     )}
                   </p>
-                  {sentAt && (
-                    <p className="mt-1 inline-flex items-center gap-1 rounded-md bg-emerald-50 px-1.5 py-0.5 text-[11px] font-semibold text-emerald-700 ring-1 ring-inset ring-emerald-600/15">
-                      <CheckCircle2 className="h-3 w-3" aria-hidden />
-                      Avisado em {new Date(sentAt).toLocaleDateString("pt-BR")}
-                    </p>
-                  )}
+                  <div className="flex flex-wrap gap-1">
+                    {resolvedAt && (
+                      <p className="mt-1 inline-flex items-center gap-1 rounded-md bg-slate-100 px-1.5 py-0.5 text-[11px] font-semibold text-slate-700 ring-1 ring-inset ring-slate-500/15">
+                        <Check className="h-3 w-3" aria-hidden />
+                        Resolvido em {new Date(resolvedAt).toLocaleDateString("pt-BR")}
+                      </p>
+                    )}
+                    {sentAt && (
+                      <p className="mt-1 inline-flex items-center gap-1 rounded-md bg-emerald-50 px-1.5 py-0.5 text-[11px] font-semibold text-emerald-700 ring-1 ring-inset ring-emerald-600/15">
+                        <CheckCircle2 className="h-3 w-3" aria-hidden />
+                        Avisado em {new Date(sentAt).toLocaleDateString("pt-BR")}
+                      </p>
+                    )}
+                  </div>
                 </div>
               </div>
-              <div className="flex items-center justify-between gap-2 pl-12 sm:shrink-0 sm:justify-end sm:pl-0">
+              <div className="flex flex-wrap items-center justify-between gap-2 pl-12 sm:shrink-0 sm:flex-nowrap sm:justify-end sm:pl-0">
                 <div className="sm:text-right">
                   <p className="text-sm font-bold tabular-nums text-foreground">{formatBR(item.dueDate)}</p>
                   <span className={cn("inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 ring-inset", TONES[u.tone].badge)}>{u.label}</span>
                 </div>
+                <div className="flex items-center gap-1.5 max-sm:w-full max-sm:[&>*]:flex-1 sm:shrink-0">
+                {resolvedAt ? (
+                  <Button size="sm" variant="outline" className="h-9 gap-1.5 font-semibold" onClick={() => void unresolve(item)}>
+                    <Undo2 className="h-4 w-4" aria-hidden />
+                    Desfazer
+                  </Button>
+                ) : (
+                  <>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-9 gap-1.5 border-emerald-200 font-semibold text-emerald-800 hover:bg-emerald-50"
+                  title="Já resolvido (ex.: acompanhamento feito pelo WhatsApp) — sai da lista sem mandar lembrete"
+                  onClick={() => void resolve(item)}
+                >
+                  <Check className="h-4 w-4" aria-hidden />
+                  Resolvido
+                </Button>
                 <Button
                   size="sm"
                   variant={sentAt ? "outline" : "default"}
@@ -153,6 +188,9 @@ export default function ReturnsForecastPage() {
                   <SiWhatsapp className={cn("h-4 w-4", sentAt && "text-[#25D366]")} aria-hidden />
                   {sentAt ? "Reenviar" : "Lembrar"}
                 </Button>
+                  </>
+                )}
+                </div>
               </div>
             </li>
           );
@@ -207,6 +245,20 @@ export default function ReturnsForecastPage() {
           Atrasados
           <span className={cn("rounded-full px-1.5 text-xs tabular-nums", period === "overdue" ? "bg-white/20" : "bg-rose-100")}>{overdueCount}</span>
         </button>
+        <button
+          type="button"
+          role="radio"
+          aria-checked={period === "resolved"}
+          onClick={() => setPeriod("resolved")}
+          className={cn(
+            "inline-flex items-center justify-center gap-1.5 rounded-xl border px-3 py-2 text-sm font-semibold transition-colors",
+            period === "resolved" ? "border-slate-700 bg-slate-700 text-white" : "border-border bg-card text-slate-700 hover:bg-muted"
+          )}
+        >
+          <Check className="h-4 w-4" aria-hidden />
+          Resolvidos
+          <span className={cn("rounded-full px-1.5 text-xs tabular-nums", period === "resolved" ? "bg-white/20" : "bg-muted")}>{resolvedItems.length}</span>
+        </button>
       </div>
 
       <KpiStrip
@@ -230,23 +282,26 @@ export default function ReturnsForecastPage() {
 
       <div className="grid gap-4 xl:grid-cols-2">
         <Panel
-          title={period === "overdue" ? "Vacinas atrasadas" : "Próximas vacinas"}
+          title={period === "resolved" ? "Vacinas resolvidas" : period === "overdue" ? "Vacinas atrasadas" : "Próximas vacinas"}
           icon={Syringe}
           tone="sky"
           description="Próxima dose registrada no atendimento de vacina"
           actions={<span className="rounded-full bg-sky-100 px-2 text-xs font-bold tabular-nums text-sky-700">{vacinas.length}</span>}
         >
-          {renderList(vacinas, period === "overdue" ? "Nenhuma vacina atrasada." : `Nenhuma vacina ${periodText}.`)}
+          {renderList(vacinas, period === "resolved" ? "Nenhuma vacina dada como resolvida." : period === "overdue" ? "Nenhuma vacina atrasada." : `Nenhuma vacina ${periodText}.`)}
         </Panel>
 
         <Panel
-          title={period === "overdue" ? "Acompanhamentos atrasados" : "Próximos acompanhamentos"}
+          title={period === "resolved" ? "Acompanhamentos resolvidos" : period === "overdue" ? "Acompanhamentos atrasados" : "Próximos acompanhamentos"}
           icon={RotateCcw}
           tone="orange"
           description="“Próximo acompanhamento (dias)” registrado no atendimento"
           actions={<span className="rounded-full bg-orange-100 px-2 text-xs font-bold tabular-nums text-orange-700">{retornos.length}</span>}
         >
-          {renderList(retornos, period === "overdue" ? "Nenhum acompanhamento atrasado." : `Nenhum acompanhamento ${periodText}.`)}
+          {renderList(
+            retornos,
+            period === "resolved" ? "Nenhum acompanhamento dado como resolvido." : period === "overdue" ? "Nenhum acompanhamento atrasado." : `Nenhum acompanhamento ${periodText}.`
+          )}
         </Panel>
       </div>
 
@@ -254,7 +309,7 @@ export default function ReturnsForecastPage() {
         <IconChip icon={CheckCircle2} tone="emerald" size="sm" />
         <span className="pt-1.5">
           Some da lista sozinho quando o pet volta: vacina com a dose seguinte aplicada, ou acompanhamento com um novo atendimento
-          registrado depois.
+          registrado depois. Se já resolveu de outro jeito (ex.: conversa pelo WhatsApp), toque em <strong>Resolvido</strong>.
         </span>
       </p>
     </PageShell>
