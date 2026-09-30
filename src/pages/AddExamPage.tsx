@@ -23,6 +23,19 @@ import {
   type BiochemicalReferenceEntry,
 } from "@/constants/examReferences";
 import { useClientWithAnimals } from "@/hooks/useSupabaseClients";
+import { CustomExamBuilder } from "@/components/exams/CustomExamBuilder";
+import {
+  OTHER_EXAM_TYPE,
+  blocksFromTemplate,
+  customExamSummary,
+  legacyResultBlocks,
+  listExamTemplates,
+  reportBlocks,
+  saveExamTemplate,
+  templateSignature,
+  usesCustomBlocks,
+} from "@/lib/customExam";
+import type { CustomExamBlock, CustomExamTemplate } from "@/types/exam";
 
 // Padrão do bioquímico feito na clínica (editável em cada analito).
 const BIO_DEFAULT_METHODOLOGY = "Cinético";
@@ -31,7 +44,7 @@ import { usePatientRouteParams } from "@/hooks/usePatientRouteParams";
 import { getPatientRecordPath } from "@/utils/patientDisplayId";
 import { useSystemVets } from "@/hooks/useSystemVets";
 import { useRegistryList } from "@/hooks/useRegistryList";
-import { parseBrNumber } from "@/lib/utils";
+import { cn, parseBrNumber } from "@/lib/utils";
 
 // Tipos de exame — base fixa; tipos extras cadastrados em Cadastros > Exames
 // entram junto (ver mockExamTypes.map + examTypesList.filter mais abaixo).
@@ -251,6 +264,18 @@ const AddExamPage = () => {
   const [examTime, setExamTime] = useState<string>(new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
   const [examType, setExamType] = useState<string | undefined>(undefined);
   const [examResult, setExamResult] = useState<string>("");
+  // Exame montado em blocos ("Outro", Urinálise, Fezes...)
+  const [examName, setExamName] = useState<string>("");
+  const [metodo, setMetodo] = useState<string>("");
+  const [customBlocks, setCustomBlocks] = useState<CustomExamBlock[]>([]);
+  const [examTemplates, setExamTemplates] = useState<CustomExamTemplate[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    void listExamTemplates().then((list) => !cancelled && setExamTemplates(list));
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   const [examVet, setExamVet] = useState<string | undefined>(undefined);
 
   // Gerais (alguns tipos)
@@ -345,6 +370,9 @@ const AddExamPage = () => {
 
   const resetExamSpecificFields = () => {
     setExamResult("");
+    setExamName("");
+    setMetodo("");
+    setCustomBlocks([]);
     setMaterial("");
     setEquipamento("");
     setEritrocitos("");
@@ -466,6 +494,9 @@ const AddExamPage = () => {
         setLaboratoryDate(examToEdit.laboratoryDate || "");
         setObservacoesGeraisExame(examToEdit.observacoesGeraisExame || "");
         setExamResult(examToEdit.result || "");
+        setExamName(examToEdit.examName || "");
+        setMetodo(examToEdit.metodo || "");
+        setCustomBlocks(examToEdit.customBlocks?.length ? examToEdit.customBlocks : legacyResultBlocks(examToEdit.result));
         setLiberadoPor(examToEdit.liberadoPor || "WILLIAM DE MORAES CARDOSO CRMV-SP 56895");
         setBiochemicalEntries(examToEdit.biochemicalEntries || []);
         setMetodoColeta(examToEdit.metodoColeta || "CAAF");
@@ -804,6 +835,57 @@ const AddExamPage = () => {
     );
   };
 
+  // Nome do modelo: o que foi digitado em "Outro", ou o próprio tipo (Urinálise...).
+  const templateName = examType === OTHER_EXAM_TYPE ? examName.trim() : examType || "";
+  const findTemplate = (name: string) => examTemplates.find((t) => t.name.trim().toLowerCase() === name.trim().toLowerCase());
+
+  const applyTemplate = (template: CustomExamTemplate) => {
+    const hasContent = reportBlocks(customBlocks).length > 0;
+    if (hasContent && !window.confirm(`Trocar o que já foi preenchido pelo modelo "${template.name}"?`)) return;
+    if (examType === OTHER_EXAM_TYPE) setExamName(template.name);
+    setMetodo(template.metodo || "");
+    setMaterial(template.material || "");
+    setCustomBlocks(blocksFromTemplate(template));
+  };
+
+  // Tipo genérico com modelo salvo (ex.: Urinálise) já vem montado ao escolher o tipo.
+  useEffect(() => {
+    if (isEditing || !usesCustomBlocks(examType) || examType === OTHER_EXAM_TYPE) return;
+    const template = examTemplates.find((t) => t.name.trim().toLowerCase() === (examType || "").toLowerCase());
+    if (template && customBlocks.length === 0) {
+      setMetodo(template.metodo || "");
+      setMaterial(template.material || "");
+      setCustomBlocks(blocksFromTemplate(template));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [examType, examTemplates, isEditing]);
+
+  // Depois de salvar: exame novo vira modelo; formato diferente do modelo
+  // pergunta (no aviso) se atualiza.
+  const syncExamTemplate = async () => {
+    const name = templateName;
+    if (!name) return;
+    const current = { name, metodo, material, blocks: customBlocks };
+    const existing = findTemplate(name);
+    if (!existing) {
+      if (await saveExamTemplate(current)) {
+        toast.info(`Modelo "${name}" salvo — da próxima vez o exame já vem montado.`, { duration: 8000 });
+      }
+      return;
+    }
+    if (templateSignature(existing) === templateSignature(current)) return;
+    toast(`O formato deste exame mudou em relação ao modelo "${existing.name}".`, {
+      duration: 12_000,
+      action: {
+        label: "Atualizar modelo",
+        onClick: () =>
+          void saveExamTemplate({ ...current, name: existing.name }).then((ok) =>
+            ok ? toast.success(`Modelo "${existing.name}" atualizado.`) : toast.error("Não foi possível atualizar o modelo.")
+          ),
+      },
+    });
+  };
+
   const handleSaveExam = async () => {
     if (!examDate || !examTime || !examType || !examVet) {
       toast.error("Por favor, preencha a data, hora, tipo de exame e veterinário.");
@@ -823,6 +905,17 @@ const AddExamPage = () => {
     if (examType === "Teste Rápido" && rapidTestEntries.length === 0) {
       toast.error("Adicione pelo menos um teste.");
       return;
+    }
+
+    if (usesCustomBlocks(examType)) {
+      if (examType === OTHER_EXAM_TYPE && !examName.trim()) {
+        toast.error("Informe o nome do exame (ex.: Contagem de reticulócitos).");
+        return;
+      }
+      if (reportBlocks(customBlocks).length === 0) {
+        toast.error("Preencha pelo menos um resultado (analito com resultado ou um texto).");
+        return;
+      }
     }
 
     const examData: ExamEntry = {
@@ -894,7 +987,16 @@ const AddExamPage = () => {
         nota: nota.trim() || undefined,
       });
     } else {
-      examData.result = examResult.trim() || undefined;
+      // Exame montado em blocos. `result` guarda um resumo (linha do tempo,
+      // telas antigas); o laudo usa os blocos.
+      const blocks = reportBlocks(customBlocks);
+      Object.assign(examData, {
+        examName: examType === OTHER_EXAM_TYPE ? examName.trim() : undefined,
+        metodo: metodo.trim() || undefined,
+        material: material.trim() || undefined,
+        customBlocks: blocks,
+        result: customExamSummary({ customBlocks: blocks }) || undefined,
+      });
     }
 
     setSaving(true);
@@ -916,6 +1018,7 @@ const AddExamPage = () => {
         }
         toast.success("Exame salvo com sucesso!");
       }
+      if (usesCustomBlocks(examType)) void syncExamTemplate();
       navigate(getPatientRecordPath(clientId, animalId, currentAnimal?.patientCode));
     } catch {
       toast.error("Erro ao salvar o exame.");
@@ -1867,20 +1970,68 @@ const AddExamPage = () => {
                 <Card className="vf-surface-card vf-tone-clinical card-hover mt-6 rounded-xl border border-border/80 p-4">
                   <CardHeader className="pb-3">
                     <CardTitle className="flex items-center gap-2 text-lg font-semibold text-foreground">
-                      <FaFileMedicalAlt className="h-5 w-5 text-vf-clinical" /> Resultado do Exame
+                      <FaFileMedicalAlt className="h-5 w-5 text-vf-clinical" /> {examType === OTHER_EXAM_TYPE ? "Exame" : "Resultado do Exame"}
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="pt-0 px-2">
-                    <div className="space-y-2 col-span-full">
-                      <Label htmlFor="examResult">Resultado</Label>
-                      <Input
-                        id="examResult"
-                        placeholder="Resultado do exame"
-                        value={examResult}
-                        onChange={(e) => setExamResult(e.target.value)}
-                        className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200"
-                      />
+                  <CardContent className="space-y-4 px-2 pt-0">
+                    {examType === OTHER_EXAM_TYPE && (
+                      <div className="space-y-2">
+                        <Label htmlFor="examName">Nome do exame</Label>
+                        <Input
+                          id="examName"
+                          list="exam-template-names"
+                          placeholder="Ex.: Contagem de reticulócitos"
+                          value={examName}
+                          onChange={(e) => {
+                            setExamName(e.target.value);
+                            const template = findTemplate(e.target.value);
+                            if (template && reportBlocks(customBlocks).length === 0) applyTemplate(template);
+                          }}
+                          className="bg-input font-semibold"
+                        />
+                        <datalist id="exam-template-names">
+                          {examTemplates.map((t) => (
+                            <option key={t.id} value={t.name} />
+                          ))}
+                        </datalist>
+                        {examTemplates.length > 0 && (
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <span className="text-xs text-muted-foreground">Modelos salvos:</span>
+                            {examTemplates.map((t) => (
+                              <button
+                                key={t.id}
+                                type="button"
+                                onClick={() => applyTemplate(t)}
+                                className={cn(
+                                  "rounded-full border px-2.5 py-0.5 text-xs font-medium transition-colors",
+                                  t.name.toLowerCase() === examName.trim().toLowerCase()
+                                    ? "border-teal-300 bg-teal-50 text-teal-800"
+                                    : "border-border text-muted-foreground hover:bg-muted"
+                                )}
+                              >
+                                {t.name}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                      <div className="space-y-2">
+                        <Label htmlFor="examMetodo">Método</Label>
+                        <Input id="examMetodo" placeholder="Ex.: Manual, azul de cresil brilhante" value={metodo} onChange={(e) => setMetodo(e.target.value)} className="bg-input" />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="examAmostra">Amostra</Label>
+                        <Input id="examAmostra" placeholder="Ex.: Sangue total com EDTA" value={material} onChange={(e) => setMaterial(e.target.value)} className="bg-input" />
+                      </div>
                     </div>
+                    <CustomExamBuilder blocks={customBlocks} onChange={setCustomBlocks} />
+                    {templateName && findTemplate(templateName) && (
+                      <p className="text-xs text-muted-foreground">
+                        Montado a partir do modelo <strong>{findTemplate(templateName)!.name}</strong>. Ao salvar, se o formato mudar, o sistema pergunta se atualiza o modelo.
+                      </p>
+                    )}
                   </CardContent>
                 </Card>
 

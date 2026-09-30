@@ -1,4 +1,5 @@
 import type { ExamEntry, HemogramReference } from "@/types/exam";
+import { examDisplayName, strictNumber } from "@/lib/customExam";
 import { parseBrNumber, formatDateTime } from "@/lib/utils";
 
 // Séries de evolução dos exames (hemograma + bioquímico) — usadas pelo
@@ -12,7 +13,7 @@ export interface TrendPoint {
   value: number;
 }
 
-export type TrendCategory = "hemogram" | "biochemical";
+export type TrendCategory = "hemogram" | "biochemical" | "outros";
 
 export interface AnalyteTrend {
   name: string;
@@ -21,6 +22,8 @@ export interface AnalyteTrend {
   min?: number;
   max?: number;
   points: TrendPoint[];
+  /** Nome do exame (só "outros" — ex.: Contagem de reticulócitos). */
+  group?: string;
 }
 
 // Campos fixos de hemograma que existem direto no ExamEntry (não numa lista
@@ -94,6 +97,35 @@ function buildHemogramTrends(
   return trends;
 }
 
+// Exames montados em blocos (tipo "Outro", Urinálise...): cada analito com
+// resultado numérico vira uma série. O nome leva o exame junto — o mesmo
+// "Hematócrito" pode existir no hemograma e na contagem de reticulócitos.
+function buildCustomTrends(exams: ExamEntry[]): AnalyteTrend[] {
+  const byKey = new Map<string, AnalyteTrend>();
+  const sorted = exams
+    .filter((e) => (e.customBlocks?.length ?? 0) > 0)
+    .slice()
+    .sort((a, b) => `${a.date}T${a.time || "00:00"}`.localeCompare(`${b.date}T${b.time || "00:00"}`));
+  for (const exam of sorted) {
+    const group = examDisplayName(exam);
+    for (const block of exam.customBlocks || []) {
+      if (block.kind !== "analito" || !block.name.trim()) continue;
+      const value = strictNumber(block.result);
+      if (value === undefined) continue;
+      const name = `${block.name.trim()} (${group})`;
+      const trend = byKey.get(name) || { name, category: "outros" as const, group, unit: "", points: [] };
+      if (block.unit?.trim()) trend.unit = block.unit.trim();
+      const min = strictNumber(block.refMin);
+      const max = strictNumber(block.refMax);
+      if (min !== undefined) trend.min = min;
+      if (max !== undefined) trend.max = max;
+      trend.points.push({ dateLabel: formatDateTime(exam.date), date: exam.date, value });
+      byKey.set(name, trend);
+    }
+  }
+  return Array.from(byKey.values()).filter((t) => t.points.length >= 2);
+}
+
 export function buildTrends(
   exams: ExamEntry[],
   hemogramReferences: Record<string, HemogramReference> = {},
@@ -102,6 +134,7 @@ export function buildTrends(
   return [
     ...buildHemogramTrends(exams, hemogramReferences, species),
     ...buildBiochemicalTrends(exams),
+    ...buildCustomTrends(exams),
   ].sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
 }
 
@@ -141,7 +174,7 @@ export function trendSummary(trend: AnalyteTrend): string {
 
 /** Ordem do PDF: hemograma primeiro, depois bioquímico (igual ao seletor). */
 export function orderTrendsForReport(trends: AnalyteTrend[]): AnalyteTrend[] {
-  const rank = (t: AnalyteTrend) => (t.category === "hemogram" ? 0 : 1);
+  const rank = (t: AnalyteTrend) => (t.category === "hemogram" ? 0 : t.category === "biochemical" ? 1 : 2);
   return [...trends].sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name, "pt-BR"));
 }
 

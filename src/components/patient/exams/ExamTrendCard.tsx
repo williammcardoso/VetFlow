@@ -66,6 +66,7 @@ export default function ExamTrendCard({
   const activeTrend = trends.find((t) => t.name === selected) || trends[0];
   const hemogramOptions = trends.filter((t) => t.category === "hemogram");
   const biochemicalOptions = trends.filter((t) => t.category === "biochemical");
+  const otherOptions = trends.filter((t) => t.category === "outros");
 
   const runExport = async (list: AnalyteTrend[], mode: TrendExportMode) => {
     if (!onExport || exporting) return;
@@ -111,6 +112,16 @@ export default function ExamTrendCard({
               <SelectGroup>
                 <SelectLabel>Hemograma</SelectLabel>
                 {hemogramOptions.map((t) => (
+                  <SelectItem key={t.name} value={t.name}>
+                    {t.name}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            )}
+            {otherOptions.length > 0 && (
+              <SelectGroup>
+                <SelectLabel>Outros exames</SelectLabel>
+                {otherOptions.map((t) => (
                   <SelectItem key={t.name} value={t.name}>
                     {t.name}
                   </SelectItem>

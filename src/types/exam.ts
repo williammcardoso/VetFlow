@@ -75,6 +75,43 @@ export interface ExamEntry {
 
   // Campo de resultado genérico (para exames que não são hemograma)
   result?: string;
+
+  // Exame montado em blocos (tipo "Outro" e demais tipos sem tela própria —
+  // Fezes, Urinálise, Raio-X...). Ver lib/customExam.ts.
+  /** Nome do exame quando o tipo é "Outro" (ex.: "Contagem de reticulócitos"). */
+  examName?: string;
+  /** Método (ex.: "Manual, coloração com azul de cresil brilhante"). A amostra usa `material`. */
+  metodo?: string;
+  customBlocks?: CustomExamBlock[];
+}
+
+/** Blocos do exame montado livremente. */
+export type CustomExamBlock =
+  | {
+      id: string;
+      kind: "analito";
+      name: string;
+      result: string;
+      unit?: string;
+      /** Referência numérica: marca ↑/↓ no laudo. */
+      refMin?: string;
+      refMax?: string;
+      /** Referência em texto, quando não é faixa (ex.: "< 1% não regenerativa"). */
+      refText?: string;
+    }
+  /** Texto que muda a cada exame (conclusão, observação) — não entra no modelo. */
+  | { id: string; kind: "texto"; title?: string; text: string }
+  /** Tabela/valores de referência fixos — entram no modelo. */
+  | { id: string; kind: "referencia"; title?: string; text: string }
+  | { id: string; kind: "secao"; title: string };
+
+/** Modelo salvo de um exame montado (Cadastros: registry key "examTemplates"). */
+export interface CustomExamTemplate {
+  id: string;
+  name: string;
+  metodo?: string;
+  material?: string;
+  blocks: CustomExamBlock[];
 }
 
 // Interfaces para os valores de referência do hemograma

@@ -18,8 +18,8 @@ Font.register({
 
 const WATERMARK_PET_STYLE = { position: "absolute" as const, left: 97.6, top: 276.6, width: 400, opacity: 0.16 };
 const TEAL = "#0F766E";
-const RED = "#DC2626";
-const BLUE = "#2563EB";
+const LOW_RED = "#DC2626";
+const HIGH_BLUE = "#2563EB";
 const GRID = "#E5E7EB";
 
 // Área útil da A4 com padding 30 = 535pt, menos o padding (8) e a borda do cartão.
@@ -64,7 +64,7 @@ const styles = StyleSheet.create({
   footer: { position: "absolute", bottom: 16, left: 30, right: 30, flexDirection: "row", justifyContent: "space-between", fontSize: 7, color: "#9CA3AF" },
 });
 
-const statusColor = (s: ReturnType<typeof trendStatus>) => (s === "high" ? RED : s === "low" ? BLUE : s === "normal" ? TEAL : "#374151");
+const statusColor = (s: ReturnType<typeof trendStatus>) => (s === "high" ? HIGH_BLUE : s === "low" ? LOW_RED : s === "normal" ? TEAL : "#374151");
 const statusArrow = (s: ReturnType<typeof trendStatus>) => (s === "high" ? " ↑" : s === "low" ? " ↓" : "");
 
 function TrendChart({ trend }: { trend: AnalyteTrend }) {
@@ -193,7 +193,7 @@ export const ExamEvolutionPdfContent = ({ animalName, displayId, animalSpecies, 
 
         <Text style={styles.intro}>
           Como os resultados de {animalName} mudaram ao longo do tempo. A faixa verde é o valor de referência para a espécie; pontos em
-          vermelho estão acima e em azul abaixo da referência.
+          azul estão acima e em vermelho abaixo da referência (mesmo padrão dos laudos).
         </Text>
 
         {trends.map((trend) => {
@@ -207,7 +207,7 @@ export const ExamEvolutionPdfContent = ({ animalName, displayId, animalSpecies, 
             <View key={trend.name} style={styles.card} wrap={false}>
               <View style={styles.cardHead}>
                 <View>
-                  <Text style={styles.cardCategory}>{trend.category === "hemogram" ? "Hemograma" : "Bioquímico"}</Text>
+                  <Text style={styles.cardCategory}>{trend.category === "hemogram" ? "Hemograma" : trend.category === "biochemical" ? "Bioquímico" : trend.group || "Outros exames"}</Text>
                   <Text style={styles.cardTitle}>{trend.name}</Text>
                 </View>
                 <Text style={styles.cardRef}>{ref}</Text>

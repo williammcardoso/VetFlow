@@ -1,6 +1,7 @@
 import type { ExamEntry, HemogramReference } from "@/types/exam";
 import type { AppointmentEntry } from "@/types/appointment";
 import { parseBrNumber, formatDateTime } from "@/lib/utils";
+import { analitoReference, analitoStatus, examDisplayName, reportBlocks } from "@/lib/customExam";
 
 interface AnimalInfo {
   name?: string;
@@ -132,7 +133,19 @@ function formatRapidTest(exam: ExamEntry): string[] {
 
 function formatGeneric(exam: ExamEntry): string[] {
   const lines: string[] = [];
-  if (exam.result) lines.push(`- Resultado: ${exam.result}`);
+  const blocks = reportBlocks(exam.customBlocks);
+  if (exam.metodo) lines.push(`- Método: ${exam.metodo}`);
+  if (blocks.length && exam.material) lines.push(`- Amostra: ${exam.material}`);
+  for (const b of blocks) {
+    if (b.kind === "analito") {
+      const st = analitoStatus(b);
+      const flag = st === "high" ? " (ACIMA da referência)" : st === "low" ? " (ABAIXO da referência)" : "";
+      const ref = analitoReference(b);
+      lines.push(`- ${b.name}: ${b.result}${b.unit ? ` ${b.unit}` : ""}${ref ? ` [ref.: ${ref}]` : ""}${flag}`);
+    } else if (b.kind === "secao") lines.push(`### ${b.title}`);
+    else lines.push(`- ${b.title ? `${b.title}: ` : ""}${b.text.replace(/\n/g, "; ")}`);
+  }
+  if (!blocks.length && exam.result) lines.push(`- Resultado: ${exam.result}`);
   if (exam.nota) lines.push(`- Nota: ${exam.nota}`);
   if (exam.observacoesGeraisExame) lines.push(`- Observações gerais: ${exam.observacoesGeraisExame}`);
   return lines;
@@ -171,7 +184,7 @@ export function buildContextFromExams(
   }
 
   for (const exam of exams) {
-    parts.push(`## Exame: ${exam.type || "Exame"} — ${formatDateTime(exam.date, exam.time)}`);
+    parts.push(`## Exame: ${examDisplayName(exam)} — ${formatDateTime(exam.date, exam.time)}`);
     let lines: string[] = [];
     if (exam.type === "Hemograma Completo") {
       lines = formatHemogram(exam, hemogramReferences, animalInfo.species);

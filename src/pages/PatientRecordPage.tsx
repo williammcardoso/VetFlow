@@ -67,6 +67,7 @@ import { useRegistryList } from "@/hooks/useRegistryList";
 import * as financialApi from "@/lib/financialApi";
 import { fulfillSaleLines } from "@/lib/saleFulfillment";
 import { fetchHemogramReferences } from "@/constants/examReferences";
+import { customExamSummary, examDisplayName } from "@/lib/customExam";
 import { mockCompanySettings } from "@/mockData/settings";
 import AutocompleteSelect from "@/components/AutocompleteSelect";
 import CurrencyInput from "@/components/CurrencyInput";
@@ -1017,7 +1018,7 @@ const PatientRecordPage = () => {
       date: exam.date,
       time: exam.time,
       type: 'Exame',
-      description: `${exam.type}: ${exam.result || 'Ver detalhes'}`,
+      description: `${examDisplayName(exam)}: ${(exam.customBlocks?.length ? customExamSummary(exam) : exam.result) || 'Ver detalhes'}`,
       summary: exam.nota || exam.result || undefined,
       icon: FaFlask,
       badgeColor: "bg-[hsl(var(--vf-clinical))]/15 text-vf-clinical",
@@ -1888,7 +1889,7 @@ const PatientRecordPage = () => {
                 {examsList.length > 0 ? (
                   <div className="space-y-3">
                     {examsList.map((exam) => {
-                      const title = exam.type || "Exame";
+                      const title = examDisplayName(exam);
                       const subtitle = exam.type === "Hemograma Completo"
                         ? "Hemograma Completo"
                         : exam.type === "Citologia"
@@ -1897,7 +1898,7 @@ const PatientRecordPage = () => {
                             ? (exam.rapidTestEntries?.length
                                 ? exam.rapidTestEntries.map((t) => `${t.testName}: ${t.result}`).join(" · ")
                                 : exam.nota || "Ver detalhes")
-                            : (exam.result || exam.nota || "Ver detalhes");
+                            : ((exam.customBlocks?.length ? customExamSummary(exam) : exam.result) || exam.nota || "Ver detalhes");
 
                       return (
                         <div
@@ -1990,6 +1991,31 @@ const PatientRecordPage = () => {
                                     ).then((blob) => openPdf({
                                       blob,
                                       fileName: `${slugifyFileName("laudo", exam.type, currentAnimal.name, formatDateBRForFileName(exam.date))}.pdf`,
+                                      persistOptions: { folder: "exams" },
+                                    })).then(() => {
+                                      toast.success("Laudo de exame enviado para impressão!");
+                                    }).catch((err) => {
+                                      console.error(err);
+                                      toast.error("Erro ao gerar o PDF.");
+                                    });
+                                    return;
+                                  }
+                                  // Exame montado em blocos ("Outro", Urinálise...) tem laudo próprio.
+                                  if (exam.customBlocks?.length) {
+                                    renderPdf((K) =>
+                                      <K.ExamReportPdfContentOutrosOnePage
+                                        animalName={currentAnimal.name}
+                                        animalId={currentAnimal.id}
+                                        displayId={getPatientDisplayId(currentAnimal.id, currentClient.animals)}
+                                        animalSpecies={currentAnimal.species}
+                                        animalBreed={currentAnimal.breed}
+                                        tutorName={currentClient.name}
+                                        tutorAddress={tutorAddress}
+                                        exam={exam}
+                                      />
+                                    ).then((blob) => openPdf({
+                                      blob,
+                                      fileName: `${slugifyFileName("laudo", examDisplayName(exam), currentAnimal.name, formatDateBRForFileName(exam.date))}.pdf`,
                                       persistOptions: { folder: "exams" },
                                     })).then(() => {
                                       toast.success("Laudo de exame enviado para impressão!");
@@ -2173,6 +2199,19 @@ const PatientRecordPage = () => {
                                                   exam={exam}
                                                 />
                                               )
+                                          : exam.customBlocks?.length
+                                            ? await renderPdf((K) =>
+                                                <K.ExamReportPdfContentOutrosOnePage
+                                                  animalName={currentAnimal.name}
+                                                  animalId={currentAnimal.id}
+                                                  displayId={displayId}
+                                                  animalSpecies={currentAnimal.species}
+                                                  animalBreed={currentAnimal.breed}
+                                                  tutorName={currentClient.name}
+                                                  tutorAddress={tutorAddress}
+                                                  exam={exam}
+                                                />
+                                              )
                                           : await renderPdf(async (K) =>
                                             <K.ExamReportPdfContent
                                               animalName={currentAnimal.name}
@@ -2187,13 +2226,13 @@ const PatientRecordPage = () => {
                                           );
                                     await sendPdfViaWhatsApp({
                                       blob,
-                                      fileName: `${slugifyFileName("laudo", exam.type || "exame", currentAnimal.name, formatDateBRForFileName(exam.date))}.pdf`,
+                                      fileName: `${slugifyFileName("laudo", examDisplayName(exam), currentAnimal.name, formatDateBRForFileName(exam.date))}.pdf`,
                                       folder: "exams",
-                                      title: `Resultado de Exame — ${exam.type || "Exame"}`,
-                                      intro: `Olá! Segue o resultado do exame *${exam.type || "Exame"}* de *${currentAnimal.name}*.`,
+                                      title: `Resultado de Exame — ${examDisplayName(exam)}`,
+                                      intro: `Olá! Segue o resultado do exame *${examDisplayName(exam)}* de *${currentAnimal.name}*.`,
                                       dateLabel: formatDateTime(exam.date, exam.time),
                                       preview: {
-                                        title: `${exam.type || "Exame"} — ${currentAnimal.name}`,
+                                        title: `${examDisplayName(exam)} — ${currentAnimal.name}`,
                                         description: `Resultado de exame · ${formatDateTime(exam.date, exam.time)}`,
                                       },
                                     });
