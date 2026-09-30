@@ -1817,7 +1817,47 @@ const PatientRecordPage = () => {
 
           <TabsContent value="exams" className="mt-4 space-y-4">
             <React.Suspense fallback={null}>
-              <ExamTrendCard exams={examsList} species={currentAnimal.species} />
+              <ExamTrendCard
+                exams={examsList}
+                species={currentAnimal.species}
+                onExport={async (trends, mode) => {
+                  // PDF de evolução: um analito ou todos, para o tutor.
+                  try {
+                    const blob = await renderPdf((K) => (
+                      <K.ExamEvolutionPdfContent
+                        animalName={currentAnimal.name}
+                        displayId={getPatientDisplayId(currentAnimal.id, currentClient?.animals)}
+                        animalSpecies={currentAnimal.species}
+                        animalBreed={currentAnimal.breed}
+                        tutorName={currentClient?.name}
+                        trends={trends}
+                      />
+                    ));
+                    const single = trends.length === 1 ? trends[0].name : undefined;
+                    const fileName = `${slugifyFileName("evolucao", single || "exames", currentAnimal.name, formatDateBRForFileName(getTodayLocalISO()))}.pdf`;
+                    if (mode === "open") {
+                      await openPdf({ blob, fileName, persistOptions: { folder: "exams" } });
+                      return;
+                    }
+                    const what = single ? `de *${single}*` : "dos exames";
+                    await sendPdfViaWhatsApp({
+                      blob,
+                      fileName,
+                      folder: "exams",
+                      title: single ? `Evolução — ${single}` : "Evolução dos exames",
+                      intro: `Olá! Segue a evolução ${what} de *${currentAnimal.name}*, com os resultados ao longo do tempo.`,
+                      dateLabel: formatDateTime(getTodayLocalISO()),
+                      preview: {
+                        title: `${single ? `Evolução ${single}` : "Evolução dos exames"} — ${currentAnimal.name}`,
+                        description: single ? `Resultados de ${single} ao longo do tempo` : `${trends.length} exames ao longo do tempo`,
+                      },
+                    });
+                  } catch (err) {
+                    console.error("[Evolução dos exames] falhou ao gerar o PDF", err);
+                    toast.error("Não consegui gerar o PDF da evolução.");
+                  }
+                }}
+              />
             </React.Suspense>
             <Card className="vf-surface-card vf-tone-clinical card-hover rounded-md border border-border/80">
               {/* flex-col no celular: título + 2 botões numa linha só passavam

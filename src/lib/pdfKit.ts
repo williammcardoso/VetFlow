@@ -20,3 +20,4 @@ export { default as PriceListPdfContent } from "@/components/PriceListPdfContent
 export { default as PurchaseReceiptPdfContent } from "@/components/PurchaseReceiptPdfContent";
 export { default as SaleCancellationPdfContent } from "@/components/SaleCancellationPdfContent";
 export { default as SaleReceiptPdfContent } from "@/components/SaleReceiptPdfContent";
+export { ExamEvolutionPdfContent } from "@/components/ExamEvolutionPdfContent";

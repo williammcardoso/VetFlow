@@ -11,115 +11,34 @@ import {
 } from "@/components/ui/select";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, ReferenceArea } from "recharts";
-import { TrendingUp } from "lucide-react";
+import { ChevronDown, FileText, Loader2, TrendingUp } from "lucide-react";
+import { SiWhatsapp } from "react-icons/si";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import type { ExamEntry, HemogramReference } from "@/types/exam";
+import { buildTrends, orderTrendsForReport, type AnalyteTrend, type TrendPoint } from "@/lib/examTrends";
 import { fetchHemogramReferences } from "@/constants/examReferences";
-import { parseBrNumber, formatDateTime } from "@/lib/utils";
 
-interface TrendPoint {
-  dateLabel: string;
-  value: number;
-}
+export { buildTrends } from "@/lib/examTrends";
 
-type TrendCategory = "hemogram" | "biochemical";
-
-interface AnalyteTrend {
-  name: string;
-  category: TrendCategory;
-  unit: string;
-  min?: number;
-  max?: number;
-  points: TrendPoint[];
-}
-
-// Campos fixos de hemograma que existem direto no ExamEntry (não numa lista
-// como o bioquímico) — mesmas chaves usadas em defaultHemogramReferences.
-const HEMOGRAM_FIELDS: Array<{ key: keyof ExamEntry; label: string; unit: string }> = [
-  { key: "eritrocitos", label: "Eritrócitos", unit: "M/µL" },
-  { key: "hemoglobina", label: "Hemoglobina", unit: "g/dL" },
-  { key: "hematocrito", label: "Hematócrito", unit: "%" },
-  { key: "leucocitosTotais", label: "Leucócitos totais", unit: "/µL" },
-  { key: "contagemPlaquetaria", label: "Plaquetas", unit: "/µL" },
-];
-
-// Bioquímico é a única modalidade com série de analitos nomeados repetível
-// (biochemicalEntries); a referência (min/max/unidade) vem do próprio
-// lançamento, já que cada entrada guarda o que valia na hora.
-function buildBiochemicalTrends(exams: ExamEntry[]): AnalyteTrend[] {
-  const byAnalyte = new Map<string, AnalyteTrend>();
-
-  const bioExams = exams
-    .filter((e) => e.type === "Bioquímico" && (e.biochemicalEntries?.length ?? 0) > 0)
-    .slice()
-    .sort((a, b) => `${a.date}T${a.time || "00:00"}`.localeCompare(`${b.date}T${b.time || "00:00"}`));
-
-  for (const exam of bioExams) {
-    for (const entry of exam.biochemicalEntries || []) {
-      const name = entry.enzyme?.trim();
-      const value = parseBrNumber(entry.result);
-      if (!name || value === undefined) continue;
-
-      const existing =
-        byAnalyte.get(name) || { name, category: "biochemical" as const, unit: "", min: undefined, max: undefined, points: [] };
-      if (entry.referenceUnit) existing.unit = entry.referenceUnit;
-      const min = parseBrNumber(entry.minReference || "");
-      const max = parseBrNumber(entry.maxReference || "");
-      if (min !== undefined) existing.min = min;
-      if (max !== undefined) existing.max = max;
-      existing.points.push({ dateLabel: formatDateTime(exam.date), value });
-      byAnalyte.set(name, existing);
-    }
-  }
-
-  return Array.from(byAnalyte.values()).filter((t) => t.points.length >= 2);
-}
-
-// Hemograma não guarda referência por lançamento (só o valor cru) — a faixa
-// vem de Cadastros > Referências de Exame (com fallback embutido no
-// código), a mesma fonte usada no laudo, filtrada pela espécie do paciente.
-function buildHemogramTrends(
-  exams: ExamEntry[],
-  hemogramReferences: Record<string, HemogramReference>,
-  species: "dog" | "cat" | undefined
-): AnalyteTrend[] {
-  const hemoExams = exams
-    .filter((e) => e.type === "Hemograma Completo")
-    .slice()
-    .sort((a, b) => `${a.date}T${a.time || "00:00"}`.localeCompare(`${b.date}T${b.time || "00:00"}`));
-
-  const trends: AnalyteTrend[] = [];
-  for (const field of HEMOGRAM_FIELDS) {
-    const points: TrendPoint[] = [];
-    for (const exam of hemoExams) {
-      const raw = exam[field.key] as string | undefined;
-      const value = parseBrNumber(raw || "");
-      if (value === undefined) continue;
-      points.push({ dateLabel: formatDateTime(exam.date), value });
-    }
-    if (points.length < 2) continue;
-    const ref = species ? hemogramReferences[field.key]?.[species] : undefined;
-    trends.push({ name: field.label, category: "hemogram", unit: field.unit, min: ref?.min, max: ref?.max, points });
-  }
-  return trends;
-}
-
-export function buildTrends(
-  exams: ExamEntry[],
-  hemogramReferences: Record<string, HemogramReference> = {},
-  species?: "dog" | "cat"
-): AnalyteTrend[] {
-  return [
-    ...buildHemogramTrends(exams, hemogramReferences, species),
-    ...buildBiochemicalTrends(exams),
-  ].sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
-}
+export type TrendExportMode = "whatsapp" | "open";
 
 export default function ExamTrendCard({
   exams,
   species,
+  onExport,
 }: {
   exams: ExamEntry[];
   species?: "Canino" | "Felino" | string;
+  /** Gera o PDF de evolução (um analito ou todos) — mandar ao tutor ou abrir. */
+  onExport?: (trends: AnalyteTrend[], mode: TrendExportMode) => Promise<void>;
 }) {
   const mappedSpecies: "dog" | "cat" | undefined =
     species === "Canino" ? "dog" : species === "Felino" ? "cat" : undefined;
@@ -140,12 +59,23 @@ export default function ExamTrendCard({
     [exams, hemogramReferences, mappedSpecies]
   );
   const [selected, setSelected] = useState<string | undefined>(undefined);
+  const [exporting, setExporting] = useState(false);
 
   if (trends.length === 0) return null;
 
   const activeTrend = trends.find((t) => t.name === selected) || trends[0];
   const hemogramOptions = trends.filter((t) => t.category === "hemogram");
   const biochemicalOptions = trends.filter((t) => t.category === "biochemical");
+
+  const runExport = async (list: AnalyteTrend[], mode: TrendExportMode) => {
+    if (!onExport || exporting) return;
+    setExporting(true);
+    try {
+      await onExport(orderTrendsForReport(list), mode);
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const values = activeTrend.points.map((p) => p.value);
   const bounds = [...values, activeTrend.min, activeTrend.max].filter(
@@ -171,8 +101,9 @@ export default function ExamTrendCard({
         <CardTitle className="flex items-center gap-2 text-lg font-semibold text-foreground">
           <TrendingUp className="h-5 w-5 text-primary" /> Evolução dos exames
         </CardTitle>
+        <div className="flex w-full items-center gap-2 sm:w-auto">
         <Select value={activeTrend.name} onValueChange={setSelected}>
-          <SelectTrigger className="w-full sm:w-[220px] bg-input rounded-md border-border">
+          <SelectTrigger className="min-w-0 flex-1 sm:w-[220px] sm:flex-none bg-input rounded-md border-border">
             <SelectValue placeholder="Selecione um analito" />
           </SelectTrigger>
           <SelectContent>
@@ -198,6 +129,41 @@ export default function ExamTrendCard({
             )}
           </SelectContent>
         </Select>
+        {onExport && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button type="button" variant="outline" className="shrink-0 gap-1.5" disabled={exporting} aria-label="Enviar evolução em PDF">
+                {exporting ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <SiWhatsapp className="h-4 w-4 text-[#25D366]" aria-hidden />}
+                <span className="hidden sm:inline">Enviar evolução</span>
+                <ChevronDown className="h-3.5 w-3.5 opacity-60" aria-hidden />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-72">
+              <DropdownMenuLabel className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                PDF para o tutor (WhatsApp)
+              </DropdownMenuLabel>
+              <DropdownMenuItem onClick={() => void runExport([activeTrend], "whatsapp")} className="gap-2">
+                <SiWhatsapp className="h-4 w-4 text-[#25D366]" aria-hidden />
+                <span className="min-w-0 truncate">Só {activeTrend.name}</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => void runExport(trends, "whatsapp")} className="gap-2">
+                <SiWhatsapp className="h-4 w-4 text-[#25D366]" aria-hidden />
+                <span>Todos os exames ({trends.length}) em 1 PDF</span>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Só abrir o PDF</DropdownMenuLabel>
+              <DropdownMenuItem onClick={() => void runExport([activeTrend], "open")} className="gap-2">
+                <FileText className="h-4 w-4 text-muted-foreground" aria-hidden />
+                <span className="min-w-0 truncate">Só {activeTrend.name}</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => void runExport(trends, "open")} className="gap-2">
+                <FileText className="h-4 w-4 text-muted-foreground" aria-hidden />
+                <span>Todos os exames ({trends.length})</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+        </div>
       </CardHeader>
       <CardContent className="px-3 pb-4 pt-0 sm:px-6 sm:pb-6">
         {referenceLabel && (

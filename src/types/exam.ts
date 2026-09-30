@@ -128,8 +128,8 @@ export interface BiochemicalEntry {
   id: string;
   enzyme: string; // Nome da enzima (ou outro analito)
   material: string; // Ex: "Soro ou plasma"
-  methodology: string; // Ex: "Colorimétrico enzimático"
-  equipment: string; // Ex: "Bioclin 2200"
+  methodology: string; // Ex: "Cinético"
+  equipment: string; // Ex: "Drake Quick Lab 2"
   result: string; // Resultado informado
   minReference?: string; // Novo: Valor de referência mínimo
   maxReference?: string; // Novo: Valor de referência máximo

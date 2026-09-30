@@ -23,6 +23,10 @@ import {
   type BiochemicalReferenceEntry,
 } from "@/constants/examReferences";
 import { useClientWithAnimals } from "@/hooks/useSupabaseClients";
+
+// Padrão do bioquímico feito na clínica (editável em cada analito).
+const BIO_DEFAULT_METHODOLOGY = "Cinético";
+const BIO_DEFAULT_EQUIPMENT = "Drake Quick Lab 2";
 import { usePatientRouteParams } from "@/hooks/usePatientRouteParams";
 import { getPatientRecordPath } from "@/utils/patientDisplayId";
 import { useSystemVets } from "@/hooks/useSystemVets";
@@ -293,8 +297,8 @@ const AddExamPage = () => {
   const [selectedEnzyme, setSelectedEnzyme] = useState<string | undefined>(undefined);
   const [customEnzyme, setCustomEnzyme] = useState<string>("");
   const [bioMaterial, setBioMaterial] = useState<string>("Soro ou plasma");
-  const [bioMethodology, setBioMethodology] = useState<string>("Colorimétrico enzimático");
-  const [bioEquipment, setBioEquipment] = useState<string>("Bioclin 2200");
+  const [bioMethodology, setBioMethodology] = useState<string>(BIO_DEFAULT_METHODOLOGY);
+  const [bioEquipment, setBioEquipment] = useState<string>(BIO_DEFAULT_EQUIPMENT);
   const [bioResult, setBioResult] = useState<string>("");
   const [bioMinReference, setBioMinReference] = useState<string>(""); // Novo
   const [bioMaxReference, setBioMaxReference] = useState<string>(""); // Novo
@@ -497,8 +501,8 @@ const AddExamPage = () => {
       }
       if (examType === "Bioquímico") {
         setBioMaterial("Soro ou plasma");
-        setBioMethodology("Colorimétrico enzimático");
-        setBioEquipment("Bioclin 2200");
+        setBioMethodology(BIO_DEFAULT_METHODOLOGY);
+        setBioEquipment(BIO_DEFAULT_EQUIPMENT);
       }
       if (examType === "Citologia") {
         setMetodoColeta("CAAF");
@@ -511,6 +515,9 @@ const AddExamPage = () => {
     if (!animalSpecies || !hemogramReferences[param]) return "N/A";
     const refData = hemogramReferences[param][animalSpecies];
     if (type === 'full' && refData.full) return refData.full;
+    // Leucócitos totais têm só a faixa absoluta (/µL) cadastrada, sem "full"
+    // — sem esse fallback o campo mostrava "N/A".
+    if (type === 'full' && refData.absolute) return refData.absolute;
     if (type === 'relative' && refData.relative) return refData.relative;
     if (type === 'absolute' && refData.absolute) return refData.absolute;
     return "N/A";
@@ -627,8 +634,8 @@ const AddExamPage = () => {
       id: `bio-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
       enzyme: enzymeName,
       material: bioMaterial.trim() || "Soro ou plasma",
-      methodology: bioMethodology.trim() || "Colorimétrico enzimático",
-      equipment: bioEquipment.trim() || "Bioclin 2200",
+      methodology: bioMethodology.trim() || BIO_DEFAULT_METHODOLOGY,
+      equipment: bioEquipment.trim() || BIO_DEFAULT_EQUIPMENT,
       result: bioResult.trim(),
       minReference: bioMinReference.trim(), // Novo
       maxReference: bioMaxReference.trim(), // Novo
