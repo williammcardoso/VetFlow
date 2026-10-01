@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowUpDown, ChevronRight, Plus, Search, UserPlus, Users, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,6 +12,7 @@ import {
   ClientAvatar,
   PetChip,
   formatDateBR,
+  formatRelativeDays,
   speciesKind,
   type SpeciesKind,
 } from "@/components/clients/clientVisuals";
@@ -50,7 +51,9 @@ const SPECIES_FILTERS: Array<{ key: SpeciesFilter; label: string }> = [
 // Mesmas colunas no cabeçalho e nas linhas (cliente | animais | última visita).
 // lg, não md: no tablet em pé com o menu aberto sobram ~540px e as colunas
 // espremiam o nome em 3–4 linhas — ali fica o formato de lista do celular.
-const COLUMNS = "lg:grid lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)_7.5rem] lg:items-center lg:gap-4";
+// Tutor com largura máxima: os pets vêm logo ao lado do nome (em tela larga
+// a coluna do meio começava no meio da tela e o olho atravessava um vazio).
+const COLUMNS = "lg:grid lg:grid-cols-[minmax(14rem,24rem)_minmax(0,1fr)_8rem] lg:items-center lg:gap-10";
 
 const norm = (s: string | undefined) =>
   (s || "")
@@ -140,9 +143,15 @@ function ClientRow({ row }: { row: ClientRowData }) {
             <span className="text-sm text-muted-foreground">Nenhum animal</span>
           )}
         </div>
-        <p className="hidden text-right text-sm tabular-nums text-muted-foreground lg:block">
-          {lastVisit ? formatDateBR(lastVisit) : "—"}
-        </p>
+        {/* Última visita: "há 4 dias" em cima, a data embaixo; sem visita fica em branco. */}
+        <div className="hidden text-right lg:block">
+          {lastVisit ? (
+            <>
+              <p className="text-sm font-medium text-foreground">{formatRelativeDays(lastVisit)}</p>
+              <p className="text-xs tabular-nums text-muted-foreground">{formatDateBR(lastVisit)}</p>
+            </>
+          ) : null}
+        </div>
       </div>
       <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground/50" aria-hidden />
     </li>
@@ -163,6 +172,15 @@ const ClientsPage = () => {
   // a URL acompanha pra busca sobreviver ao "voltar".
   const [search, setSearch] = useState(() => params.get("q") ?? "");
   const [visible, setVisible] = useState(PAGE_SIZE);
+  const navigate = useNavigate();
+  const searchRef = useRef<HTMLInputElement>(null);
+
+  // Cursor já na busca ao abrir a tela — no computador/tablet com mouse. No
+  // celular não: o teclado subiria e cobriria a lista.
+  useEffect(() => {
+    const finePointer = typeof window !== "undefined" && window.matchMedia?.("(pointer: fine)").matches;
+    if (finePointer) searchRef.current?.focus({ preventScroll: true });
+  }, []);
 
   const setParam = (key: string, value: string, fallback: string) =>
     setParams(
@@ -256,6 +274,19 @@ const ClientsPage = () => {
                 onChange={(e) => {
                   setSearch(e.target.value);
                   setParam("q", e.target.value, "");
+                }}
+                ref={searchRef}
+                onKeyDown={(e) => {
+                  // Enter abre o 1º resultado (o prontuário do pet, se a busca bateu no pet); Esc limpa.
+                  if (e.key === "Enter" && rows.length > 0) {
+                    e.preventDefault();
+                    const { client, petIds } = rows[0];
+                    const pet = petIds.length ? (client.animals ?? []).find((a) => a.id === petIds[0]) : undefined;
+                    navigate(pet ? getPatientRecordPath(client.id, pet.id, pet.patientCode) : `/clients/${client.id}`);
+                  } else if (e.key === "Escape" && search) {
+                    setSearch("");
+                    setParam("q", "", "");
+                  }
                 }}
                 placeholder="Buscar por tutor, pet, telefone ou CPF"
                 aria-label="Buscar clientes"
@@ -388,7 +419,7 @@ const ClientsPage = () => {
             <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/70 px-4 py-2.5 text-xs text-muted-foreground">
               <span aria-live="polite">
                 {isFiltering
-                  ? `${plural(rows.length, "resultado", "resultados")} de ${clients.length}`
+                  ? `${plural(rows.length, "resultado", "resultados")} de ${clients.length}${search.trim() ? " · Enter abre o primeiro" : ""}`
                   : `Mostrando ${shown.length} de ${plural(rows.length, "cliente", "clientes")}`}
               </span>
               {remaining > 0 && (

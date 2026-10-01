@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { formatAgeShort, formatDateBR, formatWeightKg, getInitials, sexLabel, speciesKind } from "./clientVisuals";
+import { formatAgeShort, formatDateBR, formatWeightKg, getInitials, sexLabel, speciesKind, formatRelativeDays } from "./clientVisuals";
 
 describe("getInitials", () => {
   it("primeiro e último nome, ignorando da/de/do/dos/e", () => {
@@ -55,5 +55,18 @@ describe("formatAgeShort", () => {
     expect(formatAgeShort("2026-08-28")).toBe("1 mês");
     expect(formatAgeShort("2026-09-20")).toBe("8 dias");
     expect(formatAgeShort("")).toBe("");
+  });
+});
+describe("última visita em palavras", () => {
+  const hoje = new Date(2026, 8, 30, 15, 0);
+  it("dias, meses e anos", () => {
+    expect(formatRelativeDays("2026-09-30", hoje)).toBe("hoje");
+    expect(formatRelativeDays("2026-09-29", hoje)).toBe("ontem");
+    expect(formatRelativeDays("2026-09-26", hoje)).toBe("há 4 dias");
+    expect(formatRelativeDays("2026-08-15", hoje)).toBe("há 1 mês");
+    expect(formatRelativeDays("2026-05-01", hoje)).toBe("há 4 meses");
+    expect(formatRelativeDays("2024-09-01", hoje)).toBe("há 2 anos");
+    expect(formatRelativeDays("2026-10-02", hoje)).toBe("agendado");
+    expect(formatRelativeDays("", hoje)).toBe("");
   });
 });

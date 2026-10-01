@@ -81,14 +81,18 @@ export function speciesIcon(species: string | undefined): LucideIcon {
 }
 
 /** Cor do ícone da espécie: `icon` (só o traço) e `soft` (quadradinho com fundo claro). */
-export function speciesTone(species: string | undefined): { icon: string; soft: string } {
+export function speciesTone(species: string | undefined): { icon: string; soft: string; chip: string } {
   const kind = speciesKind(species);
-  if (kind === "dog") return { icon: "text-amber-600", soft: "bg-amber-50 text-amber-600" };
-  if (kind === "cat") return { icon: "text-violet-600", soft: "bg-violet-50 text-violet-600" };
+  if (kind === "dog")
+    return { icon: "text-amber-600", soft: "bg-amber-50 text-amber-600", chip: "border-amber-200 bg-amber-50 text-amber-900 hover:bg-amber-100" };
+  if (kind === "cat")
+    return { icon: "text-violet-600", soft: "bg-violet-50 text-violet-600", chip: "border-violet-200 bg-violet-50 text-violet-900 hover:bg-violet-100" };
   const s = norm(species);
-  if (/^(pass|ave|calops|papag|periq|canar)/.test(s)) return { icon: "text-sky-600", soft: "bg-sky-50 text-sky-600" };
-  if (/^(roedor|coelh|hamster|porquinho|chinchila)/.test(s)) return { icon: "text-pink-600", soft: "bg-pink-50 text-pink-600" };
-  return { icon: "text-emerald-600", soft: "bg-emerald-50 text-emerald-600" };
+  if (/^(pass|ave|calops|papag|periq|canar)/.test(s))
+    return { icon: "text-sky-600", soft: "bg-sky-50 text-sky-600", chip: "border-sky-200 bg-sky-50 text-sky-900 hover:bg-sky-100" };
+  if (/^(roedor|coelh|hamster|porquinho|chinchila)/.test(s))
+    return { icon: "text-pink-600", soft: "bg-pink-50 text-pink-600", chip: "border-pink-200 bg-pink-50 text-pink-900 hover:bg-pink-100" };
+  return { icon: "text-emerald-600", soft: "bg-emerald-50 text-emerald-600", chip: "border-emerald-200 bg-emerald-50 text-emerald-900 hover:bg-emerald-100" };
 }
 
 /** "Macho"/"Fêmea" (ou vazio) a partir do que estiver gravado. */
@@ -120,11 +124,12 @@ export function PetChip({
       to={to}
       title={`Abrir prontuário de ${animal.name}`}
       className={cn(
-        "relative z-10 inline-flex h-7 max-w-full items-center gap-1.5 rounded-full border px-2.5 text-xs font-medium transition-colors",
+        "relative z-10 inline-flex h-7 max-w-full items-center gap-1.5 rounded-full border px-2.5 text-[13px] font-semibold transition-colors",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60",
-        highlighted
-          ? "border-primary/40 bg-primary/10 text-primary"
-          : "border-border bg-card text-foreground hover:border-primary/40 hover:bg-primary/5 hover:text-primary",
+        // Cor da espécie (cão âmbar, gato violeta...): o pet salta na lista.
+        // O que bateu com a busca ganha contorno forte.
+        speciesTone(animal.species).chip,
+        highlighted && "ring-2 ring-primary/60 ring-offset-1",
         className
       )}
     >
@@ -132,6 +137,24 @@ export function PetChip({
       <span className="min-w-0 truncate">{animal.name}</span>
     </Link>
   );
+}
+
+/** "hoje", "ontem", "há 4 dias", "há 3 meses", "há 2 anos" (a partir de "aaaa-mm-dd"). */
+export function formatRelativeDays(value?: string | null, today = new Date()): string {
+  const iso = (value || "").slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return "";
+  const [y, m, d] = iso.split("-").map(Number);
+  const start = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+  const days = Math.round((start - new Date(y, m - 1, d).getTime()) / 86_400_000);
+  if (days < 0) return "agendado";
+  if (days === 0) return "hoje";
+  if (days === 1) return "ontem";
+  if (days < 30) return `há ${days} dias`;
+  // Meses de calendário completos (15/08 → 30/09 = 1 mês; 01/05 → 30/09 = 4 meses).
+  const months = (today.getFullYear() - y) * 12 + (today.getMonth() + 1 - m) - (today.getDate() < d ? 1 : 0);
+  if (months < 12) return months <= 1 ? "há 1 mês" : `há ${months} meses`;
+  const years = Math.floor(months / 12);
+  return years <= 1 ? "há 1 ano" : `há ${years} anos`;
 }
 
 /** "aaaa-mm-dd" (ou ISO com hora) → "dd/mm/aaaa". */

@@ -29,7 +29,7 @@ import type { PurchaseReceiptPurchase } from "@/components/PurchaseReceiptPdfCon
 import { formatItemQty, parseItemQty, formatDateTime, generateUUID, cn } from "@/lib/utils";
 import CurrencyInput from "@/components/CurrencyInput";
 import SmartComboInput, { type SmartComboInputHandle } from "@/components/SmartComboInput";
-import { ShoppingBag, Plus, Trash2, Printer, PackageCheck, ChevronDown, ChevronRight, CalendarClock, Pencil, X } from "lucide-react";
+import { ShoppingBag, Plus, Trash2, Printer, PackageCheck, ChevronDown, ChevronRight, CalendarClock, Pencil, X, FileText } from "lucide-react";
 import { PageShell } from "@/components/saas/PageShell";
 import { PageHeader } from "@/components/saas/PageHeader";
 import { SectionCard } from "@/components/saas/SectionCard";
@@ -65,6 +65,8 @@ interface HistoryRow {
   items: HistoryLineItem[];
   itemized: boolean;
   installments?: HistoryInstallment[];
+  /** Compra lançada só pela duplicata (sem itens no estoque). */
+  duplicata?: string;
 }
 
 const currency = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
@@ -84,10 +86,22 @@ const INSTALLMENT_COUNT_OPTIONS = Array.from({ length: 11 }, (_, i) => i + 2); /
 // corrido (ex.: "Compra de estoque - Fornecedor: Agrocentro: Seringa ×20,
 // Agulha ×50"). Este parser recupera fornecedor + itens (nome/qtd, sem
 // custo por item, que nunca foi salvo) só pra exibição do histórico antigo.
-function parseLegacyDescription(description: string): { supplier?: string; items: HistoryLineItem[] } {
+// Compra lançada só pela duplicata: "Compra de estoque - Fornecedor: X:
+// Duplicata nº 1234 — descrição (Parcela 1/3)".
+const DUPLICATA_RE = /^Duplicata nº (\S+)(?: — (.*?))?(?: \(Parcela \d+\/\d+\))?$/s;
+
+function parseLegacyDescription(description: string): { supplier?: string; items: HistoryLineItem[]; duplicata?: string } {
   const m = description.match(/^Compra de estoque(?: - Fornecedor: (.*?))?: (.*)$/s);
   if (!m) return { items: [{ name: description }] };
   const [, supplier, itemsPart] = m;
+  const dup = itemsPart.match(DUPLICATA_RE);
+  if (dup) {
+    return {
+      supplier: supplier || undefined,
+      duplicata: dup[1],
+      items: [{ name: dup[2] ? `Duplicata nº ${dup[1]} — ${dup[2]}` : `Duplicata nº ${dup[1]}` }],
+    };
+  }
   const items = itemsPart
     .split(", ")
     .map((frag) => frag.trim())
@@ -181,6 +195,14 @@ const PurchasesPage: React.FC = () => {
     setInstallmentDates(dates);
   }, [installmentsEnabled, installmentCount, installmentIntervalDays, firstDueDate]);
 
+  // "Só a duplicata": compra sem itens no estoque (ex.: insumos que não são
+  // cadastrados) — entra no 50/50 do mesmo jeito, pela despesa "Estoque".
+  const [mode, setMode] = useState<"itens" | "duplicata">("itens");
+  const [dupNumber, setDupNumber] = useState("");
+  const [dupValue, setDupValue] = useState<number>(0);
+  const [dupDescription, setDupDescription] = useState("");
+  const [dupDueDate, setDupDueDate] = useState<string>(iso(new Date()));
+
   const [historyFrom, setHistoryFrom] = useState<string>("");
   const [historyTo, setHistoryTo] = useState<string>("");
   const [itemsByTransaction, setItemsByTransaction] = useState<Map<string, StoredPurchaseItem[]>>(new Map());
@@ -189,7 +211,9 @@ const PurchasesPage: React.FC = () => {
   const [exporting, setExporting] = useState(false);
 
   const subtotal = items.reduce((sum, it) => sum + it.quantity * it.unitCost, 0);
-  const installmentAmounts = installmentsEnabled && installmentDates.length > 0 ? splitAmount(subtotal, installmentDates.length) : [];
+  // Total que vai para as parcelas: itens somados, ou o valor da duplicata.
+  const purchaseTotal = mode === "duplicata" ? dupValue : subtotal;
+  const installmentAmounts = installmentsEnabled && installmentDates.length > 0 ? splitAmount(purchaseTotal, installmentDates.length) : [];
 
   // Ao escolher o produto, traz o custo atual do catálogo como ponto de
   // partida — assim fica visível se a compra veio mais cara ou mais barata.
@@ -448,6 +472,88 @@ const PurchasesPage: React.FC = () => {
     }
   };
 
+  const resetInstallments = () => {
+    setInstallmentsEnabled(false);
+    setInstallmentCount("2");
+    setInstallmentIntervalDays("30");
+    setFirstDueDate(iso(new Date()));
+  };
+
+  const handleSaveDuplicata = async () => {
+    if (!dupNumber.trim()) {
+      toast.error("Informe o número da duplicata.");
+      return;
+    }
+    if (!(dupValue > 0)) {
+      toast.error("Informe o valor da duplicata.");
+      return;
+    }
+    if (!supplier.trim()) {
+      toast.error("Informe o fornecedor.");
+      return;
+    }
+    if (installmentsEnabled && installmentDates.some((d) => !d)) {
+      toast.error("Preencha todas as datas de vencimento das parcelas.");
+      return;
+    }
+    if (!installmentsEnabled && !dupDueDate) {
+      toast.error("Informe o vencimento.");
+      return;
+    }
+    setSaving(true);
+    try {
+      const now = new Date();
+      const time = now.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+      const what = dupDescription.trim().replace(/\s+/g, " ");
+      const description = `Compra de estoque - Fornecedor: ${supplier.trim()}: Duplicata nº ${dupNumber.trim()}${what ? ` — ${what}` : ""}`;
+      if (installmentsEnabled && installmentDates.length > 1) {
+        const purchaseGroupId = generateUUID();
+        const amounts = splitAmount(dupValue, installmentDates.length);
+        for (let i = 0; i < installmentDates.length; i++) {
+          const label = `Parcela ${i + 1}/${installmentDates.length}`;
+          const created = await addFinancialTransaction({
+            date: installmentDates[i],
+            time,
+            description: `${description} (${label})`,
+            type: "expense",
+            amount: amounts[i],
+            category: "Estoque",
+            purchaseGroupId,
+            installmentLabel: label,
+          });
+          if (!created) {
+            toast.error(`Falhou ao registrar a ${label}. Confira no histórico antes de lançar de novo.`);
+            return;
+          }
+        }
+        toast.success(`Duplicata nº ${dupNumber.trim()} lançada em ${installmentDates.length}x.`);
+      } else {
+        const created = await addFinancialTransaction({
+          date: dupDueDate,
+          time,
+          description,
+          type: "expense",
+          amount: dupValue,
+          category: "Estoque",
+        });
+        if (!created) {
+          toast.error("Falhou ao registrar a duplicata.");
+          return;
+        }
+        toast.success(`Duplicata nº ${dupNumber.trim()} lançada.`);
+      }
+      setDupNumber("");
+      setDupValue(0);
+      setDupDescription("");
+      setDupDueDate(iso(new Date()));
+      setSupplier("");
+      resetInstallments();
+      await refetchTransactions();
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const history = useMemo(() => {
     return transactions
       .filter((t) => t.type === "expense" && t.category === "Estoque")
@@ -520,6 +626,7 @@ const PurchasesPage: React.FC = () => {
         amount: t.amount,
         itemized: false,
         items: legacy.items,
+        duplicata: legacy.duplicata,
       };
     };
 
@@ -586,9 +693,10 @@ const PurchasesPage: React.FC = () => {
         date: r.date,
         time: r.time,
         supplier: r.supplier,
-        items: r.items,
+        // Duplicata: uma linha com o valor (não é "compra antiga sem detalhamento").
+        items: r.duplicata ? [{ name: r.items[0]?.name || `Duplicata nº ${r.duplicata}`, subtotal: r.amount }] : r.items,
         total: r.amount,
-        itemized: r.itemized,
+        itemized: r.itemized || !!r.duplicata,
         installments: r.installments,
       }));
       const blob = await renderPdf((K) => <K.PurchaseReceiptPdfContent purchases={purchases} />);
@@ -602,6 +710,78 @@ const PurchasesPage: React.FC = () => {
     }
   };
 
+  // Parcelamento (usado pela compra com itens e pela duplicata).
+  const renderInstallments = () => (
+    <div className="rounded-lg border border-border/70 bg-muted/10 p-3">
+      <label className="flex cursor-pointer items-center gap-2 text-sm font-medium">
+        <Checkbox checked={installmentsEnabled} onCheckedChange={(v) => setInstallmentsEnabled(v === true)} />
+        <CalendarClock className="h-4 w-4 text-[hsl(var(--vf-stock))]" />
+        Parcelar esta compra (ex.: boleto em várias vezes)
+      </label>
+
+      {installmentsEnabled && (
+        <div className="mt-3 space-y-3">
+          <div className="grid grid-cols-3 gap-2">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium text-muted-foreground">Parcelas</Label>
+              <Select value={installmentCount} onValueChange={setInstallmentCount}>
+                <SelectTrigger className="h-9 bg-card">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {INSTALLMENT_COUNT_OPTIONS.map((n) => (
+                    <SelectItem key={n} value={String(n)}>{n}x</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium text-muted-foreground">Intervalo</Label>
+              <Select value={installmentIntervalDays} onValueChange={setInstallmentIntervalDays}>
+                <SelectTrigger className="h-9 bg-card">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {INSTALLMENT_INTERVAL_OPTIONS.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium text-muted-foreground">1º vencimento</Label>
+              <Input type="date" value={firstDueDate} onChange={(e) => setFirstDueDate(e.target.value)} className="h-9 bg-card" />
+            </div>
+          </div>
+
+          {installmentDates.length > 0 && (
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium text-muted-foreground">
+                Datas de vencimento (edite se alguma parcela cair fora do padrão)
+              </Label>
+              {installmentDates.map((d, i) => (
+                <div key={i} className="flex items-center gap-2 text-sm">
+                  <span className="w-20 shrink-0 text-xs text-muted-foreground">{`${i + 1}/${installmentDates.length}`}</span>
+                  <Input
+                    type="date"
+                    value={d}
+                    onChange={(e) => {
+                      const next = [...installmentDates];
+                      next[i] = e.target.value;
+                      setInstallmentDates(next);
+                    }}
+                    className="h-9 bg-card"
+                  />
+                  <span className="ml-auto shrink-0 font-medium">{currency(installmentAmounts[i] ?? 0)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <PageShell>
       <PageHeader
@@ -612,6 +792,95 @@ const PurchasesPage: React.FC = () => {
         breadcrumb={<>Painel &gt; Financeiro &gt; Compras do almoxarifado</>}
       />
 
+      {/* Com itens do estoque, ou só a duplicata (sem mexer no estoque). */}
+      {!editingTransactionId && (
+        <div role="radiogroup" aria-label="Como lançar a compra" className="mb-4 inline-flex w-full rounded-xl bg-muted p-1 sm:w-auto">
+          {(
+            [
+              ["itens", "Com itens do estoque", PackageCheck],
+              ["duplicata", "Só a duplicata", FileText],
+            ] as const
+          ).map(([key, label, Icon]) => (
+            <button
+              key={key}
+              type="button"
+              role="radio"
+              aria-checked={mode === key}
+              onClick={() => {
+                setMode(key);
+                resetInstallments();
+              }}
+              className={cn(
+                "flex flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-lg px-4 py-2 text-sm font-medium transition-colors sm:flex-none",
+                mode === key ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <Icon className={cn("h-4 w-4", mode === key ? "text-[hsl(var(--vf-stock))]" : "")} aria-hidden />
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {mode === "duplicata" && !editingTransactionId ? (
+        <Card className="vf-surface-card vf-tone-stock">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <FileText className="h-4 w-4 text-[hsl(var(--vf-stock))]" />
+              Lançar duplicata
+            </CardTitle>
+            <p className="text-xs text-muted-foreground">
+              Sem itens: não mexe no estoque. O valor entra no Fechamento 50/50 na data de cada vencimento.
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="dup-number" className="text-xs font-medium text-muted-foreground">Nº da duplicata</Label>
+                <Input id="dup-number" value={dupNumber} onChange={(e) => setDupNumber(e.target.value)} className="h-10 bg-card font-semibold" placeholder="Ex.: 001234" autoFocus />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium text-muted-foreground">Valor total (R$)</Label>
+                <CurrencyInput value={dupValue} onValueChange={setDupValue} className="h-10" />
+              </div>
+              <div className="space-y-1.5 sm:col-span-2">
+                <Label htmlFor="dup-supplier" className="text-xs font-medium text-muted-foreground">Fornecedor</Label>
+                <Input id="dup-supplier" value={supplier} onChange={(e) => setSupplier(e.target.value)} className="h-10 bg-card" placeholder="Nome do fornecedor / almoxarifado" />
+              </div>
+              <div className="space-y-1.5 sm:col-span-2 lg:col-span-3">
+                <Label htmlFor="dup-desc" className="text-xs font-medium text-muted-foreground">
+                  O que foi comprado <span className="font-normal">(opcional)</span>
+                </Label>
+                <Input id="dup-desc" value={dupDescription} onChange={(e) => setDupDescription(e.target.value)} className="h-10 bg-card" placeholder="Ex.: insumos diversos, material de limpeza" />
+              </div>
+              {!installmentsEnabled && (
+                <div className="space-y-1.5">
+                  <Label htmlFor="dup-due" className="text-xs font-medium text-muted-foreground">Vencimento</Label>
+                  <Input id="dup-due" type="date" value={dupDueDate} onChange={(e) => setDupDueDate(e.target.value)} className="h-10 bg-card" />
+                </div>
+              )}
+            </div>
+
+            {renderInstallments()}
+
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-3">
+              <span className="text-sm text-muted-foreground">
+                Total <span className="ml-1 text-lg font-bold text-foreground">{currency(dupValue)}</span>
+                {installmentsEnabled && installmentDates.length > 1 && (
+                  <span className="ml-2 text-xs">em {installmentDates.length}x</span>
+                )}
+              </span>
+              <Button
+                onClick={() => void handleSaveDuplicata()}
+                disabled={saving || !dupNumber.trim() || !(dupValue > 0) || !supplier.trim()}
+                className="h-10 bg-[hsl(var(--vf-stock))] px-6 text-white hover:bg-[hsl(var(--vf-stock)/0.9)]"
+              >
+                {saving ? "Salvando..." : "Lançar duplicata"}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card className="vf-surface-card vf-tone-stock">
           <CardHeader className="pb-3">
@@ -713,74 +982,7 @@ const PurchasesPage: React.FC = () => {
                 </div>
               )
             ) : (
-            <div className="rounded-lg border border-border/70 bg-muted/10 p-3">
-              <label className="flex cursor-pointer items-center gap-2 text-sm font-medium">
-                <Checkbox checked={installmentsEnabled} onCheckedChange={(v) => setInstallmentsEnabled(v === true)} />
-                <CalendarClock className="h-4 w-4 text-[hsl(var(--vf-stock))]" />
-                Parcelar esta compra (ex.: boleto em várias vezes)
-              </label>
-
-              {installmentsEnabled && (
-                <div className="mt-3 space-y-3">
-                  <div className="grid grid-cols-3 gap-2">
-                    <div className="space-y-1.5">
-                      <Label className="text-xs font-medium text-muted-foreground">Parcelas</Label>
-                      <Select value={installmentCount} onValueChange={setInstallmentCount}>
-                        <SelectTrigger className="h-9 bg-card">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {INSTALLMENT_COUNT_OPTIONS.map((n) => (
-                            <SelectItem key={n} value={String(n)}>{n}x</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label className="text-xs font-medium text-muted-foreground">Intervalo</Label>
-                      <Select value={installmentIntervalDays} onValueChange={setInstallmentIntervalDays}>
-                        <SelectTrigger className="h-9 bg-card">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {INSTALLMENT_INTERVAL_OPTIONS.map((opt) => (
-                            <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label className="text-xs font-medium text-muted-foreground">1º vencimento</Label>
-                      <Input type="date" value={firstDueDate} onChange={(e) => setFirstDueDate(e.target.value)} className="h-9 bg-card" />
-                    </div>
-                  </div>
-
-                  {installmentDates.length > 0 && (
-                    <div className="space-y-1.5">
-                      <Label className="text-xs font-medium text-muted-foreground">
-                        Datas de vencimento (edite se alguma parcela cair fora do padrão)
-                      </Label>
-                      {installmentDates.map((d, i) => (
-                        <div key={i} className="flex items-center gap-2 text-sm">
-                          <span className="w-20 shrink-0 text-xs text-muted-foreground">{`${i + 1}/${installmentDates.length}`}</span>
-                          <Input
-                            type="date"
-                            value={d}
-                            onChange={(e) => {
-                              const next = [...installmentDates];
-                              next[i] = e.target.value;
-                              setInstallmentDates(next);
-                            }}
-                            className="h-9 bg-card"
-                          />
-                          <span className="ml-auto shrink-0 font-medium">{currency(installmentAmounts[i] ?? 0)}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
+              renderInstallments()
             )}
 
             <Button
@@ -793,6 +995,7 @@ const PurchasesPage: React.FC = () => {
           </CardContent>
         </Card>
       </div>
+      )}
 
       <SectionCard title="Histórico de compras" description="Compras já registradas — a base do custo de insumos no Fechamento 50/50." icon={ShoppingBag} tone="stock">
         <div className="vf-surface-card vf-tone-stock card-hover mt-4 rounded-2xl border-border/80 p-4">
@@ -866,7 +1069,16 @@ const PurchasesPage: React.FC = () => {
                           <TableCell className="text-sm">
                             <span className="inline-flex items-center gap-1.5 text-muted-foreground">
                               {expanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
-                              {row.items.length} {row.items.length === 1 ? "item" : "itens"}
+                              {row.duplicata ? (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-violet-50 px-2 py-0.5 text-[11px] font-semibold text-violet-800 ring-1 ring-inset ring-violet-600/20">
+                                  <FileText className="h-3 w-3" aria-hidden />
+                                  Duplicata nº {row.duplicata}
+                                </span>
+                              ) : (
+                                <>
+                                  {row.items.length} {row.items.length === 1 ? "item" : "itens"}
+                                </>
+                              )}
                               {isInstallmentPurchase && (
                                 <span className="rounded-full bg-[hsl(var(--vf-stock))]/15 px-2 py-0.5 text-[10px] font-semibold text-vf-stock">
                                   {row.installments!.length}x
@@ -902,11 +1114,11 @@ const PurchasesPage: React.FC = () => {
                                         {it.quantity != null ? `${it.quantity}× ${it.unitCost != null ? currency(it.unitCost) : ""}` : ""}
                                       </span>
                                       <span className="text-right font-semibold tabular-nums">
-                                        {row.itemized && it.subtotal != null ? currency(it.subtotal) : "—"}
+                                        {row.itemized && it.subtotal != null ? currency(it.subtotal) : row.duplicata ? "" : "—"}
                                       </span>
                                     </div>
                                   ))}
-                                  {!row.itemized && (
+                                  {!row.itemized && !row.duplicata && (
                                     <p className="pt-1 text-xs text-muted-foreground">
                                       Compra antiga sem detalhamento de custo por item — apenas o total geral foi salvo.
                                     </p>
