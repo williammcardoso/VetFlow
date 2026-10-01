@@ -19,7 +19,8 @@ import {
 import { cn, formatPhoneBR } from "@/lib/utils";
 import { openWhatsAppChat } from "@/lib/whatsappShare";
 import { useClientWithAnimals } from "@/hooks/useSupabaseClients";
-import { useLastAppointmentDates } from "@/hooks/useLastAppointmentDates";
+import { useLastVisits } from "@/hooks/useLastAppointmentDates";
+import type { LastVisit } from "@/lib/lastVisits";
 import { getPatientRecordPath } from "@/utils/patientDisplayId";
 import type { Animal, Client } from "@/types/client";
 
@@ -36,13 +37,16 @@ const formatGender = (rawGender: string) => {
   return "Outro";
 };
 
-function PetRow({ clientId, animal, lastVisit }: { clientId: string; animal: Animal; lastVisit?: string }) {
+function PetRow({ clientId, animal, lastVisit }: { clientId: string; animal: Animal; lastVisit?: LastVisit }) {
   const Icon = speciesIcon(animal.species);
   const details = [animal.breed || animal.species, sexLabel(animal.gender), formatAgeShort(animal.birthday), formatWeightKg(animal.weight)]
     .filter(Boolean)
     .join(" · ");
   const code = animal.patientCode ? `Ficha ${String(animal.patientCode).padStart(4, "0")}` : "";
-  const visit = lastVisit ? `Última visita ${formatDateBR(lastVisit)}` : "Nenhum atendimento ainda";
+  // Atendimento ou venda (ex.: só uma injeção lançada no financeiro).
+  const visit = lastVisit
+    ? `Última visita ${formatDateBR(lastVisit.date)}${lastVisit.source === "venda" ? " (venda)" : ""}`
+    : "Nenhuma visita ainda";
   const inactive = animal.status === "Inativo";
 
   return (
@@ -122,7 +126,7 @@ const ClientDetailPage = () => {
   const navigate = useNavigate();
 
   const { data: dbClient, isLoading, isError, error } = useClientWithAnimals(clientId);
-  const { data: lastVisits = {} } = useLastAppointmentDates();
+  const { data: lastVisits } = useLastVisits();
   const client: Client | undefined = dbClient ?? undefined;
 
   if (isLoading && !client) {
@@ -305,7 +309,7 @@ const ClientDetailPage = () => {
           {pets.length > 0 ? (
             <ul className="divide-y divide-border/70">
               {pets.map((animal) => (
-                <PetRow key={animal.id} clientId={client.id} animal={animal} lastVisit={lastVisits[animal.id]} />
+                <PetRow key={animal.id} clientId={client.id} animal={animal} lastVisit={lastVisits?.byAnimal[animal.id]} />
               ))}
             </ul>
           ) : (

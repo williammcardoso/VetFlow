@@ -19,7 +19,8 @@ import {
 import { cn, formatPhoneBR } from "@/lib/utils";
 import { getPatientRecordPath } from "@/utils/patientDisplayId";
 import { useClientsList } from "@/hooks/useSupabaseClients";
-import { useLastAppointmentDates } from "@/hooks/useLastAppointmentDates";
+import { useLastVisits } from "@/hooks/useLastAppointmentDates";
+import { clientLastVisit, type LastVisit } from "@/lib/lastVisits";
 import type { Client } from "@/types/client";
 
 type SpeciesFilter = "all" | SpeciesKind;
@@ -67,8 +68,8 @@ interface ClientRowData {
   client: Client;
   /** Pets que bateram com a busca (ganham destaque). */
   petIds: string[];
-  /** Último atendimento entre os pets do cliente ("aaaa-mm-dd" ou ""). */
-  lastVisit: string;
+  /** Última visita (atendimento ou venda) entre os pets e as vendas do cliente. */
+  lastVisit?: LastVisit;
 }
 
 /** Busca por nome do tutor, nome do pet, telefone (os dois), CPF/CNPJ ou nº da ficha do pet. */
@@ -103,7 +104,7 @@ function sortRows(rows: ClientRowData[], order: SortOrder): ClientRowData[] {
     case "name":
       return sorted.sort(byName);
     case "last-visit":
-      return sorted.sort((a, b) => b.lastVisit.localeCompare(a.lastVisit) || byName(a, b));
+      return sorted.sort((a, b) => (b.lastVisit?.date ?? "").localeCompare(a.lastVisit?.date ?? "") || byName(a, b));
     default:
       return sorted.sort((a, b) => createdTime(b.client) - createdTime(a.client));
   }
@@ -147,8 +148,11 @@ function ClientRow({ row }: { row: ClientRowData }) {
         <div className="hidden text-right lg:block">
           {lastVisit ? (
             <>
-              <p className="text-sm font-medium text-foreground">{formatRelativeDays(lastVisit)}</p>
-              <p className="text-xs tabular-nums text-muted-foreground">{formatDateBR(lastVisit)}</p>
+              <p className="text-sm font-medium text-foreground">{formatRelativeDays(lastVisit.date)}</p>
+              <p className="text-xs tabular-nums text-muted-foreground">
+                {formatDateBR(lastVisit.date)}
+                {lastVisit.source === "venda" && <span title="Só lançamento no financeiro, sem atendimento"> · venda</span>}
+              </p>
             </>
           ) : null}
         </div>
@@ -160,7 +164,7 @@ function ClientRow({ row }: { row: ClientRowData }) {
 
 const ClientsPage = () => {
   const { data: dbClients, isLoading, isError, error } = useClientsList();
-  const { data: lastVisits = {} } = useLastAppointmentDates();
+  const { data: lastVisits } = useLastVisits();
   const clients: Client[] = useMemo(() => dbClients ?? [], [dbClients]);
 
   const [params, setParams] = useSearchParams();
@@ -214,10 +218,7 @@ const ClientsPage = () => {
     for (const client of clients) {
       const petIds = matchClient(client, q, digits, speciesFilter);
       if (!petIds) continue;
-      const lastVisit = (client.animals ?? []).reduce((acc, a) => {
-        const d = lastVisits[a.id] || "";
-        return d > acc ? d : acc;
-      }, "");
+      const lastVisit = lastVisits ? clientLastVisit(lastVisits, client.id, (client.animals ?? []).map((a) => a.id)) : undefined;
       found.push({ client, petIds, lastVisit });
     }
     return sortRows(found, sortOrder);

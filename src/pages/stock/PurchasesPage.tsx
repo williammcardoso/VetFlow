@@ -16,7 +16,7 @@ import { toast } from "sonner";
 import { getCatalogByType, findCatalogItem, adjustStock, updateCatalogItem } from "@/lib/catalogApi";
 import type { CatalogItem } from "@/mockData/catalog";
 import type { FinancialTransaction } from "@/mockData/financial";
-import { addFinancialTransaction, updateFinancialTransaction } from "@/lib/financialApi";
+import { addFinancialTransaction, deleteFinancialTransaction, updateFinancialTransaction } from "@/lib/financialApi";
 import { useFinancialTransactions } from "@/hooks/useFinancialTransactions";
 import {
   addPurchaseItems,
@@ -67,6 +67,7 @@ interface HistoryRow {
   installments?: HistoryInstallment[];
   /** Compra lançada só pela duplicata (sem itens no estoque). */
   duplicata?: string;
+  duplicataDesc?: string;
 }
 
 const currency = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
@@ -90,7 +91,7 @@ const INSTALLMENT_COUNT_OPTIONS = Array.from({ length: 11 }, (_, i) => i + 2); /
 // Duplicata nº 1234 — descrição (Parcela 1/3)".
 const DUPLICATA_RE = /^Duplicata nº (\S+)(?: — (.*?))?(?: \(Parcela \d+\/\d+\))?$/s;
 
-function parseLegacyDescription(description: string): { supplier?: string; items: HistoryLineItem[]; duplicata?: string } {
+function parseLegacyDescription(description: string): { supplier?: string; items: HistoryLineItem[]; duplicata?: string; duplicataDesc?: string } {
   const m = description.match(/^Compra de estoque(?: - Fornecedor: (.*?))?: (.*)$/s);
   if (!m) return { items: [{ name: description }] };
   const [, supplier, itemsPart] = m;
@@ -99,6 +100,7 @@ function parseLegacyDescription(description: string): { supplier?: string; items
     return {
       supplier: supplier || undefined,
       duplicata: dup[1],
+      duplicataDesc: dup[2] || undefined,
       items: [{ name: dup[2] ? `Duplicata nº ${dup[1]} — ${dup[2]}` : `Duplicata nº ${dup[1]}` }],
     };
   }
@@ -183,6 +185,11 @@ const PurchasesPage: React.FC = () => {
 
   useEffect(() => {
     if (!installmentsEnabled) return;
+    if (keepInstallmentDatesRef.current) {
+      setInstallmentDates(keepInstallmentDatesRef.current);
+      keepInstallmentDatesRef.current = null;
+      return;
+    }
     const n = Number(installmentCount) || 1;
     const intervalDays = Number(installmentIntervalDays) || 30;
     const base = firstDueDate ? new Date(`${firstDueDate}T00:00`) : new Date();
@@ -202,6 +209,12 @@ const PurchasesPage: React.FC = () => {
   const [dupValue, setDupValue] = useState<number>(0);
   const [dupDescription, setDupDescription] = useState("");
   const [dupDueDate, setDupDueDate] = useState<string>(iso(new Date()));
+  // Editando uma duplicata já lançada: os lançamentos antigos são trocados
+  // pelos novos ao salvar (dá até para mudar o número de parcelas).
+  const [editingDup, setEditingDup] = useState<{ transactionIds: string[]; label: string } | null>(null);
+  // Ao abrir para editar, mantém as datas de vencimento que já existiam (o
+  // recálculo automático das parcelas não pode sobrescrever na 1ª vez).
+  const keepInstallmentDatesRef = React.useRef<string[] | null>(null);
 
   const [historyFrom, setHistoryFrom] = useState<string>("");
   const [historyTo, setHistoryTo] = useState<string>("");
@@ -273,6 +286,9 @@ const PurchasesPage: React.FC = () => {
       toast.error("Essa compra é antiga e não tem os itens detalhados — não dá pra editar. Cancele e lance de novo se precisar corrigir.");
       return;
     }
+    // Saindo de uma edição de duplicata: volta para o modo com itens.
+    setEditingDup(null);
+    setMode("itens");
     const firstTxnId = row.transactionIds[0];
     const stored = itemsByTransaction.get(firstTxnId) || [];
     const mapped: CartItem[] = stored.map((i) => ({
@@ -479,6 +495,40 @@ const PurchasesPage: React.FC = () => {
     setFirstDueDate(iso(new Date()));
   };
 
+  const handleStartEditDuplicata = (row: HistoryRow) => {
+    if (editingTransactionId) handleCancelEdit();
+    setMode("duplicata");
+    setEditingDup({ transactionIds: row.transactionIds, label: `Duplicata nº ${row.duplicata} — ${formatDateTime(row.date)}` });
+    setDupNumber(row.duplicata || "");
+    setDupValue(row.amount);
+    setDupDescription(row.duplicataDesc || "");
+    setSupplier(row.supplier || "");
+    const inst = row.installments && row.installments.length > 1 ? row.installments : null;
+    if (inst) {
+      const dates = inst.map((i) => i.date);
+      keepInstallmentDatesRef.current = dates;
+      setFirstDueDate(dates[0]);
+      const gap = Math.round((new Date(`${dates[1]}T00:00`).getTime() - new Date(`${dates[0]}T00:00`).getTime()) / 86_400_000);
+      setInstallmentIntervalDays(INSTALLMENT_INTERVAL_OPTIONS.some((o) => o.value === String(gap)) ? String(gap) : "30");
+      setInstallmentCount(String(dates.length));
+      setInstallmentsEnabled(true);
+    } else {
+      setInstallmentsEnabled(false);
+      setDupDueDate(row.date);
+    }
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const handleCancelEditDuplicata = () => {
+    setEditingDup(null);
+    setDupNumber("");
+    setDupValue(0);
+    setDupDescription("");
+    setDupDueDate(iso(new Date()));
+    setSupplier("");
+    resetInstallments();
+  };
+
   const handleSaveDuplicata = async () => {
     if (!dupNumber.trim()) {
       toast.error("Informe o número da duplicata.");
@@ -506,6 +556,12 @@ const PurchasesPage: React.FC = () => {
       const time = now.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
       const what = dupDescription.trim().replace(/\s+/g, " ");
       const description = `Compra de estoque - Fornecedor: ${supplier.trim()}: Duplicata nº ${dupNumber.trim()}${what ? ` — ${what}` : ""}`;
+      // Novos lançamentos primeiro; os antigos só saem depois que todos os
+      // novos gravaram (se algo falhar, desfaz os novos e mantém os antigos).
+      const createdIds: string[] = [];
+      const rollback = async () => {
+        for (const id of createdIds) await deleteFinancialTransaction(id);
+      };
       if (installmentsEnabled && installmentDates.length > 1) {
         const purchaseGroupId = generateUUID();
         const amounts = splitAmount(dupValue, installmentDates.length);
@@ -522,11 +578,12 @@ const PurchasesPage: React.FC = () => {
             installmentLabel: label,
           });
           if (!created) {
-            toast.error(`Falhou ao registrar a ${label}. Confira no histórico antes de lançar de novo.`);
+            await rollback();
+            toast.error(`Falhou ao registrar a ${label}. Nada foi alterado — tente de novo.`);
             return;
           }
+          createdIds.push(created.id);
         }
-        toast.success(`Duplicata nº ${dupNumber.trim()} lançada em ${installmentDates.length}x.`);
       } else {
         const created = await addFinancialTransaction({
           date: dupDueDate,
@@ -537,10 +594,20 @@ const PurchasesPage: React.FC = () => {
           category: "Estoque",
         });
         if (!created) {
-          toast.error("Falhou ao registrar a duplicata.");
+          toast.error("Falhou ao registrar a duplicata. Nada foi alterado.");
           return;
         }
-        toast.success(`Duplicata nº ${dupNumber.trim()} lançada.`);
+        createdIds.push(created.id);
+      }
+      const parcelas = installmentsEnabled && installmentDates.length > 1 ? ` em ${installmentDates.length}x` : "";
+      if (editingDup) {
+        let failed = 0;
+        for (const id of editingDup.transactionIds) if (!(await deleteFinancialTransaction(id))) failed++;
+        if (failed > 0) toast.warning(`Duplicata atualizada, mas ${failed} lançamento(s) antigo(s) não saíram — confira no histórico.`);
+        else toast.success(`Duplicata nº ${dupNumber.trim()} atualizada${parcelas}.`);
+        setEditingDup(null);
+      } else {
+        toast.success(`Duplicata nº ${dupNumber.trim()} lançada${parcelas}.`);
       }
       setDupNumber("");
       setDupValue(0);
@@ -627,6 +694,7 @@ const PurchasesPage: React.FC = () => {
         itemized: false,
         items: legacy.items,
         duplicata: legacy.duplicata,
+        duplicataDesc: legacy.duplicataDesc,
       };
     };
 
@@ -793,7 +861,7 @@ const PurchasesPage: React.FC = () => {
       />
 
       {/* Com itens do estoque, ou só a duplicata (sem mexer no estoque). */}
-      {!editingTransactionId && (
+      {!editingTransactionId && !editingDup && (
         <div role="radiogroup" aria-label="Como lançar a compra" className="mb-4 inline-flex w-full rounded-xl bg-muted p-1 sm:w-auto">
           {(
             [
@@ -823,11 +891,18 @@ const PurchasesPage: React.FC = () => {
       )}
 
       {mode === "duplicata" && !editingTransactionId ? (
-        <Card className="vf-surface-card vf-tone-stock">
+        <Card className={cn("vf-surface-card vf-tone-stock", editingDup && "border-[hsl(var(--vf-stock))] ring-1 ring-[hsl(var(--vf-stock)/0.4)]")}>
           <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <FileText className="h-4 w-4 text-[hsl(var(--vf-stock))]" />
-              Lançar duplicata
+            <CardTitle className="flex items-center justify-between gap-2 text-base">
+              <span className="flex items-center gap-2">
+                <FileText className="h-4 w-4 text-[hsl(var(--vf-stock))]" />
+                {editingDup ? `Editando ${editingDup.label}` : "Lançar duplicata"}
+              </span>
+              {editingDup && (
+                <Button variant="ghost" size="sm" onClick={handleCancelEditDuplicata} className="h-7 gap-1 text-xs text-muted-foreground">
+                  <X className="h-3.5 w-3.5" /> Cancelar edição
+                </Button>
+              )}
             </CardTitle>
             <p className="text-xs text-muted-foreground">
               Sem itens: não mexe no estoque. O valor entra no Fechamento 50/50 na data de cada vencimento.
@@ -875,7 +950,7 @@ const PurchasesPage: React.FC = () => {
                 disabled={saving || !dupNumber.trim() || !(dupValue > 0) || !supplier.trim()}
                 className="h-10 bg-[hsl(var(--vf-stock))] px-6 text-white hover:bg-[hsl(var(--vf-stock)/0.9)]"
               >
-                {saving ? "Salvando..." : "Lançar duplicata"}
+                {saving ? "Salvando..." : editingDup ? "Salvar alterações" : "Lançar duplicata"}
               </Button>
             </div>
           </CardContent>
@@ -1090,10 +1165,10 @@ const PurchasesPage: React.FC = () => {
                             {currency(row.amount)}
                           </TableCell>
                           <TableCell onClick={(e) => e.stopPropagation()} className="w-9">
-                            {row.itemized && (
+                            {(row.itemized || row.duplicata) && (
                               <button
                                 type="button"
-                                onClick={() => handleStartEdit(row)}
+                                onClick={() => (row.duplicata ? handleStartEditDuplicata(row) : handleStartEdit(row))}
                                 title="Editar esta compra"
                                 className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-[hsl(var(--vf-stock)/0.12)] hover:text-[hsl(var(--vf-stock))]"
                               >
