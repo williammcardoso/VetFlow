@@ -1,41 +1,49 @@
 import { describe, expect, it } from "vitest";
-import { clientLastVisit, mergeLastVisits } from "./lastVisits";
+import { clientLastVisit, isVisitSale, mergeLastVisits, toLocalStamp, type PatientEvent } from "./lastVisits";
 
-describe("última visita = atendimento ou venda", () => {
-  const visits = mergeLastVisits(
-    [
-      { animal_id: "rex", date: "2026-09-20" },
-      { animal_id: "mel", date: "2026-09-10" },
-    ],
-    [
-      // só uma injeção, lançada no financeiro
-      { related_animal_id: "rex", related_client_id: "ana", date: "2026-09-28", type: "income", category: "Venda de Produtos", status: "paid" },
-      // pagamento de algo antigo não é visita
-      { related_animal_id: "mel", related_client_id: "ana", date: "2026-09-29", type: "income", category: "Recebimento", status: null },
-      // venda cancelada não conta
-      { related_animal_id: "mel", related_client_id: "ana", date: "2026-09-30", type: "income", category: "Venda de Produtos", status: "cancelled" },
-      // venda sem pet, só no nome do tutor
-      { related_animal_id: null, related_client_id: "bia", date: "2026-09-25", type: "income", category: "Venda de Produtos", status: "paid" },
-      { related_animal_id: "x", related_client_id: "x", date: "2026-09-30", type: "expense", category: "Estoque", status: null },
-    ]
-  );
+const ev = (p: Partial<PatientEvent>): PatientEvent => ({ animalId: "rex", source: "atendimento", label: "consulta", ...p });
 
-  it("venda mais recente que o atendimento vira a última visita", () => {
-    expect(visits.byAnimal.rex).toEqual({ date: "2026-09-28", source: "venda" });
+describe("última atualização do prontuário", () => {
+  it("o registro mais recente vence, seja qual for", () => {
+    const v = mergeLastVisits([
+      ev({ date: "2026-09-20", time: "10:00" }),
+      ev({ date: "2026-09-25", time: "09:00", source: "exame", label: "exame" }),
+      ev({ date: "2026-09-27", time: "16:00", source: "receita", label: "receita" }),
+      ev({ date: "2026-09-26", source: "pesagem", label: "pesagem" }),
+    ]);
+    expect(v.byAnimal.rex).toMatchObject({ date: "2026-09-27", label: "receita" });
   });
-  it("recebimento e venda cancelada não contam", () => {
-    expect(visits.byAnimal.mel).toEqual({ date: "2026-09-10", source: "atendimento" });
+  it("mesmo dia: a hora desempata; mesma hora, atendimento ganha", () => {
+    const sameDay = mergeLastVisits([
+      ev({ date: "2026-09-28", time: "09:00" }),
+      ev({ date: "2026-09-28", time: "15:30", source: "venda", label: "venda" }),
+    ]);
+    expect(sameDay.byAnimal.rex.label).toBe("venda");
+    const sameTime = mergeLastVisits([
+      ev({ date: "2026-09-28", time: "15:30", source: "venda", label: "venda" }),
+      ev({ date: "2026-09-28", time: "15:30", label: "vacina" }),
+    ]);
+    expect(sameTime.byAnimal.rex.label).toBe("vacina");
   });
-  it("cliente: o mais recente entre pets e vendas no nome dele", () => {
-    expect(clientLastVisit(visits, "ana", ["rex", "mel"])).toEqual({ date: "2026-09-28", source: "venda" });
-    expect(clientLastVisit(visits, "bia", [])).toEqual({ date: "2026-09-25", source: "venda" });
-    expect(clientLastVisit(visits, "ninguem", ["fantasma"])).toBeUndefined();
+  it("data com fuso (documento, observação) vira data/hora local", () => {
+    expect(toLocalStamp("2026-09-30")).toEqual({ date: "2026-09-30", time: undefined });
+    const local = toLocalStamp("2026-09-30T23:30:00.000Z")!;
+    const d = new Date("2026-09-30T23:30:00.000Z");
+    expect(local.date).toBe(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`);
+    expect(toLocalStamp(null)).toBeNull();
   });
-  it("mesmo dia: atendimento tem preferência", () => {
-    const v = mergeLastVisits(
-      [{ animal_id: "rex", date: "2026-09-28" }],
-      [{ related_animal_id: "rex", date: "2026-09-28", type: "income", category: "Venda de Produtos", status: "paid" }]
-    );
-    expect(v.byAnimal.rex.source).toBe("atendimento");
+  it("venda conta; recebimento e cancelada não", () => {
+    expect(isVisitSale({ type: "income", category: "Venda de Produtos", status: "paid", date: "2026-09-28" })).toBe(true);
+    expect(isVisitSale({ type: "income", category: "Recebimento", date: "2026-09-28" })).toBe(false);
+    expect(isVisitSale({ type: "income", category: "Venda de Produtos", status: "cancelled", date: "2026-09-28" })).toBe(false);
+    expect(isVisitSale({ type: "expense", category: "Estoque", date: "2026-09-28" })).toBe(false);
+  });
+  it("cliente: o mais recente entre os pets e as vendas no nome dele", () => {
+    const v = mergeLastVisits([
+      ev({ animalId: "rex", date: "2026-09-20" }),
+      ev({ animalId: null, clientId: "ana", date: "2026-09-29", source: "venda", label: "venda" }),
+    ]);
+    expect(clientLastVisit(v, "ana", ["rex"])).toMatchObject({ date: "2026-09-29", label: "venda" });
+    expect(clientLastVisit(v, "bia", ["fantasma"])).toBeUndefined();
   });
 });

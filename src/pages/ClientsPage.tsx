@@ -36,7 +36,7 @@ const PAGE_SIZE = 30;
 const SORT_LABEL: Record<SortOrder, string> = {
   newest: "Cadastro mais recente",
   name: "Nome (A–Z)",
-  "last-visit": "Última visita",
+  "last-visit": "Última atualização",
 };
 
 // Chaves válidas do filtro de espécie (o valor vem da URL).
@@ -54,7 +54,7 @@ const SPECIES_FILTERS: Array<{ key: SpeciesFilter; label: string }> = [
 // espremiam o nome em 3–4 linhas — ali fica o formato de lista do celular.
 // Tutor com largura máxima: os pets vêm logo ao lado do nome (em tela larga
 // a coluna do meio começava no meio da tela e o olho atravessava um vazio).
-const COLUMNS = "lg:grid lg:grid-cols-[minmax(14rem,24rem)_minmax(0,1fr)_8rem] lg:items-center lg:gap-10";
+const COLUMNS = "lg:grid lg:grid-cols-[minmax(14rem,24rem)_minmax(0,1fr)_9.5rem] lg:items-center lg:gap-10";
 
 const norm = (s: string | undefined) =>
   (s || "")
@@ -68,7 +68,7 @@ interface ClientRowData {
   client: Client;
   /** Pets que bateram com a busca (ganham destaque). */
   petIds: string[];
-  /** Última visita (atendimento ou venda) entre os pets e as vendas do cliente. */
+  /** Última atualização do prontuário (atendimento, exame, receita, venda...) entre os pets e as vendas do cliente. */
   lastVisit?: LastVisit;
 }
 
@@ -97,6 +97,8 @@ function matchClient(client: Client, q: string, digits: string, species: Species
 
 const createdTime = (c: Client) => (c.createdAt ? new Date(c.createdAt).getTime() : 0);
 
+const stampOf = (v?: LastVisit) => (v ? `${v.date}T${v.time || "00:00"}` : "");
+
 function sortRows(rows: ClientRowData[], order: SortOrder): ClientRowData[] {
   const sorted = [...rows];
   const byName = (a: ClientRowData, b: ClientRowData) => a.client.name.localeCompare(b.client.name, "pt-BR");
@@ -104,7 +106,7 @@ function sortRows(rows: ClientRowData[], order: SortOrder): ClientRowData[] {
     case "name":
       return sorted.sort(byName);
     case "last-visit":
-      return sorted.sort((a, b) => (b.lastVisit?.date ?? "").localeCompare(a.lastVisit?.date ?? "") || byName(a, b));
+      return sorted.sort((a, b) => stampOf(b.lastVisit).localeCompare(stampOf(a.lastVisit)) || byName(a, b));
     default:
       return sorted.sort((a, b) => createdTime(b.client) - createdTime(a.client));
   }
@@ -144,14 +146,13 @@ function ClientRow({ row }: { row: ClientRowData }) {
             <span className="text-sm text-muted-foreground">Nenhum animal</span>
           )}
         </div>
-        {/* Última visita: "há 4 dias" em cima, a data embaixo; sem visita fica em branco. */}
+        {/* Última atualização: "há 4 dias" em cima, a data e o que foi (consulta, exame, receita, venda...) embaixo. */}
         <div className="hidden text-right lg:block">
           {lastVisit ? (
             <>
               <p className="text-sm font-medium text-foreground">{formatRelativeDays(lastVisit.date)}</p>
               <p className="text-xs tabular-nums text-muted-foreground">
-                {formatDateBR(lastVisit.date)}
-                {lastVisit.source === "venda" && <span title="Só lançamento no financeiro, sem atendimento"> · venda</span>}
+                {formatDateBR(lastVisit.date)} · {lastVisit.label}
               </p>
             </>
           ) : null}
@@ -362,7 +363,7 @@ const ClientsPage = () => {
           <div className={cn("flex-1", COLUMNS)}>
             <span>Cliente</span>
             <span>Animais</span>
-            <span className="text-right">Última visita</span>
+            <span className="text-right">Última atualização</span>
           </div>
           <span className="w-4 shrink-0" aria-hidden />
         </div>

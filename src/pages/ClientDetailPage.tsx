@@ -43,10 +43,10 @@ function PetRow({ clientId, animal, lastVisit }: { clientId: string; animal: Ani
     .filter(Boolean)
     .join(" · ");
   const code = animal.patientCode ? `Ficha ${String(animal.patientCode).padStart(4, "0")}` : "";
-  // Atendimento ou venda (ex.: só uma injeção lançada no financeiro).
+  // Último registro do prontuário: atendimento, exame, receita, venda, documento...
   const visit = lastVisit
-    ? `Última visita ${formatDateBR(lastVisit.date)}${lastVisit.source === "venda" ? " (venda)" : ""}`
-    : "Nenhuma visita ainda";
+    ? `Última atualização ${formatDateBR(lastVisit.date)} (${lastVisit.label})`
+    : "Nenhum registro ainda";
   const inactive = animal.status === "Inativo";
 
   return (
