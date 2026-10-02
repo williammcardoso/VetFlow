@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowLeftRight, FileDown, FileText, FlaskConical, Layers, Wallet } from "lucide-react";
+import { ArrowLeftRight, FileDown, FileText, FlaskConical, Layers, Printer, Wallet } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { PageShell } from "@/components/saas/PageShell";
@@ -11,6 +11,7 @@ import { DailyBarChart } from "@/components/saas/DailyBarChart";
 import { BarList } from "@/components/saas/BarList";
 import { IconChip, Panel, PaymentMethodBadge } from "@/components/finance/FinanceUI";
 import { ResultBreakdown } from "@/components/finance/ResultBreakdown";
+import { ProviderPayoutDialog } from "@/components/finance/ProviderPayoutDialog";
 import { CONCEPTS, TONES, categoryVisual, movementVisual } from "@/components/finance/financeTheme";
 import { useFinancialTransactions } from "@/hooks/useFinancialTransactions";
 import { useClientsList } from "@/hooks/useSupabaseClients";
@@ -60,6 +61,7 @@ const FinancialReportsPage: React.FC = () => {
   const [period, setPeriod] = useState(() => periodRange("this-month"));
   const [periodSaleItems, setPeriodSaleItems] = useState<SaleItem[]>([]);
   const [providerFilter, setProviderFilter] = useState<string>("all");
+  const [payoutOpen, setPayoutOpen] = useState(false);
   const [exportingPdf, setExportingPdf] = useState(false);
   const detalhamentoRef = useRef<HTMLElement>(null);
 
@@ -175,6 +177,20 @@ const FinancialReportsPage: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [transactions, period]
   );
+
+  // PDF de repasse: o prestador selecionado, ou todos (cada um com subtotal).
+  const payoutGroups = useMemo(() => {
+    const providers = providerFilter === "all" ? repassesPorPrestador.map((r) => r.provider) : [providerFilter];
+    return providers
+      .map((provider) => ({
+        provider,
+        lines: [...filteredRepasses]
+          .filter((r) => r.provider === provider)
+          .sort((a, b) => `${a.date}T${a.time || "00:00"}`.localeCompare(`${b.date}T${b.time || "00:00"}`))
+          .map((r) => ({ date: r.date, patient: r.animalName, tutor: r.clientName, service: r.serviceName, quantity: r.quantity, amount: r.amount })),
+      }))
+      .filter((g) => g.lines.length > 0);
+  }, [providerFilter, repassesPorPrestador, filteredRepasses]);
 
   const goToProviderDetail = (provider: string) => {
     setProviderFilter((prev) => (prev === provider ? "all" : provider));
@@ -447,9 +463,22 @@ const FinancialReportsPage: React.FC = () => {
                   </li>
                 ))}
               </ul>
-              <div className="flex items-center justify-between border-t border-border/70 bg-orange-50/40 px-4 py-2.5 text-sm">
+              <div className="flex items-center justify-between gap-3 border-t border-border/70 bg-orange-50/40 px-4 py-2 text-sm">
                 <span className="text-muted-foreground">{plural(filteredRepasses.length, "item", "itens")}</span>
-                <span className="font-bold tabular-nums text-orange-700">{fmt(filteredRepasses.reduce((s, r) => s + r.amount, 0))}</span>
+                <div className="flex items-center gap-2">
+                  <span className="font-bold tabular-nums text-orange-700">{fmt(filteredRepasses.reduce((s, r) => s + r.amount, 0))}</span>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-8 gap-1.5 border-orange-200 text-orange-800 hover:bg-orange-50 print:hidden"
+                    onClick={() => setPayoutOpen(true)}
+                    title={providerFilter === "all" ? "PDF de repasse de todos os prestadores" : `PDF de repasse — ${providerFilter}`}
+                  >
+                    <Printer className="h-4 w-4" aria-hidden />
+                    <span className="hidden sm:inline">{providerFilter === "all" ? "PDF de todos" : "PDF do repasse"}</span>
+                  </Button>
+                </div>
               </div>
             </>
           )}
@@ -498,6 +527,7 @@ const FinancialReportsPage: React.FC = () => {
           </ul>
         )}
       </Panel>
+      <ProviderPayoutDialog open={payoutOpen} onOpenChange={setPayoutOpen} groups={payoutGroups} periodLabel={periodLabel} />
     </PageShell>
   );
 };
