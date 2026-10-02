@@ -204,3 +204,16 @@ export async function deleteSaleItems(saleId: string): Promise<boolean> {
   }
   return true;
 }
+
+/**
+ * Troca o prestador do repasse de um item já vendido (ex.: o exame foi para
+ * outro laboratório). Só o destino muda — valor e custo continuam os da venda.
+ */
+export async function updateSaleItemProvider(id: string, costProvider: string): Promise<boolean> {
+  const { error } = await supabase.from("sale_items").update({ cost_provider: costProvider.trim() }).eq("id", id);
+  if (error) {
+    console.error("[updateSaleItemProvider] error", error);
+    return false;
+  }
+  return true;
+}

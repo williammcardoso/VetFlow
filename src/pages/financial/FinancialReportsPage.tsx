@@ -12,11 +12,13 @@ import { BarList } from "@/components/saas/BarList";
 import { IconChip, Panel, PaymentMethodBadge } from "@/components/finance/FinanceUI";
 import { ResultBreakdown } from "@/components/finance/ResultBreakdown";
 import { ProviderPayoutDialog } from "@/components/finance/ProviderPayoutDialog";
+import { ProviderChangePopover } from "@/components/finance/ProviderChangePopover";
 import { CONCEPTS, TONES, categoryVisual, movementVisual } from "@/components/finance/financeTheme";
 import { useFinancialTransactions } from "@/hooks/useFinancialTransactions";
 import { useClientsList } from "@/hooks/useSupabaseClients";
 import { useCatalog } from "@/hooks/useCatalog";
-import { getSaleItemsBySaleIds, type SaleItem } from "@/lib/saleItemsApi";
+import { getSaleItemsBySaleIds, updateSaleItemProvider, type SaleItem } from "@/lib/saleItemsApi";
+import { updateCatalogItem } from "@/lib/catalogApi";
 import { resolveCostProvider } from "@/lib/costProviders";
 import { lineProviderCost } from "@/lib/monthlyClosing";
 import { catalogCategoryLabel } from "@/lib/catalogCategories";
@@ -32,6 +34,7 @@ type RepasseDetalhe = {
   time?: string;
   saleId: string;
   serviceName: string;
+  catalogItemId?: string;
   provider: string;
   amount: number;
   quantity: number;
@@ -57,7 +60,7 @@ const CASH_SERIES = [
 const FinancialReportsPage: React.FC = () => {
   const { transactions, loading } = useFinancialTransactions();
   const { data: clients = [] } = useClientsList();
-  const { items: catalog } = useCatalog();
+  const { items: catalog, refetch: refetchCatalog } = useCatalog();
   const [period, setPeriod] = useState(() => periodRange("this-month"));
   const [periodSaleItems, setPeriodSaleItems] = useState<SaleItem[]>([]);
   // Prestadores selecionados (vazio = todos). Ctrl+clique, ou "Juntar vários"
@@ -126,6 +129,7 @@ const FinancialReportsPage: React.FC = () => {
         time: sale.time,
         saleId: sale.id,
         serviceName: item.name,
+        catalogItemId: item.catalogItemId,
         provider: resolveCostProvider(item.costProvider, item.category, item.cost) || "Prestador externo",
         amount: line,
         quantity: item.quantity,
@@ -147,6 +151,34 @@ const FinancialReportsPage: React.FC = () => {
       .sort((a, b) => b.amount - a.amount);
   }, [repassesDetalhados]);
   const totalRepassesItens = repassesPorPrestador.reduce((s, r) => s + r.amount, 0);
+
+  // Prestadores para trocar o destino de um serviço: os do período e os do
+  // cadastro (ex.: dois laboratórios diferentes).
+  const providerOptions = useMemo(() => {
+    const set = new Set<string>(["Laboratório externo"]);
+    for (const r of repassesDetalhados) set.add(r.provider);
+    for (const item of catalog) if (item.costProvider?.trim()) set.add(item.costProvider.trim());
+    return Array.from(set);
+  }, [repassesDetalhados, catalog]);
+
+  const changeRowProvider = async (row: RepasseDetalhe, provider: string, applyToCatalog: boolean): Promise<boolean> => {
+    if (provider !== row.provider) {
+      const ok = await updateSaleItemProvider(row.id, provider);
+      if (!ok) {
+        toast.error("Não consegui trocar o prestador.");
+        return false;
+      }
+      setPeriodSaleItems((prev) => prev.map((i) => (i.id === row.id ? { ...i, costProvider: provider } : i)));
+    }
+    const catalogItem = applyToCatalog && row.catalogItemId ? catalogById.get(row.catalogItemId) : undefined;
+    if (catalogItem && catalogItem.costProvider !== provider) {
+      const ok = await updateCatalogItem({ ...catalogItem, costProvider: provider });
+      if (ok) void refetchCatalog();
+      else toast.warning("A venda foi corrigida, mas o cadastro do serviço não mudou.");
+    }
+    toast.success(`${row.serviceName} (${row.animalName}) → ${provider}`);
+    return true;
+  };
 
   const filteredRepasses = useMemo(
     () => (selectedProviders.length === 0 ? repassesDetalhados : repassesDetalhados.filter((r) => selectedProviders.includes(r.provider))),
@@ -491,9 +523,13 @@ const FinancialReportsPage: React.FC = () => {
                           {row.serviceName}
                           {row.quantity > 1 && ` × ${row.quantity}`}
                         </span>
-                        <span className={cn("inline-flex items-center rounded-md px-1.5 py-0.5 text-[11px] font-semibold ring-1 ring-inset", TONES.orange.badge)}>
-                          {row.provider}
-                        </span>
+                        <ProviderChangePopover
+                          provider={row.provider}
+                          options={providerOptions}
+                          serviceName={`${row.serviceName} · ${row.animalName}`}
+                          canApplyToCatalog={!!row.catalogItemId && catalogById.has(row.catalogItemId)}
+                          onChange={(provider, applyToCatalog) => changeRowProvider(row, provider, applyToCatalog)}
+                        />
                         <span className="tabular-nums">{formatDateTime(row.date)}</span>
                       </div>
                     </div>
