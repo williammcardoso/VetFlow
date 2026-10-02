@@ -81,6 +81,8 @@ export interface ProviderPayoutLine {
   service: string;
   quantity: number;
   amount: number;
+  /** Quando o repasse junta prestadores (ex.: Unopato + Laboratório externo). */
+  provider?: string;
 }
 
 export interface ProviderPayoutGroup {
@@ -149,10 +151,13 @@ export function ProviderPayoutPdfContent({ groups, periodLabel }: { groups: Prov
                     <Text style={styles.cellMain}>{l.patient}</Text>
                     <Text style={styles.cellSub}>{l.tutor}</Text>
                   </View>
-                  <Text style={[styles.cellMain, styles.cService]}>
-                    {l.service}
-                    {l.quantity > 1 ? ` × ${l.quantity}` : ""}
-                  </Text>
+                  <View style={styles.cService}>
+                    <Text style={styles.cellMain}>
+                      {l.service}
+                      {l.quantity > 1 ? ` × ${l.quantity}` : ""}
+                    </Text>
+                    {l.provider ? <Text style={styles.cellSub}>{l.provider}</Text> : null}
+                  </View>
                   <Text style={[styles.value, styles.cValue]}>{brl(l.amount)}</Text>
                 </View>
               ))}

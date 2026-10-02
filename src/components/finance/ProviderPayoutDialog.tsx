@@ -40,7 +40,10 @@ export function ProviderPayoutDialog({
     void listProviderNotes().then((map) => {
       if (!alive) return;
       setSaved(map);
-      setNotes(Object.fromEntries(groups.map((g) => [g.provider, map[g.provider] ?? ""])));
+      // Repasse unificado ("Unopato + Laboratório externo"): sem observação
+      // salva para a combinação, aproveita a de um dos prestadores.
+      const fallback = (name: string) => name.split(" + ").map((p) => map[p]).find(Boolean) ?? "";
+      setNotes(Object.fromEntries(groups.map((g) => [g.provider, map[g.provider] ?? fallback(g.provider)])));
       setLoading(false);
     });
     return () => {

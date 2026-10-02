@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowLeftRight, FileDown, FileText, FlaskConical, Layers, Printer, Wallet } from "lucide-react";
+import { ArrowLeftRight, Combine, FileDown, FileText, FlaskConical, Layers, Printer, Wallet } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { PageShell } from "@/components/saas/PageShell";
@@ -60,7 +60,12 @@ const FinancialReportsPage: React.FC = () => {
   const { items: catalog } = useCatalog();
   const [period, setPeriod] = useState(() => periodRange("this-month"));
   const [periodSaleItems, setPeriodSaleItems] = useState<SaleItem[]>([]);
-  const [providerFilter, setProviderFilter] = useState<string>("all");
+  // Prestadores selecionados (vazio = todos). Ctrl+clique, ou "Juntar vários"
+  // no tablet, soma prestadores — ex.: Unopato + Laboratório externo, que são
+  // o mesmo fornecedor e vão num repasse só.
+  const [selectedProviders, setSelectedProviders] = useState<string[]>([]);
+  const [multiSelect, setMultiSelect] = useState(false);
+  const providerFilter = selectedProviders.length ? [...selectedProviders].sort((x, y) => x.localeCompare(y, "pt-BR")).join(" + ") : "all";
   const [payoutOpen, setPayoutOpen] = useState(false);
   const [exportingPdf, setExportingPdf] = useState(false);
   const detalhamentoRef = useRef<HTMLElement>(null);
@@ -81,7 +86,7 @@ const FinancialReportsPage: React.FC = () => {
     getSaleItemsBySaleIds(periodSaleIds ? periodSaleIds.split(",") : []).then((items) => {
       if (!stale) setPeriodSaleItems(items);
     });
-    setProviderFilter("all");
+    setSelectedProviders([]);
     return () => {
       stale = true;
     };
@@ -144,8 +149,8 @@ const FinancialReportsPage: React.FC = () => {
   const totalRepassesItens = repassesPorPrestador.reduce((s, r) => s + r.amount, 0);
 
   const filteredRepasses = useMemo(
-    () => (providerFilter === "all" ? repassesDetalhados : repassesDetalhados.filter((r) => r.provider === providerFilter)),
-    [repassesDetalhados, providerFilter]
+    () => (selectedProviders.length === 0 ? repassesDetalhados : repassesDetalhados.filter((r) => selectedProviders.includes(r.provider))),
+    [repassesDetalhados, selectedProviders]
   );
 
   const porCategoria = useMemo(() => revenueByCategory(periodSaleItems, catalogById), [periodSaleItems, catalogById]);
@@ -180,7 +185,22 @@ const FinancialReportsPage: React.FC = () => {
 
   // PDF de repasse: o prestador selecionado, ou todos (cada um com subtotal).
   const payoutGroups = useMemo(() => {
-    const providers = providerFilter === "all" ? repassesPorPrestador.map((r) => r.provider) : [providerFilter];
+    const byDate = (a: RepasseDetalhe, b: RepasseDetalhe) => `${a.date}T${a.time || "00:00"}`.localeCompare(`${b.date}T${b.time || "00:00"}`);
+    // Vários selecionados = um repasse só (uma observação, um subtotal), com
+    // o prestador anotado em cada serviço.
+    if (selectedProviders.length > 1) {
+      // Ordem alfabética: o nome da junção (e a observação salva dela) não muda quando o ranking do mês muda.
+      const ordered = [...selectedProviders].sort((x, y) => x.localeCompare(y, "pt-BR"));
+      return [
+        {
+          provider: ordered.join(" + "),
+          lines: [...filteredRepasses]
+            .sort(byDate)
+            .map((r) => ({ date: r.date, patient: r.animalName, tutor: r.clientName, service: r.serviceName, quantity: r.quantity, amount: r.amount, provider: r.provider })),
+        },
+      ];
+    }
+    const providers = selectedProviders.length === 0 ? repassesPorPrestador.map((r) => r.provider) : selectedProviders;
     return providers
       .map((provider) => ({
         provider,
@@ -190,10 +210,13 @@ const FinancialReportsPage: React.FC = () => {
           .map((r) => ({ date: r.date, patient: r.animalName, tutor: r.clientName, service: r.serviceName, quantity: r.quantity, amount: r.amount })),
       }))
       .filter((g) => g.lines.length > 0);
-  }, [providerFilter, repassesPorPrestador, filteredRepasses]);
+  }, [selectedProviders, repassesPorPrestador, filteredRepasses]);
 
-  const goToProviderDetail = (provider: string) => {
-    setProviderFilter((prev) => (prev === provider ? "all" : provider));
+  const goToProviderDetail = (provider: string, additive = false) => {
+    setSelectedProviders((prev) => {
+      if (additive || multiSelect) return prev.includes(provider) ? prev.filter((p) => p !== provider) : [...prev, provider];
+      return prev.length === 1 && prev[0] === provider ? [] : [provider];
+    });
     detalhamentoRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
@@ -398,9 +421,24 @@ const FinancialReportsPage: React.FC = () => {
                     icon: CONCEPTS.repasses.icon,
                   }))}
                   onSelect={goToProviderDetail}
-                  selectedKey={providerFilter === "all" ? undefined : providerFilter}
+                  selectedKeys={selectedProviders}
                 />
-                <p className="mt-2 text-xs text-muted-foreground print:hidden">Clique num prestador para ver os pacientes e serviços.</p>
+                <div className="mt-2 flex flex-wrap items-center justify-between gap-2 print:hidden">
+                  <p className="text-xs text-muted-foreground">
+                    {multiSelect ? "Toque nos prestadores para juntar ou tirar." : "Clique num prestador para ver os serviços. Ctrl+clique junta prestadores."}
+                  </p>
+                  <Button
+                    type="button"
+                    variant={multiSelect ? "default" : "outline"}
+                    size="sm"
+                    className={cn("h-7 gap-1 text-xs", multiSelect && "bg-orange-600 text-white hover:bg-orange-700")}
+                    onClick={() => setMultiSelect((v) => !v)}
+                    aria-pressed={multiSelect}
+                  >
+                    <Combine className="h-3.5 w-3.5" aria-hidden />
+                    Juntar vários
+                  </Button>
+                </div>
               </>
             )}
           </div>
@@ -421,7 +459,7 @@ const FinancialReportsPage: React.FC = () => {
           className="scroll-mt-4 print:break-inside-avoid"
           actions={
             providerFilter !== "all" ? (
-              <Button variant="ghost" size="sm" className="h-8 print:hidden" onClick={() => setProviderFilter("all")}>
+              <Button variant="ghost" size="sm" className="h-8 print:hidden" onClick={() => setSelectedProviders([])}>
                 Ver todos
               </Button>
             ) : undefined
@@ -476,7 +514,7 @@ const FinancialReportsPage: React.FC = () => {
                     title={providerFilter === "all" ? "PDF de repasse de todos os prestadores" : `PDF de repasse — ${providerFilter}`}
                   >
                     <Printer className="h-4 w-4" aria-hidden />
-                    <span className="hidden sm:inline">{providerFilter === "all" ? "PDF de todos" : "PDF do repasse"}</span>
+                    <span className="hidden sm:inline">{providerFilter === "all" ? "PDF de todos" : selectedProviders.length > 1 ? "PDF unificado" : "PDF do repasse"}</span>
                   </Button>
                 </div>
               </div>

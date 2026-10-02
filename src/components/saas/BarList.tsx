@@ -26,14 +26,18 @@ export function BarList({
   format = formatCurrencyBRL,
   onSelect,
   selectedKey,
+  selectedKeys,
   ranked,
   className,
 }: {
   items: BarListItem[];
   tone?: Tone;
   format?: (value: number) => string;
-  onSelect?: (key: string) => void;
+  /** `additive`: clique com Ctrl/Cmd/Shift (somar à seleção em vez de trocar). */
+  onSelect?: (key: string, additive: boolean) => void;
   selectedKey?: string;
+  /** Várias linhas selecionadas ao mesmo tempo. */
+  selectedKeys?: string[];
   /** Numera as linhas (1º, 2º...) — rankings como "mais vendidos". */
   ranked?: boolean;
   className?: string;
@@ -62,17 +66,18 @@ export function BarList({
           </>
         );
         const base = "relative flex h-9 w-full items-center justify-between gap-3 overflow-hidden rounded-md px-2.5 text-sm text-foreground";
+        const isSelected = selectedKey === item.key || !!selectedKeys?.includes(item.key);
         return (
           <li key={item.key}>
             {onSelect ? (
               <button
                 type="button"
-                onClick={() => onSelect(item.key)}
-                aria-pressed={selectedKey === item.key}
+                onClick={(e) => onSelect(item.key, e.ctrlKey || e.metaKey || e.shiftKey)}
+                aria-pressed={isSelected}
                 className={cn(
                   base,
                   "text-left transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60",
-                  selectedKey === item.key && "ring-2 ring-orange-300"
+                  isSelected && "ring-2 ring-orange-300"
                 )}
               >
                 {body}
