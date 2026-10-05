@@ -12,11 +12,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, Clock, Plus, Trash2, CalendarOff, Pencil, AlertTriangle } from "lucide-react";
+import { ArrowLeft, Clock, Plus, Trash2, CalendarOff, Pencil, AlertTriangle, Syringe, X } from "lucide-react";
 import { useAgendaAvailability } from "@/hooks/useAgendaAvailability";
 import {
   saveWeeklyDay,
   saveAgendaSettings,
+  getVaccineOptions,
+  saveVaccineOptions,
   createException,
   updateException,
   deleteException,
@@ -76,6 +78,107 @@ function BlockListEditor({
         <Plus className="mr-1 h-3.5 w-3.5" /> Adicionar intervalo
       </Button>
     </div>
+  );
+}
+
+// Vacinas que aparecem para escolher no agendamento (agenda pública). O que
+// não estiver aqui vai em "Outra" no próprio formulário.
+function VaccineOptionsCard() {
+  const [list, setList] = useState<string[]>([]);
+  const [savedList, setSavedList] = useState<string[]>([]);
+  const [loaded, setLoaded] = useState(false);
+  const [input, setInput] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    void getVaccineOptions().then((r) => {
+      setList(r.options);
+      setSavedList(r.options);
+      setLoaded(true);
+    });
+  }, []);
+
+  const dirty = list.join("|") !== savedList.join("|");
+
+  const add = () => {
+    const name = input.trim();
+    if (!name) return;
+    if (list.some((v) => v.toLowerCase() === name.toLowerCase())) {
+      toast.error("Essa vacina já está na lista.");
+      return;
+    }
+    setList((prev) => [...prev, name]);
+    setInput("");
+  };
+
+  const handleSave = async () => {
+    if (list.length === 0) {
+      toast.error("Deixe pelo menos uma vacina na lista.");
+      return;
+    }
+    setSaving(true);
+    try {
+      await saveVaccineOptions(list);
+      setSavedList(list);
+      toast.success("Lista de vacinas salva.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Falha ao salvar a lista de vacinas.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Card className="vf-surface-card vf-tone-settings rounded-2xl border-border/80">
+      <CardHeader className="pb-3">
+        <CardTitle className="flex items-center gap-2 text-lg font-semibold text-foreground">
+          <Syringe className="h-5 w-5 text-emerald-600" /> Vacinas do agendamento
+        </CardTitle>
+        <CardDescription>
+          Aparecem para escolher quando o tipo é Vacina. O que não estiver na lista entra em "Outra", no próprio formulário.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3 pt-0">
+        {!loaded ? (
+          <Skeleton className="h-9 w-full" />
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {list.map((name) => (
+              <span
+                key={name}
+                className="inline-flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 py-1 pl-2.5 pr-1 text-sm font-medium text-emerald-800"
+              >
+                {name}
+                <button
+                  type="button"
+                  onClick={() => setList((prev) => prev.filter((v) => v !== name))}
+                  className="rounded p-0.5 text-emerald-700/70 hover:bg-emerald-100 hover:text-emerald-900"
+                  aria-label={`Tirar ${name} da lista`}
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </span>
+            ))}
+            {list.length === 0 && <span className="text-sm text-muted-foreground">Nenhuma vacina na lista.</span>}
+          </div>
+        )}
+        <form
+          className="flex flex-wrap items-center gap-2"
+          onSubmit={(e) => {
+            e.preventDefault();
+            add();
+          }}
+        >
+          <Input value={input} onChange={(e) => setInput(e.target.value)} placeholder="Ex.: Giárdia" className="w-56 bg-input" aria-label="Nova vacina" />
+          <Button type="submit" variant="outline" size="sm" disabled={!input.trim()}>
+            <Plus className="mr-1 h-3.5 w-3.5" /> Adicionar
+          </Button>
+          <Button type="button" size="sm" className="ml-auto" onClick={() => void handleSave()} disabled={saving || !dirty || !loaded}>
+            {saving ? "Salvando..." : "Salvar lista"}
+          </Button>
+        </form>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -261,6 +364,8 @@ const AgendaAvailabilityPage: React.FC = () => {
                   </Button>
                 </CardContent>
               </Card>
+
+              <VaccineOptionsCard />
 
               {/* Horário-padrão da semana */}
               <Card className="vf-surface-card vf-tone-settings rounded-2xl border-border/80">

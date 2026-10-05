@@ -1,4 +1,5 @@
 import { supabase, isSupabaseConfigured } from "@/integrations/supabase/client";
+import { DEFAULT_VACCINE_OPTIONS } from "@/lib/agendaKinds";
 
 /** Um intervalo aberto num dia, ex.: {start:"08:00", end:"13:00"}. */
 export interface HourBlock {
@@ -137,6 +138,29 @@ export async function saveAgendaSettings(settings: AgendaSettings): Promise<void
     .from(SETTINGS_TABLE)
     .upsert({ id: "default", interval_minutes: settings.intervalMinutes, updated_at: new Date().toISOString() });
   if (error) throw new Error(`Falha ao salvar configuração da agenda: ${error.message}`);
+}
+
+// Lista de vacinas do formulário da agenda pública (Configuração › Horários
+// da agenda pública). Consulta separada da de cima de propósito: sem a coluna
+// (migration 20261005120000 não aplicada) cai na lista padrão, sem derrubar o
+// intervalo da grade junto.
+export async function getVaccineOptions(): Promise<{ options: string[]; stored: boolean }> {
+  if (!isSupabaseConfigured) return { options: DEFAULT_VACCINE_OPTIONS, stored: false };
+  const { data, error } = await supabase.from(SETTINGS_TABLE).select("vaccine_options").eq("id", "default").maybeSingle();
+  if (error) return { options: DEFAULT_VACCINE_OPTIONS, stored: false };
+  const raw = (data as { vaccine_options?: unknown } | null)?.vaccine_options;
+  const list = Array.isArray(raw) ? raw.filter((v): v is string => typeof v === "string" && !!v.trim()).map((v) => v.trim()) : [];
+  return list.length ? { options: list, stored: true } : { options: DEFAULT_VACCINE_OPTIONS, stored: Array.isArray(raw) };
+}
+
+export async function saveVaccineOptions(options: string[]): Promise<void> {
+  if (!isSupabaseConfigured) throw new Error("Supabase não está configurado.");
+  const clean = Array.from(new Set(options.map((o) => o.trim()).filter(Boolean)));
+  const { error } = await supabase
+    .from(SETTINGS_TABLE)
+    .update({ vaccine_options: clean, updated_at: new Date().toISOString() })
+    .eq("id", "default");
+  if (error) throw new Error(`Falha ao salvar a lista de vacinas: ${error.message}`);
 }
 
 // --- Cálculo de horários abertos — puro, sem dependência de banco, usado

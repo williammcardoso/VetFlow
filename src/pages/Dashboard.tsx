@@ -7,6 +7,8 @@ import DashboardStatusStrip from "@/components/saas/DashboardStatusStrip";
 import { PageHeader } from "@/components/saas/PageHeader";
 import { useScheduleMutations } from "@/hooks/useSchedules";
 import type { ScheduleStatus, ScheduleUI } from "@/lib/schedulesApi";
+import { scheduleEndTime } from "@/lib/agendaKinds";
+import { KindBadge } from "@/components/agenda/bookingKindVisual";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -381,9 +383,17 @@ const Dashboard = () => {
                     ) : null,
                     <Card key={app.id} className="rounded-xl border border-border/70 bg-card px-3 py-2 transition-all duration-200 hover:-translate-y-0.5 hover:border-vf-clinical/70">
                       <div className="flex items-center gap-3">
-                        <p className="w-[60px] shrink-0 text-xl font-bold tabular-nums text-foreground">{app.time}</p>
+                        <div className="w-[60px] shrink-0">
+                          <p className="text-xl font-bold tabular-nums text-foreground">{app.time}</p>
+                          {scheduleEndTime(app.time, app.durationMinutes) && (
+                            <p className="text-[11px] font-medium tabular-nums text-muted-foreground">até {scheduleEndTime(app.time, app.durationMinutes)}</p>
+                          )}
+                        </div>
                         <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-semibold text-foreground">{app.animalName || "Pet"}</p>
+                          <p className="flex min-w-0 items-center gap-1.5 text-sm font-semibold text-foreground">
+                            <span className="truncate">{app.animalName || "Pet"}</span>
+                            {app.kind && <KindBadge kind={app.kind} info={app.kindInfo} className="shrink-0" />}
+                          </p>
                           <p className="break-words text-xs text-muted-foreground sm:truncate">{app.clientName || "Tutor"} - {app.title}</p>
                         </div>
                         <StatusBadge status={app.status || "scheduled"} className="shrink-0 inline-flex" />

@@ -1,5 +1,6 @@
 import { supabase, isSupabaseConfigured } from "@/integrations/supabase/client";
 import { format } from "date-fns";
+import { isBookingKind, parseKindInfo, type BookingKind, type BookingKindInfo } from "@/lib/agendaKinds";
 
 export type ScheduleStatus = "scheduled" | "in_progress" | "attended" | "no_show" | "cancelled";
 
@@ -14,9 +15,25 @@ export interface ScheduleUI {
   animalName: string;
   status: ScheduleStatus;
   notes?: string;
+  /** Tipo do atendimento (nulo nos agendamentos antigos, de texto livre). */
+  kind?: BookingKind | null;
+  kindInfo?: BookingKindInfo | null;
+  /** Duração em minutos (nulo = 1 horário da grade). */
+  durationMinutes?: number | null;
 }
 
 const TABLE = "schedules";
+
+// Colunas da migration 20261005120000 — lidas com select("*"), então banco
+// sem a migration só devolve nulo aqui, sem quebrar a consulta.
+function kindFields(r: Record<string, unknown>) {
+  const duration = Number(r.duration_minutes);
+  return {
+    kind: isBookingKind(r.kind) ? r.kind : null,
+    kindInfo: r.kind_info ? parseKindInfo(r.kind_info) : null,
+    durationMinutes: Number.isFinite(duration) && duration > 0 ? duration : null,
+  };
+}
 
 async function hasStatusColumn(): Promise<boolean> {
   const { error } = await supabase.from(TABLE).select("status").limit(1);
@@ -39,6 +56,7 @@ function rowToUI(r: Record<string, unknown>): ScheduleUI {
     animalName: (r.animal_name as string) || "",
     status: ((r.status as ScheduleStatus) || "scheduled"),
     notes: (r.notes as string) || undefined,
+    ...kindFields(r),
   };
 }
 
@@ -112,6 +130,9 @@ export interface ScheduleTimeSummary {
    *  extraído de `notes` — só existe pra reservas feitas depois de o
    *  computador ter sido identificado. */
   stationName?: string;
+  kind?: BookingKind | null;
+  kindInfo?: BookingKindInfo | null;
+  durationMinutes?: number | null;
 }
 
 // Mesmo texto gravado em BookSchedulePage.tsx (doCreateBooking) — mudar um
@@ -128,7 +149,7 @@ export async function listScheduleTimesInRange(startISO: string, endISO: string)
   }
   const { data, error } = await supabase
     .from(TABLE)
-    .select("id, date, time, client_name, title, status, notes")
+    .select("*")
     .gte("date", startISO)
     .lte("date", endISO);
   if (error) {
@@ -147,6 +168,7 @@ export async function listScheduleTimesInRange(startISO: string, endISO: string)
         title: (row.title as string) || undefined,
         status: (row.status as string) || undefined,
         stationName: stationMatch?.[1]?.trim() || undefined,
+        ...kindFields(row),
       };
     })
     // Cancelado libera o horário de novo (usado pelo "Cancelar horário" da

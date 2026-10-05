@@ -45,6 +45,8 @@ import StatusBadge from "@/components/saas/StatusBadge";
 import ClientCombobox from "@/components/ClientCombobox";
 import { SiWhatsapp } from "react-icons/si";
 import { sendAppointmentReminderViaWhatsApp } from "@/lib/whatsappShare";
+import { formatScheduleTimeRange } from "@/lib/agendaKinds";
+import { KindBadge } from "@/components/agenda/bookingKindVisual";
 
 const AgendaPage = () => {
   const { data: dbClients, isError: isClientsError } = useClientsList();
@@ -407,13 +409,18 @@ const AgendaPage = () => {
                   >
                     <div>
                       <p className="text-lg font-semibold text-foreground">
-                        {app.time} - {app.title}
+                        {formatScheduleTimeRange(app.time, app.durationMinutes)} - {app.title}
                       </p>
                       <p className="text-sm text-muted-foreground flex items-center gap-1">
                         <FaUser className="h-3 w-3" /> {app.clientName}
                         <span className="mx-1">•</span>
                         <FaPaw className="h-3 w-3" /> {app.animalName}
                       </p>
+                      {app.kindInfo?.obs && (
+                        <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                          <FaStickyNote className="h-3 w-3" /> Obs.: {app.kindInfo.obs}
+                        </p>
+                      )}
                       {app.notes && (
                         <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
                           <FaStickyNote className="h-3 w-3" /> {app.notes}
@@ -421,6 +428,7 @@ const AgendaPage = () => {
                       )}
                       <div className="mt-2 flex flex-wrap items-center gap-1.5">
                         <StatusBadge status={app.status || "scheduled"} className="inline-flex" />
+                        {app.kind && <KindBadge kind={app.kind} info={app.kindInfo} />}
                       </div>
                     </div>
                     <div className="flex gap-2">
@@ -486,10 +494,11 @@ const AgendaPage = () => {
                             onClick={() => handleEditAppointmentClick(app)}
                             className="w-full rounded-lg border border-border/70 bg-card px-2.5 py-2 text-left transition-colors hover:border-[hsl(var(--vf-clinical))]/35"
                           >
-                            <p className="text-xs font-semibold text-foreground">{app.time} - {app.title}</p>
+                            <p className="text-xs font-semibold text-foreground">{formatScheduleTimeRange(app.time, app.durationMinutes)} - {app.title}</p>
                             <p className="mt-0.5 text-xs text-muted-foreground truncate">{app.clientName} • {app.animalName}</p>
                             <div className="mt-1 flex flex-wrap items-center gap-1.5">
                               <StatusBadge status={app.status || "scheduled"} className="inline-flex" />
+                        {app.kind && <KindBadge kind={app.kind} info={app.kindInfo} />}
                             </div>
                           </button>
                         ))}
@@ -514,10 +523,11 @@ const AgendaPage = () => {
                             onClick={() => handleEditAppointmentClick(app)}
                             className="w-full rounded-lg border border-border/70 bg-card px-2.5 py-2 text-left transition-colors hover:border-[hsl(var(--vf-clinical))]/35"
                           >
-                            <p className="text-xs font-semibold text-foreground">{app.time} - {app.title}</p>
+                            <p className="text-xs font-semibold text-foreground">{formatScheduleTimeRange(app.time, app.durationMinutes)} - {app.title}</p>
                             <p className="mt-0.5 text-xs text-muted-foreground truncate">{app.clientName} • {app.animalName}</p>
                             <div className="mt-1 flex flex-wrap items-center gap-1.5">
                               <StatusBadge status={app.status || "scheduled"} className="inline-flex" />
+                        {app.kind && <KindBadge kind={app.kind} info={app.kindInfo} />}
                             </div>
                           </button>
                         ))}

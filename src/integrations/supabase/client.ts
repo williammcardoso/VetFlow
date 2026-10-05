@@ -10,6 +10,11 @@ const SUPABASE_PUBLISHABLE_KEY =
 
 export const isSupabaseConfigured = Boolean(SUPABASE_URL && SUPABASE_PUBLISHABLE_KEY);
 
+// Para chamadas que precisam de fetch direto (ex.: soltar a trava da agenda
+// com keepalive quando a aba fecha — o cliente do Supabase não faz isso).
+export const supabaseUrl = String(SUPABASE_URL);
+export const supabaseAnonKey = String(SUPABASE_PUBLISHABLE_KEY);
+
 if (!isSupabaseConfigured) {
   // Do not throw here to avoid breaking static analysis in non-browser environments.
   // Runtime will surface missing vars when operations are attempted.

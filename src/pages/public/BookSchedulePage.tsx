@@ -2,9 +2,7 @@ import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -25,7 +23,22 @@ import {
 } from "@/components/ui/dialog";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CalendarPlus, CheckCircle2, ChevronLeft, ChevronRight, Loader2, PawPrint, Trash2 } from "lucide-react";
+import {
+  AlertTriangle,
+  CalendarPlus,
+  CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  Clock,
+  CornerDownRight,
+  Loader2,
+  Lock,
+  Monitor,
+  PawPrint,
+  Pencil,
+  Trash2,
+  X,
+} from "lucide-react";
 import { toast } from "sonner";
 import {
   cancelPublicBooking,
@@ -35,17 +48,33 @@ import {
   type ScheduleTimeSummary,
 } from "@/lib/schedulesApi";
 import { getCompanySettings } from "@/lib/settingsApi";
-import { getTodayLocalISO } from "@/lib/utils";
+import { cn, generateUUID, getTodayLocalISO } from "@/lib/utils";
 import { useAgendaAvailability } from "@/hooks/useAgendaAvailability";
-import { generateSlotsForDay, isMinutesOpen } from "@/lib/agendaAvailabilityApi";
+import { generateSlotsForDay, getVaccineOptions } from "@/lib/agendaAvailabilityApi";
+import { bookSlot, listHoldsInRange, subscribeAgendaChanges, type HoldConflict, type ScheduleHold } from "@/lib/agendaHoldsApi";
+import { buildCellMap, freeRunLength, minutesToHHMM, rangeCells, toMinutes } from "@/lib/agendaOccupancy";
+import {
+  DEFAULT_VACCINE_OPTIONS,
+  KIND_LABEL,
+  composeBookingTitle,
+  formatScheduleTimeRange,
+  minDurationFor,
+  pruneKindInfo,
+  validateBooking,
+  type BookingKind,
+  type BookingKindInfo,
+} from "@/lib/agendaKinds";
+import { BookingKindFields } from "@/components/agenda/BookingKindFields";
+import { KIND_VISUAL, KindBadge } from "@/components/agenda/bookingKindVisual";
+import { useBookingHold, type HeldCells } from "@/hooks/useBookingHold";
 
 const WEEKDAY_LABELS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 
 // Navegador não tem como ler o nome real do computador (Windows não expõe
 // isso pra página nenhuma) — em vez disso, cada aparelho "se apresenta" uma
 // vez (ex.: "Balcão 1") e o navegador lembra sozinho depois, via
-// localStorage. Vai junto nas observações de cada agendamento criado
-// dali, pra dar pra saber de qual computador saiu cada reserva.
+// localStorage. Vai junto nas observações de cada agendamento criado dali e
+// aparece para os outros computadores quando este segura um horário.
 const STATION_NAME_STORAGE_KEY = "vetflow:agendar-horario:nomeComputador";
 
 function readStationName(): string {
@@ -65,15 +94,6 @@ function writeStationName(name: string): void {
   }
 }
 
-function toMinutes(time: string): number | null {
-  const match = /^(\d{1,2}):(\d{2})$/.exec(time.trim());
-  if (!match) return null;
-  const h = Number(match[1]);
-  const m = Number(match[2]);
-  if (Number.isNaN(h) || Number.isNaN(m)) return null;
-  return h * 60 + m;
-}
-
 function toISODate(d: Date): string {
   const year = d.getFullYear();
   const month = String(d.getMonth() + 1).padStart(2, "0");
@@ -91,485 +111,548 @@ function formatDayHeader(d: Date): string {
   return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
 }
 
-// Encontra, entre os horários abertos daquele dia, o mais próximo do minuto
-// informado — usado pra agrupar um agendamento "torto" (ex.: 8h30) na célula
-// da grade mais perto dele, em vez de duplicar/esconder informação.
-function nearestSlot(minutes: number, openSlots: string[]): string {
-  let best = openSlots[0];
-  let bestDiff = Infinity;
-  for (const slot of openSlots) {
-    const slotMin = toMinutes(slot);
-    if (slotMin === null) continue;
-    const diff = Math.abs(slotMin - minutes);
-    if (diff < bestDiff) {
-      bestDiff = diff;
-      best = slot;
-    }
-  }
-  return best;
-}
+const dayLabel = (dateISO: string) => {
+  const d = new Date(`${dateISO}T12:00:00`);
+  return `${WEEKDAY_LABELS[d.getDay()]} ${formatDayHeader(d)}`;
+};
+
+const fmtDuration = (minutes: number) => {
+  if (minutes < 60) return `${minutes} min`;
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return m ? `${h}h${String(m).padStart(2, "0")}` : `${h}h`;
+};
+
+const firstName = (name?: string) => (name || "").trim().split(/\s+/)[0] || "";
+
+type Notice = { tone: "amber" | "red" | "slate"; title: string; text?: string };
+
+const NOTICE_STYLE: Record<Notice["tone"], string> = {
+  amber: "border-amber-300 bg-amber-50 text-amber-900",
+  red: "border-red-200 bg-red-50 text-red-900",
+  slate: "border-slate-200 bg-slate-50 text-slate-800",
+};
 
 // Página pública (sem login) — o link vai pro balcão da agropecuária, pra
-// eles reservarem horário direto na agenda do veterinário (principalmente
-// vacinação a domicílio) sem precisar ligar. `schedules` já tem RLS aberta
-// pra `anon` (mesmo padrão usado em document_signatures/documents pras
-// outras páginas públicas), então dá pra chamar createSchedule() direto.
-// Reserva ~1 intervalo por horário (ver useAgendaAvailability) checando
-// conflito com agendamentos existentes no mesmo dia, em vez de adicionar
-// coluna de duração (não existe no sistema). Horário aberto/fechado, blocos
-// e intervalo entre horários vêm de agenda_weekly_hours/agenda_exceptions/
-// agenda_settings (Configuração > Horários da agenda pública) — não são mais
-// fixos aqui.
+// eles reservarem horário direto na agenda do veterinário sem precisar ligar.
+//
+// Como evita dois computadores no mesmo horário:
+// - Clicou num horário, ele fica "Em reserva" para os outros (trava no banco,
+//   agenda_hold) — consulta trava os 2 horários assim que escolhe o tipo.
+// - A grade de todos atualiza na hora (Realtime) e, por garantia, a cada 10 s.
+// - Ao gravar, o banco confere de novo (agenda_book) na mesma transação.
+// - A trava solta ao gravar, cancelar, fechar a aba ou com 10 min parada.
+// Horário aberto, intervalo e lista de vacinas vêm de Configuração › Horários
+// da agenda pública.
 const BookSchedulePage: React.FC = () => {
+  // Identidade desta aba nas travas (useState: não muda nem com recarga a quente).
+  const [sessionId] = React.useState(() => generateUUID());
   const [companyName, setCompanyName] = React.useState("");
-  const [clientName, setClientName] = React.useState("");
-  const [date, setDate] = React.useState(getTodayLocalISO());
-  const [time, setTime] = React.useState("");
-  const [description, setDescription] = React.useState("");
-  const [saving, setSaving] = React.useState(false);
-  const [success, setSuccess] = React.useState(false);
 
   // Nome do computador/balcão (só nesse navegador — ver STATION_NAME_STORAGE_KEY).
   const [stationName, setStationName] = React.useState<string>(() => readStationName());
   const [stationDialogOpen, setStationDialogOpen] = React.useState(false);
   const [stationNameInput, setStationNameInput] = React.useState("");
+  const [gateInput, setGateInput] = React.useState("");
 
-  const openStationDialog = () => {
-    setStationNameInput(stationName);
-    setStationDialogOpen(true);
-  };
-
-  const handleSaveStationName = () => {
-    const trimmed = stationNameInput.trim();
+  const saveStation = (raw: string) => {
+    const trimmed = raw.trim();
     writeStationName(trimmed);
     setStationName(trimmed);
-    setStationDialogOpen(false);
   };
 
-  // Horário de funcionamento, exceções e intervalo — configuráveis em
-  // Configuração > Horários da agenda pública (cai no horário que era fixo
-  // no código, como fallback, se a config ainda não tiver sido aplicada).
   const { weeklyHours, exceptions, settings: availability } = useAgendaAvailability();
   const intervalMinutes = availability.intervalMinutes;
   const getDaySlots = React.useCallback(
     (dateISO: string) => generateSlotsForDay(dateISO, weeklyHours, exceptions, intervalMinutes),
     [weeklyHours, exceptions, intervalMinutes]
   );
-
-  // Janela de 7 dias "rolando" a partir de hoje (não mais presa a
-  // segunda-feira): antes, no fim da semana (ex.: sexta) a grade mostrava
-  // maioria dos dias já passados e só sobrava 1-2 dias livres, dando a
-  // impressão de que não tinha mais horário — sem perceber que dava pra
-  // clicar em "próxima semana". `todayISO` é recalculado a cada render (a
-  // página já re-renderiza sozinha a cada 10s pelo polling de reservas),
-  // então se o balcão deixar a aba aberta atravessando a virada do dia, a
-  // janela "puxa" sozinha pro dia novo sem precisar de F5.
-  const todayISO = getTodayLocalISO();
-  // Minuto atual (recalculado a cada render, mesmo tick do todayISO acima) —
-  // usado pra apagar visualmente os horários de HOJE que já passaram (antes
-  // só o dia inteiro ficava "passado"; um horário das 8h continuava
-  // aparecendo "Livre" e clicável às 16h). Usuários reclamaram que a grade
-  // tem informação demais e se perdem — reaproveita a mesma cor já usada
-  // pros dias passados em vez de inventar mais uma.
-  const nowMinutes = new Date().getHours() * 60 + new Date().getMinutes();
-  // Deslocamento da janela em DIAS a partir de hoje (negativo = passado, pra
-  // acompanhar agendamentos que já aconteceram): setinha ao lado da data anda
-  // 7 dias, botão grande da esquerda anda 1 dia, o da direita anda 7.
-  const [dayOffset, setDayOffset] = React.useState(0);
-  const weekStart = React.useMemo(
-    () => addDays(new Date(`${todayISO}T12:00:00`), dayOffset),
-    [todayISO, dayOffset]
-  );
-  const weekDays = React.useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)), [weekStart]);
-  const [bookings, setBookings] = React.useState<ScheduleTimeSummary[]>([]);
-  const [loadingWeek, setLoadingWeek] = React.useState(true);
-  // Só a PRIMEIRA carga troca a grade por "Carregando..."; depois disso a
-  // grade fica no lugar (esmaecida) enquanto busca — com a navegação dia a
-  // dia, trocar por um spinner minúsculo a cada clique fazia a página pular
-  // de altura e o botão redondo (centralizado na caixa) sair de baixo do
-  // cursor.
-  const [everLoaded, setEverLoaded] = React.useState(false);
-
-  // Grade da semana: todos os horários que aparecem em pelo menos um dia da
-  // semana visível — dias com expediente diferente (ex.: sábado até 12h)
-  // simplesmente ficam "—" nas linhas que não têm.
-  const gridHours = React.useMemo(() => {
-    const set = new Set<string>();
-    weekDays.forEach((d) => getDaySlots(toISODate(d)).forEach((h) => set.add(h)));
-    return Array.from(set).sort();
-  }, [weekDays, getDaySlots]);
+  const [vaccineOptions, setVaccineOptions] = React.useState<string[]>(DEFAULT_VACCINE_OPTIONS);
 
   React.useEffect(() => {
     getCompanySettings()
       .then((s) => setCompanyName(s.companyName || ""))
       .catch(() => setCompanyName(""));
+    void getVaccineOptions().then((r) => setVaccineOptions(r.options));
   }, []);
 
-  React.useEffect(() => {
-    let cancelled = false;
-    setLoadingWeek(true);
-    const startISO = toISODate(weekDays[0]);
-    const endISO = toISODate(weekDays[6]);
-    listScheduleTimesInRange(startISO, endISO)
-      .then((rows) => { if (!cancelled) setBookings(rows); })
-      .catch(() => { if (!cancelled) setBookings([]); })
-      .finally(() => {
-        if (cancelled) return;
-        setLoadingWeek(false);
-        setEverLoaded(true);
-      });
-    return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [weekStart]);
+  // Janela de 7 dias "rolando" a partir de hoje (não presa a segunda-feira).
+  // `todayISO`/`nowMinutes` são recalculados a cada render — a página
+  // re-renderiza sozinha pelas atualizações da grade, então atravessar a
+  // virada do dia com a aba aberta não precisa de F5.
+  const todayISO = getTodayLocalISO();
+  const nowMinutes = new Date().getHours() * 60 + new Date().getMinutes();
+  const [dayOffset, setDayOffset] = React.useState(0);
+  const weekStart = React.useMemo(() => addDays(new Date(`${todayISO}T12:00:00`), dayOffset), [todayISO, dayOffset]);
+  const weekDays = React.useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)), [weekStart]);
+  const startISO = toISODate(weekDays[0]);
+  const endISO = toISODate(weekDays[6]);
 
-  // Vários computadores do balcão usam essa página ao mesmo tempo — sem
-  // isso, quem já estava com a grade aberta só via o horário reservado por
-  // outro computador depois de um F5. Atualiza sozinho a cada 10s, sem
-  // mostrar "Carregando..." (silencioso, pra não interromper quem está
-  // digitando no formulário embaixo).
-  React.useEffect(() => {
-    const startISO = toISODate(weekDays[0]);
-    const endISO = toISODate(weekDays[6]);
-    const intervalId = setInterval(() => {
-      listScheduleTimesInRange(startISO, endISO)
-        .then((rows) => setBookings(rows))
-        .catch(() => { /* falha passageira — tenta de novo no próximo tick */ });
-    }, 10000);
-    return () => clearInterval(intervalId);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [weekStart]);
+  const [bookings, setBookings] = React.useState<ScheduleTimeSummary[]>([]);
+  const [holds, setHolds] = React.useState<ScheduleHold[]>([]);
+  const [loadingWeek, setLoadingWeek] = React.useState(true);
+  // Só a PRIMEIRA carga troca a grade por "Carregando..."; depois a grade fica
+  // no lugar (esmaecida) enquanto busca, pra página não pular de altura.
+  const [everLoaded, setEverLoaded] = React.useState(false);
 
-  // Agrupa os agendamentos da semana pela célula da grade (dia + hora cheia)
-  // mais próxima de cada um — assim um "encaixe" torto (ex.: 8h30) ganha o
-  // próprio botãozinho na célula certa, ao lado do agendamento vizinho, em
-  // vez de ficar escondido atrás de um só "Ocupado" genérico.
-  const bookingsBySlot = React.useMemo(() => {
-    const map = new Map<string, ScheduleTimeSummary[]>();
-    for (const d of weekDays) {
-      const dISO = toISODate(d);
-      const openSlots = getDaySlots(dISO);
-      if (openSlots.length === 0) continue;
-      for (const b of bookings) {
-        if (b.date !== dISO) continue;
-        const bMin = toMinutes(b.time);
-        if (bMin === null) continue;
-        const slot = nearestSlot(bMin, openSlots);
-        const key = `${dISO}|${slot}`;
-        const list = map.get(key) || [];
-        list.push(b);
-        map.set(key, list);
+  const weekKey = `${startISO}|${endISO}`;
+  const weekKeyRef = React.useRef(weekKey);
+  weekKeyRef.current = weekKey;
+
+  const refreshWeek = React.useCallback(
+    async (silent: boolean) => {
+      const key = `${startISO}|${endISO}`;
+      if (!silent) setLoadingWeek(true);
+      try {
+        const [rows, holdRows] = await Promise.all([
+          listScheduleTimesInRange(startISO, endISO),
+          listHoldsInRange(startISO, endISO).catch(() => null),
+        ]);
+        if (weekKeyRef.current !== key) return;
+        setBookings(rows);
+        if (holdRows) setHolds(holdRows);
+      } catch {
+        if (!silent && weekKeyRef.current === key) setBookings([]);
+      } finally {
+        if (!silent && weekKeyRef.current === key) {
+          setLoadingWeek(false);
+          setEverLoaded(true);
+        }
       }
-    }
-    for (const list of map.values()) {
-      list.sort((a, b) => (toMinutes(a.time) ?? 0) - (toMinutes(b.time) ?? 0));
-    }
-    return map;
-  }, [bookings, weekDays, getDaySlots]);
+    },
+    [startISO, endISO]
+  );
+  const refreshRef = React.useRef(refreshWeek);
+  refreshRef.current = refreshWeek;
 
+  React.useEffect(() => {
+    void refreshWeek(false);
+  }, [refreshWeek]);
+
+  // Garantia caso o tempo real caia: atualiza sozinho a cada 10 s, em silêncio.
+  React.useEffect(() => {
+    const id = window.setInterval(() => void refreshRef.current(true), 10000);
+    return () => window.clearInterval(id);
+  }, []);
+
+  // Tempo real: qualquer computador reservou, travou ou soltou → atualiza já.
+  React.useEffect(() => {
+    let timer: number | undefined;
+    const unsubscribe = subscribeAgendaChanges(sessionId, () => {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => void refreshRef.current(true), 250);
+    });
+    return () => {
+      window.clearTimeout(timer);
+      unsubscribe();
+    };
+  }, [sessionId]);
+
+  // --- Formulário ---
+  const [sel, setSel] = React.useState<{ date: string; time: string } | null>(null);
+  const [editing, setEditing] = React.useState<ScheduleTimeSummary | null>(null);
+  const [clientName, setClientName] = React.useState("");
+  const [kind, setKind] = React.useState<BookingKind | null>(null);
+  const [info, setInfo] = React.useState<BookingKindInfo>({});
+  /** "Até" escolhido; nulo = duração mínima do tipo. */
+  const [chosenDuration, setChosenDuration] = React.useState<number | null>(null);
+  const [notice, setNotice] = React.useState<Notice | null>(null);
+  const [saving, setSaving] = React.useState(false);
+  const [success, setSuccess] = React.useState<string | null>(null);
+  const [cancelConfirmOpen, setCancelConfirmOpen] = React.useState(false);
+  const [holdExpired, setHoldExpired] = React.useState(false);
   const clientNameRef = React.useRef<HTMLInputElement>(null);
+  const formRef = React.useRef<HTMLFormElement>(null);
 
-  const handlePickSlot = (dateISO: string, slotTime: string) => {
-    setDate(dateISO);
-    setTime(slotTime);
-    setLongAppointment(false);
-    setEndTime("");
-    // Depois de escolher o horário no calendário, já manda o foco pro nome
-    // do cliente — próximo passo natural, sem precisar rolar/clicar de novo.
-    clientNameRef.current?.focus();
+  // Conflitos que o banco apontou e a grade ainda não mostrava — evita ficar
+  // pedindo o mesmo horário de novo até a próxima atualização.
+  const [serverBlocks, setServerBlocks] = React.useState<Map<string, HoldConflict & { until: number }>>(new Map());
+  const registerConflicts = (dateISO: string, conflicts: HoldConflict[]) => {
+    if (!conflicts.length) return;
+    setServerBlocks((prev) => {
+      const next = new Map(prev);
+      for (const c of conflicts) next.set(`${dateISO}|${c.time}`, { ...c, until: Date.now() + 20000 });
+      return next;
+    });
   };
 
-  function minutesToHHMM(totalMinutes: number): string {
-    const h = Math.floor(totalMinutes / 60) % 24;
-    const m = totalMinutes % 60;
-    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
-  }
+  const {
+    held,
+    supported: holdSupported,
+    pending: holdPending,
+    request: requestHold,
+    release: releaseHold,
+    forget: forgetHold,
+    touch: touchHold,
+    enqueue: enqueueHoldCall,
+  } = useBookingHold({
+    sessionId,
+    station: stationName,
+    onExpire: (cells: HeldCells) => {
+      setHoldExpired(true);
+      setNotice({
+        tone: "slate",
+        title: `O horário ${cells.times[0]} de ${dayLabel(cells.date)} ficou 10 minutos parado e foi liberado para os outros computadores.`,
+        text: "Se continuar preenchendo, o sistema tenta reservar de novo — se alguém pegou nesse meio-tempo, ele avisa.",
+      });
+    },
+  });
+  const heldRef = React.useRef(held);
+  heldRef.current = held;
+  const holdSupportedRef = React.useRef(holdSupported);
+  holdSupportedRef.current = holdSupported;
 
-  // "Agendar horário mais longo" — pra consulta/procedimento que passa de 1
-  // intervalo (ex.: 30 min): em vez do usuário escolher horários extras um a
-  // um (testado com o balcão — achado pouco prático), marca um checkbox e
-  // escolhe só o horário de TÉRMINO — o campo "Até" mostra o horário real em
-  // que o cliente sai, não o último intervalo ocupado (isso confundia:
-  // escolher "12:00" fazia ocupar até 12:30, sem ficar óbvio o motivo).
-  // Agora escolher "12:00" reserva só 1 intervalo (igual não marcar o
-  // checkbox) e "12:30" reserva 2 (1h, começando às 11:30) — sem precisar
-  // fazer conta. Sempre travado nos horários de verdade da grade (não
-  // atravessa buraco de almoço/fechamento). Por baixo continua sendo 1 linha
-  // por intervalo em `schedules` (não existe coluna de duração no sistema).
-  const [longAppointment, setLongAppointment] = React.useState(false);
-  const [endTime, setEndTime] = React.useState("");
-
-  // Quantos intervalos contíguos dá pra emendar a partir do horário
-  // principal — para assim que bate num intervalo fechado (almoço/fim do
-  // expediente). endTimeOptions[k-1] = horário de término reservando k
-  // intervalos (k=1 é só o próprio horário principal, igual não marcar o
-  // checkbox — mas dá pra escolher explicitamente).
-  const endTimeOptions = React.useMemo(() => {
-    if (!time) return [];
-    const daySlots = getDaySlots(date);
-    const startIdx = daySlots.indexOf(time);
-    const startMinutes = toMinutes(time);
-    if (startIdx === -1 || startMinutes === null) return [];
-    const options: string[] = [];
-    for (let k = 1; startIdx + k - 1 < daySlots.length; k++) {
-      if (toMinutes(daySlots[startIdx + k - 1]) !== startMinutes + (k - 1) * intervalMinutes) break;
-      options.push(minutesToHHMM(startMinutes + k * intervalMinutes));
-    }
-    return options;
-  }, [date, time, getDaySlots, intervalMinutes]);
-
-  // Quando marca o checkbox (ou muda o horário principal com o checkbox já
-  // marcado), preenche o "até" com a 2ª opção (2 intervalos) — a 1ª seria
-  // igual não ter marcado o checkbox, então não faz sentido como padrão.
+  // Contagem regressiva só quando falta pouco para a trava vencer.
+  const [nowTick, setNowTick] = React.useState(() => Date.now());
   React.useEffect(() => {
-    if (!longAppointment) {
-      setEndTime("");
+    if (!held) return;
+    const id = window.setInterval(() => setNowTick(Date.now()), 1000);
+    return () => window.clearInterval(id);
+  }, [held]);
+
+  const cellMap = React.useMemo(() => buildCellMap(bookings, getDaySlots, intervalMinutes), [bookings, getDaySlots, intervalMinutes]);
+  const holdsByCell = React.useMemo(() => {
+    const map = new Map<string, ScheduleHold>();
+    const now = Date.now();
+    for (const h of holds) if (Date.parse(h.expiresAt) > now) map.set(`${h.date}|${h.time}`, h);
+    return map;
+  }, [holds]);
+
+  const otherHoldAt = (dateISO: string, cell: string) => {
+    const h = holdsByCell.get(`${dateISO}|${cell}`);
+    return h && h.sessionId !== sessionId ? h : undefined;
+  };
+  const bookingsAt = (dateISO: string, cell: string) =>
+    (cellMap.get(`${dateISO}|${cell}`) || []).filter((e) => e.booking.id !== editing?.id);
+  const serverBlockAt = (dateISO: string, cell: string) => {
+    const b = serverBlocks.get(`${dateISO}|${cell}`);
+    return b && b.until > Date.now() ? b : undefined;
+  };
+  const isFreeForMe = (dateISO: string, cell: string) =>
+    bookingsAt(dateISO, cell).length === 0 && !otherHoldAt(dateISO, cell) && !serverBlockAt(dateISO, cell);
+
+  /** Por que não dá pra emendar mais horários depois de `run` horários livres. */
+  const blockReason = (dateISO: string, startCell: string, run: number): string => {
+    const daySlots = getDaySlots(dateISO);
+    const idx = daySlots.indexOf(startCell);
+    const start = toMinutes(startCell) ?? 0;
+    const nextMin = start + run * intervalMinutes;
+    const cell = daySlots[idx + run];
+    if (!cell || toMinutes(cell) !== nextMin) return `a agenda fecha às ${minutesToHHMM(nextMin)}`;
+    const other = otherHoldAt(dateISO, cell);
+    if (other) return `${cell} está em reserva por ${other.station || "outro computador"}`;
+    const sb = serverBlockAt(dateISO, cell);
+    if (sb?.type === "held") return `${cell} está em reserva por ${sb.who || "outro computador"}`;
+    const who = bookingsAt(dateISO, cell)[0]?.booking.clientName || sb?.who;
+    return `às ${cell} já tem agendamento${who ? ` (${firstName(who)})` : ""}`;
+  };
+
+  const minDuration = minDurationFor(kind, intervalMinutes);
+  const effectiveDuration = Math.max(chosenDuration ?? 0, minDuration);
+  const neededCells = Math.max(1, Math.ceil(effectiveDuration / intervalMinutes));
+  const minCells = Math.max(1, Math.ceil(minDuration / intervalMinutes));
+  const daySel = sel ? getDaySlots(sel.date) : [];
+  const selIdx = sel ? daySel.indexOf(sel.time) : -1;
+  const runSel = sel && selIdx !== -1 ? freeRunLength(daySel, sel.time, intervalMinutes, (c) => isFreeForMe(sel.date, c), 16) : 0;
+  const desiredCells = sel ? rangeCells(daySel, sel.time, effectiveDuration, intervalMinutes) : null;
+  const fits = !!desiredCells && runSel >= neededCells;
+  // Segura o que dá a partir do horário clicado (pelo menos ele) — se a
+  // consulta não couber, o primeiro horário continua seu enquanto escolhe outro.
+  const holdTarget = sel && selIdx !== -1 ? daySel.slice(selIdx, selIdx + Math.min(neededCells, runSel)) : [];
+
+  const durationOptions = React.useMemo(() => {
+    const maxCells = Math.max(minCells, Math.min(runSel, 8));
+    return Array.from({ length: maxCells - minCells + 1 }, (_, i) => (minCells + i) * intervalMinutes);
+  }, [minCells, runSel, intervalMinutes]);
+
+  const rangeError = (() => {
+    if (!sel) return null;
+    if (selIdx === -1) return "Esse horário não está na grade — escolha um horário livre.";
+    if (fits) return null;
+    const what = kind ? `${KIND_LABEL[kind]}${chosenDuration ? ` de ${fmtDuration(effectiveDuration)}` : ""}` : "O atendimento";
+    const need = kind && !chosenDuration && minCells > 1 ? ` precisa de ${fmtDuration(minDuration)}` : " não cabe aqui";
+    return `${what}${need}: ${blockReason(sel.date, sel.time, runSel)}. Escolha outro horário na grade${chosenDuration ? " ou diminua o \"até\"" : ""}.`;
+  })();
+
+  // Alguém segura o horário de antes e ainda não disse o tipo: se for
+  // consulta, vai precisar deste — melhor combinar antes de finalizar.
+  const neighborWarning = (() => {
+    if (!sel || selIdx === -1) return null;
+    const start = toMinutes(sel.time);
+    if (start === null) return null;
+    const prev = minutesToHHMM(start - intervalMinutes);
+    const h = otherHoldAt(sel.date, prev);
+    if (!h || h.kind) return null;
+    const who = h.station || "Outro computador";
+    return `${who} está agendando às ${prev} e ainda não escolheu o tipo. Se for consulta, vai precisar das ${sel.time} — combine com ${who} antes de finalizar.`;
+  })();
+
+  // Mantém a trava igual ao que está escolhido (horário + duração + tipo).
+  const holdKey = sel ? `${sel.date}|${holdTarget.join(",")}|${kind ?? ""}|${editing?.id ?? ""}|${stationName}` : "";
+  React.useEffect(() => {
+    if (holdSupportedRef.current === false) return;
+    if (!sel) {
+      if (heldRef.current) void releaseHold();
       return;
     }
-    if (endTime && endTimeOptions.includes(endTime)) return;
-    setEndTime(endTimeOptions[1] ?? endTimeOptions[0] ?? "");
-  }, [longAppointment, endTimeOptions]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (selIdx === -1) return;
+    if (holdTarget.length === 0) {
+      // O próprio horário escolhido foi ocupado por outro computador.
+      const reason = blockReason(sel.date, sel.time, 0);
+      void releaseHold();
+      setSel(null);
+      setNotice({ tone: "red", title: `O horário ${sel.time} de ${dayLabel(sel.date)} não está mais livre: ${reason}.`, text: "Escolha outro horário na grade." });
+      return;
+    }
+    const date = sel.date;
+    const timer = window.setTimeout(async () => {
+      try {
+        setHoldExpired(false);
+        const res = await requestHold({ date, times: holdTarget, kind, ignoreScheduleId: editing?.id ?? null });
+        if (res?.status === "conflict") {
+          registerConflicts(date, res.conflicts);
+          void refreshRef.current(true);
+        }
+      } catch (err) {
+        setNotice({ tone: "red", title: err instanceof Error ? err.message : "Falha ao reservar o horário." });
+      }
+    }, 120);
+    return () => window.clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [holdKey]);
 
-  // Todos os horários que essa reserva ocupa (1 só, ou vários contíguos se
-  // "horário mais longo" estiver marcado e válido).
-  const slotsParaReservar = React.useMemo(() => {
-    const endIdx = longAppointment ? endTimeOptions.indexOf(endTime) : -1;
-    if (endIdx === -1) return [time];
-    const daySlots = getDaySlots(date);
-    const startIdx = daySlots.indexOf(time);
-    if (startIdx === -1) return [time];
-    // endIdx é 0-based (k-1); a reserva ocupa k = endIdx+1 intervalos.
-    return daySlots.slice(startIdx, startIdx + endIdx + 1);
-  }, [longAppointment, endTime, endTimeOptions, time, date, getDaySlots]);
+  // Mexeu na página: renova a trava; se ela já tinha vencido, tenta pegar de novo.
+  const onActivity = () => {
+    if (holdExpired && sel && holdTarget.length > 0 && holdSupportedRef.current !== false) {
+      setHoldExpired(false);
+      setNotice(null);
+      const date = sel.date;
+      void requestHold({ date, times: holdTarget, kind, ignoreScheduleId: editing?.id ?? null })
+        .then((res) => {
+          if (res?.status === "conflict") {
+            registerConflicts(date, res.conflicts);
+            void refreshRef.current(true);
+          }
+        })
+        .catch(() => undefined);
+      return;
+    }
+    touchHold();
+  };
 
-  const doCreateBookings = async (slots: Array<{ date: string; time: string }>) => {
-    setSaving(true);
-    let successCount = 0;
-    try {
-      for (const slot of slots) {
-        const created = await createSchedule({
-          date: new Date(`${slot.date}T12:00:00`),
-          time: slot.time,
-          title: description.trim(),
-          clientId: "",
-          clientName: clientName.trim(),
-          animalId: "",
-          animalName: "",
-          status: "scheduled",
-          notes: stationName.trim()
-            ? `Agendado pelo link público (balcão da agropecuária) — computador: ${stationName.trim()}.`
-            : "Agendado pelo link público (balcão da agropecuária).",
+  const resetForm = () => {
+    setSel(null);
+    setEditing(null);
+    setClientName("");
+    setKind(null);
+    setInfo({});
+    setChosenDuration(null);
+    setHoldExpired(false);
+  };
+
+  const handleKindChange = (k: BookingKind) => {
+    setKind(k);
+    setInfo((prev) => pruneKindInfo(k, prev));
+    setChosenDuration(null);
+  };
+
+  const handlePickSlot = (dateISO: string, cell: string) => {
+    setNotice(null);
+    const other = otherHoldAt(dateISO, cell);
+    if (other) {
+      const who = other.station || "outro computador";
+      setNotice({
+        tone: "amber",
+        title: `${cell} de ${dayLabel(dateISO)} está em reserva por ${who}.`,
+        text: `O agendamento ainda não foi finalizado. Aguarde a finalização, fale com quem está no ${who} ou escolha outro horário.`,
+      });
+      return;
+    }
+    // Com o tipo já escolhido, nem seleciona onde ele não cabe.
+    if (kind && minCells > 1) {
+      const run = freeRunLength(getDaySlots(dateISO), cell, intervalMinutes, (c) => isFreeForMe(dateISO, c), minCells);
+      if (run < minCells) {
+        setNotice({
+          tone: "red",
+          title: `${KIND_LABEL[kind]} precisa de ${fmtDuration(minDuration)}: ${blockReason(dateISO, cell, run)}.`,
+          text: "Escolha outro horário na grade.",
         });
-        successCount += 1;
-        // Atualiza o calendário na hora (linha a linha, não só no fim) — antes
-        // o horário recém-reservado só aparecia como "Ocupado" depois de um
-        // F5; agora, mesmo se um horário do meio da lista falhar, os
-        // anteriores já ficam refletidos na grade em vez de sumir até o
-        // próximo polling.
-        setBookings((prev) => [
-          ...prev,
-          {
-            id: created.id,
-            date: slot.date,
-            time: slot.time,
-            clientName: clientName.trim(),
-            title: description.trim(),
-            stationName: stationName.trim() || undefined,
-          },
-        ]);
+        return;
       }
+    }
+    setSel({ date: dateISO, time: cell });
+    setChosenDuration(null);
+    // Próximo passo natural: o nome do cliente.
+    window.setTimeout(() => clientNameRef.current?.focus(), 0);
+  };
 
-      setSuccess(true);
-      toast.success(slots.length > 1 ? `${slots.length} horários reservados com sucesso!` : "Horário reservado com sucesso!");
-      setClientName("");
-      setTime("");
-      setDescription("");
-      setLongAppointment(false);
-      setEndTime("");
-    } catch (err) {
-      if (successCount > 0) {
-        toast.warning(
-          `${successCount} de ${slots.length} horário(s) foram reservados antes de um erro. Confira a grade — o(s) que faltou(aram) precisa(m) ser reservado(s) de novo.`
-        );
-      } else {
-        toast.error(err instanceof Error ? err.message : "Erro ao reservar o horário.");
-      }
-    } finally {
-      setSaving(false);
+  const startEdit = (b: ScheduleTimeSummary) => {
+    setNotice(null);
+    setEditing(b);
+    setSel({ date: b.date, time: b.time });
+    setClientName(b.clientName || "");
+    setKind(b.kind ?? null);
+    // Agendamento antigo (texto livre): o texto vira observação e escolhe o tipo.
+    setInfo(b.kind ? { ...(b.kindInfo ?? {}) } : { obs: b.title || "" });
+    setChosenDuration(b.durationMinutes ?? null);
+    window.setTimeout(() => formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
+  };
+
+  const problem = (() => {
+    if (!sel) return "Escolha um horário livre na grade.";
+    const v = validateBooking(kind, info);
+    if (v) return v;
+    if (kind !== "bloqueio" && !clientName.trim()) return "Informe o nome do cliente.";
+    if (!fits) return rangeError || "Esse horário não comporta o atendimento.";
+    return null;
+  })();
+
+  const stationNote = stationName.trim()
+    ? `Agendado pelo link público (balcão da agropecuária) — computador: ${stationName.trim()}.`
+    : "Agendado pelo link público (balcão da agropecuária).";
+
+  // Sem as funções no banco (migration não aplicada): grava como antes, uma
+  // linha por horário, sem trava — a observação vai junto no texto.
+  const legacySave = async (title: string, name: string, kindInfo: BookingKindInfo) => {
+    if (!sel || !desiredCells) return;
+    const dayRows = await listScheduleTimesInRange(sel.date, sel.date);
+    const dayMap = buildCellMap(
+      dayRows.filter((b) => b.id !== editing?.id),
+      getDaySlots,
+      intervalMinutes
+    );
+    const taken = desiredCells.find((c) => dayMap.has(`${sel.date}|${c}`));
+    if (taken) throw new Error(`O horário ${taken} acabou de ser reservado por outra pessoa. Escolha outro.`);
+    const text = kindInfo.obs ? `${title} — ${kindInfo.obs}` : title;
+    if (editing) {
+      await updatePublicBooking(editing.id, { date: new Date(`${sel.date}T12:00:00`), time: sel.time, clientName: name, title: text });
+      return;
+    }
+    for (const cell of desiredCells) {
+      await createSchedule({
+        date: new Date(`${sel.date}T12:00:00`),
+        time: cell,
+        title: text,
+        clientId: "",
+        clientName: name,
+        animalId: "",
+        animalName: "",
+        status: "scheduled",
+        notes: stationNote,
+      });
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (saving) return;
-
-    const allSlots = slotsParaReservar.map((t) => ({ date, time: t }));
-
-    if (!clientName.trim() || !description.trim() || allSlots.some((s) => !s.date || !s.time)) {
-      toast.error(
-        longAppointment ? "Preencha todos os campos (incluindo o horário 'até')." : "Preencha todos os campos."
-      );
+    if (problem || !sel || !kind || !desiredCells) {
+      toast.error(problem || "Preencha todos os campos.");
       return;
     }
-
-    const agora = new Date();
-    const minutosAgora = agora.getHours() * 60 + agora.getMinutes();
-    for (const slot of allSlots) {
-      if (slot.date < getTodayLocalISO()) {
-        toast.error(`A data ${formatDayHeader(new Date(`${slot.date}T12:00:00`))} não pode ser no passado.`);
+    const moved = !editing || editing.date !== sel.date || editing.time !== sel.time;
+    if (moved) {
+      if (sel.date < getTodayLocalISO()) {
+        toast.error("A data não pode ser no passado.");
         return;
       }
-      const minutos = toMinutes(slot.time);
-      if (minutos === null) {
-        toast.error("Horário inválido.");
-        return;
-      }
-      if (slot.date === getTodayLocalISO() && minutos < minutosAgora) {
-        toast.error(`O horário ${slot.time} de hoje já passou. Escolha um horário mais adiante.`);
-        return;
-      }
-      if (!isMinutesOpen(slot.date, minutos, weeklyHours, exceptions)) {
-        toast.error(`O horário ${slot.time} está fora do funcionamento da clínica em ${formatDayHeader(new Date(`${slot.date}T12:00:00`))}.`);
+      const startMin = toMinutes(sel.time) ?? 0;
+      if (sel.date === getTodayLocalISO() && startMin < nowMinutes) {
+        toast.error(`O horário ${sel.time} de hoje já passou. Escolha um horário mais adiante.`);
         return;
       }
     }
+
+    const kindInfo = pruneKindInfo(kind, info);
+    const title = composeBookingTitle(kind, kindInfo);
+    const name = clientName.trim() || (kind === "bloqueio" ? "Não agendar" : "");
+    const id = editing?.id ?? `sched-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+    const date = sel.date;
+    const time = sel.time;
 
     setSaving(true);
     try {
-      // Antes "encaixe" (horário perto de outro) virava confirmação em vez de
-      // bloqueio -- fazia sentido quando o intervalo era maior. Com a agenda
-      // toda em blocos fixos (ex.: 30 min), dois agendamentos só colidem se
-      // for o exato mesmo horário -- aí é ocupado mesmo, bloqueia direto.
-      const datasUnicas = Array.from(new Set(allSlots.map((s) => s.date)));
-      for (const d of datasUnicas) {
-        const existing = await listScheduleTimesInRange(d, d);
-        const horariosDesseDia = allSlots.filter((s) => s.date === d).map((s) => s.time);
-        const ocupado = existing.find((b) => horariosDesseDia.includes(b.time));
-        if (ocupado) {
-          setSaving(false);
-          toast.error(
-            `O horário ${ocupado.time} de ${formatDayHeader(new Date(`${d}T12:00:00`))} acabou de ser reservado por outra pessoa. Escolha outro.`
-          );
+      let status: "ok" | "unavailable" = "unavailable";
+      if (holdSupported !== false) {
+        const res = await enqueueHoldCall(() => bookSlot(sessionId, {
+          id,
+          date,
+          time,
+          durationMinutes: effectiveDuration,
+          title,
+          clientName: name,
+          notes: editing ? undefined : stationNote,
+          kind,
+          kindInfo,
+        }));
+        if (res.status === "conflict") {
+          registerConflicts(date, res.conflicts);
+          void refreshRef.current(true);
+          const c = res.conflicts[0];
+          setNotice({
+            tone: "red",
+            title:
+              c?.type === "held"
+                ? `Não deu para gravar: ${c.time} está em reserva por ${c.who || "outro computador"}.`
+                : `Não deu para gravar: às ${c?.time ?? time} já tem agendamento${c?.who ? ` (${firstName(c.who)})` : ""}.`,
+            text: "A grade foi atualizada. Escolha outro horário.",
+          });
           return;
         }
+        status = res.status;
       }
+      if (status === "unavailable") await legacySave(title, name, kindInfo);
 
-      await doCreateBookings(allSlots);
+      forgetHold();
+      setBookings((prev) => [
+        ...prev.filter((b) => b.id !== id),
+        {
+          id,
+          date,
+          time,
+          clientName: name,
+          title,
+          stationName: editing ? editing.stationName : stationName.trim() || undefined,
+          kind,
+          kindInfo,
+          durationMinutes: effectiveDuration,
+        },
+      ]);
+      const range = formatScheduleTimeRange(time, effectiveDuration);
+      if (editing) {
+        toast.success("Agendamento atualizado!");
+      } else {
+        setSuccess(`${title} · ${dayLabel(date)} ${range}${name ? ` · ${name}` : ""}`);
+        toast.success("Horário reservado!");
+      }
+      resetForm();
+      setNotice(null);
+      void refreshRef.current(true);
     } catch (err) {
-      setSaving(false);
-      toast.error(err instanceof Error ? err.message : "Erro ao reservar o horário.");
-    }
-  };
-
-  // --- Edição de um agendamento já existente (corrigir erro de digitação,
-  // mudar horário, ou cancelar) — o balcão não tem outro jeito de arrumar um
-  // agendamento errado, já que não tem acesso à Agenda interna.
-  const [editingBooking, setEditingBooking] = React.useState<ScheduleTimeSummary | null>(null);
-  const [editDialogOpen, setEditDialogOpen] = React.useState(false);
-  const [editName, setEditName] = React.useState("");
-  const [editDate, setEditDate] = React.useState("");
-  const [editTime, setEditTime] = React.useState("");
-  const [editDescription, setEditDescription] = React.useState("");
-  const [editSaving, setEditSaving] = React.useState(false);
-  const [cancelConfirmOpen, setCancelConfirmOpen] = React.useState(false);
-
-  const openEditDialog = (booking: ScheduleTimeSummary) => {
-    setEditingBooking(booking);
-    setEditName(booking.clientName || "");
-    setEditDate(booking.date);
-    setEditTime(booking.time);
-    setEditDescription(booking.title || "");
-    setEditDialogOpen(true);
-  };
-
-  const closeEditFlow = () => {
-    setEditDialogOpen(false);
-    setEditingBooking(null);
-    setCancelConfirmOpen(false);
-  };
-
-  const doUpdateBooking = async () => {
-    if (!editingBooking) return;
-    setEditSaving(true);
-    try {
-      await updatePublicBooking(editingBooking.id, {
-        date: new Date(`${editDate}T12:00:00`),
-        time: editTime,
-        clientName: editName.trim(),
-        title: editDescription.trim(),
-      });
-      setBookings((prev) =>
-        prev.map((b) =>
-          b.id === editingBooking.id
-            ? { ...b, date: editDate, time: editTime, clientName: editName.trim(), title: editDescription.trim() }
-            : b
-        )
-      );
-      toast.success("Agendamento atualizado!");
-      closeEditFlow();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Erro ao atualizar o agendamento.");
-      setEditDialogOpen(true);
+      toast.error(err instanceof Error ? err.message : "Erro ao gravar o agendamento.");
     } finally {
-      setEditSaving(false);
+      setSaving(false);
     }
   };
 
   const doCancelBooking = async () => {
-    if (!editingBooking) return;
-    setEditSaving(true);
+    if (!editing) return;
+    setSaving(true);
     try {
-      await cancelPublicBooking(editingBooking.id);
-      setBookings((prev) => prev.filter((b) => b.id !== editingBooking.id));
+      await cancelPublicBooking(editing.id);
+      setBookings((prev) => prev.filter((b) => b.id !== editing.id));
+      await releaseHold();
       toast.success("Agendamento cancelado.");
-      closeEditFlow();
+      resetForm();
+      void refreshRef.current(true);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Erro ao cancelar o agendamento.");
     } finally {
-      setEditSaving(false);
+      setSaving(false);
     }
   };
 
-  const handleEditSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingBooking || editSaving) return;
-
-    if (!editName.trim() || !editDate || !editTime || !editDescription.trim()) {
-      toast.error("Preencha todos os campos.");
-      return;
-    }
-    const requestedMinutes = toMinutes(editTime);
-    if (requestedMinutes === null) {
-      toast.error("Horário inválido.");
-      return;
-    }
-    if (!isMinutesOpen(editDate, requestedMinutes, weeklyHours, exceptions)) {
-      toast.error("Esse horário está fora do funcionamento da clínica nesse dia.");
-      return;
-    }
-
-    setEditSaving(true);
-    try {
-      const existing = await listScheduleTimesInRange(editDate, editDate);
-      const conflict = existing.some((b) => b.id !== editingBooking.id && b.time === editTime);
-      if (conflict) {
-        setEditSaving(false);
-        toast.error("Já existe outro agendamento nesse horário. Escolha outro.");
-        return;
-      }
-      await doUpdateBooking();
-    } catch (err) {
-      setEditSaving(false);
-      toast.error(err instanceof Error ? err.message : "Erro ao verificar conflito.");
-    }
-  };
-
-  const handleAskCancel = () => {
-    setEditDialogOpen(false);
-    setCancelConfirmOpen(true);
-  };
-
-  // --- Resumo do dia — clicar na data do cabeçalho da grade abre um modal
-  // com os horários ocupados daquele dia (descontando almoço/fechado).
+  // --- Resumo do dia — clicar na data do cabeçalho da grade.
   const [summaryDateISO, setSummaryDateISO] = React.useState<string | null>(null);
   const summaryBookings = React.useMemo(
     () =>
@@ -579,42 +662,231 @@ const BookSchedulePage: React.FC = () => {
     [bookings, summaryDateISO]
   );
   const summaryOpenSlots = summaryDateISO ? getDaySlots(summaryDateISO) : [];
+  const summaryBusyCells = summaryDateISO ? summaryOpenSlots.filter((s) => cellMap.has(`${summaryDateISO}|${s}`)).length : 0;
 
-  // Horários que aparecem no <Select> do formulário — inclui o valor atual
-  // mesmo se não bater com a configuração vigente (ex.: agendamento antigo
-  // feito antes de mudar o horário-padrão), pra nunca sumir um valor já
-  // escolhido/salvo.
-  const withCurrentOption = (options: string[], current: string): string[] => {
-    if (!current || options.includes(current)) return options;
-    return [...options, current].sort();
+  const heldCoversDesired =
+    !!held && !!sel && held.date === sel.date && !!desiredCells && desiredCells.every((c) => held.times.includes(c));
+  const msLeft = held ? held.expiresAt - nowTick : 0;
+  const showCountdown = !!held && msLeft > 0 && msLeft < 2 * 60 * 1000;
+  const countdownText = `${Math.floor(msLeft / 60000)}:${String(Math.floor((msLeft % 60000) / 1000)).padStart(2, "0")}`;
+
+  const kindHint = kind ? (
+    <p className={cn("text-xs font-medium", KIND_VISUAL[kind].text)}>
+      {kind === "consulta"
+        ? `Consulta trava no mínimo ${fmtDuration(minDuration)} (${minCells} horários seguidos).`
+        : `${KIND_LABEL[kind]} trava ${fmtDuration(minDuration)}.`}{" "}
+      Precisa de mais tempo? Mude o "até" no horário.
+    </p>
+  ) : null;
+
+  const legend = (
+    <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+      <span className="inline-flex items-center gap-1">
+        <span className="h-3 w-3 rounded border border-teal-200 bg-teal-50" /> Livre
+      </span>
+      <span className="inline-flex items-center gap-1">
+        <span className="h-3 w-3 rounded bg-teal-600" /> Seu horário
+      </span>
+      <span className="inline-flex items-center gap-1">
+        <span className="h-3 w-3 rounded border border-dashed border-amber-400 bg-amber-50" /> Em reserva (outro computador)
+      </span>
+      <span className="inline-flex items-center gap-1">
+        <span className="h-3 w-3 rounded border border-orange-300 bg-orange-100" /> Ocupado
+      </span>
+    </div>
+  );
+
+  const renderBookingButton = (
+    b: ScheduleTimeSummary,
+    isStart: boolean,
+    isPast: boolean,
+    d: Date
+  ) => {
+    const visual = b.kind ? KIND_VISUAL[b.kind] : null;
+    const Icon = visual?.icon;
+    const blocked = b.kind === "bloqueio";
+    const label = blocked ? "Bloqueado" : firstName(b.clientName) || "Ocupado";
+    const isEditingThis = editing?.id === b.id;
+    return (
+      <HoverCard key={`${b.id}-${isStart ? "s" : "c"}`} openDelay={150} closeDelay={80}>
+        <HoverCardTrigger asChild>
+          <button
+            type="button"
+            onClick={() => startEdit(b)}
+            className={cn(
+              "flex h-6 w-full items-center justify-center gap-0.5 truncate rounded-md border px-1 text-[10px] font-medium transition-colors",
+              isPast
+                ? "border-transparent bg-muted text-muted-foreground/50"
+                : blocked
+                  ? "border-zinc-300 bg-zinc-100 text-zinc-600 hover:bg-zinc-200"
+                  : isStart
+                    ? "border-orange-300 bg-orange-100 text-orange-900 hover:bg-orange-200"
+                    : "border-orange-200 bg-orange-50 text-orange-800/80 hover:bg-orange-100",
+              isEditingThis && "ring-2 ring-amber-400"
+            )}
+          >
+            {isStart ? Icon && <Icon className="h-3 w-3 shrink-0" aria-hidden /> : <CornerDownRight className="h-3 w-3 shrink-0" aria-hidden />}
+            <span className="truncate">{label}</span>
+          </button>
+        </HoverCardTrigger>
+        <HoverCardContent className="w-72 text-sm" align="center">
+          <p className="font-semibold text-foreground">{blocked ? "Horário bloqueado" : b.clientName || "Sem nome"}</p>
+          {b.kind && <KindBadge kind={b.kind} info={b.kindInfo} className="mt-1" />}
+          {b.title && <p className="mt-1 text-muted-foreground">{b.title}</p>}
+          {b.kindInfo?.obs && <p className="mt-0.5 text-muted-foreground">Obs.: {b.kindInfo.obs}</p>}
+          <p className="mt-2 text-xs text-muted-foreground">
+            {formatDayHeader(d)} · {formatScheduleTimeRange(b.time, b.durationMinutes)}
+          </p>
+          {b.stationName && <p className="mt-1 text-xs text-muted-foreground">Agendado por: {b.stationName}</p>}
+          <p className="mt-2 text-xs font-medium text-teal-700">Clique para editar ou cancelar</p>
+        </HoverCardContent>
+      </HoverCard>
+    );
   };
-  const timeOptions = date ? withCurrentOption(getDaySlots(date), time) : [];
-  const editTimeOptions = editDate ? withCurrentOption(getDaySlots(editDate), editTime) : [];
+
+  const renderCell = (d: Date, hour: string) => {
+    const dISO = toISODate(d);
+    const slotMinutes = toMinutes(hour);
+    const isPast = dISO < todayISO || (dISO === todayISO && slotMinutes !== null && slotMinutes < nowMinutes);
+    const openSlots = getDaySlots(dISO);
+    if (!openSlots.includes(hour)) {
+      return (
+        <td key={dISO} className="border-b border-r border-border/40 p-1 text-center text-muted-foreground/30 last:border-r-0">
+          —
+        </td>
+      );
+    }
+    const entries = cellMap.get(`${dISO}|${hour}`) || [];
+    if (entries.length > 0) {
+      return (
+        <td key={dISO} className="border-b border-r border-border/40 p-1 text-center align-top last:border-r-0">
+          <div className="flex flex-col gap-0.5">{entries.map((e) => renderBookingButton(e.booking, e.isStart, isPast, d))}</div>
+        </td>
+      );
+    }
+    const other = otherHoldAt(dISO, hour);
+    if (other && !isPast) {
+      return (
+        <td key={dISO} className="border-b border-r border-border/40 p-1 text-center last:border-r-0">
+          <button
+            type="button"
+            onClick={() => handlePickSlot(dISO, hour)}
+            title={`Em reserva por ${other.station || "outro computador"} — ainda não finalizado`}
+            className="flex h-7 w-full items-center justify-center gap-0.5 truncate rounded-md border border-dashed border-amber-400 bg-amber-50 px-1 text-[10px] font-semibold text-amber-800"
+          >
+            <Lock className="h-3 w-3 shrink-0" aria-hidden />
+            <span className="truncate">{other.station || "Em reserva"}</span>
+          </button>
+        </td>
+      );
+    }
+    const isMine = !!sel && sel.date === dISO && holdTarget.includes(hour);
+    const runHere =
+      kind && minCells > 1 ? freeRunLength(openSlots, hour, intervalMinutes, (c) => isFreeForMe(dISO, c), minCells) : minCells;
+    const fitsHere = runHere >= minCells;
+    return (
+      <td key={dISO} className="border-b border-r border-border/40 p-1 text-center last:border-r-0">
+        <button
+          type="button"
+          disabled={isPast}
+          onClick={() => handlePickSlot(dISO, hour)}
+          title={!isPast && !isMine && !fitsHere && kind ? `${KIND_LABEL[kind]} de ${fmtDuration(minDuration)} não cabe aqui` : undefined}
+          className={cn(
+            "h-7 w-full rounded-md border text-[11px] transition-colors",
+            isMine
+              ? "border-teal-600 bg-teal-600 font-semibold text-white"
+              : isPast
+                ? "cursor-not-allowed border-transparent bg-muted text-muted-foreground/50"
+                : fitsHere
+                  ? "border-teal-200 bg-teal-50 text-teal-700 hover:bg-teal-100"
+                  : "border-dashed border-teal-200 bg-white text-teal-700/50 hover:bg-teal-50"
+          )}
+        >
+          {isMine ? (hour === sel?.time ? "Seu" : "↳") : isPast ? "-" : fitsHere ? "Livre" : `só ${fmtDuration(runHere * intervalMinutes)}`}
+        </button>
+      </td>
+    );
+  };
+
+  const gridHours = React.useMemo(() => {
+    const set = new Set<string>();
+    weekDays.forEach((d) => getDaySlots(toISODate(d)).forEach((h) => set.add(h)));
+    return Array.from(set).sort();
+  }, [weekDays, getDaySlots]);
+
+  const submitLabel = sel ? `Reservar ${formatScheduleTimeRange(sel.time, effectiveDuration)}` : "Reservar horário";
 
   return (
-    <div className="flex vf-viewport-min-h items-center justify-center bg-muted/40 p-4">
+    <div
+      className="flex vf-viewport-min-h items-center justify-center bg-muted/40 p-4"
+      onPointerDownCapture={onActivity}
+      onKeyDownCapture={onActivity}
+    >
       <Card className="w-full max-w-3xl rounded-2xl border-border/80">
         <CardHeader className="text-center">
           <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-teal-50">
             <PawPrint className="h-6 w-6 text-teal-700" />
           </div>
           <CardTitle className="text-lg">Agendar horário{companyName ? ` — ${companyName}` : ""}</CardTitle>
-          <p className="text-sm text-muted-foreground">Reserve um horário na agenda (ex.: vacina a domicílio, consulta).</p>
-          <button
-            type="button"
-            onClick={openStationDialog}
-            className="mx-auto mt-1 text-xs text-muted-foreground underline decoration-dotted hover:text-foreground"
-          >
-            {stationName ? `Computador: ${stationName} (trocar)` : "Identificar este computador"}
-          </button>
+          <p className="text-sm text-muted-foreground">Reserve um horário na agenda (consulta, vacina, medicação...).</p>
+          {stationName && (
+            <button
+              type="button"
+              onClick={() => {
+                setStationNameInput(stationName);
+                setStationDialogOpen(true);
+              }}
+              className="mx-auto mt-1 inline-flex items-center gap-1 text-xs text-muted-foreground underline decoration-dotted hover:text-foreground"
+            >
+              <Monitor className="h-3 w-3" aria-hidden /> Computador: {stationName} (trocar)
+            </button>
+          )}
         </CardHeader>
         <CardContent>
-          {success ? (
+          {!stationName ? (
+            // Sem saber qual computador é, os outros não teriam como saber
+            // quem está segurando um horário — por isso a agenda só libera
+            // depois da identificação (uma vez por computador).
+            <form
+              className="mx-auto max-w-md space-y-4 rounded-xl border border-amber-300 bg-amber-50 p-5 text-center"
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (!gateInput.trim()) {
+                  toast.error("Digite um nome para este computador.");
+                  return;
+                }
+                saveStation(gateInput);
+              }}
+            >
+              <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-amber-100">
+                <Monitor className="h-5 w-5 text-amber-800" aria-hidden />
+              </div>
+              <div className="space-y-1">
+                <p className="text-base font-semibold text-amber-950">Identifique este computador para liberar a agenda</p>
+                <p className="text-sm text-amber-900/80">
+                  Quando alguém estiver agendando, os outros computadores veem o nome de quem está segurando o horário. Fica
+                  salvo neste navegador — é só uma vez.
+                </p>
+              </div>
+              <Input
+                value={gateInput}
+                onChange={(e) => setGateInput(e.target.value)}
+                placeholder="Ex.: Balcão 1, Computador do caixa"
+                autoFocus
+                className="bg-white text-center"
+                aria-label="Nome deste computador"
+              />
+              <Button type="submit" className="w-full bg-amber-600 text-white hover:bg-amber-700">
+                Liberar a agenda
+              </Button>
+            </form>
+          ) : success ? (
             <div className="flex flex-col items-center gap-3 py-6 text-center">
               <CheckCircle2 className="h-10 w-10 text-teal-700" />
               <p className="text-sm font-semibold">Horário reservado!</p>
-              <p className="text-sm text-muted-foreground">O agendamento já está na agenda do veterinário.</p>
-              <Button variant="outline" className="mt-2" onClick={() => setSuccess(false)}>
+              <p className="max-w-md text-sm text-muted-foreground">{success}</p>
+              <p className="text-xs text-muted-foreground">O agendamento já está na agenda do veterinário.</p>
+              <Button variant="outline" className="mt-2" onClick={() => setSuccess(null)}>
                 <CalendarPlus className="mr-2 h-4 w-4" /> Reservar outro horário
               </Button>
             </div>
@@ -646,15 +918,14 @@ const BookSchedulePage: React.FC = () => {
                   </button>
                 </div>
 
-                {/* Espaço reservado nas laterais pra caber os botões redondos
-                    sem tapar a última/primeira coluna da grade. */}
+                {/* Espaço nas laterais pros botões redondos não taparem a grade. */}
                 <div className="px-14 sm:px-16">
                   {!everLoaded ? (
                     <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
                       <Loader2 className="h-4 w-4 animate-spin" /> Carregando horários...
                     </div>
                   ) : (
-                    <div className={`overflow-x-auto transition-opacity ${loadingWeek ? "pointer-events-none opacity-50" : ""}`}>
+                    <div className={cn("overflow-x-auto transition-opacity", loadingWeek && "pointer-events-none opacity-50")}>
                       <table className="w-full min-w-[560px] border-collapse text-xs">
                         <thead>
                           <tr>
@@ -664,12 +935,18 @@ const BookSchedulePage: React.FC = () => {
                               const isPast = dISO < todayISO;
                               const isToday = dISO === todayISO;
                               return (
-                                <th key={dISO} className={`border-b border-r border-border/40 p-1 text-center font-medium last:border-r-0 ${isPast ? "text-muted-foreground/50" : ""}`}>
+                                <th
+                                  key={dISO}
+                                  className={cn(
+                                    "border-b border-r border-border/40 p-1 text-center font-medium last:border-r-0",
+                                    isPast && "text-muted-foreground/50"
+                                  )}
+                                >
                                   <button
                                     type="button"
                                     onClick={() => setSummaryDateISO(dISO)}
                                     title="Ver resumo do dia"
-                                    className={`w-full rounded-md px-1 py-0.5 transition-colors hover:bg-muted ${isToday ? "text-teal-700" : ""}`}
+                                    className={cn("w-full rounded-md px-1 py-0.5 transition-colors hover:bg-muted", isToday && "text-teal-700")}
                                   >
                                     <div className="text-sm font-bold">{isToday ? "Hoje" : WEEKDAY_LABELS[d.getDay()]}</div>
                                     <div className="text-xs font-semibold">{formatDayHeader(d)}</div>
@@ -682,97 +959,23 @@ const BookSchedulePage: React.FC = () => {
                         <tbody>
                           {gridHours.map((hour) => (
                             <tr key={hour}>
-                              <td className="sticky left-0 z-10 border-b border-r border-border/60 bg-card p-1 text-sm font-bold text-foreground">{hour}</td>
-                              {weekDays.map((d) => {
-                              const dISO = toISODate(d);
-                              const slotMinutes = toMinutes(hour);
-                              const isPast =
-                                dISO < todayISO ||
-                                (dISO === todayISO && slotMinutes !== null && slotMinutes < nowMinutes);
-                              const openSlots = getDaySlots(dISO);
-                              const isOpen = openSlots.includes(hour);
-                              if (!isOpen) {
-                                return <td key={dISO} className="border-b border-r border-border/40 p-1 text-center text-muted-foreground/30 last:border-r-0">—</td>;
-                              }
-                              const cellBookings = bookingsBySlot.get(`${dISO}|${hour}`) || [];
-                              const isSelected = date === dISO && time === hour && cellBookings.length === 0;
-
-                              if (cellBookings.length === 0) {
-                                return (
-                                  <td key={dISO} className="border-b border-r border-border/40 p-1 text-center last:border-r-0">
-                                    <button
-                                      type="button"
-                                      disabled={isPast}
-                                      onClick={() => handlePickSlot(dISO, hour)}
-                                      className={`h-7 w-full rounded-md border text-[11px] transition-colors ${
-                                        isSelected
-                                          ? "border-teal-600 bg-teal-600 text-white"
-                                          : isPast
-                                            ? "border-transparent bg-muted text-muted-foreground/50 cursor-not-allowed"
-                                            : "border-teal-200 bg-teal-50 text-teal-700 hover:bg-teal-100"
-                                      }`}
-                                    >
-                                      {isPast ? "-" : "Livre"}
-                                    </button>
-                                  </td>
-                                );
-                              }
-
-                              return (
-                                <td key={dISO} className="border-b border-r border-border/40 p-1 text-center align-top last:border-r-0">
-                                  <div className="flex flex-col gap-0.5">
-                                    {cellBookings.map((b) => {
-                                      const shortName = (b.clientName || "Ocupado").split(" ")[0];
-                                      return (
-                                        <HoverCard key={b.id} openDelay={150} closeDelay={80}>
-                                          <HoverCardTrigger asChild>
-                                            <button
-                                              type="button"
-                                              onClick={() => openEditDialog(b)}
-                                              className={`h-6 w-full truncate rounded-md border px-1 text-[10px] font-medium transition-colors ${
-                                                isPast
-                                                  ? "border-transparent bg-muted text-muted-foreground/50"
-                                                  : "border-orange-300 bg-orange-100 text-orange-900 hover:bg-orange-200"
-                                              }`}
-                                            >
-                                              {shortName}
-                                            </button>
-                                          </HoverCardTrigger>
-                                          <HoverCardContent className="w-72 text-sm" align="center">
-                                            <p className="font-semibold text-foreground">{b.clientName || "Sem nome"}</p>
-                                            {b.title && <p className="mt-0.5 text-muted-foreground">{b.title}</p>}
-                                            <p className="mt-2 text-xs text-muted-foreground">
-                                              {formatDayHeader(d)} às {b.time}
-                                            </p>
-                                            {b.stationName && (
-                                              <p className="mt-1 text-xs text-muted-foreground">Agendado por: {b.stationName}</p>
-                                            )}
-                                            <p className="mt-2 text-xs font-medium text-teal-700">Clique para editar ou cancelar</p>
-                                          </HoverCardContent>
-                                        </HoverCard>
-                                      );
-                                    })}
-                                  </div>
-                                </td>
-                              );
-                            })}
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                              <td className="sticky left-0 z-10 border-b border-r border-border/60 bg-card p-1 text-sm font-bold text-foreground">
+                                {hour}
+                              </td>
+                              {weekDays.map((d) => renderCell(d, hour))}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   )}
                 </div>
-                <p className="mt-2 text-[11px] text-muted-foreground">
-                  Clique num horário livre pra preencher o formulário abaixo, num horário ocupado pra editar, ou na data pra ver o resumo do dia.
+                {legend}
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  Clique num horário livre para reservar, num ocupado para editar ou cancelar, ou na data para ver o resumo do dia.
                 </p>
 
-                {/* Botões redondos grandes, dentro do gutter reservado acima —
-                    os chevrons pequenos passavam despercebidos, e sem eles
-                    dava a impressão de que não tinha mais horário quando o
-                    fim da semana visível ficava todo no passado. Esquerda
-                    anda 1 dia pra trás (dá pra acompanhar o passado); direita
-                    anda 1 semana pra frente. */}
+                {/* Botões redondos grandes: esquerda volta 1 dia, direita avança 1 semana. */}
                 <button
                   type="button"
                   onClick={() => setDayOffset((o) => o - 1)}
@@ -793,230 +996,177 @@ const BookSchedulePage: React.FC = () => {
                 </button>
               </div>
 
+              {notice && (
+                <div role="status" className={cn("flex items-start gap-2 rounded-xl border px-3 py-2.5 text-sm", NOTICE_STYLE[notice.tone])}>
+                  {notice.tone === "amber" ? (
+                    <Lock className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+                  ) : (
+                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <p className="font-semibold">{notice.title}</p>
+                    {notice.text && <p className="mt-0.5 opacity-90">{notice.text}</p>}
+                  </div>
+                  <button type="button" onClick={() => setNotice(null)} aria-label="Fechar aviso" className="shrink-0 rounded p-0.5 opacity-60 hover:opacity-100">
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              )}
+
               {/* Formulário */}
-              <form onSubmit={handleSubmit} className="space-y-4">
+              <form ref={formRef} onSubmit={handleSubmit} className="scroll-mt-4 space-y-4">
+                {editing && (
+                  <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                    <span className="inline-flex min-w-0 items-center gap-1.5">
+                      <Pencil className="h-4 w-4 shrink-0" aria-hidden />
+                      <span>
+                        Editando o agendamento de <strong>{editing.clientName || "sem nome"}</strong> — clique num horário livre para mudar o horário.
+                        {!editing.kind && editing.title && (
+                          <span className="mt-0.5 block text-xs">
+                            Agendamento antigo: "{editing.title}" — escolha o tipo abaixo (o texto vai para a observação).
+                          </span>
+                        )}
+                      </span>
+                    </span>
+                    <Button type="button" variant="ghost" size="sm" className="h-8 text-amber-900 hover:bg-amber-100" onClick={resetForm}>
+                      Sair da edição
+                    </Button>
+                  </div>
+                )}
+
                 <div className="space-y-1.5">
-                  <Label htmlFor="clientName">Nome do cliente</Label>
+                  <Label>Horário</Label>
+                  {sel ? (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="inline-flex items-center gap-1.5 rounded-lg bg-teal-600 px-3 py-1.5 text-sm font-semibold text-white">
+                        <Clock className="h-4 w-4" aria-hidden />
+                        {dayLabel(sel.date)} · {sel.time}
+                      </span>
+                      <span className="text-sm text-muted-foreground">até</span>
+                      <Select value={String(effectiveDuration)} onValueChange={(v) => setChosenDuration(Number(v))}>
+                        <SelectTrigger className="h-9 w-[92px]" aria-label="Horário de término">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {Array.from(new Set([...durationOptions, effectiveDuration]))
+                            .sort((a, b) => a - b)
+                            .map((d) => (
+                              <SelectItem key={d} value={String(d)}>
+                                {minutesToHHMM((toMinutes(sel.time) ?? 0) + d)}
+                              </SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
+                      {holdSupported !== false &&
+                        (holdPending ? (
+                          <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> Reservando...
+                          </span>
+                        ) : heldCoversDesired ? (
+                          <span className="inline-flex items-center gap-1 rounded-md bg-teal-50 px-2 py-0.5 text-xs font-semibold text-teal-800 ring-1 ring-inset ring-teal-200">
+                            <Lock className="h-3 w-3" aria-hidden /> Reservado para você
+                          </span>
+                        ) : null)}
+                      <button
+                        type="button"
+                        onClick={() => (editing ? resetForm() : setSel(null))}
+                        className="ml-auto inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
+                      >
+                        <X className="h-3.5 w-3.5" aria-hidden /> Soltar horário
+                      </button>
+                    </div>
+                  ) : (
+                    <p className="rounded-lg border border-dashed border-teal-300 bg-teal-50/60 px-3 py-2 text-sm text-teal-800">
+                      Clique num horário <strong>Livre</strong> na grade — ele fica reservado para você enquanto preenche.
+                    </p>
+                  )}
+                  {rangeError && <p className="text-sm font-medium text-red-700">{rangeError}</p>}
+                  {neighborWarning && (
+                    <p className="flex items-start gap-1.5 rounded-lg bg-amber-50 px-2.5 py-1.5 text-xs text-amber-900 ring-1 ring-inset ring-amber-200">
+                      <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
+                      {neighborWarning}
+                    </p>
+                  )}
+                  {showCountdown && (
+                    <p className="flex flex-wrap items-center gap-2 rounded-lg bg-amber-50 px-2.5 py-1.5 text-xs text-amber-900 ring-1 ring-inset ring-amber-200">
+                      Sem mexer há um tempo: o horário será liberado para os outros em <strong className="tabular-nums">{countdownText}</strong>.
+                      <button type="button" onClick={() => touchHold(true)} className="font-semibold underline">
+                        Continuar reservando
+                      </button>
+                    </p>
+                  )}
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="clientName">
+                    Nome do cliente {kind === "bloqueio" && <span className="font-normal text-muted-foreground">(opcional)</span>}
+                  </Label>
                   <Input
                     id="clientName"
                     ref={clientNameRef}
                     value={clientName}
                     onChange={(e) => setClientName(e.target.value)}
-                    placeholder="Nome de quem vai receber a visita"
-                    required
+                    placeholder="Nome de quem vai ser atendido"
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="date">Data</Label>
-                    <Input
-                      id="date"
-                      type="date"
-                      min={getTodayLocalISO()}
-                      value={date}
-                      onChange={(e) => {
-                        const nextDate = e.target.value;
-                        setDate(nextDate);
-                        // Horário escolhido pode não existir mais no dia novo
-                        // (ex.: sábado tem menos horário que dia de semana).
-                        if (time && !getDaySlots(nextDate).includes(time)) setTime("");
-                      }}
-                      required
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="time">Horário</Label>
-                    <Select value={time} onValueChange={setTime} disabled={!date}>
-                      <SelectTrigger id="time">
-                        <SelectValue placeholder={!date ? "Escolha a data" : timeOptions.length === 0 ? "Fechado nesse dia" : "Selecione"} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {timeOptions.map((t) => (
-                          <SelectItem key={t} value={t}>
-                            {t}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
 
-                {/* Horário mais longo que 1 intervalo (ex.: consulta de 1h) —
-                    marca e escolhe direto o horário de término real (não o
-                    último intervalo ocupado, pra não precisar fazer conta:
-                    escolher "12:00" reserva só 1 intervalo, "12:30" reserva
-                    2 = 1h). Trava nos horários de verdade da grade, sem
-                    atravessar buraco de almoço/fechamento. */}
-                <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-                  <label className="flex items-center gap-2 text-sm">
-                    <Checkbox
-                      checked={longAppointment}
-                      onCheckedChange={(v) => setLongAppointment(v === true)}
-                      disabled={!time || endTimeOptions.length === 0}
-                    />
-                    Horário mais longo, até
-                  </label>
-                  {longAppointment && (
-                    <Select value={endTime} onValueChange={setEndTime} disabled={endTimeOptions.length === 0}>
-                      <SelectTrigger className="h-8 w-[88px]">
-                        <SelectValue placeholder="—" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {endTimeOptions.map((t) => (
-                          <SelectItem key={t} value={t}>
-                            {t}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-                  {longAppointment && endTime && slotsParaReservar.length > 1 && (
-                    <span className="text-xs text-muted-foreground">
-                      ({slotsParaReservar.length} horários seguidos — ninguém mais marca nesse intervalo)
-                    </span>
-                  )}
-                </div>
+                <BookingKindFields
+                  kind={kind}
+                  info={info}
+                  onKindChange={handleKindChange}
+                  onInfoChange={setInfo}
+                  vaccineOptions={vaccineOptions}
+                  kindHint={kindHint}
+                  idPrefix="public-booking"
+                />
 
-                <div className="space-y-1.5">
-                  <Label htmlFor="description">Descrição / Observação</Label>
-                  <Textarea
-                    id="description"
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    placeholder={"Ex: Vacina V10, Consulta...\nCONSULTA DEVE MARCAR PELO MENOS 1 HORA (2 horários seguidos)"}
-                    rows={3}
-                    required
-                  />
-                  <p className="text-xs font-medium text-amber-700">
-                    Consulta demora mais que {intervalMinutes} min — marque pelo menos 1 hora (2 horários seguidos) pra não conflitar com o próximo agendamento.
-                  </p>
-                </div>
-                <Button type="submit" className="w-full" disabled={saving}>
-                  {saving ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Reservando...
-                    </>
-                  ) : (
-                    <>
-                      <CalendarPlus className="mr-2 h-4 w-4" />{" "}
-                      {slotsParaReservar.length > 1 ? `Reservar ${slotsParaReservar.length} horários` : "Reservar horário"}
-                    </>
-                  )}
-                </Button>
-                <p className="text-center text-xs text-muted-foreground">
-                  Horários com intervalo de {intervalMinutes} min, conforme o expediente de cada dia.
-                </p>
+                {editing ? (
+                  <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                      onClick={() => setCancelConfirmOpen(true)}
+                      disabled={saving}
+                    >
+                      <Trash2 className="mr-2 h-4 w-4" /> Cancelar horário
+                    </Button>
+                    <Button type="submit" disabled={saving}>
+                      {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                      Salvar alterações
+                    </Button>
+                  </div>
+                ) : (
+                  <Button type="submit" className="w-full" disabled={saving}>
+                    {saving ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Reservando...
+                      </>
+                    ) : (
+                      <>
+                        <CalendarPlus className="mr-2 h-4 w-4" /> {submitLabel}
+                      </>
+                    )}
+                  </Button>
+                )}
+                {problem && sel && <p className="text-center text-xs text-muted-foreground">Falta: {problem}</p>}
               </form>
             </div>
           )}
         </CardContent>
       </Card>
 
-      {/* Editar agendamento existente */}
-      <Dialog open={editDialogOpen} onOpenChange={(open) => { if (!open) closeEditFlow(); }}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Editar agendamento</DialogTitle>
-            <DialogDescription>Corrija os dados ou cancele esse horário.</DialogDescription>
-          </DialogHeader>
-          <form onSubmit={handleEditSubmit} className="space-y-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="editClientName">Nome do cliente</Label>
-              <Input id="editClientName" value={editName} onChange={(e) => setEditName(e.target.value)} required />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="editDate">Data</Label>
-                <Input
-                  id="editDate"
-                  type="date"
-                  value={editDate}
-                  onChange={(e) => {
-                    const nextDate = e.target.value;
-                    setEditDate(nextDate);
-                    if (editTime && !getDaySlots(nextDate).includes(editTime)) setEditTime("");
-                  }}
-                  required
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="editTime">Horário</Label>
-                <Select value={editTime} onValueChange={setEditTime} disabled={!editDate}>
-                  <SelectTrigger id="editTime">
-                    <SelectValue placeholder={editTimeOptions.length === 0 ? "Fechado nesse dia" : "Selecione"} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {editTimeOptions.map((t) => (
-                      <SelectItem key={t} value={t}>
-                        {t}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="editDescription">Descrição / Observação</Label>
-              <Textarea
-                id="editDescription"
-                value={editDescription}
-                onChange={(e) => setEditDescription(e.target.value)}
-                rows={2}
-                required
-              />
-            </div>
-            <DialogFooter className="flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <Button
-                type="button"
-                variant="ghost"
-                className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                onClick={handleAskCancel}
-                disabled={editSaving}
-              >
-                <Trash2 className="mr-2 h-4 w-4" /> Cancelar horário
-              </Button>
-              <div className="flex gap-2">
-                <Button type="button" variant="outline" onClick={closeEditFlow} disabled={editSaving}>
-                  Fechar
-                </Button>
-                <Button type="submit" disabled={editSaving}>
-                  {editSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                  Salvar alterações
-                </Button>
-              </div>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      {/* Confirmação de cancelamento — nunca junto com o Dialog de edição
-          aberto ao mesmo tempo (dois modais empilhados quebram o layout),
-          por isso fecha um pra abrir o outro em vez de sobrepor. */}
-      <AlertDialog
-        open={cancelConfirmOpen}
-        onOpenChange={(open) => {
-          if (!open) {
-            setCancelConfirmOpen(false);
-            if (editingBooking) setEditDialogOpen(true);
-          }
-        }}
-      >
+      {/* Confirmação de cancelamento (o formulário não é modal, então não empilha). */}
+      <AlertDialog open={cancelConfirmOpen} onOpenChange={setCancelConfirmOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Cancelar esse agendamento?</AlertDialogTitle>
             <AlertDialogDescription>
-              O horário de {editingBooking?.clientName || "esse cliente"} às {editingBooking?.time} vai ficar livre de novo.
+              O horário de {editing?.clientName || "esse cliente"} às {editing?.time} vai ficar livre de novo.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel
-              onClick={() => {
-                setCancelConfirmOpen(false);
-                setEditDialogOpen(true);
-              }}
-            >
-              Voltar
-            </AlertDialogCancel>
+            <AlertDialogCancel>Voltar</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
                 setCancelConfirmOpen(false);
@@ -1033,13 +1183,11 @@ const BookSchedulePage: React.FC = () => {
       <Dialog open={!!summaryDateISO} onOpenChange={(open) => !open && setSummaryDateISO(null)}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>
-              Resumo do dia{summaryDateISO ? ` — ${formatDayHeader(new Date(`${summaryDateISO}T12:00:00`))}` : ""}
-            </DialogTitle>
+            <DialogTitle>Resumo do dia{summaryDateISO ? ` — ${dayLabel(summaryDateISO)}` : ""}</DialogTitle>
             <DialogDescription>
               {summaryOpenSlots.length === 0
                 ? "Clínica fechada nesse dia."
-                : `${summaryBookings.length} agendamento(s) de ${summaryOpenSlots.length} horário(s) possíveis (já descontando almoço e horário fechado).`}
+                : `${summaryBookings.length} agendamento(s) · ${summaryBusyCells} de ${summaryOpenSlots.length} horários ocupados (já descontando almoço e horário fechado).`}
             </DialogDescription>
           </DialogHeader>
           {summaryBookings.length === 0 ? (
@@ -1050,9 +1198,14 @@ const BookSchedulePage: React.FC = () => {
                 <div key={b.id} className="flex items-start justify-between gap-2 rounded-lg border border-border p-2 text-sm">
                   <div className="min-w-0">
                     <p className="truncate font-medium">
-                      {b.time} — {b.clientName || "Sem nome"}
+                      <span className="tabular-nums">{formatScheduleTimeRange(b.time, b.durationMinutes)}</span> —{" "}
+                      {b.kind === "bloqueio" ? "Horário bloqueado" : b.clientName || "Sem nome"}
                     </p>
-                    {b.title && <p className="truncate text-xs text-muted-foreground">{b.title}</p>}
+                    <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
+                      {b.kind && <KindBadge kind={b.kind} info={b.kindInfo} />}
+                      {b.title && <span className="truncate text-xs text-muted-foreground">{b.title}</span>}
+                    </div>
+                    {b.kindInfo?.obs && <p className="truncate text-xs text-muted-foreground">Obs.: {b.kindInfo.obs}</p>}
                     {b.stationName && <p className="truncate text-xs text-muted-foreground">Agendado por: {b.stationName}</p>}
                   </div>
                   <Button
@@ -1062,7 +1215,7 @@ const BookSchedulePage: React.FC = () => {
                     className="shrink-0"
                     onClick={() => {
                       setSummaryDateISO(null);
-                      openEditDialog(b);
+                      startEdit(b);
                     }}
                   >
                     Editar
@@ -1074,15 +1227,14 @@ const BookSchedulePage: React.FC = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Nome do computador/balcão — só fica salvo nesse navegador
-          (localStorage), pra saber de qual aparelho saiu cada reserva. */}
+      {/* Trocar o nome do computador/balcão (só neste navegador). */}
       <Dialog open={stationDialogOpen} onOpenChange={setStationDialogOpen}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle>Identificar este computador</DialogTitle>
             <DialogDescription>
-              Um nome curto pra saber de qual computador saiu cada reserva (ex.: "Balcão 1", "Caixa"). Fica salvo só
-              neste navegador — cada computador precisa fazer isso uma vez.
+              Um nome curto pra saber de qual computador saiu cada reserva e quem está segurando um horário (ex.: "Balcão 1",
+              "Computador do caixa"). Fica salvo só neste navegador.
             </DialogDescription>
           </DialogHeader>
           <Input
@@ -1091,7 +1243,10 @@ const BookSchedulePage: React.FC = () => {
             onKeyDown={(e) => {
               if (e.key === "Enter") {
                 e.preventDefault();
-                handleSaveStationName();
+                if (stationNameInput.trim()) {
+                  saveStation(stationNameInput);
+                  setStationDialogOpen(false);
+                }
               }
             }}
             placeholder="Ex.: Balcão 1"
@@ -1101,7 +1256,14 @@ const BookSchedulePage: React.FC = () => {
             <Button type="button" variant="outline" onClick={() => setStationDialogOpen(false)}>
               Cancelar
             </Button>
-            <Button type="button" onClick={handleSaveStationName}>
+            <Button
+              type="button"
+              disabled={!stationNameInput.trim()}
+              onClick={() => {
+                saveStation(stationNameInput);
+                setStationDialogOpen(false);
+              }}
+            >
               Salvar
             </Button>
           </DialogFooter>
