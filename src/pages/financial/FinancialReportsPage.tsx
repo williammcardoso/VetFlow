@@ -13,6 +13,12 @@ import { IconChip, Panel, PaymentMethodBadge } from "@/components/finance/Financ
 import { ResultBreakdown } from "@/components/finance/ResultBreakdown";
 import { ProviderPayoutDialog } from "@/components/finance/ProviderPayoutDialog";
 import { ProviderChangePopover } from "@/components/finance/ProviderChangePopover";
+import { DailySalesPanel, SalesByItemPanel } from "@/components/finance/reports/SalesBreakdownPanels";
+import { MovementsSplit, type MovementPeople } from "@/components/finance/reports/MovementsSplit";
+import SaleDetailModal from "@/components/SaleDetailModal";
+import { groupSaleItemsByItem, groupSalesByDay, type SaleRef } from "@/lib/salesBreakdown";
+import { parseSaleObservations } from "@/lib/salePayment";
+import type { FinancialTransaction } from "@/mockData/financial";
 import { CONCEPTS, TONES, categoryVisual, movementVisual } from "@/components/finance/financeTheme";
 import { useFinancialTransactions } from "@/hooks/useFinancialTransactions";
 import { useClientsList } from "@/hooks/useSupabaseClients";
@@ -184,6 +190,59 @@ const FinancialReportsPage: React.FC = () => {
     () => (selectedProviders.length === 0 ? repassesDetalhados : repassesDetalhados.filter((r) => selectedProviders.includes(r.provider))),
     [repassesDetalhados, selectedProviders]
   );
+
+  // Quem é o cliente/paciente de cada lançamento. Venda avulsa (sem cliente)
+  // usa a observação como nome (ex.: "Flavia").
+  const peopleOf = (t: FinancialTransaction): MovementPeople & { clientId?: string; animalId?: string; patientCode?: number } => {
+    const client = t.relatedClientId ? clientById.get(t.relatedClientId) : undefined;
+    const animal = t.relatedAnimalId && client ? client.animals.get(t.relatedAnimalId) : undefined;
+    const obs = parseSaleObservations(t.observations).text?.trim();
+    return {
+      clientName: client?.name || obs || undefined,
+      animalName: animal?.name,
+      clientId: t.relatedClientId,
+      animalId: t.relatedAnimalId,
+      patientCode: animal?.patientCode,
+    };
+  };
+
+  const saleRefs = useMemo(() => {
+    const map = new Map<string, SaleRef>();
+    for (const t of fin.sales) {
+      const p = peopleOf(t);
+      map.set(t.id, {
+        saleId: t.id,
+        date: t.date,
+        time: t.time,
+        amount: t.amount,
+        clientName: p.clientName || "Venda avulsa",
+        animalName: p.animalName || (t.relatedAnimalId ? "Paciente" : t.relatedClientId ? "Sem paciente" : "Venda avulsa"),
+        clientId: p.clientId,
+        animalId: p.animalId,
+        patientCode: p.patientCode,
+      });
+    }
+    return map;
+    // peopleOf depende só de clientById
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fin.sales, clientById]);
+
+  const itemGroups = useMemo(
+    () =>
+      groupSaleItemsByItem(
+        periodSaleItems,
+        (id) => saleRefs.get(id),
+        (item) => (item.catalogItemId ? catalogById.get(item.catalogItemId)?.category : undefined) ?? item.category
+      ),
+    [periodSaleItems, saleRefs, catalogById]
+  );
+  const dayGroups = useMemo(() => groupSalesByDay(periodSaleItems, (id) => saleRefs.get(id)), [periodSaleItems, saleRefs]);
+
+  // Detalhe da venda (clique em venda, recebimento, item ou dia) — só leitura.
+  const [detailSaleId, setDetailSaleId] = useState<string | null>(null);
+  const detailSale = detailSaleId ? transactions.find((t) => t.id === detailSaleId) ?? null : null;
+  const detailClient = detailSale?.relatedClientId ? clients.find((cl) => cl.id === detailSale.relatedClientId) : undefined;
+  const detailAnimal = detailSale?.relatedAnimalId ? detailClient?.animals?.find((a) => a.id === detailSale.relatedAnimalId) : undefined;
 
   const porCategoria = useMemo(() => revenueByCategory(periodSaleItems, catalogById), [periodSaleItems, catalogById]);
   const totalItens = porCategoria.reduce((s, r) => s + r.value, 0);
@@ -427,6 +486,11 @@ const FinancialReportsPage: React.FC = () => {
         </Panel>
       </div>
 
+      <div className="grid gap-4 xl:grid-cols-2">
+        <SalesByItemPanel groups={itemGroups} onOpenSale={setDetailSaleId} />
+        <DailySalesPanel days={dayGroups} onOpenSale={setDetailSaleId} />
+      </div>
+
       <div className="grid gap-4 xl:grid-cols-[minmax(0,0.85fr)_minmax(0,1.35fr)]">
         <Panel
           title="Repasses por prestador"
@@ -559,48 +623,23 @@ const FinancialReportsPage: React.FC = () => {
         </Panel>
       </div>
 
-      <Panel
-        title="Movimentações"
-        icon={ArrowLeftRight}
-        tone="slate"
-        description="Todos os lançamentos do período"
-        actions={<span className="text-xs text-muted-foreground">{plural(movimentos.length, "lançamento", "lançamentos")}</span>}
-      >
-        {movimentos.length === 0 ? (
-          <p className="px-4 py-10 text-center text-sm text-muted-foreground">Nenhum movimento no período.</p>
-        ) : (
-          <ul className="max-h-[480px] divide-y divide-border/70 overflow-y-auto">
-            {movimentos.map((t) => {
-              const mv = movementVisual(t);
-              const cancelledSale = isSale(t) && isCancelled(t);
-              return (
-                <li key={t.id} className="flex items-center gap-3 px-4 py-2.5">
-                  <IconChip icon={mv.icon} tone={cancelledSale ? "slate" : mv.tone} size="sm" />
-                  <div className="min-w-0 flex-1">
-                    <p className={cn("truncate text-sm font-semibold text-foreground", cancelledSale && "text-muted-foreground line-through")}>
-                      {isSale(t) ? summarizeSaleItems(t.description, 3) : t.description}
-                    </p>
-                    <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
-                      <span className={cn("font-medium", TONES[cancelledSale ? "rose" : mv.tone].text)}>{cancelledSale ? "Venda cancelada" : mv.label}</span>
-                      {t.paymentMethod && t.category === "Recebimento" && t.amount > 0 && <PaymentMethodBadge method={t.paymentMethod} />}
-                      <span className="tabular-nums">{formatDateTime(t.date, t.time)}</span>
-                    </div>
-                  </div>
-                  <span
-                    className={cn(
-                      "shrink-0 text-sm font-bold tabular-nums",
-                      cancelledSale ? "text-muted-foreground line-through" : mv.sign === "+" ? "text-emerald-700" : mv.sign === "−" ? TONES[mv.tone].text : "text-foreground"
-                    )}
-                  >
-                    {mv.sign ? `${mv.sign} ` : ""}
-                    {fmt(Math.abs(t.amount))}
-                  </span>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </Panel>
+      <MovementsSplit
+        movements={movimentos}
+        allTransactions={transactions}
+        people={peopleOf}
+        onOpenSale={setDetailSaleId}
+      />
+      <SaleDetailModal
+        open={!!detailSale}
+        transaction={detailSale}
+        onClose={() => setDetailSaleId(null)}
+        clientName={detailClient?.name || peopleOf(detailSale ?? ({} as FinancialTransaction)).clientName}
+        clientPhone={detailClient?.mainPhoneContact || undefined}
+        animalName={detailAnimal?.name}
+        animalSpecies={detailAnimal?.species}
+        animalBreed={detailAnimal?.breed}
+        animalPatientCode={detailAnimal?.patientCode}
+      />
       <ProviderPayoutDialog open={payoutOpen} onOpenChange={setPayoutOpen} groups={payoutGroups} periodLabel={periodLabel} />
     </PageShell>
   );
