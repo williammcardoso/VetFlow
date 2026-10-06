@@ -65,16 +65,34 @@ const s = StyleSheet.create({
   splitValue: { fontSize: 14, fontWeight: 700, marginTop: 4, color: TEAL },
   note: { marginTop: 16, fontSize: 8, color: GRAY, lineHeight: 1.4 },
   footer: { position: "absolute", bottom: 28, left: 48, right: 48, fontSize: 8, color: GRAY },
+  th: { flexDirection: "row", borderBottomWidth: 1, borderBottomColor: "#9CA3AF", paddingBottom: 4, marginBottom: 2 },
+  thText: { fontSize: 8, fontWeight: 700, color: GRAY, textTransform: "uppercase" },
+  tr: { flexDirection: "row", paddingVertical: 4, borderBottomWidth: 0.5, borderBottomColor: BORDER },
+  cItem: { width: "62%", fontSize: 9.5 },
+  cQty: { width: "13%", fontSize: 9.5, fontWeight: 700, textAlign: "right" },
+  cValue: { width: "25%", fontSize: 9.5, fontWeight: 700, textAlign: "right" },
+  totalRow: { flexDirection: "row", justifyContent: "space-between", borderTopWidth: 2, borderTopColor: TEAL, paddingTop: 6, marginTop: 6 },
 });
 
 const fmt = (v: number) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
 
-interface Props {
-  data: MonthlyClosingBreakdown;
+/** Linha do anexo "Vendas por item" (o que foi vendido no mês). */
+export interface ClosingItemRow {
+  name: string;
+  quantity: number;
+  total: number;
 }
 
-const MonthlyClosingPdfContent: React.FC<Props> = ({ data }) => {
+interface Props {
+  data: MonthlyClosingBreakdown;
+  /** Anexo com os itens vendidos no mês — página extra no fim. */
+  items?: ClosingItemRow[];
+}
+
+const qty = (q: number) => (Number.isInteger(q) ? String(q) : q.toLocaleString("pt-BR"));
+
+const MonthlyClosingPdfContent: React.FC<Props> = ({ data, items }) => {
   const company = mockCompanySettings;
   const generatedAt = new Date().toLocaleString("pt-BR");
 
@@ -152,6 +170,45 @@ const MonthlyClosingPdfContent: React.FC<Props> = ({ data }) => {
           fixed
         />
       </Page>
+
+      {items && items.length > 0 && (
+        <Page size="A4" style={s.page} wrap>
+          <View style={s.header}>
+            <Text style={s.company}>{company.companyName}</Text>
+            <Text style={s.title}>Anexo — Vendas por item</Text>
+            <Text style={s.subtitle}>
+              {data.label} · {qty(items.reduce((t, i) => t + i.quantity, 0))} itens · {items.length} tipos
+            </Text>
+          </View>
+          <View style={s.th} fixed>
+            <Text style={[s.thText, { width: "62%" }]}>Item</Text>
+            <Text style={[s.thText, { width: "13%", textAlign: "right" }]}>Qtd</Text>
+            <Text style={[s.thText, { width: "25%", textAlign: "right" }]}>Valor</Text>
+          </View>
+          {items.map((it, i) => (
+            <View key={i} style={s.tr} wrap={false}>
+              <Text style={s.cItem}>{it.name}</Text>
+              <Text style={s.cQty}>{qty(it.quantity)}×</Text>
+              <Text style={s.cValue}>{fmt(it.total)}</Text>
+            </View>
+          ))}
+          <View style={s.totalRow} wrap={false}>
+            <Text style={{ fontSize: 11, fontWeight: 700 }}>Total dos itens</Text>
+            <Text style={{ fontSize: 12, fontWeight: 700, color: TEAL }}>{fmt(items.reduce((t, i) => t + i.total, 0))}</Text>
+          </View>
+          <Text style={s.note}>
+            Valor de cada item pelo preço de venda (antes de desconto/acréscimo da venda). O faturamento do fechamento
+            usa o valor final de cada venda.
+          </Text>
+          <Text
+            style={s.footer}
+            render={({ pageNumber, totalPages }) =>
+              `${company.companyName} · Fechamento 50/50 · ${data.label} · Página ${pageNumber} de ${totalPages}`
+            }
+            fixed
+          />
+        </Page>
+      )}
     </Document>
   );
 };

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { ArrowLeftRight, Combine, FileDown, FileText, FlaskConical, Layers, Printer, Wallet } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -67,7 +67,14 @@ const FinancialReportsPage: React.FC = () => {
   const { transactions, loading } = useFinancialTransactions();
   const { data: clients = [] } = useClientsList();
   const { items: catalog, refetch: refetchCatalog } = useCatalog();
-  const [period, setPeriod] = useState(() => periodRange("this-month"));
+  // Vindo do Fechamento 50/50 ("Ver detalhamento do mês"): já abre naquele mês.
+  const [searchParams] = useSearchParams();
+  const [period, setPeriod] = useState(() => {
+    const de = searchParams.get("de") ?? "";
+    const ate = searchParams.get("ate") ?? "";
+    const iso = /^\d{4}-\d{2}-\d{2}$/;
+    return iso.test(de) && iso.test(ate) && de <= ate ? { from: de, to: ate } : periodRange("this-month");
+  });
   const [periodSaleItems, setPeriodSaleItems] = useState<SaleItem[]>([]);
   // Prestadores selecionados (vazio = todos). Ctrl+clique, ou "Juntar vários"
   // no tablet, soma prestadores — ex.: Unopato + Laboratório externo, que são

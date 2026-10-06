@@ -40,7 +40,8 @@ import {
   type MonthlyClosingRecord,
 } from "@/lib/monthlyClosingsApi";
 import { renderPdf, openPdf } from "@/lib/pdfExport";
-import { ArrowLeft, Calculator, Lock, Unlock, Printer, Scale, ShoppingBag } from "lucide-react";
+import { ArrowLeft, Calculator, ListOrdered, Lock, Unlock, Printer, Scale, ShoppingBag } from "lucide-react";
+import { groupSaleItemsByItem, type SaleRef } from "@/lib/salesBreakdown";
 import { toast } from "sonner";
 
 const fmt = (v: number) =>
@@ -175,7 +176,18 @@ const MonthlyClosingPage: React.FC = () => {
   const handlePrint = async () => {
     setPrinting(true);
     try {
-      const blob = await renderPdf((K) => <K.MonthlyClosingPdfContent data={closing} />);
+      // Anexo "Vendas por item": só vendas que valem (canceladas fora).
+      const refs = new Map<string, SaleRef>(
+        monthSales
+          .filter((t) => t.status !== "cancelled")
+          .map((t) => [t.id, { saleId: t.id, date: t.date, time: t.time, amount: t.amount, clientName: "", animalName: "" }])
+      );
+      const items = groupSaleItemsByItem(saleItems, (id) => refs.get(id)).map((g) => ({
+        name: g.name,
+        quantity: g.quantity,
+        total: g.total,
+      }));
+      const blob = await renderPdf((K) => <K.MonthlyClosingPdfContent data={closing} items={items} />);
       await openPdf({
         blob,
         fileName: `fechamento-50-50-${year}-${String(month).padStart(2, "0")}.pdf`,
@@ -286,6 +298,11 @@ const MonthlyClosingPage: React.FC = () => {
                 </AlertDialog>
               )
             )}
+            <Link to={`/financial/reports?de=${from}&ate=${to}`}>
+              <Button variant="outline" className="gap-2" title="Abre os Relatórios neste mês: vendas por item, por dia e movimentações">
+                <ListOrdered className="h-4 w-4 text-sky-600" /> Ver detalhamento do mês
+              </Button>
+            </Link>
             <Link to="/stock/purchases">
               <Button variant="outline" className="gap-2">
                 <ShoppingBag className="h-4 w-4" /> Lista de Compras
