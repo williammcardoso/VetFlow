@@ -584,6 +584,7 @@ const BookSchedulePage: React.FC = () => {
           notes: editing ? undefined : stationNote,
           kind,
           kindInfo,
+          changedBy: `${stationName.trim()}@${new Date().toISOString()}`,
         }));
         if (res.status === "conflict") {
           registerConflicts(date, res.conflicts);
@@ -639,7 +640,7 @@ const BookSchedulePage: React.FC = () => {
     if (!editing) return;
     setSaving(true);
     try {
-      await cancelPublicBooking(editing.id);
+      await cancelPublicBooking(editing.id, `${stationName.trim()}@${new Date().toISOString()}`);
       setBookings((prev) => prev.filter((b) => b.id !== editing.id));
       await releaseHold();
       toast.success("Agendamento cancelado.");

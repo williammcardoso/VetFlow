@@ -204,14 +204,20 @@ export async function updatePublicBooking(
 // "Cancelar" pela página pública é um soft-delete (status='cancelled'), não
 // um DELETE de verdade — mantém histórico e evita precisar dar permissão de
 // exclusão pra `anon` na RLS, só de UPDATE (que já é necessária pra editar).
-export async function cancelPublicBooking(id: string): Promise<void> {
+// `changedBy` ("Balcão 1@<data-hora>") diz no aviso por WhatsApp quem
+// cancelou; sem a coluna (migration 20261006120000), cancela sem ela.
+export async function cancelPublicBooking(id: string, changedBy?: string): Promise<void> {
   if (!isSupabaseConfigured) {
     throw new Error("Supabase não está configurado.");
   }
-  const { error } = await supabase
+  const base = { status: "cancelled", updated_at: new Date().toISOString() };
+  let { error } = await supabase
     .from(TABLE)
-    .update({ status: "cancelled", updated_at: new Date().toISOString() })
+    .update(changedBy ? { ...base, changed_by: changedBy } : base)
     .eq("id", id);
+  if (error && changedBy && /changed_by/.test(error.message)) {
+    ({ error } = await supabase.from(TABLE).update(base).eq("id", id));
+  }
   if (error) {
     throw new Error(`Falha ao cancelar agendamento: ${error.message}`);
   }

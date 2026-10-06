@@ -43,6 +43,8 @@ export interface BookingPayload {
   notes?: string;
   kind: BookingKind;
   kindInfo: BookingKindInfo;
+  /** Quem gravou ("Balcão 1@<data-hora>") — vai no aviso por WhatsApp. */
+  changedBy?: string;
 }
 
 const isMissingFunction = (error: { code?: string; message?: string } | null) =>
@@ -130,6 +132,7 @@ export async function bookSlot(sessionId: string, booking: BookingPayload): Prom
       notes: booking.notes ?? null,
       kind: booking.kind,
       kind_info: booking.kindInfo,
+      changed_by: booking.changedBy ?? null,
     },
   });
   if (isMissingFunction(error)) return { status: "unavailable" };
