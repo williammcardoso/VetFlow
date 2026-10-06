@@ -6,7 +6,9 @@ import { SaleStatusBadge } from "@/components/sales/SaleStatusBadge";
 import { isCancelled, isReceipt, isSale } from "@/lib/financialSummary";
 import { summarizeSaleItems } from "@/lib/salePayment";
 import { getPurchaseItemsByTransactionIds, type PurchaseItem } from "@/lib/purchaseItemsApi";
-import { cn, formatCurrencyBRL } from "@/lib/utils";
+import { cn, formatCurrencyBRL, slugifyFileName } from "@/lib/utils";
+import { expensesReportPdf, receiptsReportPdf, salesReportPdf } from "@/lib/reportPdfData";
+import { ReportPdfButton } from "@/components/finance/reports/ReportPdfButton";
 import type { FinancialTransaction } from "@/mockData/financial";
 
 const fmt = formatCurrencyBRL;
@@ -28,10 +30,13 @@ function parsePurchase(description: string): { supplier?: string; itemsText: str
 const peopleLabel = (p: MovementPeople, fallback: string) =>
   p.animalName && p.clientName ? `${p.animalName} · ${p.clientName}` : p.clientName || p.animalName || fallback;
 
-function Header({ count, total, tone }: { count: number; total: number; tone: "sky" | "emerald" | "amber" }) {
+function Header({ count, total, tone, pdf }: { count: number; total: number; tone: "sky" | "emerald" | "amber"; pdf: React.ReactNode }) {
   return (
-    <span className="text-xs text-muted-foreground">
-      {count} · <span className={cn("font-bold tabular-nums", TONES[tone].text)}>{fmt(total)}</span>
+    <span className="flex items-center gap-2">
+      <span className="text-xs text-muted-foreground">
+        {count} · <span className={cn("font-bold tabular-nums", TONES[tone].text)}>{fmt(total)}</span>
+      </span>
+      {pdf}
     </span>
   );
 }
@@ -111,11 +116,13 @@ export function MovementsSplit({
   allTransactions,
   people,
   onOpenSale,
+  periodLabel,
 }: {
   movements: FinancialTransaction[];
   allTransactions: FinancialTransaction[];
   people: (t: FinancialTransaction) => MovementPeople;
   onOpenSale: (saleId: string) => void;
+  periodLabel: string;
 }) {
   const sales = movements.filter(isSale);
   const receipts = movements.filter(isReceipt);
@@ -124,6 +131,22 @@ export function MovementsSplit({
 
   const rowBtn = "flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-muted/50";
 
+  // PDF das compras: busca os itens de cada compra (ficam na 1ª parcela).
+  const buildExpensesPdf = async () => {
+    const groupIds = (t: FinancialTransaction) =>
+      t.purchaseGroupId ? allTransactions.filter((x) => x.purchaseGroupId === t.purchaseGroupId).map((x) => x.id) : [t.id];
+    const purchases = expenses.filter((t) => t.category === "Estoque");
+    const ids = Array.from(new Set(purchases.flatMap(groupIds)));
+    const map = await getPurchaseItemsByTransactionIds(ids);
+    return expensesReportPdf(expenses, periodLabel, (t) => {
+      const items = groupIds(t).flatMap((id) => map.get(id) ?? []);
+      if (items.length === 0) return undefined;
+      return items
+        .map((it) => `${it.productName} ×${it.quantity.toLocaleString("pt-BR")}${it.subtotal > 0 ? ` (${fmt(it.subtotal)})` : ""}`)
+        .join(", ");
+    });
+  };
+
   return (
     <div className="grid gap-4 xl:grid-cols-3">
       <Panel
@@ -131,7 +154,20 @@ export function MovementsSplit({
         icon={Receipt}
         tone="sky"
         description="O que foi vendido · clique para ver a venda"
-        actions={<Header count={sales.length} total={sum(sales.filter((t) => !isCancelled(t)))} tone="sky" />}
+        actions={
+          <Header
+            count={sales.length}
+            total={sum(sales.filter((t) => !isCancelled(t)))}
+            tone="sky"
+            pdf={
+              <ReportPdfButton
+                build={() => salesReportPdf(sales, people, periodLabel)}
+                fileName={slugifyFileName("vendas", periodLabel)}
+                disabled={sales.length === 0}
+              />
+            }
+          />
+        }
       >
         {sales.length === 0 ? (
           <Empty text="Nenhuma venda no período." />
@@ -168,7 +204,20 @@ export function MovementsSplit({
         icon={ArrowDownLeft}
         tone="emerald"
         description="Dinheiro que entrou · clique para ver a venda"
-        actions={<Header count={receipts.length} total={sum(receipts)} tone="emerald" />}
+        actions={
+          <Header
+            count={receipts.length}
+            total={sum(receipts)}
+            tone="emerald"
+            pdf={
+              <ReportPdfButton
+                build={() => receiptsReportPdf(receipts, people, periodLabel)}
+                fileName={slugifyFileName("recebimentos", periodLabel)}
+                disabled={receipts.length === 0}
+              />
+            }
+          />
+        }
       >
         {receipts.length === 0 ? (
           <Empty text="Nenhum recebimento no período." />
@@ -216,7 +265,20 @@ export function MovementsSplit({
         icon={ShoppingBag}
         tone="amber"
         description="Almoxarifado e despesas · clique para discriminar"
-        actions={<Header count={expenses.length} total={sum(expenses)} tone="amber" />}
+        actions={
+          <Header
+            count={expenses.length}
+            total={sum(expenses)}
+            tone="amber"
+            pdf={
+              <ReportPdfButton
+                build={buildExpensesPdf}
+                fileName={slugifyFileName("compras-e-saidas", periodLabel)}
+                disabled={expenses.length === 0}
+              />
+            }
+          />
+        }
       >
         {expenses.length === 0 ? (
           <Empty text="Nenhuma compra ou saída no período." />

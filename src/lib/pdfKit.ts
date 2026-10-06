@@ -23,3 +23,4 @@ export { default as SaleReceiptPdfContent } from "@/components/SaleReceiptPdfCon
 export { ExamEvolutionPdfContent } from "@/components/ExamEvolutionPdfContent";
 export { ExamReportPdfContentOutrosOnePage } from "@/components/ExamReportPdfContent_Outros_OnePage";
 export { ProviderPayoutPdfContent } from "@/components/ProviderPayoutPdfContent";
+export { ReportTablePdfContent } from "@/components/ReportTablePdfContent";

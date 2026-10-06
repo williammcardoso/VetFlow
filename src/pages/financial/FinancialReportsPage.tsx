@@ -487,8 +487,8 @@ const FinancialReportsPage: React.FC = () => {
       </div>
 
       <div className="grid gap-4 xl:grid-cols-2">
-        <SalesByItemPanel groups={itemGroups} onOpenSale={setDetailSaleId} />
-        <DailySalesPanel days={dayGroups} onOpenSale={setDetailSaleId} />
+        <SalesByItemPanel groups={itemGroups} onOpenSale={setDetailSaleId} periodLabel={periodLabel} />
+        <DailySalesPanel days={dayGroups} onOpenSale={setDetailSaleId} periodLabel={periodLabel} />
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,0.85fr)_minmax(0,1.35fr)]">
@@ -628,6 +628,7 @@ const FinancialReportsPage: React.FC = () => {
         allTransactions={transactions}
         people={peopleOf}
         onOpenSale={setDetailSaleId}
+        periodLabel={periodLabel}
       />
       <SaleDetailModal
         open={!!detailSale}

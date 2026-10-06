@@ -4,7 +4,9 @@ import { Input } from "@/components/ui/input";
 import { IconChip, Panel } from "@/components/finance/FinanceUI";
 import { TONES, categoryVisual } from "@/components/finance/financeTheme";
 import { formatQtyName, type DayGroup, type ItemGroup } from "@/lib/salesBreakdown";
-import { cn, formatCurrencyBRL } from "@/lib/utils";
+import { cn, formatCurrencyBRL, slugifyFileName } from "@/lib/utils";
+import { dailyReportPdf, itemsReportPdf } from "@/lib/reportPdfData";
+import { ReportPdfButton } from "@/components/finance/reports/ReportPdfButton";
 
 const fmt = formatCurrencyBRL;
 const dayMonth = (iso: string) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
@@ -69,7 +71,15 @@ function SaleLine({
 
 // "5 hemogramas, 10 consultas": cada item do período com a quantidade e o
 // valor; clicar mostra os clientes, e cada cliente abre a venda.
-export function SalesByItemPanel({ groups, onOpenSale }: { groups: ItemGroup[]; onOpenSale: (saleId: string) => void }) {
+export function SalesByItemPanel({
+  groups,
+  onOpenSale,
+  periodLabel,
+}: {
+  groups: ItemGroup[];
+  onOpenSale: (saleId: string) => void;
+  periodLabel: string;
+}) {
   const { open, toggle } = useOpenSet();
   const [query, setQuery] = React.useState("");
   const q = query
@@ -90,8 +100,15 @@ export function SalesByItemPanel({ groups, onOpenSale }: { groups: ItemGroup[]; 
       description="Quantas vezes cada item saiu · clique para ver os clientes"
       className="print:break-inside-avoid"
       actions={
-        <span className="text-xs text-muted-foreground">
-          <span className="font-bold tabular-nums text-sky-700">{qtyLabel(totalQty)}</span> itens · {groups.length} tipos
+        <span className="flex items-center gap-2">
+          <span className="text-xs text-muted-foreground">
+            <span className="font-bold tabular-nums text-sky-700">{qtyLabel(totalQty)}</span> itens · {groups.length} tipos
+          </span>
+          <ReportPdfButton
+            build={() => itemsReportPdf(shown, periodLabel)}
+            fileName={slugifyFileName("vendas-por-item", periodLabel, q ? query : undefined)}
+            disabled={shown.length === 0}
+          />
         </span>
       }
     >
@@ -160,7 +177,15 @@ export function SalesByItemPanel({ groups, onOpenSale }: { groups: ItemGroup[]; 
 
 // Lista corrida: dia 01 — consulta, hemograma; dia 03 — consulta...
 // Clicar no dia abre as vendas dele.
-export function DailySalesPanel({ days, onOpenSale }: { days: DayGroup[]; onOpenSale: (saleId: string) => void }) {
+export function DailySalesPanel({
+  days,
+  onOpenSale,
+  periodLabel,
+}: {
+  days: DayGroup[];
+  onOpenSale: (saleId: string) => void;
+  periodLabel: string;
+}) {
   const { open, toggle } = useOpenSet();
   return (
     <Panel
@@ -169,7 +194,18 @@ export function DailySalesPanel({ days, onOpenSale }: { days: DayGroup[]; onOpen
       tone="teal"
       description="Lista corrida do período · clique no dia para ver as vendas"
       className="print:break-inside-avoid"
-      actions={<span className="text-xs text-muted-foreground">{days.length} {days.length === 1 ? "dia" : "dias"} com venda</span>}
+      actions={
+        <span className="flex items-center gap-2">
+          <span className="text-xs text-muted-foreground">
+            {days.length} {days.length === 1 ? "dia" : "dias"} com venda
+          </span>
+          <ReportPdfButton
+            build={() => dailyReportPdf(days, periodLabel)}
+            fileName={slugifyFileName("itens-vendidos-por-dia", periodLabel)}
+            disabled={days.length === 0}
+          />
+        </span>
+      }
     >
       {days.length === 0 ? (
         <p className="px-4 py-10 text-center text-sm text-muted-foreground">Nenhuma venda no período.</p>
