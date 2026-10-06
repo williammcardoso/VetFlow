@@ -143,11 +143,11 @@ export function MovementsSplit({
                 <li key={t.id}>
                   <button type="button" className={rowBtn} onClick={() => onOpenSale(t.id)}>
                     <div className="min-w-0 flex-1">
-                      <p className={cn("truncate text-sm font-semibold text-foreground", cancelled && "text-muted-foreground line-through")}>
-                        {peopleLabel(people(t), "Venda avulsa")}
+                      <p className={cn("truncate text-sm font-bold text-foreground", cancelled && "text-muted-foreground line-through")}>
+                        {summarizeSaleItems(t.description, 3)}
                       </p>
                       <p className="truncate text-xs text-muted-foreground">
-                        <span className="tabular-nums">{when(t)}</span> · {summarizeSaleItems(t.description, 3)}
+                        {peopleLabel(people(t), "Venda avulsa")} · <span className="tabular-nums">{when(t)}</span>
                       </p>
                     </div>
                     <div className="flex shrink-0 flex-col items-end gap-0.5">
