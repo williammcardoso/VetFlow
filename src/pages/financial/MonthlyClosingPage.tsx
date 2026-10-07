@@ -42,6 +42,8 @@ import {
 import { renderPdf, openPdf } from "@/lib/pdfExport";
 import { ArrowLeft, Calculator, ListOrdered, Lock, Unlock, Printer, Scale, ShoppingBag } from "lucide-react";
 import { groupSaleItemsByItem, type SaleRef } from "@/lib/salesBreakdown";
+import { ClosingExtrasCard } from "@/components/finance/ClosingExtrasCard";
+import { listClosingExtras, listExtraDescriptions, sumExtras, type ClosingExtra } from "@/lib/closingExtrasApi";
 import { toast } from "sonner";
 
 const fmt = (v: number) =>
@@ -60,6 +62,35 @@ const MonthlyClosingPage: React.FC = () => {
   const [actionLoading, setActionLoading] = useState(false);
 
   const { from, to } = useMemo(() => getMonthBounds(year, month), [year, month]);
+
+  // Acréscimos fora do 50/50 (ex.: aplicações a domicílio = 100% clínica).
+  const [extras, setExtras] = useState<ClosingExtra[]>([]);
+  const [extrasAvailable, setExtrasAvailable] = useState(true);
+  const [extrasLoading, setExtrasLoading] = useState(true);
+  const [extraDescriptions, setExtraDescriptions] = useState<string[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    setExtrasLoading(true);
+    listClosingExtras(year, month)
+      .then(({ items, available }) => {
+        if (cancelled) return;
+        setExtras(items);
+        setExtrasAvailable(available);
+      })
+      .catch(() => {
+        if (!cancelled) setExtras([]);
+      })
+      .finally(() => {
+        if (!cancelled) setExtrasLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [year, month]);
+  useEffect(() => {
+    void listExtraDescriptions().then(setExtraDescriptions);
+  }, [extras.length]);
+  const extraTotals = useMemo(() => sumExtras(extras), [extras]);
 
   useEffect(() => {
     let cancelled = false;
@@ -187,7 +218,13 @@ const MonthlyClosingPage: React.FC = () => {
         quantity: g.quantity,
         total: g.total,
       }));
-      const blob = await renderPdf((K) => <K.MonthlyClosingPdfContent data={closing} items={items} />);
+      const blob = await renderPdf((K) => (
+        <K.MonthlyClosingPdfContent
+          data={closing}
+          items={items}
+          extras={extras.map((e) => ({ description: e.description, amount: e.amount, beneficiary: e.beneficiary }))}
+        />
+      ));
       await openPdf({
         blob,
         fileName: `fechamento-50-50-${year}-${String(month).padStart(2, "0")}.pdf`,
@@ -411,33 +448,43 @@ const MonthlyClosingPage: React.FC = () => {
           </CardContent>
         </Card>
 
+        <ClosingExtrasCard
+          year={year}
+          month={month}
+          items={extras}
+          available={extrasAvailable}
+          loading={extrasLoading}
+          locked={isClosed}
+          descriptions={extraDescriptions}
+          createdBy={session?.username}
+          onChange={setExtras}
+        />
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Card className="rounded-xl border-teal-200 bg-teal-50/30">
-            <CardContent className="p-5">
-              <div className="text-xs font-semibold uppercase tracking-wide text-teal-800">
-                {CLOSING_PARTNERS.clinic} · 50%
-              </div>
-              <div className="text-3xl font-bold text-teal-800 mt-2">
-                {fmt(closing.metadeClinica)}
-              </div>
-              <p className="text-xs text-muted-foreground mt-2">
-                Parte da clínica no lucro líquido do mês.
-              </p>
-            </CardContent>
-          </Card>
-          <Card className="rounded-xl border-amber-200 bg-amber-50/30">
-            <CardContent className="p-5">
-              <div className="text-xs font-semibold uppercase tracking-wide text-amber-800">
-                {CLOSING_PARTNERS.agro} · 50%
-              </div>
-              <div className="text-3xl font-bold text-amber-800 mt-2">
-                {fmt(closing.metadeAgro)}
-              </div>
-              <p className="text-xs text-muted-foreground mt-2">
-                Parte da agropecuária (Agrocentro) no lucro líquido do mês.
-              </p>
-            </CardContent>
-          </Card>
+          {(
+            [
+              { key: "clinic", label: CLOSING_PARTNERS.clinic, half: closing.metadeClinica, extra: extraTotals.clinic, tone: "teal", note: "Parte da clínica no lucro líquido do mês." },
+              { key: "agro", label: CLOSING_PARTNERS.agro, half: closing.metadeAgro, extra: extraTotals.agro, tone: "amber", note: "Parte da agropecuária (Agrocentro) no lucro líquido do mês." },
+            ] as const
+          ).map((p) => (
+            <Card key={p.key} className={p.tone === "teal" ? "rounded-xl border-teal-200 bg-teal-50/30" : "rounded-xl border-amber-200 bg-amber-50/30"}>
+              <CardContent className="p-5">
+                <div className={`text-xs font-semibold uppercase tracking-wide ${p.tone === "teal" ? "text-teal-800" : "text-amber-800"}`}>
+                  {p.label} · {p.extra > 0 ? "total a receber" : "50%"}
+                </div>
+                <div className={`text-3xl font-bold mt-2 tabular-nums ${p.tone === "teal" ? "text-teal-800" : "text-amber-800"}`}>
+                  {fmt(p.half + p.extra)}
+                </div>
+                {p.extra > 0 ? (
+                  <p className="text-xs text-muted-foreground mt-2 tabular-nums">
+                    50% do lucro {fmt(p.half)} <span className="font-semibold text-violet-700">+ acréscimos {fmt(p.extra)}</span>
+                  </p>
+                ) : (
+                  <p className="text-xs text-muted-foreground mt-2">{p.note}</p>
+                )}
+              </CardContent>
+            </Card>
+          ))}
         </div>
       </div>
     </PageShell>

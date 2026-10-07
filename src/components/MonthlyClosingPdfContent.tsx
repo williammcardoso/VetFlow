@@ -84,17 +84,30 @@ export interface ClosingItemRow {
   total: number;
 }
 
+/** Acréscimo fora do 50/50 (vai direto para uma das partes). */
+export interface ClosingExtraRow {
+  description: string;
+  amount: number;
+  beneficiary: "clinic" | "agro";
+}
+
 interface Props {
   data: MonthlyClosingBreakdown;
   /** Anexo com os itens vendidos no mês — página extra no fim. */
   items?: ClosingItemRow[];
+  /** Acréscimos fora do 50/50 — somam na parte de quem recebe. */
+  extras?: ClosingExtraRow[];
 }
 
 const qty = (q: number) => (Number.isInteger(q) ? String(q) : q.toLocaleString("pt-BR"));
 
-const MonthlyClosingPdfContent: React.FC<Props> = ({ data, items }) => {
+const MonthlyClosingPdfContent: React.FC<Props> = ({ data, items, extras }) => {
   const company = mockCompanySettings;
   const generatedAt = new Date().toLocaleString("pt-BR");
+  const extraClinic = (extras ?? []).filter((e) => e.beneficiary === "clinic").reduce((t, e) => t + e.amount, 0);
+  const extraAgro = (extras ?? []).filter((e) => e.beneficiary === "agro").reduce((t, e) => t + e.amount, 0);
+  const hasExtras = (extras ?? []).length > 0;
+  const partnerName = (b: "clinic" | "agro") => (b === "clinic" ? CLOSING_PARTNERS.clinic : CLOSING_PARTNERS.agro);
 
   return (
     <Document>
@@ -155,6 +168,39 @@ const MonthlyClosingPdfContent: React.FC<Props> = ({ data, items }) => {
             <Text style={s.splitValue}>{fmt(data.metadeAgro)}</Text>
           </View>
         </View>
+
+        {hasExtras && (
+          <View style={s.section} wrap={false}>
+            <Text style={s.sectionTitle}>Acréscimos fora do 50/50</Text>
+            {(extras ?? []).map((e, i) => (
+              <View key={i} style={s.row}>
+                <Text style={s.rowLabel}>
+                  {e.description} — {partnerName(e.beneficiary)}
+                </Text>
+                <Text style={[s.rowValue, s.rowPos]}>+ {fmt(e.amount)}</Text>
+              </View>
+            ))}
+            <Text style={[s.sectionTitle, { marginTop: 14 }]}>Total a receber</Text>
+            <View style={s.splitRow}>
+              <View style={s.splitCard}>
+                <Text style={s.splitLabel}>{CLOSING_PARTNERS.clinic}</Text>
+                <Text style={s.splitValue}>{fmt(data.metadeClinica + extraClinic)}</Text>
+                <Text style={{ fontSize: 8, color: GRAY, marginTop: 3 }}>
+                  50% {fmt(data.metadeClinica)}
+                  {extraClinic > 0 ? ` + acréscimos ${fmt(extraClinic)}` : ""}
+                </Text>
+              </View>
+              <View style={s.splitCard}>
+                <Text style={s.splitLabel}>{CLOSING_PARTNERS.agro}</Text>
+                <Text style={s.splitValue}>{fmt(data.metadeAgro + extraAgro)}</Text>
+                <Text style={{ fontSize: 8, color: GRAY, marginTop: 3 }}>
+                  50% {fmt(data.metadeAgro)}
+                  {extraAgro > 0 ? ` + acréscimos ${fmt(extraAgro)}` : ""}
+                </Text>
+              </View>
+            </View>
+          </View>
+        )}
 
         <Text style={s.note}>
           Modelo 50/50: o lucro líquido real é dividido igualmente entre {CLOSING_PARTNERS.clinic} e{" "}
