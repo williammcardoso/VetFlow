@@ -279,6 +279,14 @@ const getDynamicStyles = (isCompactSimplePrescription: boolean, prescriptionType
     fontSize: 9,
     color: "#333",
   },
+  // Assinatura salva (Configurações do usuário) encostada na linha, como
+  // assinatura de verdade — só na receita baixada/enviada (eletrônica).
+  vetSignatureImage: {
+    height: 40,
+    objectFit: 'contain',
+    marginTop: 2,
+    marginBottom: 1,
+  },
   vetSignatureDetails: {
     fontSize: 9,
     color: "#666",
@@ -745,7 +753,18 @@ export const PrescriptionPdfContent = ({
               {showElectronicSignatureText ? (
                 <Text style={styles.vetSignatureLabel}>Assinado eletronicamente por</Text>
               ) : null}
-              <View style={styles.vetSignatureLine}/>
+              {/* Impressa (showElectronicSignatureText = false) continua com a
+                  linha em branco para assinar à caneta. */}
+              {showElectronicSignatureText && userProfile?.signature_url ? (
+                <Image src={userProfile.signature_url} style={styles.vetSignatureImage} />
+              ) : null}
+              <View
+                style={
+                  showElectronicSignatureText && userProfile?.signature_url
+                    ? [styles.vetSignatureLine, { marginTop: 0 }]
+                    : styles.vetSignatureLine
+                }
+              />
               <Text style={styles.vetSignatureLabel}>{vetName}</Text>
               <Text style={styles.vetSignatureDetails}>CRMV {vetCrmv}</Text>
               <Text style={styles.vetSignatureDetails}>Registro no MAPA {vetMapa}</Text>
