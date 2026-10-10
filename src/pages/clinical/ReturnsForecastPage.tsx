@@ -47,7 +47,11 @@ export default function ReturnsForecastPage() {
   const [period, setPeriod] = useState<PeriodFilter>("30");
   const [resolving, setResolving] = useState<ReminderItem | null>(null);
 
-  const everything = useMemo(() => buildReminders(appointments), [appointments]);
+  // Pet que veio a óbito sai da lista (não tem mais vacina nem retorno a cobrar).
+  const everything = useMemo(
+    () => buildReminders(appointments).filter((r) => !animalMap.get(r.animalId)?.animal.deceasedAt),
+    [appointments, animalMap]
+  );
   const all = useMemo(() => everything.filter((r) => !resolved[r.key]), [everything, resolved]);
   const resolvedItems = useMemo(
     () => everything.filter((r) => resolved[r.key]).sort((a, b) => resolved[b.key].localeCompare(resolved[a.key])),

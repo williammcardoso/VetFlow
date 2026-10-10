@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import WeightInput from "@/components/inputs/WeightInput";
 import ClientCombobox from "@/components/ClientCombobox";
@@ -14,12 +15,12 @@ import AutocompleteSelect from "@/components/AutocompleteSelect";
 import { PageShell } from "@/components/saas/PageShell";
 import { PageHeader } from "@/components/saas/PageHeader";
 import { ChoiceGroup, Field, FieldGrid, FormSection, StickyActionBar, focusField } from "@/components/forms/FormLayout";
-import { ClientAvatar } from "@/components/clients/clientVisuals";
+import { ClientAvatar, DeathCross } from "@/components/clients/clientVisuals";
 import { usePatientRouteParams } from "@/hooks/usePatientRouteParams";
 import { useClientWithAnimals, useClientsList } from "@/hooks/useSupabaseClients";
 import { useRegistryList } from "@/hooks/useRegistryList";
 import { addAnimalToClient, updateAnimalDetails } from "@/lib/clientsApi";
-import { formatAgeLong, formatPhoneBR, getTodayLocalISO } from "@/lib/utils";
+import { cn, formatAgeLong, formatPhoneBR, getTodayLocalISO } from "@/lib/utils";
 import { getPatientRecordPath } from "@/utils/patientDisplayId";
 import type { Animal } from "@/types/client";
 
@@ -97,6 +98,8 @@ const AddAnimalPage = () => {
   const [weight, setWeight] = useState<number | "">("");
   const [microchip, setMicrochip] = useState("");
   const [notes, setNotes] = useState("");
+  const [deceased, setDeceased] = useState(false);
+  const [deceasedDate, setDeceasedDate] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [errors, setErrors] = useState<FieldErrors>({});
   const [loadedAnimalId, setLoadedAnimalId] = useState<string | null>(null);
@@ -132,6 +135,8 @@ const AddAnimalPage = () => {
     setWeight(animal.weight || "");
     setMicrochip(animal.microchip || "");
     setNotes(animal.notes || "");
+    setDeceased(Boolean(animal.deceasedAt));
+    setDeceasedDate(animal.deceasedAt ? animal.deceasedAt.slice(0, 10) : "");
     setLoadedAnimalId(animal.id);
   }, [isEditing, clientId, animalId, isClientLoading, isClientError, clientError, clientData, navigate, loadedAnimalId]);
 
@@ -229,17 +234,31 @@ const AddAnimalPage = () => {
           updates.weight = Number(weight);
           updates.lastWeightSource = "Manual";
         }
+        // Óbito só vai quando muda (assim editar o resto não depende da migration).
+        const nextDeceasedAt = deceased ? deceasedDate || getTodayLocalISO() : null;
+        const deceasedChanged = nextDeceasedAt !== ((existingAnimal?.deceasedAt || "").slice(0, 10) || null);
+        if (deceasedChanged) updates.deceasedAt = nextDeceasedAt;
         const now = new Date();
         const ok = await updateAnimalDetails(clientId, animalId, updates, {
           date: getTodayLocalISO(),
           time: `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`,
         });
         if (!ok) {
-          toast.error("Erro ao atualizar animal no banco.");
+          toast.error(
+            deceasedChanged
+              ? "Erro ao salvar. Se for a primeira vez marcando óbito, rode no Supabase o SQL 20261010120000_animals_obito.sql."
+              : "Erro ao atualizar animal no banco."
+          );
           return;
         }
         await invalidateAnimalQueries(clientId);
-        toast.success(`${base.name} atualizado.`);
+        toast.success(
+          deceasedChanged
+            ? nextDeceasedAt
+              ? `${base.name}: óbito registrado.`
+              : `${base.name}: óbito desmarcado.`
+            : `${base.name} atualizado.`
+        );
         navigate(getPatientRecordPath(clientId, animalId, existingAnimal?.patientCode));
         return;
       }
@@ -588,6 +607,41 @@ const AddAnimalPage = () => {
             />
           </Field>
         </FormSection>
+
+        {isEditing && (
+          <FormSection title="Óbito" description="Marque se o paciente faleceu: ele fica cinza com uma cruz nas listas e sai dos lembretes de vacina e retorno.">
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
+              <label className="flex cursor-pointer items-center gap-2.5 text-sm font-medium text-foreground">
+                <Checkbox
+                  id="deceased"
+                  checked={deceased}
+                  onCheckedChange={(v) => {
+                    const on = v === true;
+                    setDeceased(on);
+                    if (on && !deceasedDate) setDeceasedDate(getTodayLocalISO());
+                  }}
+                />
+                <DeathCross className={cn("h-4 w-4", deceased ? "text-zinc-600" : "text-muted-foreground")} aria-hidden />
+                Paciente veio a óbito
+              </label>
+              {deceased && (
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="deceasedDate" className="text-sm text-muted-foreground">
+                    Data do óbito
+                  </Label>
+                  <Input
+                    id="deceasedDate"
+                    type="date"
+                    max={getTodayLocalISO()}
+                    value={deceasedDate}
+                    className="w-44"
+                    onChange={(e) => setDeceasedDate(e.target.value)}
+                  />
+                </div>
+              )}
+            </div>
+          </FormSection>
+        )}
 
         <StickyActionBar>
           <Button type="button" variant="outline" onClick={() => navigate(backLink)} disabled={isSaving}>

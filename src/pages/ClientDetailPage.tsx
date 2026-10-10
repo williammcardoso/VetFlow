@@ -9,9 +9,12 @@ import { PageShell } from "@/components/saas/PageShell";
 import { PageHeader } from "@/components/saas/PageHeader";
 import {
   ClientAvatar,
+  DeathCross,
+  DeceasedBadge,
   formatAgeShort,
   formatDateBR,
   formatWeightKg,
+  isDeceased,
   sexLabel,
   speciesIcon,
   speciesTone,
@@ -48,11 +51,18 @@ function PetRow({ clientId, animal, lastVisit }: { clientId: string; animal: Ani
     ? `Última atualização ${formatDateBR(lastVisit.date)} (${lastVisit.label})`
     : "Nenhum registro ainda";
   const inactive = animal.status === "Inativo";
+  const deceased = isDeceased(animal);
 
   return (
-    <li className={cn("relative flex items-center gap-3 px-4 py-3.5 transition-colors hover:bg-muted/40", inactive && "opacity-70")}>
-      <span className={cn("flex h-11 w-11 shrink-0 items-center justify-center rounded-xl", speciesTone(animal.species).soft)} aria-hidden>
-        <Icon className="h-5 w-5" />
+    <li className={cn("relative flex items-center gap-3 px-4 py-3.5 transition-colors hover:bg-muted/40", (inactive || deceased) && "opacity-75")}>
+      <span
+        className={cn(
+          "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl",
+          deceased ? "bg-zinc-100 text-zinc-500" : speciesTone(animal.species).soft
+        )}
+        aria-hidden
+      >
+        {deceased ? <DeathCross className="h-5 w-5" /> : <Icon className="h-5 w-5" />}
       </span>
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
@@ -63,6 +73,7 @@ function PetRow({ clientId, animal, lastVisit }: { clientId: string; animal: Ani
           >
             {animal.name}
           </Link>
+          {deceased && <DeceasedBadge animal={animal} />}
           {inactive && <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">Inativo</span>}
         </div>
         {details && <p className="break-words text-sm text-muted-foreground">{details}</p>}

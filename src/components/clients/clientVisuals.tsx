@@ -104,8 +104,57 @@ export function sexLabel(gender: string | undefined): string {
 }
 
 /**
+ * Cruz latina (†) no traço dos ícones lucide — o "Cross" do lucide desta
+ * versão é uma cruz grega (parece um "+", confunde com "adicionar").
+ */
+export function DeathCross({ className, ...props }: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2.2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={cn("h-4 w-4", className)}
+      {...props}
+    >
+      <path d="M12 2.5v19" />
+      <path d="M6.5 8h11" />
+    </svg>
+  );
+}
+
+/** Pet que veio a óbito (data gravada em `deceasedAt`). */
+export const isDeceased = (animal?: Pick<Animal, "deceasedAt"> | null): boolean => Boolean(animal?.deceasedAt);
+
+/** "Óbito em 05/10/2026". */
+export function deceasedLabel(animal?: Pick<Animal, "deceasedAt"> | null): string {
+  const iso = (animal?.deceasedAt || "").slice(0, 10);
+  const [y, m, d] = iso.split("-");
+  return y && m && d ? `Óbito em ${d}/${m}/${y}` : "Óbito";
+}
+
+/** Selo cinza com a cruz: "Óbito · 05/10/2026". */
+export function DeceasedBadge({ animal, className }: { animal: Pick<Animal, "deceasedAt">; className?: string }) {
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1 rounded-full bg-zinc-100 px-2 py-0.5 text-[11px] font-semibold text-zinc-600 ring-1 ring-inset ring-zinc-300",
+        className
+      )}
+      title={deceasedLabel(animal)}
+    >
+      <DeathCross className="h-3 w-3" aria-hidden />
+      {deceasedLabel(animal).replace("Óbito em ", "Óbito · ")}
+    </span>
+  );
+}
+
+/**
  * Etiqueta do pet (ícone da espécie + nome) que abre o prontuário.
  * `relative z-10`: fica acima do link "esticado" da linha do cliente.
+ * Pet que veio a óbito: etiqueta cinza com a cruz no lugar do ícone da espécie.
  */
 export function PetChip({
   animal,
@@ -113,27 +162,31 @@ export function PetChip({
   highlighted,
   className,
 }: {
-  animal: Pick<Animal, "name" | "species">;
+  animal: Pick<Animal, "name" | "species" | "deceasedAt">;
   to: string;
   highlighted?: boolean;
   className?: string;
 }) {
-  const Icon = speciesIcon(animal.species);
+  const deceased = isDeceased(animal);
+  const Icon = deceased ? DeathCross : speciesIcon(animal.species);
   return (
     <Link
       to={to}
-      title={`Abrir prontuário de ${animal.name}`}
+      title={deceased ? `${animal.name} — ${deceasedLabel(animal)}. Abrir prontuário` : `Abrir prontuário de ${animal.name}`}
       className={cn(
         "relative z-10 inline-flex h-7 max-w-full items-center gap-1.5 rounded-full border px-2.5 text-[13px] font-semibold transition-colors",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60",
         // Cor da espécie (cão âmbar, gato violeta...): o pet salta na lista.
         // O que bateu com a busca ganha contorno forte.
-        speciesTone(animal.species).chip,
+        deceased ? "border-zinc-300 bg-zinc-100 text-zinc-500 hover:bg-zinc-200" : speciesTone(animal.species).chip,
         highlighted && "ring-2 ring-primary/60 ring-offset-1",
         className
       )}
     >
-      <Icon className={cn("h-3.5 w-3.5 shrink-0", highlighted ? undefined : speciesTone(animal.species).icon)} aria-hidden />
+      <Icon
+        className={cn("h-3.5 w-3.5 shrink-0", deceased ? "text-zinc-500" : highlighted ? undefined : speciesTone(animal.species).icon)}
+        aria-hidden
+      />
       <span className="min-w-0 truncate">{animal.name}</span>
     </Link>
   );

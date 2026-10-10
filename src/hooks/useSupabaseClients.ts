@@ -50,6 +50,7 @@ type DbAnimal = {
   total_procedures: number | null;
   total_value: number | null;
   last_weight_source: string | null;
+  deceased_at?: string | null;
 };
 
 function mapDbAnimalToAnimal(a: DbAnimal): Animal {
@@ -66,6 +67,7 @@ function mapDbAnimalToAnimal(a: DbAnimal): Animal {
     microchip: a.microchip || "",
     notes: a.notes || "",
     status: (a.status as "Ativo" | "Inativo") || "Ativo",
+    deceasedAt: a.deceased_at || null,
     lastConsultationDate: a.last_consultation_date || "",
     totalProcedures: a.total_procedures ?? 0,
     totalValue: a.total_value ?? 0,
@@ -122,9 +124,9 @@ async function fetchClientsWithAnimals(): Promise<Client[]> {
     throw new Error(`Falha ao carregar clientes: ${clientsError.message}`);
   }
 
-  const { data: animalsData, error: animalsError } = await supabase
-    .from("animals")
-    .select("id, patient_code, client_id, name, species, breed, gender, birthday, coat_color, weight, microchip, notes, status, last_consultation_date, total_procedures, total_value, last_weight_source");
+  // select("*"): colunas novas (ex.: deceased_at) vêm quando existem, sem
+  // quebrar a lista antes da migration rodar.
+  const { data: animalsData, error: animalsError } = await supabase.from("animals").select("*");
 
   if (animalsError) {
     throw new Error(`Falha ao carregar animais: ${animalsError.message}`);
@@ -164,7 +166,7 @@ async function fetchClientWithAnimals(clientId: string): Promise<Client | null> 
 
   const { data: animalsRows, error: animalsError } = await supabase
     .from("animals")
-    .select("id, patient_code, client_id, name, species, breed, gender, birthday, coat_color, weight, microchip, notes, status, last_consultation_date, total_procedures, total_value, last_weight_source")
+    .select("*")
     .eq("client_id", clientId);
 
   if (animalsError) {

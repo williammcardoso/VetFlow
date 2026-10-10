@@ -66,7 +66,8 @@ export function useAppNotifications() {
     return buildNotifications({
       now,
       schedules,
-      reminders: buildReminders(appointments, now),
+      // Pet que veio a óbito não gera lembrete de vacina/acompanhamento.
+      reminders: buildReminders(appointments, now).filter((r) => !animalMap.get(r.animalId)?.animal.deceasedAt),
       sent,
       resolved,
       pets,

@@ -48,6 +48,7 @@ type DbAnimal = {
   total_procedures?: number | null;
   total_value?: number | null;
   last_weight_source?: string | null;
+  deceased_at?: string | null;
 };
 
 function mapDbAnimalToAnimal(a: DbAnimal): Animal {
@@ -64,6 +65,7 @@ function mapDbAnimalToAnimal(a: DbAnimal): Animal {
     microchip: a.microchip || "",
     notes: a.notes || "",
     status: (a.status as "Ativo" | "Inativo") || "Ativo",
+    deceasedAt: a.deceased_at || null,
     lastConsultationDate: a.last_consultation_date || "",
     totalProcedures: a.total_procedures ?? 0,
     totalValue: a.total_value ?? 0,
@@ -115,9 +117,7 @@ export async function readClients(): Promise<Client[]> {
     return [];
   }
 
-  const { data: animalsData, error: animalsError } = await supabase
-    .from("animals")
-    .select("id, patient_code, client_id, name, species, breed, gender, birthday, coat_color, weight, microchip, notes, status, last_consultation_date, total_procedures, total_value, last_weight_source");
+  const { data: animalsData, error: animalsError } = await supabase.from("animals").select("*");
   if (animalsError) {
     console.error("[readClients] animals fetch error", animalsError);
   }
@@ -151,7 +151,7 @@ export async function getClientById(clientId: string): Promise<Client | null> {
 
   const { data: animalsRows, error: animalsError } = await supabase
     .from("animals")
-    .select("id, patient_code, client_id, name, species, breed, gender, birthday, coat_color, weight, microchip, notes, status, last_consultation_date, total_procedures, total_value, last_weight_source")
+    .select("*")
     .eq("client_id", clientId);
   if (animalsError) {
     console.error("[getClientById] animals fetch error", animalsError);
@@ -304,6 +304,9 @@ export async function updateAnimalDetails(clientId: string, animalId: string, up
   if (updates.totalProcedures != null) dbUpdates.total_procedures = updates.totalProcedures;
   if (updates.totalValue != null) dbUpdates.total_value = updates.totalValue;
   if (updates.lastWeightSource != null) dbUpdates.last_weight_source = updates.lastWeightSource;
+  // Óbito: só vai quando muda (null = desfazer). Fora isso a coluna nem é
+  // citada, então editar o animal não depende da migration 20261010120000.
+  if (updates.deceasedAt !== undefined) dbUpdates.deceased_at = updates.deceasedAt || null;
 
   const { error } = await supabase.from("animals").update(dbUpdates).match({ id: animalId, client_id: clientId });
   if (error) {

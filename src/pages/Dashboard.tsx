@@ -140,10 +140,16 @@ const Dashboard = () => {
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
   const animalMap = useMemo(() => {
-    const map = new Map<string, { animalName: string; clientName: string; clientId: string; patientCode?: number }>();
+    const map = new Map<string, { animalName: string; clientName: string; clientId: string; patientCode?: number; deceased: boolean }>();
     for (const client of (dbClients || [])) {
       for (const animal of (client.animals || [])) {
-        map.set(animal.id, { animalName: animal.name, clientName: client.name, clientId: client.id, patientCode: animal.patientCode });
+        map.set(animal.id, {
+          animalName: animal.name,
+          clientName: client.name,
+          clientId: client.id,
+          patientCode: animal.patientCode,
+          deceased: Boolean(animal.deceasedAt),
+        });
       }
     }
     return map;
@@ -153,8 +159,11 @@ const Dashboard = () => {
   // resolvido (dose seguinte aplicada / paciente que já voltou).
   const { resolved: resolvedReminders } = useReminderStatus();
   const weekReminders = useMemo(
-    () => buildReminders(allAppointments).filter((r) => r.daysUntil >= 0 && r.daysUntil <= 7 && !resolvedReminders[r.key]),
-    [allAppointments, resolvedReminders]
+    () =>
+      buildReminders(allAppointments).filter(
+        (r) => r.daysUntil >= 0 && r.daysUntil <= 7 && !resolvedReminders[r.key] && !animalMap.get(r.animalId)?.deceased
+      ),
+    [allAppointments, resolvedReminders, animalMap]
   );
 
   const returnsThisWeek = useMemo(() => {

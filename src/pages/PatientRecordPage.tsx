@@ -39,6 +39,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 import { PrescriptionEntry } from "@/types/medication";
 import { cn, formatAgeLong, formatCurrencyBRL, formatDateBRForFileName, formatDateTime, formatItemQty, getTodayLocalISO, parseLocalDate, slugifyFileName } from "@/lib/utils";
+import { DeceasedBadge, isDeceased } from "@/components/clients/clientVisuals";
 import { displayAppointmentType } from "@/lib/appointmentDisplay";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -1259,9 +1260,15 @@ const PatientRecordPage = () => {
 
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <h2 className="min-w-0 break-words text-2xl sm:text-[1.9rem] leading-tight font-semibold tracking-tight">
+                      <h2
+                        className={cn(
+                          "min-w-0 break-words text-2xl sm:text-[1.9rem] leading-tight font-semibold tracking-tight",
+                          isDeceased(currentAnimal) && "text-zinc-500"
+                        )}
+                      >
                         {currentAnimal.name}
                       </h2>
+                      {isDeceased(currentAnimal) && <DeceasedBadge animal={currentAnimal} className="px-2.5 py-1 text-xs" />}
                       {alertObservations.map((o) => (
                         <span
                           key={o.id}

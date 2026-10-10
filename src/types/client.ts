@@ -19,6 +19,8 @@ export interface Animal {
   microchip: string;
   notes: string;
   status: 'Ativo' | 'Inativo';
+  /** Data do óbito ("aaaa-mm-dd"); nulo/vazio = vivo (migration 20261010120000). */
+  deceasedAt?: string | null;
   lastConsultationDate?: string;
   totalProcedures?: number;
   totalValue?: number;
