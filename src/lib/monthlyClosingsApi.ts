@@ -11,20 +11,30 @@ export interface MonthlyClosingRecord extends MonthlyClosingBreakdown {
 function rowToRecord(r: Record<string, unknown>): MonthlyClosingRecord {
   const year = Number(r.year);
   const month = Number(r.month);
+  const custoProdutos = Number(r.custo_produtos) || 0;
+  const custoCompras = Number(r.custo_compras) || 0;
+  const custoRepasses = Number(r.custo_repasses) || 0;
+  const taxasCartao = Number(r.taxas_cartao) || 0;
+  const lucroLiquido = Number(r.lucro_liquido) || 0;
+  // Recebido não tem coluna própria: lucro + deduções dá a base que foi usada
+  // (em meses fechados antes da mudança, é o próprio faturado).
+  const recebido = Math.round((lucroLiquido + custoProdutos + custoCompras + custoRepasses + taxasCartao) * 100) / 100;
   return {
     year,
     month,
     label: "",
     salesCount: Number(r.sales_count) || 0,
     bruto: Number(r.bruto) || 0,
-    custoProdutos: Number(r.custo_produtos) || 0,
-    custoCompras: Number(r.custo_compras) || 0,
-    custoRepasses: Number(r.custo_repasses) || 0,
-    taxasCartao: Number(r.taxas_cartao) || 0,
-    lucroLiquido: Number(r.lucro_liquido) || 0,
+    recebido,
+    aReceberDoMes: 0,
+    custoProdutos,
+    custoCompras,
+    custoRepasses,
+    taxasCartao,
+    lucroLiquido,
     metadeClinica: Number(r.metade_clinica) || 0,
     metadeAgro: Number(r.metade_agro) || 0,
-    margemPct: Number(r.bruto) > 0 ? Math.round((Number(r.lucro_liquido) / Number(r.bruto)) * 100) : 0,
+    margemPct: recebido > 0 ? Math.round((lucroLiquido / recebido) * 100) : 0,
     closedBy: (r.closed_by as string) || undefined,
     closedAt: r.closed_at as string,
   };

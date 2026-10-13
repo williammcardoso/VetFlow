@@ -28,7 +28,7 @@ export interface PeriodFinancials {
   faturado: number;
   recebido: number;
   ticketMedio: number;
-  /** Mesma conta do Fechamento 50/50 (bruto − produtos − compras − repasses − taxas). */
+  /** Mesma conta do Fechamento 50/50 (recebido − produtos − compras − repasses − taxas). */
   closing: MonthlyClosingBreakdown;
   /** Em aberto em TODAS as datas — conta a receber não some atrás do filtro de período. */
   openSales: FinancialTransaction[];
@@ -58,6 +58,7 @@ export function computePeriodFinancials(
     sales,
     saleItems,
     purchases,
+    receipts,
   });
 
   const openSales = transactions.filter((t) => isSale(t) && saleBalance(t) > 0);

@@ -115,14 +115,17 @@ const MonthlyClosingPdfContent: React.FC<Props> = ({ data, items, extras }) => {
         <View style={s.header}>
           <Text style={s.company}>{company.companyName}</Text>
           <Text style={s.title}>Fechamento Mensal 50/50</Text>
-          <Text style={s.subtitle}>{data.label} · {data.salesCount} venda(s)</Text>
+          <Text style={s.subtitle}>
+            {data.label} · {data.salesCount} venda(s) · faturado {fmt(data.bruto)}
+            {data.aReceberDoMes > 0 ? ` · ${fmt(data.aReceberDoMes)} ainda a receber` : ""}
+          </Text>
         </View>
 
         <View style={s.section}>
           <Text style={s.sectionTitle}>Composição do resultado</Text>
           <View style={s.row}>
-            <Text style={s.rowLabel}>Faturamento bruto</Text>
-            <Text style={s.rowValue}>{fmt(data.bruto)}</Text>
+            <Text style={s.rowLabel}>Recebido no mês (dinheiro que entrou)</Text>
+            <Text style={s.rowValue}>{fmt(data.recebido)}</Text>
           </View>
           <View style={s.row}>
             <Text style={s.rowLabel}>(−) Compras de estoque (Almoxarifado)</Text>
@@ -154,7 +157,7 @@ const MonthlyClosingPdfContent: React.FC<Props> = ({ data, items, extras }) => {
             </Text>
           </View>
           <Text style={{ fontSize: 8, color: "#D1D5DB", marginTop: 4 }}>
-            Margem: {data.margemPct}% sobre o faturamento bruto
+            Margem: {data.margemPct}% sobre o recebido · só é dividido o que entrou no caixa
           </Text>
         </View>
 
@@ -204,8 +207,9 @@ const MonthlyClosingPdfContent: React.FC<Props> = ({ data, items, extras }) => {
 
         <Text style={s.note}>
           Modelo 50/50: o lucro líquido real é dividido igualmente entre {CLOSING_PARTNERS.clinic} e{" "}
-          {CLOSING_PARTNERS.agro}. Saídas operacionais (aluguel, luz, salários etc.) não entram neste
-          cálculo. Documento gerado em {generatedAt}.
+          {CLOSING_PARTNERS.agro}. A base é o que foi recebido no mês (venda paga aos poucos entra conforme o
+          dinheiro chega); repasses e compras entram no mês da venda/compra. Saídas operacionais (aluguel, luz,
+          salários etc.) não entram neste cálculo. Documento gerado em {generatedAt}.
         </Text>
 
         <Text

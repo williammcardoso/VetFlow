@@ -62,13 +62,17 @@ describe("computePeriodFinancials", () => {
     expect(fin.openSales.map((s) => s.id).sort()).toEqual(["s-old", "s2"]);
     expect(fin.openTotal).toBe(140);
   });
-  it("lucro igual ao Fechamento 50/50: bruto − repasses − compras (aluguel fica fora)", () => {
-    expect(fin.closing.bruto).toBe(300);
+  it("lucro igual ao Fechamento 50/50: RECEBIDO − repasses − compras (aluguel fica fora)", () => {
+    expect(fin.closing.bruto).toBe(300); // faturado continua aparecendo, só informativo
+    expect(fin.closing.recebido).toBe(210); // 200 + 40 − estorno 30
     expect(fin.closing.custoRepasses).toBe(60);
     expect(fin.closing.custoCompras).toBe(50);
-    expect(fin.closing.lucroLiquido).toBe(190);
-    expect(fin.closing.metadeClinica).toBe(95);
+    expect(fin.closing.lucroLiquido).toBe(100);
+    expect(fin.closing.metadeClinica).toBe(50);
     expect(fin.otherExpenses.map((t) => t.id)).toEqual(["e2"]);
+  });
+  it("mostra quanto das vendas do mês ainda falta receber", () => {
+    expect(fin.closing.aReceberDoMes).toBe(60); // s2: 100 − 40
   });
 });
 

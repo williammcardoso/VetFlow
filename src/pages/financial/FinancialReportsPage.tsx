@@ -329,7 +329,7 @@ const FinancialReportsPage: React.FC = () => {
           totalRepasses={c.custoRepasses + c.custoProdutos}
           totalTaxas={c.taxasCartao}
           lucroReal={c.lucroLiquido + c.taxasCartao}
-          margemReal={c.bruto > 0 ? Math.round(((c.lucroLiquido + c.taxasCartao) / c.bruto) * 100) : 0}
+          margemReal={c.recebido > 0 ? Math.round(((c.lucroLiquido + c.taxasCartao) / c.recebido) * 100) : 0}
           liquidoReal={c.lucroLiquido}
           margemLiquida={c.margemPct}
           comprasAlmoxarifado={c.custoCompras}

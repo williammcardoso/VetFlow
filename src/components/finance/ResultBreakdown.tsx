@@ -37,7 +37,14 @@ export function ResultBreakdown({
   className?: string;
 }) {
   const rows: Row[] = [
-    { key: "bruto", label: "Faturamento bruto", hint: `${closing.salesCount} ${closing.salesCount === 1 ? "venda" : "vendas"}`, value: closing.bruto, ...pick(CONCEPTS.faturado) },
+    // Base do 50/50 é o que entrou no caixa; o faturado aparece no lembrete.
+    {
+      key: "bruto",
+      label: "Recebido no período",
+      hint: `faturado ${formatCurrencyBRL(closing.bruto)}${closing.aReceberDoMes > 0 ? ` · ${formatCurrencyBRL(closing.aReceberDoMes)} a receber` : ""}`,
+      value: closing.recebido,
+      ...pick(CONCEPTS.recebido),
+    },
     { key: "repasses", label: "Repasses a prestadores", hint: "labs e especialistas", value: closing.custoRepasses, ...pick(CONCEPTS.repasses) },
     ...(closing.custoProdutos > 0
       ? [{ key: "produtos" as const, label: "Custo de produtos", hint: "vendas antigas", value: closing.custoProdutos, ...pick(CONCEPTS.produtos) }]

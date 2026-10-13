@@ -132,6 +132,16 @@ const MonthlyClosingPage: React.FC = () => {
     [transactions, from, to]
   );
 
+  // Dinheiro que entrou no mês (base do 50/50): recebimentos com data no mês,
+  // inclusive de vendas de meses anteriores; estornos entram negativos.
+  const monthReceipts = useMemo(
+    () =>
+      transactions.filter(
+        (t) => t.type === "income" && t.category === "Recebimento" && t.date >= from && t.date <= to
+      ),
+    [transactions, from, to]
+  );
+
   useEffect(() => {
     let cancelled = false;
     getSaleItemsBySaleIds(monthSales.map((s) => s.id)).then((items) => {
@@ -150,8 +160,9 @@ const MonthlyClosingPage: React.FC = () => {
         sales: monthSales,
         saleItems,
         purchases: monthPurchases,
+        receipts: monthReceipts,
       }),
-    [year, month, monthSales, saleItems, monthPurchases]
+    [year, month, monthSales, saleItems, monthPurchases, monthReceipts]
   );
 
   const isClosed = !!closedRecord;
@@ -237,7 +248,7 @@ const MonthlyClosingPage: React.FC = () => {
   };
 
   const rows = [
-    { label: "Faturamento bruto", value: closing.bruto, tone: "neutral" as const },
+    { label: "Recebido no mês (dinheiro que entrou)", value: closing.recebido, tone: "neutral" as const },
     { label: "(−) Compras de estoque (Almoxarifado)", value: -closing.custoCompras, tone: "amber" as const },
     // Legado: só aparece se houver venda antiga com custo de insumo embutido
     // (composição/BOM, descontinuada) — meses novos não geram esse valor.
@@ -379,8 +390,13 @@ const MonthlyClosingPage: React.FC = () => {
               <div className="text-xs text-muted-foreground uppercase tracking-wide">Período</div>
               <div className="text-xl font-bold mt-1">{closing.label}</div>
               <div className="text-xs text-muted-foreground mt-1">
-                {closing.salesCount} venda(s) no mês
+                {closing.salesCount} venda(s) no mês · faturado {fmt(closing.bruto)}
               </div>
+              {closing.aReceberDoMes > 0 && (
+                <div className="mt-1 text-xs font-medium text-amber-700">
+                  {fmt(closing.aReceberDoMes)} dessas vendas ainda a receber
+                </div>
+              )}
             </CardContent>
           </Card>
           <Card className="rounded-xl border-emerald-200 bg-emerald-50/40">
@@ -392,7 +408,7 @@ const MonthlyClosingPage: React.FC = () => {
                 {fmt(closing.lucroLiquido)}
               </div>
               <div className="text-xs text-muted-foreground mt-1">
-                Margem {closing.margemPct}% sobre o bruto
+                Margem {closing.margemPct}% sobre o recebido
               </div>
             </CardContent>
           </Card>
@@ -402,10 +418,10 @@ const MonthlyClosingPage: React.FC = () => {
               <div>
                 <div className="text-xs text-muted-foreground">Fórmula</div>
                 <div className="text-sm font-medium mt-1 leading-snug">
-                  Bruto − compras (almoxarifado) − repasses − taxas
+                  Recebido − compras (almoxarifado) − repasses − taxas
                 </div>
                 <div className="text-[11px] text-muted-foreground mt-1">
-                  Saídas operacionais não entram
+                  Só divide o que entrou no caixa · saídas operacionais não entram
                 </div>
               </div>
             </CardContent>
@@ -417,6 +433,19 @@ const MonthlyClosingPage: React.FC = () => {
             <CardTitle className="text-base">Composição do resultado</CardTitle>
           </CardHeader>
           <CardContent>
+            {/* Faturado fica à vista, mas fora da conta: venda paga aos
+                poucos só é dividida conforme o dinheiro entra. */}
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2 rounded-lg bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+              <span>
+                Vendas do mês (faturado): <span className="font-semibold text-foreground tabular-nums">{fmt(closing.bruto)}</span>
+                {closing.aReceberDoMes > 0 && (
+                  <>
+                    {" "}· a receber: <span className="font-semibold text-amber-700 tabular-nums">{fmt(closing.aReceberDoMes)}</span>
+                  </>
+                )}
+              </span>
+              <span>só informativo — a divisão usa o recebido</span>
+            </div>
             <div className="space-y-1">
               {rows.map((row) => (
                 <div

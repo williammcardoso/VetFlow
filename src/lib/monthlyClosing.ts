@@ -11,8 +11,16 @@ export interface MonthlyClosingBreakdown {
   month: number; // 1-12
   label: string;
   salesCount: number;
-  /** Faturamento bruto das vendas (não canceladas) */
+  /** Faturamento bruto das vendas (não canceladas) — só informativo. */
   bruto: number;
+  /**
+   * Dinheiro que entrou no mês (recebimentos, com estornos descontando) — é
+   * a base do lucro: não se divide o que ainda não foi recebido. Inclui o que
+   * entrou de vendas de meses anteriores.
+   */
+  recebido: number;
+  /** Quanto das vendas do mês ainda falta receber (informativo). */
+  aReceberDoMes: number;
   /** Custo de produto embutido em venda antiga (composição/BOM, descontinuado em 2026-08-07) */
   custoProdutos: number;
   /** Lista de Compras do mês — insumos retirados do almoxarifado (Agropecuária) */
@@ -21,7 +29,7 @@ export interface MonthlyClosingBreakdown {
   custoRepasses: number;
   /** Taxas de operadora (cartão) */
   taxasCartao: number;
-  /** bruto - produtos - compras - repasses - taxas */
+  /** recebido - produtos - compras - repasses - taxas */
   lucroLiquido: number;
   metadeClinica: number;
   metadeAgro: number;
@@ -61,8 +69,15 @@ export function lineProviderCost(item: SaleItem): number {
 
 /**
  * Fechamento 50/50:
- * Lucro líquido = bruto − custo produtos (legado) − compras do almoxarifado − repasses − taxas
+ * Lucro líquido = RECEBIDO no mês − custo produtos (legado) − compras do almoxarifado − repasses − taxas
  * (saídas operacionais NÃO entram)
+ *
+ * Desde 2026-10-13 a base é o que entrou no caixa, não o faturado: venda
+ * paga aos poucos só é dividida conforme o dinheiro entra (cada parcela
+ * recebida soma no mês em que entrou). Os custos (repasses do lab, compras)
+ * continuam no mês da venda/compra — a conta do lab chega de qualquer jeito.
+ * O faturado segue aparecendo, só como informação. Sem `receipts`, usa o
+ * faturado como recebido (comportamento antigo).
  *
  * Modelo mudou em 2026-08-07: a Agropecuária passou a funcionar como
  * almoxarifado — o clínico não desconta mais insumo por venda (composição/
@@ -77,8 +92,10 @@ export function computeMonthlyClosing(params: {
   sales: FinancialTransaction[];
   saleItems: SaleItem[];
   purchases: FinancialTransaction[];
+  /** Recebimentos do mês (categoria "Recebimento"; estornos negativos). */
+  receipts?: FinancialTransaction[];
 }): MonthlyClosingBreakdown {
-  const { year, month, sales, saleItems, purchases } = params;
+  const { year, month, sales, saleItems, purchases, receipts } = params;
   const activeSales = sales.filter((s) => (s.status || "pending") !== "cancelled");
   const saleIds = new Set(activeSales.map((s) => s.id));
   const items = saleItems.filter((i) => saleIds.has(i.saleId));
@@ -95,7 +112,10 @@ export function computeMonthlyClosing(params: {
   const finalProdutos = useLegacy ? 0 : custoProdutosItens;
   const finalRepasses = useLegacy ? legacySupplier : custoRepasses;
 
-  const lucroLiquido = bruto - finalProdutos - custoCompras - finalRepasses - taxasCartao;
+  const recebido = receipts ? receipts.reduce((s, t) => s + t.amount, 0) : bruto;
+  const aReceberDoMes = activeSales.reduce((s, t) => s + Math.max(0, t.amount - (t.paidAmount ?? (receipts ? 0 : t.amount))), 0);
+
+  const lucroLiquido = recebido - finalProdutos - custoCompras - finalRepasses - taxasCartao;
   const metade = lucroLiquido / 2;
 
   return {
@@ -104,6 +124,8 @@ export function computeMonthlyClosing(params: {
     label: monthLabel(year, month),
     salesCount: activeSales.length,
     bruto,
+    recebido,
+    aReceberDoMes: Math.round(aReceberDoMes * 100) / 100,
     custoProdutos: finalProdutos,
     custoCompras,
     custoRepasses: finalRepasses,
@@ -111,6 +133,6 @@ export function computeMonthlyClosing(params: {
     lucroLiquido,
     metadeClinica: metade,
     metadeAgro: metade,
-    margemPct: bruto > 0 ? Math.round((lucroLiquido / bruto) * 100) : 0,
+    margemPct: recebido > 0 ? Math.round((lucroLiquido / recebido) * 100) : 0,
   };
 }
