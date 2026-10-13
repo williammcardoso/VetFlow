@@ -1,6 +1,7 @@
 import * as React from "react";
 import { Link } from "react-router-dom";
 import { Bird, Cat, Dog, PawPrint, Rabbit, type LucideIcon } from "lucide-react";
+import { FaCross } from "react-icons/fa";
 import { cn, parseLocalDate } from "@/lib/utils";
 import type { Animal } from "@/types/client";
 
@@ -104,25 +105,11 @@ export function sexLabel(gender: string | undefined): string {
 }
 
 /**
- * Cruz latina (†) no traço dos ícones lucide — o "Cross" do lucide desta
- * versão é uma cruz grega (parece um "+", confunde com "adicionar").
+ * Cruz latina cheia (Font Awesome "cross") — o "Cross" do lucide desta versão
+ * é uma cruz grega e o traço fino parecia um "+" (confunde com "adicionar").
  */
-export function DeathCross({ className, ...props }: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={2.2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={cn("h-4 w-4", className)}
-      {...props}
-    >
-      <path d="M12 2.5v19" />
-      <path d="M6.5 8h11" />
-    </svg>
-  );
+export function DeathCross({ className, ...props }: { className?: string; "aria-hidden"?: boolean | "true" | "false" }) {
+  return <FaCross className={cn("h-4 w-4", className)} {...props} />;
 }
 
 /** Pet que veio a óbito (data gravada em `deceasedAt`). */
