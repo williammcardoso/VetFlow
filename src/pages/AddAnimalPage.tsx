@@ -184,9 +184,16 @@ const AddAnimalPage = () => {
     await queryClient.invalidateQueries({ queryKey: ["client-with-animals", targetClientId] });
   };
 
+  // Pela rota curta (/prontuario/:codigo/edit) o tutor só chega depois do
+  // primeiro carregamento — o estado inicial ficava vazio e o "Salvar"
+  // reclamava de um campo que nem aparece na edição.
+  useEffect(() => {
+    if (clientId && !selectedTutorId) setSelectedTutorId(clientId);
+  }, [clientId, selectedTutorId]);
+
   const validate = (): FieldErrors => {
     const next: FieldErrors = {};
-    if (!selectedTutorId) next.tutor = "Escolha o tutor do animal.";
+    if (!isEditing && !selectedTutorId) next.tutor = "Escolha o tutor do animal.";
     if (!animalName.trim()) next.animalName = "Informe o nome do animal.";
     if (!speciesId) next.species = "Escolha a espécie.";
     else if (speciesId === "other" && !customSpecies.trim()) next.customSpecies = "Digite qual é a espécie.";
@@ -206,7 +213,9 @@ const AddAnimalPage = () => {
     const order: Array<keyof FieldErrors> = ["tutor", "animalName", "species", "customSpecies", "breed", "gender", "birthday", "weight", "coatColor"];
     const firstInvalid = order.find((k) => found[k]);
     if (firstInvalid) {
-      toast.error("Confira os campos destacados.");
+      // Diz qual é o campo — "confira os destacados" sozinho não ajuda
+      // quando o campo está fora da tela.
+      toast.error(found[firstInvalid] || "Confira os campos destacados.");
       focusField(firstInvalid);
       return;
     }
