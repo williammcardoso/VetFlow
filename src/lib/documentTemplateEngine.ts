@@ -156,6 +156,30 @@ export function renderDocumentTemplate(
   return { texto, variaveisPendentes: [...pendentes].sort() };
 }
 
+const PENDING_MARKER_RE = /\[\[PENDENTE:\s*([^\]]+?)\s*\]\]/g;
+
+/** Caminhos ainda marcados como `[[PENDENTE: x]]` no texto (sem repetir, na ordem). */
+export function pendingPaths(texto: string): string[] {
+  return [...new Set([...texto.matchAll(PENDING_MARKER_RE)].map((m) => m[1]))];
+}
+
+/**
+ * Troca as marcas `[[PENDENTE: x]]` que sobraram num texto (ex.: editado à
+ * mão antes de preencher os campos) pelo valor digitado no campo `x`. Campo
+ * vazio deixa a marca como está.
+ */
+export function fillPendingMarkers(texto: string, valores: Record<string, string>): string {
+  return texto.replace(PENDING_MARKER_RE, (marca, caminho: string) => {
+    const { texto: valor, pendente } = formatValue(valores[caminho]);
+    return pendente ? marca : valor;
+  });
+}
+
+/** Pendência que sobrou na emissão vira linha em branco, pra preencher à caneta. */
+export function blankPendingMarkers(texto: string): string {
+  return texto.replace(PENDING_MARKER_RE, "__________");
+}
+
 /**
  * Extrai os caminhos {{escopo.campo}} usados num corpo de modelo (cru, sem
  * expandir blocos), ordenados e sem duplicata — usado pelo editor de

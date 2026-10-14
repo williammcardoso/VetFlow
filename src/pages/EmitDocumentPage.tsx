@@ -20,7 +20,7 @@ import { useDocumentTemplates, useDocumentTemplateVersion } from "@/hooks/useDoc
 import { getMyUserProfile } from "@/lib/authApi";
 import { getCompanySettings } from "@/lib/settingsApi";
 import { buildAutoDocumentContext, mergeManualFields } from "@/lib/documentContextBuilder";
-import { renderDocumentTemplate } from "@/lib/documentTemplateEngine";
+import { blankPendingMarkers, fillPendingMarkers, pendingPaths, renderDocumentTemplate } from "@/lib/documentTemplateEngine";
 import { computeDocumentHash } from "@/lib/documentHash";
 import { generateQrCodeDataUrl } from "@/lib/qrCode";
 import { renderPdf } from "@/lib/pdfExport";
@@ -37,11 +37,36 @@ const GROUP_LABEL: Record<DocumentTemplateGroup, string> = {
 };
 const GROUP_ORDER: DocumentTemplateGroup[] = ["atestados", "consentimento", "recusa", "administrativo"];
 
-// Rótulo do campo de preenchimento fica mais legível "quebrando" o caminho
-// {{escopo.campo}} em algo tipo "atend · diagnóstico".
+// Rótulo do campo de preenchimento: "Responsável — RG" em vez de "resp · rg".
+const SCOPE_LABEL: Record<string, string> = {
+  resp: "Responsável",
+  pet: "Paciente",
+  paciente: "Paciente",
+  animal: "Paciente",
+  vet: "Veterinário",
+  atend: "Atendimento",
+  doc: "Documento",
+  clinica: "Clínica",
+};
+const FIELD_LABEL: Record<string, string> = {
+  rg: "RG",
+  cpf: "CPF",
+  email: "E-mail",
+  crmv: "CRMV",
+  nome: "Nome",
+  hora: "Hora",
+  data: "Data",
+  validade: "Validade",
+  observacoes: "Observações",
+  diagnostico: "Diagnóstico",
+  endereco: "Endereço",
+  telefone: "Telefone",
+};
 function labelForPath(caminho: string): string {
   const [escopo, ...resto] = caminho.split(".");
-  return `${escopo} · ${resto.join(".").replace(/_/g, " ")}`;
+  const campo = resto.join(".");
+  const campoLabel = FIELD_LABEL[campo] ?? campo.replace(/_/g, " ");
+  return `${SCOPE_LABEL[escopo] ?? escopo} — ${campoLabel.charAt(0).toUpperCase()}${campoLabel.slice(1)}`;
 }
 
 const EmitDocumentPage: React.FC = () => {
@@ -133,9 +158,15 @@ const EmitDocumentPage: React.FC = () => {
     return renderDocumentTemplate(versao.corpo, autoContext).variaveisPendentes;
   }, [versao, autoContext]);
 
-  const textoFinalParaEmitir = textoManual ?? preview?.texto ?? "";
-  const aindaTemPendencia = textoFinalParaEmitir.includes("[[PENDENTE:");
-  const podeEmitir = !!(template && versao && preview && !aindaTemPendencia && contextoFinal);
+  // O texto editado à mão guardava as marcas [[PENDENTE: x]] de quando foi
+  // editado e não pegava mais o que se digitava nos campos da etapa 3 — o
+  // botão travava com tudo preenchido. Agora as marcas que sobraram no texto
+  // são trocadas pelo valor do campo na hora.
+  const textoFinalParaEmitir = fillPendingMarkers(textoManual ?? preview?.texto ?? "", manualFields);
+  const pendentesNoTexto = pendingPaths(textoFinalParaEmitir);
+  // Emitir fica sempre liberado: o que sobrar pendente sai como linha em
+  // branco (a confirmação avisa quais são).
+  const podeEmitir = !!(template && versao && preview && contextoFinal);
 
   // Gera o PDF, sobe pro Storage e salva hash+pdf_path — extraído à parte pra
   // poder ser chamado de novo (botão "Tentar novamente") sem reemitir o
@@ -192,11 +223,8 @@ const EmitDocumentPage: React.FC = () => {
 
   const handleEmitir = async () => {
     if (!template || !versao || !contextoFinal || !animal || !client) return;
-    const corpoRenderizado = textoFinalParaEmitir;
-    if (corpoRenderizado.includes("[[PENDENTE:")) {
-      toast.error("Ainda há variáveis pendentes.");
-      return;
-    }
+    // Pendência que sobrou vira linha em branco, pra preencher à caneta.
+    const corpoRenderizado = blankPendingMarkers(textoFinalParaEmitir);
 
     setEmitting(true);
     try {
@@ -391,6 +419,11 @@ const EmitDocumentPage: React.FC = () => {
                 </Button>
               )}
               <div className="flex-1" />
+              {pendentesNoTexto.length > 0 && (
+                <span className="mr-3 self-center text-xs font-medium text-amber-700">
+                  {pendentesNoTexto.length} campo(s) sem preencher — saem em branco
+                </span>
+              )}
               <Button onClick={() => setConfirmOpen(true)} disabled={!podeEmitir}>
                 <FileSignature className="mr-2 h-4 w-4" /> Emitir documento
               </Button>
@@ -454,6 +487,17 @@ const EmitDocumentPage: React.FC = () => {
               novo. Confirma a emissão de "{template?.titulo}" para {animal.name}?
             </DialogDescription>
           </DialogHeader>
+          {pendentesNoTexto.length > 0 && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+              <p className="font-semibold">Estes campos não foram preenchidos e vão sair como linha em branco (__________):</p>
+              <ul className="mt-1 list-disc pl-5">
+                {pendentesNoTexto.map((p) => (
+                  <li key={p}>{labelForPath(p)}</li>
+                ))}
+              </ul>
+              <p className="mt-1 text-xs">Se preferir, cancele e preencha antes.</p>
+            </div>
+          )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setConfirmOpen(false)} disabled={emitting}>
               Cancelar

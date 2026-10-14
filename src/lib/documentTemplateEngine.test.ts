@@ -1,7 +1,27 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { renderDocumentTemplate, extractTemplateVariables, type DocumentTemplateContext } from "./documentTemplateEngine";
+import {
+  renderDocumentTemplate,
+  extractTemplateVariables,
+  blankPendingMarkers,
+  fillPendingMarkers,
+  pendingPaths,
+  type DocumentTemplateContext,
+} from "./documentTemplateEngine";
+
+describe("pendências no texto editado à mão", () => {
+  const editado = "Peso: [[PENDENTE: atend.peso]] kg. Vacinas: (X) V10. Obs: [[PENDENTE: atend.obs]]";
+  it("o que se digita no campo entra no texto mesmo depois de editado", () => {
+    const texto = fillPendingMarkers(editado, { "atend.peso": "6,6" });
+    expect(texto).toBe("Peso: 6,6 kg. Vacinas: (X) V10. Obs: [[PENDENTE: atend.obs]]");
+    expect(pendingPaths(texto)).toEqual(["atend.obs"]);
+  });
+  it("campo vazio mantém a marca; na emissão a sobra vira linha em branco", () => {
+    expect(fillPendingMarkers(editado, { "atend.peso": "  " })).toBe(editado);
+    expect(blankPendingMarkers(editado)).toBe("Peso: __________ kg. Vacinas: (X) V10. Obs: __________");
+  });
+});
 
 describe("renderDocumentTemplate", () => {
   it("resolve uma variável simples a partir do contexto", () => {
