@@ -25,6 +25,7 @@ import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/h
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   AlertTriangle,
+  CalendarDays,
   CalendarPlus,
   CheckCircle2,
   ChevronLeft,
@@ -1031,6 +1032,18 @@ const BookSchedulePage: React.FC = () => {
                     className="flex h-8 w-8 items-center justify-center rounded-full border border-border text-foreground transition-colors hover:bg-muted"
                   >
                     <ChevronRight className="h-5 w-5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDayOffset(0);
+                      setMobileIdx(0);
+                    }}
+                    disabled={dayOffset === 0 && mobileIdx === 0}
+                    title="Voltar para hoje"
+                    className="ml-1 flex h-8 items-center gap-1 rounded-full border border-teal-600 px-3 text-sm font-semibold text-teal-700 transition-colors hover:bg-teal-50 disabled:pointer-events-none disabled:opacity-40"
+                  >
+                    <CalendarDays className="h-4 w-4" /> Hoje
                   </button>
                 </div>
 
