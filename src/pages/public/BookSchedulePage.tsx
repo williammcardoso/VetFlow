@@ -450,11 +450,22 @@ const BookSchedulePage: React.FC = () => {
     setHoldExpired(false);
   };
 
+  // Trocar o tipo NÃO apaga o "até" escolhido (antes apagava: quem estendia o
+  // horário e depois escolhia o tipo perdia a extensão). A duração mínima do
+  // tipo continua valendo — effectiveDuration pega o maior dos dois.
   const handleKindChange = (k: BookingKind) => {
     setKind(k);
     setInfo((prev) => pruneKindInfo(k, prev));
-    setChosenDuration(null);
   };
+
+  // Clique num horário ocupado: primeiro mostra os detalhes (com Editar e
+  // Fechar) — antes já entrava direto em edição, confuso principalmente no celular.
+  const [infoBooking, setInfoBooking] = React.useState<ScheduleTimeSummary | null>(null);
+
+  // Grade do celular: um dia por vez, escolhido entre os 7 da janela.
+  const [mobileIdx, setMobileIdx] = React.useState(0);
+  const mobilePrev = () => (mobileIdx > 0 ? setMobileIdx((i) => i - 1) : setDayOffset((o) => o - 1));
+  const mobileNext = () => (mobileIdx < 6 ? setMobileIdx((i) => i + 1) : setDayOffset((o) => o + 1));
 
   const handlePickSlot = (dateISO: string, cell: string) => {
     setNotice(null);
@@ -713,7 +724,7 @@ const BookSchedulePage: React.FC = () => {
         <HoverCardTrigger asChild>
           <button
             type="button"
-            onClick={() => startEdit(b)}
+            onClick={() => setInfoBooking(b)}
             className={cn(
               "flex h-6 w-full items-center justify-center gap-0.5 truncate rounded-md border px-1 text-[10px] font-medium transition-colors",
               isPast
@@ -739,7 +750,7 @@ const BookSchedulePage: React.FC = () => {
             {formatDayHeader(d)} · {formatScheduleTimeRange(b.time, b.durationMinutes)}
           </p>
           {b.stationName && <p className="mt-1 text-xs text-muted-foreground">Agendado por: {b.stationName}</p>}
-          <p className="mt-2 text-xs font-medium text-teal-700">Clique para editar ou cancelar</p>
+          <p className="mt-2 text-xs font-medium text-teal-700">Clique para ver os detalhes e editar</p>
         </HoverCardContent>
       </HoverCard>
     );
@@ -809,6 +820,110 @@ const BookSchedulePage: React.FC = () => {
     );
   };
 
+  // Celular: o dia escolhido em lista, uma linha grande por horário.
+  const renderMobileRow = (dISO: string, hour: string) => {
+    const slotMinutes = toMinutes(hour);
+    const isPast = dISO < todayISO || (dISO === todayISO && slotMinutes !== null && slotMinutes < nowMinutes);
+    const time = <span className="w-12 shrink-0 text-base font-bold tabular-nums text-foreground">{hour}</span>;
+    const entries = cellMap.get(`${dISO}|${hour}`) || [];
+    if (entries.length > 0) {
+      return (
+        <li key={hour} className="flex items-start gap-3">
+          <span className="pt-2.5">{time}</span>
+          <div className="min-w-0 flex-1 space-y-1">
+            {entries.map((e) => {
+              const b = e.booking;
+              const blocked = b.kind === "bloqueio";
+              const Icon = b.kind ? KIND_VISUAL[b.kind].icon : null;
+              return (
+                <button
+                  key={`${b.id}-${e.isStart ? "s" : "c"}`}
+                  type="button"
+                  onClick={() => setInfoBooking(b)}
+                  className={cn(
+                    "flex min-h-[2.75rem] w-full items-center gap-2 rounded-xl border px-3 py-2 text-left",
+                    isPast
+                      ? "border-transparent bg-muted text-muted-foreground"
+                      : blocked
+                        ? "border-zinc-300 bg-zinc-100 text-zinc-700"
+                        : e.isStart
+                          ? "border-orange-300 bg-orange-50 text-orange-950"
+                          : "border-orange-200 bg-orange-50/50 text-orange-900/80",
+                    editing?.id === b.id && "ring-2 ring-amber-400"
+                  )}
+                >
+                  {e.isStart ? Icon && <Icon className="h-4 w-4 shrink-0" aria-hidden /> : <CornerDownRight className="h-4 w-4 shrink-0" aria-hidden />}
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-semibold">
+                      {blocked ? "Horário bloqueado" : b.clientName || "Ocupado"}
+                      {!e.isStart && <span className="font-normal"> (continua)</span>}
+                    </span>
+                    {e.isStart && (
+                      <span className="block truncate text-xs opacity-80">
+                        {[b.title, formatScheduleTimeRange(b.time, b.durationMinutes)].filter(Boolean).join(" · ")}
+                      </span>
+                    )}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </li>
+      );
+    }
+    const other = otherHoldAt(dISO, hour);
+    if (other && !isPast) {
+      return (
+        <li key={hour} className="flex items-center gap-3">
+          {time}
+          <button
+            type="button"
+            onClick={() => handlePickSlot(dISO, hour)}
+            className="flex min-h-[2.75rem] flex-1 items-center gap-2 rounded-xl border border-dashed border-amber-400 bg-amber-50 px-3 text-sm font-semibold text-amber-800"
+          >
+            <Lock className="h-4 w-4 shrink-0" aria-hidden />
+            <span className="truncate">Em reserva · {other.station || "outro computador"}</span>
+          </button>
+        </li>
+      );
+    }
+    const openSlots = getDaySlots(dISO);
+    const isMine = !!sel && sel.date === dISO && holdTarget.includes(hour);
+    const runHere =
+      kind && minCells > 1 ? freeRunLength(openSlots, hour, intervalMinutes, (c) => isFreeForMe(dISO, c), minCells) : minCells;
+    const fitsHere = runHere >= minCells;
+    return (
+      <li key={hour} className="flex items-center gap-3">
+        {time}
+        <button
+          type="button"
+          disabled={isPast}
+          onClick={() => handlePickSlot(dISO, hour)}
+          className={cn(
+            "flex min-h-[2.75rem] flex-1 items-center rounded-xl border px-3 text-sm font-semibold transition-colors",
+            isMine
+              ? "border-teal-600 bg-teal-600 text-white"
+              : isPast
+                ? "cursor-not-allowed border-transparent bg-muted font-normal text-muted-foreground/60"
+                : fitsHere
+                  ? "border-teal-200 bg-teal-50 text-teal-800 active:bg-teal-100"
+                  : "border-dashed border-teal-200 bg-white font-normal text-teal-700/70"
+          )}
+        >
+          {isMine
+            ? hour === sel?.time
+              ? "Seu horário"
+              : "↳ continua"
+            : isPast
+              ? "Já passou"
+              : fitsHere
+                ? "Livre"
+                : `Livre — só ${fmtDuration(runHere * intervalMinutes)}`}
+        </button>
+      </li>
+    );
+  };
+
   const gridHours = React.useMemo(() => {
     const set = new Set<string>();
     weekDays.forEach((d) => getDaySlots(toISODate(d)).forEach((h) => set.add(h)));
@@ -819,7 +934,7 @@ const BookSchedulePage: React.FC = () => {
 
   return (
     <div
-      className="flex vf-viewport-min-h items-center justify-center bg-muted/40 p-4"
+      className="flex vf-viewport-min-h items-center justify-center bg-muted/40 p-2 sm:p-4"
       onPointerDownCapture={onActivity}
       onKeyDownCapture={onActivity}
     >
@@ -843,7 +958,7 @@ const BookSchedulePage: React.FC = () => {
             </button>
           )}
         </CardHeader>
-        <CardContent>
+        <CardContent className="px-3 sm:px-6">
           {!stationName ? (
             // Sem saber qual computador é, os outros não teriam como saber
             // quem está segurando um horário — por isso a agenda só libera
@@ -894,7 +1009,7 @@ const BookSchedulePage: React.FC = () => {
           ) : (
             <div className="space-y-5">
               {/* Calendário semanal */}
-              <div className="relative rounded-xl border border-border p-3">
+              <div className="relative rounded-xl border border-border p-2 sm:p-3">
                 <div className="mb-2 flex items-center justify-center gap-2 sm:gap-3">
                   <button
                     type="button"
@@ -919,8 +1034,88 @@ const BookSchedulePage: React.FC = () => {
                   </button>
                 </div>
 
-                {/* Espaço nas laterais pros botões redondos não taparem a grade. */}
-                <div className="px-14 sm:px-16">
+                {/* Celular: um dia por vez (a grade da semana não cabia). */}
+                <div className="sm:hidden">
+                  <div className="mb-3 flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={mobilePrev}
+                      aria-label="Dia anterior"
+                      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-teal-600 text-white shadow"
+                    >
+                      <ChevronLeft className="h-5 w-5" />
+                    </button>
+                    <div className="flex min-w-0 flex-1 gap-1 overflow-x-auto">
+                      {weekDays.map((d, i) => {
+                        const dISO = toISODate(d);
+                        const count = bookings.filter((b) => b.date === dISO).length;
+                        const active = i === mobileIdx;
+                        return (
+                          <button
+                            key={dISO}
+                            type="button"
+                            onClick={() => setMobileIdx(i)}
+                            className={cn(
+                              "relative flex min-w-[2.9rem] flex-1 flex-col items-center rounded-lg border px-1 py-1",
+                              active ? "border-teal-600 bg-teal-600 text-white" : "border-border bg-card text-foreground",
+                              dISO < todayISO && !active && "opacity-50"
+                            )}
+                          >
+                            <span className="text-[11px] font-bold">{dISO === todayISO ? "Hoje" : WEEKDAY_LABELS[d.getDay()]}</span>
+                            <span className="text-[11px] tabular-nums">{formatDayHeader(d)}</span>
+                            {count > 0 && (
+                              <span
+                                className={cn(
+                                  "absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[9px] font-bold",
+                                  active ? "bg-white text-teal-700" : "bg-orange-500 text-white"
+                                )}
+                              >
+                                {count}
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={mobileNext}
+                      aria-label="Dia seguinte"
+                      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-teal-600 text-white shadow"
+                    >
+                      <ChevronRight className="h-5 w-5" />
+                    </button>
+                  </div>
+                  {!everLoaded ? (
+                    <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
+                      <Loader2 className="h-4 w-4 animate-spin" /> Carregando horários...
+                    </div>
+                  ) : (
+                    (() => {
+                      const dISO = toISODate(weekDays[mobileIdx]);
+                      const slots = getDaySlots(dISO);
+                      return (
+                        <div className={cn("transition-opacity", loadingWeek && "pointer-events-none opacity-50")}>
+                          <button
+                            type="button"
+                            onClick={() => setSummaryDateISO(dISO)}
+                            className="mb-2 text-sm font-semibold text-teal-700 underline decoration-dotted"
+                          >
+                            {dayLabel(dISO)} — ver resumo do dia
+                          </button>
+                          {slots.length === 0 ? (
+                            <p className="py-6 text-center text-sm text-muted-foreground">Clínica fechada neste dia.</p>
+                          ) : (
+                            <ul className="space-y-1.5">{slots.map((hour) => renderMobileRow(dISO, hour))}</ul>
+                          )}
+                        </div>
+                      );
+                    })()
+                  )}
+                </div>
+
+                {/* Computador: a semana em grade. Espaço nas laterais pros botões redondos. */}
+                <div className="hidden sm:block sm:px-16">
                   {!everLoaded ? (
                     <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
                       <Loader2 className="h-4 w-4 animate-spin" /> Carregando horários...
@@ -973,25 +1168,25 @@ const BookSchedulePage: React.FC = () => {
                 </div>
                 {legend}
                 <p className="mt-1 text-[11px] text-muted-foreground">
-                  Clique num horário livre para reservar, num ocupado para editar ou cancelar, ou na data para ver o resumo do dia.
+                  Clique num horário livre para reservar, num ocupado para ver os detalhes (e editar), ou na data para ver o resumo do dia.
                 </p>
 
-                {/* Botões redondos grandes: esquerda volta 1 dia, direita avança 1 semana. */}
+                {/* Botões redondos grandes (computador): andam 1 dia para cada lado. */}
                 <button
                   type="button"
                   onClick={() => setDayOffset((o) => o - 1)}
                   title="Ver o dia anterior"
                   aria-label="Ver o dia anterior"
-                  className="absolute left-0 top-1/2 z-20 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full border border-teal-700/20 bg-teal-600 text-white shadow-lg transition-transform hover:scale-105 hover:bg-teal-700 sm:left-1 sm:h-14 sm:w-14"
+                  className="absolute left-1 top-1/2 z-20 hidden h-14 w-14 -translate-y-1/2 items-center justify-center rounded-full border border-teal-700/20 bg-teal-600 text-white shadow-lg transition-transform hover:scale-105 hover:bg-teal-700 sm:flex"
                 >
                   <ChevronLeft className="h-6 w-6 sm:h-7 sm:w-7" />
                 </button>
                 <button
                   type="button"
-                  onClick={() => setDayOffset((o) => o + 7)}
-                  title="Ver a semana seguinte"
-                  aria-label="Ver a semana seguinte"
-                  className="absolute right-0 top-1/2 z-20 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full border border-teal-700/20 bg-teal-600 text-white shadow-lg transition-transform hover:scale-105 hover:bg-teal-700 sm:right-1 sm:h-14 sm:w-14"
+                  onClick={() => setDayOffset((o) => o + 1)}
+                  title="Ver o dia seguinte"
+                  aria-label="Ver o dia seguinte"
+                  className="absolute right-1 top-1/2 z-20 hidden h-14 w-14 -translate-y-1/2 items-center justify-center rounded-full border border-teal-700/20 bg-teal-600 text-white shadow-lg transition-transform hover:scale-105 hover:bg-teal-700 sm:flex"
                 >
                   <ChevronRight className="h-6 w-6 sm:h-7 sm:w-7" />
                 </button>
@@ -1030,7 +1225,7 @@ const BookSchedulePage: React.FC = () => {
                       </span>
                     </span>
                     <Button type="button" variant="ghost" size="sm" className="h-8 text-amber-900 hover:bg-amber-100" onClick={resetForm}>
-                      Sair da edição
+                      Voltar
                     </Button>
                   </div>
                 )}
@@ -1068,13 +1263,16 @@ const BookSchedulePage: React.FC = () => {
                             <Lock className="h-3 w-3" aria-hidden /> Reservado para você
                           </span>
                         ) : null)}
-                      <button
-                        type="button"
-                        onClick={() => (editing ? resetForm() : setSel(null))}
-                        className="ml-auto inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
-                      >
-                        <X className="h-3.5 w-3.5" aria-hidden /> Soltar horário
-                      </button>
+                      {/* Na edição o "Voltar" de baixo faz isso; aqui só pra reserva nova. */}
+                      {!editing && (
+                        <button
+                          type="button"
+                          onClick={() => setSel(null)}
+                          className="ml-auto inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
+                        >
+                          <X className="h-3.5 w-3.5" aria-hidden /> Soltar horário
+                        </button>
+                      )}
                     </div>
                   ) : (
                     <p className="rounded-lg border border-dashed border-teal-300 bg-teal-50/60 px-3 py-2 text-sm text-teal-800">
@@ -1125,17 +1323,21 @@ const BookSchedulePage: React.FC = () => {
                   <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <Button
                       type="button"
-                      variant="ghost"
-                      className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                      className="bg-red-600 text-white hover:bg-red-700"
                       onClick={() => setCancelConfirmOpen(true)}
                       disabled={saving}
                     >
-                      <Trash2 className="mr-2 h-4 w-4" /> Cancelar horário
+                      <Trash2 className="mr-2 h-4 w-4" /> Excluir agendamento
                     </Button>
-                    <Button type="submit" disabled={saving}>
-                      {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                      Salvar alterações
-                    </Button>
+                    <div className="flex flex-col-reverse gap-2 sm:flex-row">
+                      <Button type="button" variant="outline" onClick={resetForm} disabled={saving}>
+                        Voltar
+                      </Button>
+                      <Button type="submit" disabled={saving}>
+                        {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                        Salvar alterações
+                      </Button>
+                    </div>
                   </div>
                 ) : (
                   <Button type="submit" className="w-full" disabled={saving}>
@@ -1161,24 +1363,63 @@ const BookSchedulePage: React.FC = () => {
       <AlertDialog open={cancelConfirmOpen} onOpenChange={setCancelConfirmOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Cancelar esse agendamento?</AlertDialogTitle>
+            <AlertDialogTitle>Excluir este agendamento?</AlertDialogTitle>
             <AlertDialogDescription>
-              O horário de {editing?.clientName || "esse cliente"} às {editing?.time} vai ficar livre de novo.
+              O agendamento de {editing?.clientName || "esse cliente"} às {editing?.time} sai da agenda e o horário fica livre de
+              novo.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Voltar</AlertDialogCancel>
             <AlertDialogAction
+              className="bg-red-600 text-white hover:bg-red-700"
               onClick={() => {
                 setCancelConfirmOpen(false);
                 void doCancelBooking();
               }}
             >
-              Cancelar horário
+              Excluir agendamento
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Detalhes do agendamento (clique num horário ocupado). */}
+      <Dialog open={!!infoBooking} onOpenChange={(open) => !open && setInfoBooking(null)}>
+        <DialogContent className="sm:max-w-sm">
+          {infoBooking && (
+            <>
+              <DialogHeader>
+                <DialogTitle>{infoBooking.kind === "bloqueio" ? "Horário bloqueado" : infoBooking.clientName || "Sem nome"}</DialogTitle>
+                <DialogDescription>
+                  {dayLabel(infoBooking.date)} · {formatScheduleTimeRange(infoBooking.time, infoBooking.durationMinutes)}
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-2 text-sm">
+                {infoBooking.kind && <KindBadge kind={infoBooking.kind} info={infoBooking.kindInfo} />}
+                {infoBooking.title && <p className="font-medium text-foreground">{infoBooking.title}</p>}
+                {infoBooking.kindInfo?.obs && <p className="text-muted-foreground">Obs.: {infoBooking.kindInfo.obs}</p>}
+                {infoBooking.stationName && <p className="text-xs text-muted-foreground">Agendado por: {infoBooking.stationName}</p>}
+              </div>
+              <DialogFooter className="flex-col-reverse gap-2 sm:flex-row">
+                <Button type="button" variant="outline" onClick={() => setInfoBooking(null)}>
+                  Fechar
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => {
+                    const b = infoBooking;
+                    setInfoBooking(null);
+                    startEdit(b);
+                  }}
+                >
+                  <Pencil className="mr-2 h-4 w-4" /> Editar
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Resumo do dia */}
       <Dialog open={!!summaryDateISO} onOpenChange={(open) => !open && setSummaryDateISO(null)}>
