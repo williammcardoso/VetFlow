@@ -15,8 +15,10 @@ import { MedicationData } from "@/types/medication";
 import {
   buildPosology,
   calculateDoseByWeight,
+  formatDecimalBR,
   formsForUse,
   medicationSelectFields,
+  parseDecimalBR,
   posologyInputFromMedication,
   refreshMedicationPosology,
   sitesForUse,
@@ -46,13 +48,6 @@ interface PrescriptionMedicationFormProps {
 
 const CALC_FORMS = ["Comprimido", "Cápsula", "Líquido (mL)", "Gotas"];
 
-// "12,5" e "12.5" valem 12,5 (teclado do celular pode trazer qualquer um);
-// com vírgula presente, ponto é separador de milhar ("1.200,5").
-const parseDecimalBR = (s: string) => {
-  const t = (s || "").trim();
-  return parseFloat(t.includes(",") ? t.replace(/\./g, "").replace(",", ".") : t) || 0;
-};
-const formatDecimalBR = (n: number) => n.toLocaleString("pt-BR", { maximumFractionDigits: 2 });
 
 const DOSE_PLACEHOLDER: Record<string, string> = {
   "Líquido (mL)": "Ex: 5 (mL por vez)",
@@ -221,6 +216,10 @@ const PrescriptionMedicationForm: React.FC<PrescriptionMedicationFormProps> = ({
   const [showCalc, setShowCalc] = useState(false);
   const [calcMgPerKg, setCalcMgPerKg] = useState("");
   const [calcWeight, setCalcWeight] = useState(animalWeight ? formatDecimalBR(animalWeight) : "");
+  // Mudou o "Peso do paciente" no topo da receita → a calculadora acompanha.
+  useEffect(() => {
+    if (animalWeight) setCalcWeight(formatDecimalBR(animalWeight));
+  }, [animalWeight]);
   const canCalc = CALC_FORMS.includes(pharmaceuticalForm);
   const calc = useMemo(
     () =>

@@ -3,9 +3,11 @@ import type { MedicationData } from "@/types/medication";
 import {
   buildManipulatedPosology,
   buildPosology,
+  calculateCompoundDose,
   calculateDoseByWeight,
   formsForUse,
   parseConcentration,
+  parseDecimalBR,
   refreshMedicationPosology,
   sitesForUse,
   type PosologyInput,
@@ -442,5 +444,37 @@ describe("buildManipulatedPosology — receita manipulada no mesmo motor", () =>
     expect(
       buildManipulatedPosology({ route: "", measure: "", dosage: "", frequencyValue: "", frequencyUnit: "", durationValue: "", durationUnit: "" })
     ).toBe("");
+  });
+});
+
+describe("calculateCompoundDose — manipulada pelo peso", () => {
+  it("mg/kg × peso = mg por cápsula", () => {
+    const r = calculateCompoundDose({ dosePerKg: 10, unit: "mg", weightKg: 6.6 });
+    expect(r).toMatchObject({ amount: 66, unitLabel: "mg" });
+  });
+  it("arredonda pra pesar: 2 casas abaixo de 10, 1 abaixo de 100, inteiro acima", () => {
+    expect(calculateCompoundDose({ dosePerKg: 0.5, unit: "mg", weightKg: 3.333 })).toMatchObject({ amount: 1.67 });
+    expect(calculateCompoundDose({ dosePerKg: 5, unit: "mg", weightKg: 12.37 })).toMatchObject({ amount: 61.9 });
+    expect(calculateCompoundDose({ dosePerKg: 25, unit: "mg", weightKg: 32.3 })).toMatchObject({ amount: 808 });
+  });
+  it("posologia em volume vira concentração (mg/mL)", () => {
+    const r = calculateCompoundDose({ dosePerKg: 10, unit: "mg", weightKg: 5, doseVolumeMl: 1 });
+    expect(r).toMatchObject({ amount: 50, unitLabel: "mg/mL" });
+    const meio = calculateCompoundDose({ dosePerKg: 10, unit: "mg", weightKg: 5, doseVolumeMl: 0.5 });
+    expect(meio).toMatchObject({ amount: 100, unitLabel: "mg/mL" });
+  });
+  it("2 cápsulas por vez: divide a dose entre elas", () => {
+    const r = calculateCompoundDose({ dosePerKg: 10, unit: "mg", weightKg: 6, unitsPerDose: 2, unitName: "cápsula" });
+    expect(r).toMatchObject({ amount: 30, unitLabel: "mg" });
+    expect("description" in r && r.description).toContain("30 mg por cápsula");
+  });
+  it("sem peso ou sem dose avisa em vez de calcular", () => {
+    expect(calculateCompoundDose({ dosePerKg: 10, unit: "mg", weightKg: 0 })).toHaveProperty("error");
+    expect(calculateCompoundDose({ dosePerKg: 0, unit: "mcg", weightKg: 5 })).toHaveProperty("error");
+  });
+  it("peso aceita vírgula", () => {
+    expect(parseDecimalBR("6,6")).toBe(6.6);
+    expect(parseDecimalBR("12.5")).toBe(12.5);
+    expect(parseDecimalBR("")).toBe(0);
   });
 });

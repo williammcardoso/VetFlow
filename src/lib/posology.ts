@@ -715,3 +715,65 @@ export function refreshMedicationPosology<T extends MedicationData>(med: T): T {
     totalQuantity: qtyEdited ? med.totalQuantity : p.quantityNumber != null ? String(p.quantityNumber) : "",
   };
 }
+
+// ---- Peso e dose por peso na receita manipulada ----
+
+/** "12,5" / "12.5" / "1.250,5" → número (0 se vazio/inválido). */
+export const parseDecimalBR = (s: string): number => {
+  const t = (s || "").trim();
+  return parseFloat(t.includes(",") ? t.replace(/\./g, "").replace(",", ".") : t) || 0;
+};
+export const formatDecimalBR = (n: number): string => n.toLocaleString("pt-BR", { maximumFractionDigits: 2 });
+
+/** Arredonda pra pesar/pipetar: 2 casas abaixo de 10, 1 abaixo de 100, inteiro acima. */
+export function roundCompoundAmount(raw: number): number {
+  // 25 × 32,3 dá 807,4999… em ponto flutuante; corta o ruído antes.
+  const n = Number(raw.toPrecision(12));
+  if (n < 10) return Math.round(n * 100) / 100;
+  if (n < 100) return Math.round(n * 10) / 10;
+  return Math.round(n);
+}
+
+/**
+ * Quanto do ativo vai na fórmula a partir da dose por peso: mg/kg (ou
+ * mcg/kg) × peso = quantidade por dose (por cápsula, biscoito, sachê...).
+ * Se a dose da posologia é em volume (mL ou gotas), divide pelo volume e
+ * devolve a concentração (mg/mL) que a farmácia precisa manipular.
+ */
+export function calculateCompoundDose(input: {
+  dosePerKg: number;
+  unit: "mg" | "mcg";
+  weightKg: number;
+  /** Volume de cada dose em mL (posologia "Líquido (mL)" ou gotas ÷ 20). */
+  doseVolumeMl?: number;
+  /** Cápsulas/biscoitos... por dose (posologia "2 cápsulas a cada 12 h" → 2): divide entre elas. */
+  unitsPerDose?: number;
+  /** Nome no singular pra frase ("cápsula", "biscoito"). */
+  unitName?: string;
+}): { error: string } | { perDose: number; amount: number; unitLabel: string; description: string } {
+  const { dosePerKg, unit, weightKg, doseVolumeMl, unitsPerDose, unitName } = input;
+  if (!(weightKg > 0)) return { error: "Informe o peso do paciente no topo da receita." };
+  if (!(dosePerKg > 0)) return { error: `Digite a dose em ${unit}/kg.` };
+  const perDose = dosePerKg * weightKg;
+  if (doseVolumeMl && doseVolumeMl > 0) {
+    const amount = roundCompoundAmount(perDose / doseVolumeMl);
+    return {
+      perDose,
+      amount,
+      unitLabel: `${unit}/mL`,
+      description: `${formatDecimalBR(roundCompoundAmount(perDose))} ${unit} por dose, em ${formatDecimalBR(doseVolumeMl)} mL → ${formatDecimalBR(amount)} ${unit}/mL`,
+    };
+  }
+  const each = unitName || "dose";
+  if (unitsPerDose && unitsPerDose > 0 && unitsPerDose !== 1) {
+    const amount = roundCompoundAmount(perDose / unitsPerDose);
+    return {
+      perDose,
+      amount,
+      unitLabel: unit,
+      description: `${formatDecimalBR(roundCompoundAmount(perDose))} ${unit} por dose, dividido em ${formatDecimalBR(unitsPerDose)} ${unitsPerDose > 1 ? `${each}s` : each} → ${formatDecimalBR(amount)} ${unit} por ${each}`,
+    };
+  }
+  const amount = roundCompoundAmount(perDose);
+  return { perDose, amount, unitLabel: unit, description: `${formatDecimalBR(amount)} ${unit} por ${each}` };
+}

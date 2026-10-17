@@ -20,7 +20,7 @@ import {
 } from "@/types/medication";
 import ManipulatedFormulaComponentForm from "./ManipulatedFormulaComponentForm";
 import { toast } from "sonner";
-import { buildManipulatedPosology } from "@/lib/posology";
+import { buildManipulatedPosology, parseDecimalBR } from "@/lib/posology";
 import {
   DURATION_UNITS,
   FREQUENCY_UNITS,
@@ -36,6 +36,8 @@ import {
 interface PrescriptionManipulatedFormProps {
   initialData?: ManipulatedPrescriptionData;
   onSave: (data: ManipulatedPrescriptionData) => void;
+  /** Peso do paciente (kg), do topo da receita — base da dose por peso dos componentes. */
+  animalWeight?: number;
 }
 
 const mockPosologyFrequencies = ["1", "2", "3", "4", "6", "8", "12", "24", "Outro"]; // Valores numéricos
@@ -46,6 +48,7 @@ const mockProductRoutes = ["Oral", "Tópica", "Injetável", "Oftálmica", "Auric
 const PrescriptionManipulatedForm: React.FC<PrescriptionManipulatedFormProps> = ({
   initialData,
   onSave,
+  animalWeight,
 }) => {
   const [formulaComponents, setFormulaComponents] = useState<ManipulatedFormulaComponent[]>(
     initialData?.formulaComponents || [{ id: `comp-${Date.now()}`, name: "", dosageQuantity: "", dosageUnit: "" }]
@@ -365,6 +368,19 @@ const PrescriptionManipulatedForm: React.FC<PrescriptionManipulatedFormProps> = 
     onSave(dataToSave);
   };
 
+  // Base da dose por peso nos componentes: quanto vai em cada dose da
+  // posologia ("1 cápsula", "2 biscoitos", "0,5 mL", "10 gotas" = 0,5 mL).
+  const doseBasis = (() => {
+    if (posologyType !== "automatic") return {};
+    const qty = parseDecimalBR(posologyAutomatic.dosage);
+    if (!(qty > 0)) return {};
+    const measure = posologyAutomatic.measure;
+    if (measure === "Líquido (mL)") return { doseVolumeMl: qty };
+    if (measure === "Gotas") return { doseVolumeMl: qty / 20 };
+    const names: Record<string, string> = { Cápsula: "cápsula", Comprimido: "comprimido", Biscoito: "biscoito", Sachê: "sachê" };
+    return names[measure] ? { unitsPerDose: qty, unitName: names[measure] } : {};
+  })();
+
   const displayVehicleType = vehicleTypeLabel(vehicleExcipient.type, customVehicleType);
   const displayPosologyMeasure = posologyAutomatic.measure === "Outro" ? customPosologyMeasure : posologyAutomatic.measure;
   const displayPosologyFrequencyValue = posologyAutomatic.frequencyValue === "Outro" ? customPosologyFrequencyValue : posologyAutomatic.frequencyValue;
@@ -383,6 +399,10 @@ const PrescriptionManipulatedForm: React.FC<PrescriptionManipulatedFormProps> = 
             <CardTitle className="flex items-center gap-2 text-lg font-semibold text-foreground">
               <FaFlask className="h-5 w-5 text-primary" /> Composição da Fórmula
             </CardTitle>
+            <p className="text-xs text-muted-foreground">
+              Use "Calcular pelo peso" em cada componente (mg/kg × {animalWeight ? `${animalWeight.toLocaleString("pt-BR")} kg` : "peso"}).
+              Preencha a posologia antes: se for líquido/gotas, a conta sai em mg/mL.
+            </p>
           </CardHeader>
           <CardContent className="space-y-4">
             {formulaComponents.map((comp, index) => (
@@ -393,6 +413,8 @@ const PrescriptionManipulatedForm: React.FC<PrescriptionManipulatedFormProps> = 
                 onUpdate={handleUpdateComponent}
                 onDelete={handleDeleteComponent}
                 shouldFocus={comp.id === lastAddedComponentId} // Passa a prop para o componente filho
+                animalWeight={animalWeight}
+                doseBasis={doseBasis}
               />
             ))}
             <Button onClick={handleAddComponent} variant="outline" className="w-full bg-card border border-border text-foreground hover:bg-muted transition-colors duration-200 shadow-sm hover:shadow-md">

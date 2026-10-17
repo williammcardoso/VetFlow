@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Link, useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { FaArrowLeft, FaPlus, FaTimes, FaEye, FaSave, FaPrint, FaDownload, FaClipboardList } from "@/components/icons/fa";
-import { ClipboardList } from "lucide-react";
+import { ClipboardList, Scale } from "lucide-react";
 import { PageShell } from "@/components/saas/PageShell";
 import { PageHeader } from "@/components/saas/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -13,7 +13,9 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import PrescriptionMedicationForm, { MedicationData } from "@/components/PrescriptionMedicationForm";
 import PrescriptionManipulatedForm from "@/components/PrescriptionManipulatedForm";
-import { refreshMedicationPosology } from "@/lib/posology";
+import { formatDecimalBR, parseDecimalBR, refreshMedicationPosology } from "@/lib/posology";
+import { updateAnimalDetails } from "@/lib/clientsApi";
+import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { PrescriptionEntry, ManipulatedPrescriptionData } from "@/types/medication";
 import { slugifyFileName, getTodayLocalISO, formatDateBRForFileName } from "@/lib/utils";
@@ -51,6 +53,40 @@ const AddPrescriptionPage = () => {
   const { profile: currentUserProfile } = useCurrentUserProfile();
   const animal = client?.animals.find(a => a.id === animalId);
   const { prescriptions, refetch: refetchPrescriptions } = usePrescriptions(animalId ?? undefined);
+  const queryClient = useQueryClient();
+
+  // Peso usado nas contas desta receita (calculadora de dose da simples/
+  // controlada e da manipulada) e impresso no PDF. Começa com o peso do
+  // cadastro; se o pet foi pesado agora, dá pra trocar aqui e gravar.
+  const [weightText, setWeightText] = useState("");
+  const weightLoadedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!animal || weightLoadedRef.current === animal.id) return;
+    weightLoadedRef.current = animal.id;
+    setWeightText(animal.weight ? formatDecimalBR(animal.weight) : "");
+  }, [animal]);
+  const weightKg = parseDecimalBR(weightText);
+  const weightDiffers = Boolean(animal && weightKg > 0 && Math.abs(weightKg - (animal.weight || 0)) > 0.001);
+  const [savingWeight, setSavingWeight] = useState(false);
+  const saveWeightToRecord = async () => {
+    if (!clientId || !animalId || !(weightKg > 0)) return;
+    setSavingWeight(true);
+    const now = new Date();
+    const ok = await updateAnimalDetails(
+      clientId,
+      animalId,
+      { weight: weightKg, lastWeightSource: "Receita" },
+      { date: getTodayLocalISO(), time: `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}` }
+    );
+    setSavingWeight(false);
+    if (!ok) {
+      toast.error("Não consegui atualizar o peso no cadastro.");
+      return;
+    }
+    await queryClient.invalidateQueries({ queryKey: ["clients-with-animals"] });
+    await queryClient.invalidateQueries({ queryKey: ["client-with-animals", clientId] });
+    toast.success(`Peso atualizado no cadastro: ${formatDecimalBR(weightKg)} kg.`);
+  };
 
   // Estados para Receita Simples/Controlada
   const [currentPrescriptionMedications, setCurrentPrescriptionMedications] = useState<MedicationData[]>([]);
@@ -302,7 +338,7 @@ const AddPrescriptionPage = () => {
           animalBreed: animal.breed,
           animalSex: animal.gender,
           animalBirthday: animal.birthday,
-          animalWeight: animal.weight,
+          animalWeight: weightKg || animal.weight,
           animalMicrochip: animal.microchip,
           tutorName: client.name,
           tutorAddress: formatAddress(client),
@@ -351,7 +387,7 @@ const AddPrescriptionPage = () => {
           animalBreed: animal.breed,
           animalSex: animal.gender,
           animalBirthday: animal.birthday,
-          animalWeight: animal.weight,
+          animalWeight: weightKg || animal.weight,
           animalMicrochip: animal.microchip,
           tutorName: client.name,
           tutorAddress: formatAddress(client),
@@ -440,7 +476,8 @@ const AddPrescriptionPage = () => {
         <div className="flex flex-col lg:flex-row gap-1">
           <div className="flex-1 lg:pr-2">
             <div className="grid gap-1 py-1">
-              <Card className="vf-surface-card vf-tone-clinical card-hover mb-1 rounded-xl border border-border/80">
+              <div className="mb-1 grid gap-2 md:grid-cols-[minmax(0,1fr)_17rem]">
+              <Card className="vf-surface-card vf-tone-clinical card-hover min-w-0 rounded-xl border border-border/80">
             <CardHeader>
               <CardTitle>Descrição do Tratamento</CardTitle>
             </CardHeader>
@@ -458,10 +495,54 @@ const AddPrescriptionPage = () => {
             </CardContent>
           </Card>
 
+              {/* Peso do paciente: base das contas de dose (todas as receitas). */}
+              <Card className="min-w-0 rounded-xl border border-emerald-200 bg-emerald-50/60">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Scale className="h-5 w-5 text-emerald-600" /> Peso do paciente
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  <Label htmlFor="prescriptionWeight">Peso usado nos cálculos (kg)</Label>
+                  <div className="relative">
+                    <Input
+                      id="prescriptionWeight"
+                      inputMode="decimal"
+                      placeholder="Ex: 6,6"
+                      value={weightText}
+                      onChange={(e) => setWeightText(e.target.value)}
+                      className="h-10 bg-white pr-10 text-base font-semibold"
+                    />
+                    <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">kg</span>
+                  </div>
+                  {weightDiffers ? (
+                    <div className="space-y-1.5">
+                      <p className="text-xs text-amber-800">
+                        No cadastro está {animal.weight ? `${formatDecimalBR(animal.weight)} kg` : "sem peso"}.
+                      </p>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        disabled={savingWeight}
+                        onClick={() => void saveWeightToRecord()}
+                        className="w-full border-emerald-300 bg-white text-emerald-800 hover:bg-emerald-50"
+                      >
+                        Atualizar peso no cadastro
+                      </Button>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">Do cadastro do animal. Pesou agora? Troque aqui.</p>
+                  )}
+                </CardContent>
+              </Card>
+              </div>
+
           {prescriptionType === 'manipulated' ? (
             <PrescriptionManipulatedForm
               initialData={manipulatedPrescriptionData}
               onSave={handleSaveManipulatedPrescription}
+              animalWeight={weightKg || undefined}
             />
           ) : (
             <Card className="vf-surface-card vf-tone-clinical card-hover mb-1 rounded-xl border border-border/80">
@@ -480,7 +561,7 @@ const AddPrescriptionPage = () => {
                     onSave={handleSaveMedication}
                     onDelete={handleDeleteMedication}
                     onToggleCollapse={handleToggleMedicationCollapse}
-                    animalWeight={animal.weight}
+                    animalWeight={weightKg || undefined}
                   />
                 ))}
                 <Button onClick={handleAddMedication} className="w-full bg-[hsl(var(--vf-clinical))] font-semibold text-white transition-all duration-200 shadow-md hover:bg-[hsl(var(--vf-clinical)/0.9)] hover:shadow-lg">
