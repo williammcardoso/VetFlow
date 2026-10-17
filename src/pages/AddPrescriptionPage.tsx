@@ -451,35 +451,14 @@ const AddPrescriptionPage = () => {
     );
   }
 
-  return (
-    <PageShell>
-      <PageHeader
-        title={getPrescriptionTitle()}
-        description={`Gerencie os detalhes da receita para ${animal.name}.`}
-        icon={ClipboardList}
-        module="clinical"
-        breadcrumb={
-          <>
-            Painel &gt; <Link to="/clients" className="hover:text-primary">Clientes</Link> &gt; <Link to={`/clients/${client.id}`} className="hover:text-primary">{client.name}</Link> &gt; <Link to={getPatientRecordPath(clientId, animalId, animal?.patientCode)} className="hover:text-primary">{animal.name}</Link> &gt; Receita
-          </>
-        }
-        actions={
-          <Link to={getPatientRecordPath(clientId, animalId, animal?.patientCode)}>
-            <Button variant="outline" className="rounded-md border-border text-foreground hover:bg-muted hover:text-foreground transition-colors duration-200">
-              <FaArrowLeft className="mr-2 h-4 w-4" /> Voltar para Prontuário
-            </Button>
-          </Link>
-        }
-      />
-
-      <div>
-        <div className="flex flex-col lg:flex-row gap-1">
-          <div className="flex-1 lg:pr-2">
-            <div className="grid gap-1 py-1">
-              <div className="mb-1 grid gap-2 md:grid-cols-[minmax(0,1fr)_17rem]">
+  // Descrição do tratamento + peso. Na manipulada vão para dentro da coluna
+  // da esquerda do formulário (mesma largura da Composição), deixando a
+  // coluna da direita só para a Prévia da Fórmula.
+  const topCards = (
+              <div className="grid gap-2 md:grid-cols-[minmax(0,1fr)_15rem]">
               <Card className="vf-surface-card vf-tone-clinical card-hover min-w-0 rounded-xl border border-border/80">
             <CardHeader className="p-4 pb-2">
-              <CardTitle>Descrição do Tratamento</CardTitle>
+              <CardTitle className="text-base font-semibold">Descrição do Tratamento</CardTitle>
             </CardHeader>
             <CardContent className="p-4 pt-0">
               <div className="space-y-2">
@@ -498,7 +477,7 @@ const AddPrescriptionPage = () => {
               {/* Peso do paciente: base das contas de dose (todas as receitas). */}
               <Card className="min-w-0 rounded-xl border border-emerald-200 bg-emerald-50/60">
                 <CardHeader className="p-4 pb-2">
-                  <CardTitle className="flex items-center gap-2">
+                  <CardTitle className="flex items-center gap-2 text-base font-semibold">
                     <Scale className="h-5 w-5 text-emerald-600" /> Peso do paciente
                   </CardTitle>
                 </CardHeader>
@@ -537,12 +516,41 @@ const AddPrescriptionPage = () => {
                 </CardContent>
               </Card>
               </div>
+  );
+
+  return (
+    <PageShell>
+      <PageHeader
+        title={getPrescriptionTitle()}
+        description={`Gerencie os detalhes da receita para ${animal.name}.`}
+        icon={ClipboardList}
+        module="clinical"
+        breadcrumb={
+          <>
+            Painel &gt; <Link to="/clients" className="hover:text-primary">Clientes</Link> &gt; <Link to={`/clients/${client.id}`} className="hover:text-primary">{client.name}</Link> &gt; <Link to={getPatientRecordPath(clientId, animalId, animal?.patientCode)} className="hover:text-primary">{animal.name}</Link> &gt; Receita
+          </>
+        }
+        actions={
+          <Link to={getPatientRecordPath(clientId, animalId, animal?.patientCode)}>
+            <Button variant="outline" className="rounded-md border-border text-foreground hover:bg-muted hover:text-foreground transition-colors duration-200">
+              <FaArrowLeft className="mr-2 h-4 w-4" /> Voltar para Prontuário
+            </Button>
+          </Link>
+        }
+      />
+
+      <div>
+        <div className="flex flex-col lg:flex-row gap-1">
+          <div className="flex-1 lg:pr-2">
+            <div className="grid gap-1 py-1">
+              {prescriptionType !== 'manipulated' && topCards}
 
           {prescriptionType === 'manipulated' ? (
             <PrescriptionManipulatedForm
               initialData={manipulatedPrescriptionData}
               onSave={handleSaveManipulatedPrescription}
               animalWeight={weightKg || undefined}
+              header={topCards}
             />
           ) : (
             <Card className="vf-surface-card vf-tone-clinical card-hover mb-1 rounded-xl border border-border/80">

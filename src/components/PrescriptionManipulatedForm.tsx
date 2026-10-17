@@ -38,6 +38,8 @@ interface PrescriptionManipulatedFormProps {
   onSave: (data: ManipulatedPrescriptionData) => void;
   /** Peso do paciente (kg), do topo da receita — base da dose por peso dos componentes. */
   animalWeight?: number;
+  /** Cartões que vão no topo da coluna da esquerda (descrição do tratamento + peso). */
+  header?: React.ReactNode;
 }
 
 const mockPosologyFrequencies = ["1", "2", "3", "4", "6", "8", "12", "24", "Outro"]; // Valores numéricos
@@ -49,6 +51,7 @@ const PrescriptionManipulatedForm: React.FC<PrescriptionManipulatedFormProps> = 
   initialData,
   onSave,
   animalWeight,
+  header,
 }) => {
   const [formulaComponents, setFormulaComponents] = useState<ManipulatedFormulaComponent[]>(
     initialData?.formulaComponents || [{ id: `comp-${Date.now()}`, name: "", dosageQuantity: "", dosageUnit: "" }]
@@ -393,6 +396,7 @@ const PrescriptionManipulatedForm: React.FC<PrescriptionManipulatedFormProps> = 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
       <div className="col-span-1 lg:col-span-2 space-y-3">
+        {header}
         {/* Composição da Fórmula */}
         <Card className="vf-surface-card vf-tone-clinical rounded-xl">
           <CardHeader className="p-4 pb-2">
