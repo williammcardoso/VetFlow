@@ -51,6 +51,7 @@ type DbAnimal = {
   total_value: number | null;
   last_weight_source: string | null;
   deceased_at?: string | null;
+  neutered?: boolean | null;
 };
 
 function mapDbAnimalToAnimal(a: DbAnimal): Animal {
@@ -68,6 +69,8 @@ function mapDbAnimalToAnimal(a: DbAnimal): Animal {
     notes: a.notes || "",
     status: (a.status as "Ativo" | "Inativo") || "Ativo",
     deceasedAt: a.deceased_at || null,
+    // undefined = banco ainda sem a coluna (aí o prontuário não cobra o campo).
+    neutered: a.neutered === undefined ? undefined : a.neutered,
     lastConsultationDate: a.last_consultation_date || "",
     totalProcedures: a.total_procedures ?? 0,
     totalValue: a.total_value ?? 0,

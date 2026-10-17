@@ -49,6 +49,7 @@ type DbAnimal = {
   total_value?: number | null;
   last_weight_source?: string | null;
   deceased_at?: string | null;
+  neutered?: boolean | null;
 };
 
 function mapDbAnimalToAnimal(a: DbAnimal): Animal {
@@ -66,6 +67,8 @@ function mapDbAnimalToAnimal(a: DbAnimal): Animal {
     notes: a.notes || "",
     status: (a.status as "Ativo" | "Inativo") || "Ativo",
     deceasedAt: a.deceased_at || null,
+    // undefined = banco ainda sem a coluna (aí o prontuário não cobra o campo).
+    neutered: a.neutered === undefined ? undefined : a.neutered,
     lastConsultationDate: a.last_consultation_date || "",
     totalProcedures: a.total_procedures ?? 0,
     totalValue: a.total_value ?? 0,
@@ -280,6 +283,7 @@ export async function addAnimalToClient(clientId: string, newAnimal: Partial<Ani
     total_value: newAnimal.totalValue,
     last_weight_source: newAnimal.lastWeightSource,
   };
+  if (newAnimal.neutered !== undefined) insertObj.neutered = newAnimal.neutered;
   const { data, error } = await supabase.from("animals").insert(insertObj).select().single();
   if (error) {
     console.error("[addAnimalToClient] error", error);
@@ -307,6 +311,8 @@ export async function updateAnimalDetails(clientId: string, animalId: string, up
   // Óbito: só vai quando muda (null = desfazer). Fora isso a coluna nem é
   // citada, então editar o animal não depende da migration 20261010120000.
   if (updates.deceasedAt !== undefined) dbUpdates.deceased_at = updates.deceasedAt || null;
+  // Castrado: mesma regra, só vai quando muda (migration 20261017120000).
+  if (updates.neutered !== undefined) dbUpdates.neutered = updates.neutered;
 
   const { error } = await supabase.from("animals").update(dbUpdates).match({ id: animalId, client_id: clientId });
   if (error) {

@@ -21,6 +21,8 @@ export interface Animal {
   status: 'Ativo' | 'Inativo';
   /** Data do óbito ("aaaa-mm-dd"); nulo/vazio = vivo (migration 20261010120000). */
   deceasedAt?: string | null;
+  /** Castrado: true/false; nulo = não informado; undefined = banco ainda sem a coluna (migration 20261017120000). */
+  neutered?: boolean | null;
   lastConsultationDate?: string;
   totalProcedures?: number;
   totalValue?: number;

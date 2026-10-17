@@ -72,7 +72,7 @@ function birthdayFromAge(years: number, months: number): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-type FieldErrors = Partial<Record<"tutor" | "animalName" | "species" | "customSpecies" | "breed" | "gender" | "birthday" | "weight" | "coatColor", string>>;
+type FieldErrors = Partial<Record<"tutor" | "animalName" | "species" | "customSpecies" | "breed" | "gender" | "neutered" | "birthday" | "weight" | "coatColor", string>>;
 
 const AddAnimalPage = () => {
   const navigate = useNavigate();
@@ -91,6 +91,7 @@ const AddAnimalPage = () => {
   const [breed, setBreed] = useState("");
   const [breedIsCustom, setBreedIsCustom] = useState(false);
   const [gender, setGender] = useState<string | undefined>(undefined);
+  const [neutered, setNeutered] = useState<"sim" | "nao" | undefined>(undefined);
   const [birthday, setBirthday] = useState("");
   const [approxAge, setApproxAge] = useState<{ open: boolean; years: string; months: string }>({ open: false, years: "", months: "" });
   const [coatColor, setCoatColor] = useState("");
@@ -130,6 +131,7 @@ const AddAnimalPage = () => {
     setCustomSpecies(species ? "" : animal.species);
     setBreed(animal.breed || "");
     setGender(animal.gender || undefined);
+    setNeutered(animal.neutered === true ? "sim" : animal.neutered === false ? "nao" : undefined);
     setBirthday(animal.birthday || "");
     setCoatColor(animal.coatColor || "");
     setWeight(animal.weight || "");
@@ -199,6 +201,7 @@ const AddAnimalPage = () => {
     else if (speciesId === "other" && !customSpecies.trim()) next.customSpecies = "Digite qual é a espécie.";
     if (showCustomBreed && breedIsCustom && !breed.trim() && speciesId !== "other") next.breed = "Digite a raça ou escolha outra opção.";
     if (!gender) next.gender = "Escolha o sexo.";
+    if (!neutered) next.neutered = "Informe se é castrado.";
     if (!birthday) next.birthday = "Informe a data de nascimento (ou a idade aproximada).";
     else if (birthday > getTodayLocalISO()) next.birthday = "A data de nascimento está no futuro.";
     if (weight === "" || Number(weight) <= 0) next.weight = "Informe o peso.";
@@ -210,7 +213,7 @@ const AddAnimalPage = () => {
     if (isSaving) return;
     const found = validate();
     setErrors(found);
-    const order: Array<keyof FieldErrors> = ["tutor", "animalName", "species", "customSpecies", "breed", "gender", "birthday", "weight", "coatColor"];
+    const order: Array<keyof FieldErrors> = ["tutor", "animalName", "species", "customSpecies", "breed", "gender", "neutered", "birthday", "weight", "coatColor"];
     const firstInvalid = order.find((k) => found[k]);
     if (firstInvalid) {
       // Diz qual é o campo — "confira os destacados" sozinho não ajuda
@@ -247,6 +250,9 @@ const AddAnimalPage = () => {
         const nextDeceasedAt = deceased ? deceasedDate || getTodayLocalISO() : null;
         const deceasedChanged = nextDeceasedAt !== ((existingAnimal?.deceasedAt || "").slice(0, 10) || null);
         if (deceasedChanged) updates.deceasedAt = nextDeceasedAt;
+        const nextNeutered = neutered === "sim";
+        const neuteredChanged = nextNeutered !== existingAnimal?.neutered;
+        if (neuteredChanged) updates.neutered = nextNeutered;
         const now = new Date();
         const ok = await updateAnimalDetails(clientId, animalId, updates, {
           date: getTodayLocalISO(),
@@ -254,9 +260,11 @@ const AddAnimalPage = () => {
         });
         if (!ok) {
           toast.error(
-            deceasedChanged
-              ? "Erro ao salvar. Se for a primeira vez marcando óbito, rode no Supabase o SQL 20261010120000_animals_obito.sql."
-              : "Erro ao atualizar animal no banco."
+            neuteredChanged && existingAnimal?.neutered === undefined
+              ? "Erro ao salvar. Rode no Supabase o SQL 20261017120000_animals_castrado.sql (campo Castrado)."
+              : deceasedChanged
+                ? "Erro ao salvar. Se for a primeira vez marcando óbito, rode no Supabase o SQL 20261010120000_animals_obito.sql."
+                : "Erro ao atualizar animal no banco."
           );
           return;
         }
@@ -275,12 +283,13 @@ const AddAnimalPage = () => {
       if (!selectedTutorId) return;
       const added = await addAnimalToClient(selectedTutorId, {
         ...base,
+        neutered: neutered === "sim",
         weight: Number(weight),
         status: "Ativo",
         lastWeightSource: "Cadastro Inicial",
       });
       if (!added) {
-        toast.error("Erro ao adicionar animal no banco.");
+        toast.error("Erro ao adicionar animal no banco. Se o erro continuar, rode no Supabase o SQL 20261017120000_animals_castrado.sql.");
         return;
       }
       await invalidateAnimalQueries(selectedTutorId);
@@ -481,6 +490,22 @@ const AddAnimalPage = () => {
                   clearError("gender");
                 }}
                 options={genderOptions}
+              />
+            </Field>
+
+            <Field label="Castrado?" labelId="neutered-label" required error={errors.neutered} className="sm:col-span-1">
+              <ChoiceGroup
+                id="neutered"
+                labelledBy="neutered-label"
+                value={neutered}
+                onChange={(v) => {
+                  setNeutered(v);
+                  clearError("neutered");
+                }}
+                options={[
+                  { value: "sim", label: "Sim" },
+                  { value: "nao", label: "Não" },
+                ]}
               />
             </Field>
 

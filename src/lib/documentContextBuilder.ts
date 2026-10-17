@@ -61,6 +61,8 @@ export function buildAutoDocumentContext(params: {
       especie: animal.species,
       raca: animal.breed,
       sexo: animal.gender,
+      // Não informado (cadastro antigo) fica pendente pra preencher na emissão.
+      castrado: animal.neutered === true ? "Sim" : animal.neutered === false ? "Não" : undefined,
       idade: calcularIdadeTexto(animal.birthday),
       peso: animal.weight,
       pelagem: animal.coatColor,

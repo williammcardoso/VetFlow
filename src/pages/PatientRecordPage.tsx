@@ -107,6 +107,7 @@ import {
   MoreHorizontal,
   Plus,
   Undo2,
+  Scissors,
 } from "lucide-react";
 import { Calendar } from "lucide-react";
 import SaleDetailModal from "@/components/SaleDetailModal";
@@ -1332,7 +1333,38 @@ const PatientRecordPage = () => {
                     {currentAnimal.birthday ? formatDateTime(currentAnimal.birthday) : "-"}
                   </span>
                 </span>
+                {typeof currentAnimal.neutered === "boolean" && (
+                  <span className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-border bg-white px-2.5 py-1 text-[12px] leading-5 sm:px-3">
+                    <Scissors className="h-3 w-3 text-violet-600" />
+                    <span className="text-muted-foreground">Castrado:</span>
+                    <span className="font-semibold text-foreground">{currentAnimal.neutered ? "Sim" : "Não"}</span>
+                  </span>
+                )}
               </div>
+
+              {/* Cadastro antigo, sem "castrado" informado (null). undefined =
+                  banco ainda sem a coluna: aí não cobra nada. */}
+              {currentAnimal.neutered === null && !isDeceased(currentAnimal) && (
+                <div
+                  role="alert"
+                  className="mt-3 flex flex-col gap-2 rounded-xl border border-amber-300 bg-amber-50 px-3 py-2.5 text-sm text-amber-900 sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <p className="flex items-start gap-2">
+                    <AlertTriangleIcon className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" aria-hidden />
+                    <span>
+                      <strong>Cadastro incompleto:</strong> falta informar se {currentAnimal.name} é castrado(a).
+                    </span>
+                  </p>
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={handleEditAnimal}
+                    className="shrink-0 bg-amber-600 text-white hover:bg-amber-700"
+                  >
+                    Completar cadastro
+                  </Button>
+                </div>
+              )}
 
               {/* Tutor + Financeiro */}
               <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-3 items-stretch">
