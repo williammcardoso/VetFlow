@@ -463,13 +463,24 @@ const AddPrescriptionPage = () => {
             <CardContent className="p-4 pt-0">
               <div className="space-y-2">
               <Label htmlFor="treatmentDescription">Tratamento (Ex: Tratamento de Anemia)</Label>
+                {/* Vazio = borda vermelha (fácil esquecer); receita nova já abre
+                    com o cursor aqui. */}
                 <Input
                   id="treatmentDescription"
                   placeholder="Ex: Tratamento de Anemia"
                   value={treatmentDescription}
                   onChange={(e) => setTreatmentDescription(e.target.value)}
-                  className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200 h-10"
+                  autoFocus={!prescriptionId}
+                  aria-invalid={!treatmentDescription.trim()}
+                  className={
+                    treatmentDescription.trim()
+                      ? "h-10 rounded-md border-border bg-input placeholder-muted-foreground transition-all duration-200 focus:ring-2 focus:ring-ring"
+                      : "h-10 rounded-md border-2 border-red-500 bg-red-50/60 placeholder-red-400 transition-all duration-200 focus-visible:ring-2 focus-visible:ring-red-300"
+                  }
                 />
+                {!treatmentDescription.trim() && (
+                  <p className="text-xs font-medium text-red-600">Preencha a descrição do tratamento.</p>
+                )}
               </div>
             </CardContent>
           </Card>
