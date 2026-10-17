@@ -91,67 +91,90 @@ const ManipulatedFormulaComponentForm: React.FC<ManipulatedFormulaComponentFormP
     toast.success(`${name || "Componente"}: ${formatDecimalBR(calc.amount)} ${calc.unitLabel}`);
   };
 
+  // Rótulos só na primeira linha (no computador): as outras ficam alinhadas
+  // embaixo, sem repetir "Nome / Qtd. / Unidade" a cada componente.
+  const labelClass = index > 0 ? "text-xs sm:sr-only" : "text-xs";
+
   return (
-    <div className="border-b border-border pb-4 mb-4 last:border-b-0 last:pb-0 last:mb-0">
-    <div className="flex flex-col sm:flex-row sm:items-end gap-4">
-      <div className="flex-1 space-y-2">
-        <Label htmlFor={`component-name-${component.id}`}>Nome do Componente {index + 1}*</Label>
+    <div className="border-b border-border/60 pb-2 last:border-b-0 last:pb-0">
+    <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+      <div className="min-w-0 flex-1 space-y-1">
+        <Label htmlFor={`component-name-${component.id}`} className={labelClass}>
+          Componente {index + 1}*
+        </Label>
         <Input
           ref={nameInputRef} // Aplicar o ref aqui
           id={`component-name-${component.id}`}
-          placeholder="Digite o Nome do Componente"
+          placeholder="Nome do componente"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200"
+          className="h-9 bg-input"
         />
       </div>
-      <div className="w-full sm:w-32 space-y-2">
-        <Label htmlFor={`dosage-quantity-${component.id}`}>Dosagem / Quantidade*</Label>
-        <Input
-          id={`dosage-quantity-${component.id}`}
-          placeholder="Ex: 555"
-          value={dosageQuantity}
-          onChange={(e) => setDosageQuantity(e.target.value)}
-          className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200"
-        />
-      </div>
-      <div className="w-full sm:w-48 space-y-2">
-        <Label htmlFor={`dosage-unit-${component.id}`}>Unidade*</Label>
-        <Select onValueChange={setDosageUnit} value={dosageUnit}>
-          <SelectTrigger id={`dosage-unit-${component.id}`} className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200">
-            <SelectValue placeholder="Ex: mg, %, UI" />
-          </SelectTrigger>
-          <SelectContent>
-            {withSavedOption(COMPONENT_UNITS, dosageUnit).map((unit) => (
-              <SelectItem key={unit} value={unit}>
-                {unit}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        {dosageUnit === "Outro" && (
+      <div className="flex items-end gap-2">
+        <div className="w-24 shrink-0 space-y-1">
+          <Label htmlFor={`dosage-quantity-${component.id}`} className={labelClass}>
+            Qtd.*
+          </Label>
           <Input
-            ref={customDosageUnitInputRef}
-            placeholder="Digite a unidade (ex: mEq, gotas)"
-            value={customDosageUnit}
-            onChange={(e) => setCustomDosageUnit(e.target.value)}
-            className="mt-2 bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200"
+            id={`dosage-quantity-${component.id}`}
+            placeholder="Ex: 50"
+            value={dosageQuantity}
+            onChange={(e) => setDosageQuantity(e.target.value)}
+            className="h-9 bg-input"
           />
-        )}
+        </div>
+        <div className="min-w-0 flex-1 space-y-1 sm:w-44 sm:flex-none">
+          <Label htmlFor={`dosage-unit-${component.id}`} className={labelClass}>
+            Unidade*
+          </Label>
+          <Select onValueChange={setDosageUnit} value={dosageUnit}>
+            <SelectTrigger id={`dosage-unit-${component.id}`} className="h-9 bg-input">
+              <SelectValue placeholder="mg, %, UI" />
+            </SelectTrigger>
+            <SelectContent>
+              {withSavedOption(COMPONENT_UNITS, dosageUnit).map((unit) => (
+                <SelectItem key={unit} value={unit}>
+                  {unit}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          onClick={() => setShowCalc((v) => !v)}
+          aria-expanded={showCalc}
+          title="Calcular pelo peso"
+          aria-label="Calcular pelo peso"
+          className={showCalc ? "h-9 w-9 shrink-0 bg-primary/10 text-primary" : "h-9 w-9 shrink-0 text-primary hover:bg-primary/10"}
+        >
+          <Calculator className="h-4 w-4" />
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          onClick={() => onDelete(component.id)}
+          title="Remover componente"
+          aria-label="Remover componente"
+          className="h-9 w-9 shrink-0 hover:bg-muted"
+        >
+          <FaTrashAlt className="h-4 w-4 text-muted-foreground" />
+        </Button>
       </div>
-      <Button variant="ghost" size="icon" onClick={() => onDelete(component.id)} className="rounded-md hover:bg-muted hover:text-foreground transition-colors duration-200">
-        <FaTrashAlt className="h-4 w-4 text-muted-foreground" />
-      </Button>
     </div>
-    <button
-      type="button"
-      onClick={() => setShowCalc((v) => !v)}
-      aria-expanded={showCalc}
-      className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
-    >
-      <Calculator className="h-3.5 w-3.5" />
-      {showCalc ? "Fechar calculadora" : "Calcular pelo peso"}
-    </button>
+    {dosageUnit === "Outro" && (
+      <Input
+        ref={customDosageUnitInputRef}
+        placeholder="Digite a unidade (ex: mEq, gotas)"
+        value={customDosageUnit}
+        onChange={(e) => setCustomDosageUnit(e.target.value)}
+        className="mt-2 h-9 bg-input sm:ml-auto sm:w-72"
+      />
+    )}
     {showCalc && (
       <div className="mt-2 space-y-3 rounded-lg border border-primary/30 bg-primary/5 p-3">
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">

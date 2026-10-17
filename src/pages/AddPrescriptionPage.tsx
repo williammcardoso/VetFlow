@@ -478,10 +478,10 @@ const AddPrescriptionPage = () => {
             <div className="grid gap-1 py-1">
               <div className="mb-1 grid gap-2 md:grid-cols-[minmax(0,1fr)_17rem]">
               <Card className="vf-surface-card vf-tone-clinical card-hover min-w-0 rounded-xl border border-border/80">
-            <CardHeader>
+            <CardHeader className="p-4 pb-2">
               <CardTitle>Descrição do Tratamento</CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-4 pt-0">
               <div className="space-y-2">
               <Label htmlFor="treatmentDescription">Tratamento (Ex: Tratamento de Anemia)</Label>
                 <Input
@@ -497,12 +497,12 @@ const AddPrescriptionPage = () => {
 
               {/* Peso do paciente: base das contas de dose (todas as receitas). */}
               <Card className="min-w-0 rounded-xl border border-emerald-200 bg-emerald-50/60">
-                <CardHeader>
+                <CardHeader className="p-4 pb-2">
                   <CardTitle className="flex items-center gap-2">
                     <Scale className="h-5 w-5 text-emerald-600" /> Peso do paciente
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-2">
+                <CardContent className="space-y-1.5 p-4 pt-0">
                   <Label htmlFor="prescriptionWeight">Peso usado nos cálculos (kg)</Label>
                   <div className="relative">
                     <Input
