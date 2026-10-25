@@ -304,7 +304,11 @@ const EmitDocumentPage: React.FC = () => {
   }
 
   return (
-    <PageShell>
+    // pb-32 no celular: o "Emitir documento" é o último item da página e
+    // ficava colado no rodapé da tela, logo acima da barra flutuante do
+    // Safari (iOS 26), e no iPhone o toque ali não respondia. O espaço extra
+    // deixa rolar o botão até o meio da tela.
+    <PageShell className="pb-32 sm:pb-2">
       <PageHeader
         title="Emitir termo/atestado"
         description={`${animal.name} · ${client.name}`}
