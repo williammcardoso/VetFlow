@@ -412,19 +412,27 @@ const EmitDocumentPage: React.FC = () => {
               className="min-h-[420px] max-h-[420px] overflow-y-auto rounded-lg border-border bg-muted/30 font-mono text-xs leading-relaxed"
               spellCheck={false}
             />
-            <div className="mt-4 flex justify-between">
+            {/* flex-wrap + "Desfazer" quebrando linha: no celular, depois de
+                editar o texto, esse botão (que não quebrava) empurrava o
+                "Emitir documento" pra fora do cartão, que corta o que passa
+                da borda — não tinha onde tocar pra emitir. */}
+            <div className="mt-4 flex flex-wrap items-center justify-end gap-x-3 gap-y-2">
               {textoManual !== null && (
-                <Button variant="ghost" size="sm" onClick={() => setTextoManual(null)}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="mr-auto h-auto min-h-9 whitespace-normal text-left"
+                  onClick={() => setTextoManual(null)}
+                >
                   Desfazer edições e voltar ao texto automático
                 </Button>
               )}
-              <div className="flex-1" />
               {pendentesNoTexto.length > 0 && (
-                <span className="mr-3 self-center text-xs font-medium text-amber-700">
+                <span className="text-xs font-medium text-amber-700">
                   {pendentesNoTexto.length} campo(s) sem preencher — saem em branco
                 </span>
               )}
-              <Button onClick={() => setConfirmOpen(true)} disabled={!podeEmitir}>
+              <Button className="w-full sm:w-auto" onClick={() => setConfirmOpen(true)} disabled={!podeEmitir}>
                 <FileSignature className="mr-2 h-4 w-4" /> Emitir documento
               </Button>
             </div>
@@ -434,7 +442,7 @@ const EmitDocumentPage: React.FC = () => {
 
       {resultado && (
         <SectionCard title="Documento emitido" icon={CheckCircle2} tone="clinical">
-          <div className="mb-4 flex items-center gap-3 text-sm">
+          <div className="mb-4 flex flex-wrap items-center gap-3 text-sm">
             <CheckCircle2 className="h-5 w-5 text-emerald-600" />
             <span>Documento nº {resultado.numero} emitido com sucesso.</span>
             {resultado.url ? (
