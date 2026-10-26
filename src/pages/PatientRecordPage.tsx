@@ -148,6 +148,7 @@ import { sendPdfViaWhatsApp as sendPdfViaWhatsAppShared, openWhatsAppChat } from
 import { useCurrentUserProfile } from "@/hooks/useCurrentUserProfile";
 import { useAuth } from "@/contexts/AuthContext";
 import { useObservations } from "@/hooks/useObservations";
+import { usePatientDocuments } from "@/hooks/usePatientDocuments";
 import * as observationsApi from "@/lib/observationsApi";
 import type { ObservationEntry } from "@/lib/observationsApi";
 import * as budgetsApi from "@/lib/budgetsApi";
@@ -367,6 +368,11 @@ const PatientRecordPage = () => {
   }, [weightHistory]);
 
   const [documents, setDocuments] = useState<PatientDocumentEntry[]>([]);
+  // Termos/atestados dos modelos oficiais (tabela própria, listados pelo
+  // DocumentTimeline) — mesma query do DocumentTimeline, aqui só pra entrar
+  // no contador da aba e no aviso de "nenhum documento".
+  const { data: officialDocs, isLoading: isOfficialDocsLoading } = usePatientDocuments(animalId);
+  const officialDocsCount = officialDocs?.length ?? 0;
 
   // Limpa assim que o animalId muda, antes da busca nova — sem isso,
   // documentos do prontuário anterior ficavam visíveis até a busca nova
@@ -1638,7 +1644,7 @@ const PatientRecordPage = () => {
               >
                 <FaFileAlt className="h-3.5 w-3.5 mr-1 md:mr-1.5 text-slate-600" />
                 <span className="max-w-[9.5rem] md:max-w-none truncate">Docs</span>
-                <span className="ml-1 sm:ml-1.5 shrink-0 inline-flex items-center justify-center h-4 min-w-4 px-1 sm:px-1.5 rounded-full text-[9px] bg-muted text-foreground/70">{documents.length}</span>
+                <span className="ml-1 sm:ml-1.5 shrink-0 inline-flex items-center justify-center h-4 min-w-4 px-1 sm:px-1.5 rounded-full text-[9px] bg-muted text-foreground/70">{documents.length + officialDocsCount}</span>
               </TabsTrigger>
 
               {/* Separador visual: Clínico | Comercial */}
@@ -2718,15 +2724,20 @@ const PatientRecordPage = () => {
                       );
                     })}
                   </div>
-                ) : (
+                ) : !isOfficialDocsLoading && officialDocsCount === 0 ? (
                   <p className="text-muted-foreground py-4">Nenhum documento registrado. Use &quot;Emitir termo/atestado&quot; para os 30 modelos oficiais (CFMV) ou &quot;Cadastrar documento livre&quot; para enviar um arquivo avulso.</p>
+                ) : null}
+
+                {/* Termos e atestados oficiais no mesmo cartão dos demais
+                    documentos — antes ficavam soltos embaixo, sem cartão. */}
+                {animalId && (
+                  <DocumentTimeline
+                    pacienteId={animalId}
+                    className={documents.length > 0 ? "mt-5 border-t border-border/60 pt-4" : undefined}
+                  />
                 )}
               </CardContent>
             </Card>
-
-            {clientId && animalId && (
-              <DocumentTimeline pacienteId={animalId} clientId={clientId} animalId={animalId} patientCode={currentAnimal?.patientCode} />
-            )}
 
             {signDocTarget && currentAnimal && currentClient && (
               <PatientDocumentSignDialog

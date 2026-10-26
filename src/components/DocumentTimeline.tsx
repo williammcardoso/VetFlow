@@ -1,19 +1,18 @@
 import React, { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { FileSignature, ExternalLink, Ban, Plus, Link2, PenLine, XCircle } from "lucide-react";
+import { FileSignature, ExternalLink, Ban, Link2, PenLine, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { usePatientDocuments } from "@/hooks/usePatientDocuments";
-import { getPatientSubPath } from "@/utils/patientDisplayId";
 import { cancelDocument, type EmittedDocumentSummary } from "@/lib/documentEmissionApi";
 import { getDocumentForSigning, type DocumentForSigning } from "@/lib/documentSigningLinkApi";
 import { getMyUserProfile } from "@/lib/authApi";
 import DocumentSignaturePanel from "@/components/DocumentSignaturePanel";
+import { cn } from "@/lib/utils";
 
 const STATUS_LABEL: Record<string, string> = {
   rascunho: "Rascunho",
@@ -193,12 +192,13 @@ function SignInPersonDialog({
 
 interface DocumentTimelineProps {
   pacienteId: string;
-  clientId: string;
-  animalId: string;
-  patientCode?: number;
+  className?: string;
 }
 
-const DocumentTimeline: React.FC<DocumentTimelineProps> = ({ pacienteId, clientId, animalId, patientCode }) => {
+// Fica dentro do cartão "Documentos" do prontuário, embaixo dos documentos
+// livres — o botão de emitir é o do cabeçalho do cartão, e sem nenhum termo
+// emitido a seção some (o aviso de "nenhum documento" é o do cartão).
+const DocumentTimeline: React.FC<DocumentTimelineProps> = ({ pacienteId, className }) => {
   const { data: docs, isLoading, isError } = usePatientDocuments(pacienteId);
   const queryClient = useQueryClient();
   const [cancelTarget, setCancelTarget] = useState<EmittedDocumentSummary | null>(null);
@@ -206,18 +206,13 @@ const DocumentTimeline: React.FC<DocumentTimelineProps> = ({ pacienteId, clientI
 
   const refetch = () => queryClient.invalidateQueries({ queryKey: ["patient-documents", pacienteId] });
 
+  if (!isLoading && !isError && (!docs || docs.length === 0)) return null;
+
   return (
-    <div className="mt-6 space-y-3">
-      <div className="flex items-center justify-between gap-2">
-        <h3 className="flex min-w-0 items-center gap-2 text-sm font-semibold text-foreground">
-          <FileSignature className="h-4 w-4 shrink-0 text-primary" /> Termos e atestados (modelos oficiais)
-        </h3>
-        <Button size="sm" variant="outline" asChild className="shrink-0">
-          <Link to={getPatientSubPath(clientId, animalId, patientCode, "/emit-document")}>
-            <Plus className="mr-2 h-4 w-4" /> Emitir novo
-          </Link>
-        </Button>
-      </div>
+    <div className={cn("space-y-3", className)}>
+      <h3 className="flex min-w-0 items-center gap-2 text-sm font-semibold text-foreground">
+        <FileSignature className="h-4 w-4 shrink-0 text-primary" /> Termos e atestados (modelos oficiais)
+      </h3>
 
       {isError && (
         <Alert variant="destructive">
@@ -230,23 +225,30 @@ const DocumentTimeline: React.FC<DocumentTimelineProps> = ({ pacienteId, clientI
           <Skeleton className="h-14 w-full" />
           <Skeleton className="h-14 w-full" />
         </div>
-      ) : !docs || docs.length === 0 ? (
-        <p className="py-2 text-sm text-muted-foreground">Nenhum termo ou atestado emitido pelo módulo de documentos ainda.</p>
-      ) : (
-        <div className="space-y-2">
+      ) : !docs || docs.length === 0 ? null : (
+        <div className="space-y-3">
           {docs.map((doc) => (
+            // Mesmo cartão branco com ícone dos documentos livres logo acima.
             // Celular: título ocupa a largura toda e status + botões descem
             // pra uma linha própria — lado a lado (status + 4 ícones, ~230px)
             // o título virava "C01 — Te…".
-            <div key={doc.id} className="flex flex-col gap-2 rounded-lg border border-border p-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
-              <div className="min-w-0 flex-1">
-                <p className="break-words text-sm font-medium lg:truncate">
-                  {doc.codigo} — {doc.titulo} <span className="text-muted-foreground">nº {doc.numero}</span>
-                </p>
-                <p className="break-words text-xs text-muted-foreground">
-                  Emitido em {formatDateTime(doc.emitidoEm)}
-                  {doc.status === "cancelado" && doc.motivoCancelamento ? ` · Motivo: ${doc.motivoCancelamento}` : ""}
-                </p>
+            <div
+              key={doc.id}
+              className="flex flex-col gap-2 rounded-xl border border-slate-200 bg-white p-3 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-slate-200/60 sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:p-4"
+            >
+              <div className="flex min-w-0 flex-1 items-start gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-slate-50/70 sm:h-12 sm:w-12">
+                  <FileSignature className="h-5 w-5 text-slate-600 sm:h-6 sm:w-6" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="break-words text-base font-bold text-slate-900 lg:truncate">
+                    {doc.codigo} — {doc.titulo} <span className="font-normal text-muted-foreground">nº {doc.numero}</span>
+                  </p>
+                  <p className="mt-1 break-words text-sm text-muted-foreground">
+                    Emitido em {formatDateTime(doc.emitidoEm)}
+                    {doc.status === "cancelado" && doc.motivoCancelamento ? ` · Motivo: ${doc.motivoCancelamento}` : ""}
+                  </p>
+                </div>
               </div>
               <div className="flex items-center justify-between gap-2 sm:contents">
               <span className={`shrink-0 rounded-full border px-2 py-0.5 text-xs font-semibold ${STATUS_CLASS[doc.status] ?? ""}`}>
