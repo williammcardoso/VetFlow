@@ -56,6 +56,14 @@ export function usePriceAdjustments(subtotal: number) {
       setSurchargeVal("");
       setOpen(false);
     },
+    /** Preenche com valores já salvos (ex.: editar um orçamento); `base` é o subtotal desses itens. */
+    load: (discount: number, surcharge: number, base: number) => {
+      const pctOf = (v: number) => (v > 0 && base > 0 ? ((v / base) * 100).toFixed(2) : "");
+      setDiscountVal(discount > 0 ? discount.toFixed(2) : "");
+      setDiscountPct(pctOf(discount));
+      setSurchargeVal(surcharge > 0 ? surcharge.toFixed(2) : "");
+      setSurchargePct(pctOf(surcharge));
+    },
   };
 }
 
