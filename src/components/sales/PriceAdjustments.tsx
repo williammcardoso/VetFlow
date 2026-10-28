@@ -10,6 +10,11 @@ import { cn, formatCurrencyBRL } from "@/lib/utils";
 
 const num = (v: string) => parseFloat(v.replace(",", ".")) || 0;
 
+// Sem as setinhas de subir/descer do campo numérico: no Chrome elas ocupam
+// espaço mesmo escondidas e cortavam o número (ex.: "10.2" no lugar de "10.20").
+const NO_SPINNER =
+  "[appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none";
+
 export function usePriceAdjustments(subtotal: number) {
   const [discountPct, setDiscountPct] = React.useState("");
   const [discountVal, setDiscountVal] = React.useState("");
@@ -90,12 +95,12 @@ function PairInput({
         {label}
       </Label>
       <div className="flex gap-1.5">
-        <div className="relative w-[4.5rem] shrink-0">
+        <div className="relative w-[5.5rem] shrink-0">
           <Input
             id={`${id}-pct`}
             value={pct}
             onChange={(e) => onPct(e.target.value)}
-            className="h-9 rounded-lg bg-input pr-6 text-sm"
+            className={cn("h-9 rounded-lg bg-input pr-6 text-sm tabular-nums", NO_SPINNER)}
             placeholder="0"
             type="number"
             min="0"
@@ -109,7 +114,7 @@ function PairInput({
             id={`${id}-val`}
             value={val}
             onChange={(e) => onVal(e.target.value)}
-            className="h-9 min-w-0 rounded-lg bg-input pl-8 text-sm"
+            className={cn("h-9 min-w-0 rounded-lg bg-input pl-8 text-sm tabular-nums", NO_SPINNER)}
             placeholder="0,00"
             type="number"
             min="0"

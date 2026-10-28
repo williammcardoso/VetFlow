@@ -510,9 +510,8 @@ const BudgetsPage: React.FC = () => {
 
       {/* Montagem: itens à esquerda, cliente/ajustes/total fixos à direita
           (mesmo desenho do PDV). xl, não lg: o breakpoint ignora o menu
-          lateral — com ele aberto, em ~1024px as duas colunas espremiam.
-          Em monitor grande o resumo ganha largura pros campos de desconto. */}
-      <div ref={composerRef} className="grid scroll-mt-4 gap-4 xl:grid-cols-[minmax(0,1fr)_23rem] 2xl:grid-cols-[minmax(0,1fr)_26rem]">
+          lateral — com ele aberto, em ~1024px as duas colunas espremiam. */}
+      <div ref={composerRef} className="grid scroll-mt-4 gap-4 xl:grid-cols-[minmax(0,1fr)_23rem]">
         <Panel
           title={editingBudgetId ? "Editando orçamento" : "Itens do orçamento"}
           description={items.length > 0 ? plural(items.length, "item", "itens") : "Serviços e produtos do catálogo ou itens avulsos"}
@@ -676,9 +675,9 @@ const BudgetsPage: React.FC = () => {
               {/* Negociação: cirurgia/procedimento caro costuma sair com
                   desconto combinado na hora — precisa constar no orçamento impresso. */}
               {items.length > 0 && (
-                // Na coluna estreita (xl) um embaixo do outro — lado a lado o
-                // valor em R$ ficava cortado.
-                <PriceAdjustmentFields adj={adj} idPrefix="budget" className="xl:grid-cols-1 2xl:grid-cols-2" />
+                // Na coluna lateral (xl+) um embaixo do outro — lado a lado o
+                // valor em R$ ficava cortado (ex.: R$ 1.234,56).
+                <PriceAdjustmentFields adj={adj} idPrefix="budget" className="xl:grid-cols-1" />
               )}
 
               <div className="space-y-1.5">

@@ -468,7 +468,11 @@ const POSPage = () => {
                 </label>
               )}
 
-              {cart.length > 0 && <PriceAdjustmentFields adj={adj} idPrefix="pos" />}
+              {cart.length > 0 && (
+                // Na coluna lateral (xl+) um embaixo do outro — lado a lado o
+                // valor em R$ ficava cortado (ex.: R$ 1.234,56).
+                <PriceAdjustmentFields adj={adj} idPrefix="pos" className="xl:grid-cols-1" />
+              )}
 
               <div className="space-y-1 rounded-xl bg-muted/40 px-3 py-3">
                 <AdjustmentLines subtotal={subtotal} discount={discountAmount} surcharge={surchargeManual} discountPct={adj.discountPct} />
