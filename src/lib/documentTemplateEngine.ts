@@ -95,11 +95,18 @@ function getByPath(context: DocumentTemplateContext, caminho: string): unknown {
   return valor;
 }
 
-// Só escapa o VALOR interpolado (dado do cliente/paciente), nunca o texto
-// estático do modelo — o corpo em si é conteúdo jurídico confiável, não
-// entrada de usuário.
-function escapeForPdf(valor: string): string {
-  return valor.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+// Os valores entram como foram digitados: o texto final vai para o PDF
+// (@react-pdf, texto puro) e para telas que mostram texto, nunca para HTML.
+// Antes eram escapados para HTML e nada desfazia isso — "Pet & Cia" saía no
+// PDF como "Pet &amp; Cia".
+
+/**
+ * Documentos emitidos antes da correção acima guardaram "&amp;", "&lt;" e
+ * "&gt;" no texto. Converte de volta só para MOSTRAR (PDF e telas) — o texto
+ * gravado e o hash do documento continuam iguais.
+ */
+export function displayDocumentText(texto: string): string {
+  return texto.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&");
 }
 
 function stringifyScalar(valor: unknown): string {
@@ -120,12 +127,12 @@ function formatValue(valor: unknown): { texto: string; pendente: boolean } {
       .map((item) => (item === null || item === undefined ? "" : String(item).trim()))
       .filter((item) => item.length > 0);
     if (itens.length === 0) return { texto: "", pendente: true };
-    return { texto: itens.map((item) => `- ${escapeForPdf(item)}`).join("\n"), pendente: false };
+    return { texto: itens.map((item) => `- ${item}`).join("\n"), pendente: false };
   }
   if (valor === null || valor === undefined) return { texto: "", pendente: true };
   const texto = stringifyScalar(valor).trim();
   if (texto.length === 0) return { texto: "", pendente: true };
-  return { texto: escapeForPdf(texto), pendente: false };
+  return { texto, pendente: false };
 }
 
 /**

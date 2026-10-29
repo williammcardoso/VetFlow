@@ -2,6 +2,7 @@ import React from "react";
 import { Document, Page, StyleSheet, Text, View, Font, Image } from "@react-pdf/renderer";
 import { mockCompanySettings } from "@/mockData/settings";
 import { parseCorpoIntoSegments, type IdCard } from "@/lib/documentPdfLayout";
+import { displayDocumentText } from "@/lib/documentTemplateEngine";
 
 Font.register({
   family: "Inter",
@@ -211,7 +212,7 @@ function encontrarImagemAssinatura(papel: string, assinaturas?: Record<string, s
 }
 
 function BodyFromSegments({ texto, assinaturas }: { texto: string; assinaturas?: Record<string, string> }) {
-  const segmentos = parseCorpoIntoSegments(texto);
+  const segmentos = parseCorpoIntoSegments(displayDocumentText(texto));
   return (
     <View wrap>
       {segmentos.map((seg, i) => {

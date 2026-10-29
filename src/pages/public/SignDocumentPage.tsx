@@ -8,6 +8,7 @@ import SignatureCanvas, { type SignatureCanvasHandle } from "@/components/Signat
 import { getDocumentForSigning, type DocumentForSigning } from "@/lib/documentSigningLinkApi";
 import { saveSignature, markDocumentAsSigned } from "@/lib/documentSignatureApi";
 import { regenerarPdfComAssinaturas } from "@/lib/documentPdfRegeneration";
+import { displayDocumentText } from "@/lib/documentTemplateEngine";
 
 // Rota pública (fora do login) — o link é enviado direto ao responsável
 // (ex.: WhatsApp), pra assinar no próprio celular quando só há PC (sem
@@ -131,7 +132,7 @@ const SignDocumentPage: React.FC = () => {
               </div>
 
               <pre className="max-h-64 overflow-y-auto whitespace-pre-wrap rounded-lg border border-border bg-muted/30 p-3 text-sm leading-relaxed">
-                {doc.corpoRenderizado}
+                {displayDocumentText(doc.corpoRenderizado)}
               </pre>
 
               <div className="space-y-2">

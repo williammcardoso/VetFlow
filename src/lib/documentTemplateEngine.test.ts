@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import {
   renderDocumentTemplate,
+  displayDocumentText,
   extractTemplateVariables,
   blankPendingMarkers,
   fillPendingMarkers,
@@ -86,11 +87,16 @@ describe("renderDocumentTemplate", () => {
     expect(texto).not.toContain("Responsável pelo animal");
   });
 
-  it("escapa caracteres de HTML nos valores interpolados, sem mexer no texto estático do modelo", () => {
+  it("mantém &, < e > dos valores como foram digitados (o PDF imprime texto puro)", () => {
     const { texto } = renderDocumentTemplate("Nome: {{resp.nome}} <TCLE>", {
       resp: { nome: "Empresa & Cia <teste>" },
     });
-    expect(texto).toBe("Nome: Empresa &amp; Cia &lt;teste&gt; <TCLE>");
+    expect(texto).toBe("Nome: Empresa & Cia <teste> <TCLE>");
+  });
+
+  it("displayDocumentText desfaz o escape gravado em documentos antigos", () => {
+    expect(displayDocumentText("Pet &amp; Cia &lt;5 kg&gt;")).toBe("Pet & Cia <5 kg>");
+    expect(displayDocumentText("&amp;lt;")).toBe("&lt;");
   });
 
   it("deixa colchetes que não são um bloco reconhecido intocados", () => {

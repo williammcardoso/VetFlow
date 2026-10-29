@@ -12,6 +12,7 @@ import { cancelDocument, type EmittedDocumentSummary } from "@/lib/documentEmiss
 import { getDocumentForSigning, type DocumentForSigning } from "@/lib/documentSigningLinkApi";
 import { getMyUserProfile } from "@/lib/authApi";
 import DocumentSignaturePanel from "@/components/DocumentSignaturePanel";
+import { displayDocumentText } from "@/lib/documentTemplateEngine";
 import { cn } from "@/lib/utils";
 
 const STATUS_LABEL: Record<string, string> = {
@@ -160,7 +161,7 @@ function SignInPersonDialog({
         {!loading && info && info.status !== "cancelado" && (
           <div className="space-y-4">
             <pre className="max-h-64 overflow-y-auto whitespace-pre-wrap rounded-lg border border-border bg-muted/30 p-3 text-xs leading-relaxed">
-              {info.corpoRenderizado}
+              {displayDocumentText(info.corpoRenderizado)}
             </pre>
 
             <DocumentSignaturePanel
