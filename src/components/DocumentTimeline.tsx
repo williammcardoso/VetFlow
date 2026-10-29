@@ -234,6 +234,7 @@ const DocumentTimeline: React.FC<DocumentTimelineProps> = ({ pacienteId, classNa
             // o título virava "C01 — Te…".
             <div
               key={doc.id}
+              id={`pr-official-${doc.id}`}
               className="flex flex-col gap-2 rounded-xl border border-slate-200 bg-white p-3 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-slate-200/60 sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:p-4"
             >
               <div className="flex min-w-0 flex-1 items-start gap-3">

@@ -4,7 +4,7 @@ import React, { useMemo, useState, useEffect, useCallback } from "react";
 import { Link, useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { format } from "date-fns";
 import {
-  FaArrowLeft, FaUsers, FaPaw, FaPlus, FaEye, FaStethoscope, FaCalendarAlt, FaDollarSign, FaSyringe, FaWeightHanging, FaFileAlt, FaClipboardList, FaCommentAlt, FaHeart, FaMale, FaUser, FaPrint, FaDownload, FaTimes, FaSave, FaBalanceScale, FaFileMedical, FaExclamationTriangle, FaFlask, FaTag, FaBox, FaClock, FaMoneyBillWave, FaArrowUp, FaArrowDown, FaTrashAlt, FaPrescriptionBottleAlt, FaEdit, FaIdCard, FaPhone, FaFileSignature, FaCopy
+  FaArrowLeft, FaUsers, FaPaw, FaPlus, FaEye, FaStethoscope, FaCalendarAlt, FaSyringe, FaWeightHanging, FaFileAlt, FaClipboardList, FaCommentAlt, FaHeart, FaMale, FaUser, FaPrint, FaDownload, FaTimes, FaSave, FaBalanceScale, FaFileMedical, FaExclamationTriangle, FaFlask, FaTag, FaBox, FaClock, FaMoneyBillWave, FaArrowUp, FaArrowDown, FaTrashAlt, FaPrescriptionBottleAlt, FaEdit, FaIdCard, FaPhone, FaFileSignature, FaCopy
 } from "react-icons/fa";
 import { SiWhatsapp } from "react-icons/si";
 import { FaMapMarkerAlt } from "react-icons/fa";
@@ -91,7 +91,6 @@ import AISuggestionsView from "@/components/AISuggestionsView";
 import { buildContextFromExams, fetchExamInterpretation, stripMarkdownForPlainText, type ChatMessage } from "@/lib/examInterpretation";
 import { useAnimalSchedules } from "@/hooks/useSchedules";
 import {
-  Circle as CircleIcon,
   FileText as FileTextIcon,
   FlaskConical as FlaskConicalIcon,
   Stethoscope as StethoscopeIcon,
@@ -108,8 +107,16 @@ import {
   Plus,
   Undo2,
   Scissors,
+  Eye as EyeIcon,
+  ExternalLink as ExternalLinkIcon,
+  FileSignature as FileSignatureIcon,
+  MessageSquare as MessageSquareIcon,
+  Pill as PillIcon,
+  Scale as ScaleIcon,
+  ArrowUpRight as ArrowUpRightIcon,
 } from "lucide-react";
 import { Calendar } from "lucide-react";
+import { PatientTimeline, type TimelineItem } from "@/components/patient/PatientTimeline";
 import SaleDetailModal from "@/components/SaleDetailModal";
 import CancelSaleDialog from "@/components/CancelSaleDialog";
 import DeleteSaleDialog from "@/components/DeleteSaleDialog";
@@ -154,23 +161,9 @@ import type { ObservationEntry } from "@/lib/observationsApi";
 import * as budgetsApi from "@/lib/budgetsApi";
 import type { Budget } from "@/mockData/budgets";
 
-// Interface para eventos da linha do tempo
-interface TimelineEvent {
-  id: string;
-  date: string;
-  time: string;
-  type: 'Atendimento' | 'Agendamento' | 'Exame' | 'Receita' | 'Peso' | 'Observação' | 'Venda' | 'Vacina' | 'Documento';
-  description: string;
-  icon: React.ElementType;
-  link?: string;
-  badgeColor?: string;
-  summary?: string;
-  author?: string;
-  isAlert?: boolean;
-  /** Só em eventos 'Agendamento' — status atual (schedules.status), pra
-   *  destacar visualmente um agendamento cancelado na timeline. */
-  scheduleStatus?: string;
-}
+// Destaque passageiro no item aberto pelo "Ver" do Histórico (classes por
+// extenso pro Tailwind gerar).
+const FOCUS_FLASH = ["ring-2", "ring-primary/60", "ring-offset-2"];
 
 // Helper function to calculate age
 const calculateAge = (birthday: string) => {
@@ -188,38 +181,6 @@ const calculateAge = (birthday: string) => {
 type SaleItemMeta = { itemId: string; name: string; type: "product" | "service"; qty: number; unitPrice: number };
 
 // Vínculo venda ↔ atendimento: buildSaleObservations/parseSaleObservations (lib/salePayment).
-
-// Helper para identidade visual por tipo de evento
-const EVENT_STYLES: Record<string, { dot: string; badge: string }> = {
-  'Atendimento': { dot: 'timeline-dot-clinical', badge: 'badge-soft-clinical' },
-  'Agendamento': { dot: 'timeline-dot-blue', badge: 'badge-soft-blue' },        // Azul — diferente do Atendimento (clínico)
-  'Exame': { dot: 'timeline-dot-clinical-strong', badge: 'badge-soft-clinical-strong' },
-  'Receita': { dot: 'timeline-dot-green', badge: 'badge-soft-green' },          // Verde base
-  'Peso': { dot: 'timeline-dot-amber', badge: 'badge-soft-amber' },             // Mantém como está
-  'Vacina': { dot: 'timeline-dot-teal', badge: 'badge-soft-teal' },             // Azul/ciano (diferente de Atendimento)
-  'Venda': { dot: 'timeline-dot-teal', badge: 'badge-soft-teal' },              // Verde-água/azul-petróleo
-  'Financeiro': { dot: 'timeline-dot-teal', badge: 'badge-soft-teal' },
-  'Documento': { dot: 'timeline-dot-slate', badge: 'badge-soft-slate' },        // Cinza neutro
-  'Observação': { dot: 'timeline-dot-gray', badge: 'badge-soft-gray' },         // Cinza discreto
-};
-const getEventStyle = (type: string) => EVENT_STYLES[type] || { dot: 'timeline-dot-gray', badge: 'badge-soft-gray' };
-
-// Classe do ícone por tipo
-const getEventIconClass = (type: string) => {
-  switch (type) {
-    case 'Atendimento': return 'icon-soft-teal';
-    case 'Agendamento': return 'icon-soft-blue';
-    case 'Exame': return 'icon-soft-teal';
-    case 'Receita': return 'icon-soft-green';
-    case 'Peso': return 'icon-soft-amber';
-    case 'Vacina': return 'icon-soft-teal';
-    case 'Venda':
-    case 'Financeiro': return 'icon-soft-teal';
-    case 'Documento': return 'icon-soft-slate';
-    case 'Observação': return 'icon-soft-gray';
-    default: return 'icon-soft-gray';
-  }
-};
 
 // Rótulo em pt-BR pro status do agendamento (schedules.status) — mesmos
 // rótulos usados em StatusBadge.tsx (Agenda/Dashboard), pra ficar consistente
@@ -921,6 +882,35 @@ const PatientRecordPage = () => {
     setSearchParams(next, { replace: true });
   }, [searchParams, setSearchParams, animalSalesTransactions]);
 
+  // "Ver" do Histórico: abre a aba do item, rola até ele e destaca por um
+  // instante. A aba nova só monta depois da troca, então tenta por ~1s.
+  const [focusTarget, setFocusTarget] = useState<{ anchorId: string; at: number } | null>(null);
+  const goToItem = useCallback((tab: string, anchorId: string, finance?: "vendas" | "orcamentos") => {
+    setActiveTab(tab);
+    if (finance) setFinanceTab(finance);
+    setFocusTarget({ anchorId, at: Date.now() });
+  }, []);
+  useEffect(() => {
+    if (!focusTarget) return;
+    let cancelled = false;
+    let tries = 0;
+    const tryFocus = () => {
+      if (cancelled) return;
+      const el = document.getElementById(focusTarget.anchorId);
+      if (!el) {
+        if (tries++ < 20) window.setTimeout(tryFocus, 50);
+        return;
+      }
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      el.classList.add(...FOCUS_FLASH);
+      window.setTimeout(() => el.classList.remove(...FOCUS_FLASH), 2200);
+    };
+    window.setTimeout(tryFocus, 0);
+    return () => {
+      cancelled = true;
+    };
+  }, [focusTarget]);
+
   const formatAgeLabel = (birthday?: string) => {
     if (!birthday) return "-";
     const birthDate = parseLocalDate(birthday);
@@ -989,22 +979,33 @@ const PatientRecordPage = () => {
     );
   }
 
-  const allTimelineEvents: TimelineEvent[] = [];
+  // Histórico: cada evento já sai com título, selo, cor e o botão certo
+  // (ver PatientTimeline). Autor só quando o registro diz quem fez — antes
+  // peso, receita, venda etc. mostravam o usuário logado como se fosse o autor.
+  const timelineItems: TimelineItem[] = [];
+  const verNaAba = (tab: string, anchorId: string, finance?: "vendas" | "orcamentos") => ({
+    label: "Ver",
+    icon: EyeIcon,
+    title: "Ver este registro na aba dele",
+    onClick: () => goToItem(tab, anchorId, finance),
+  });
 
   animalAppointments.forEach(app => {
     const appDetails = app.details as BaseAppointmentDetails;
-    const description = appDetails.suspeitaDiagnostica || appDetails.condutaTratamento || app.observacoesGerais || `Atendimento de ${displayAppointmentType(app.type)}`;
-    allTimelineEvents.push({
+    const typeLabel = displayAppointmentType(app.type);
+    const isVaccine = /vacin/i.test(typeLabel);
+    timelineItems.push({
       id: `app-${app.id}`,
       date: app.date,
       time: app.time,
-      type: 'Atendimento',
-      description: `${displayAppointmentType(app.type)}: ${description}`,
-      summary: app.observacoesGerais || description,
-      icon: FaStethoscope,
-      link: subPath(`/view-appointment/${app.id}`),
-      badgeColor: "bg-[hsl(var(--vf-clinical))]/15 text-vf-clinical",
-      author: app.vet || currentVetName,
+      kind: "atendimento",
+      label: isVaccine ? "Vacina" : "Atendimento",
+      title: typeLabel,
+      subtitle: appDetails?.suspeitaDiagnostica || appDetails?.condutaTratamento || app.observacoesGerais || undefined,
+      author: app.vet || undefined,
+      icon: isVaccine ? SyringeIcon : StethoscopeIcon,
+      tone: isVaccine ? "emerald" : "teal",
+      actions: [{ label: "Abrir", icon: ArrowUpRightIcon, title: "Abrir o atendimento", onClick: () => navigate(subPath(`/view-appointment/${app.id}`)) }],
     });
   });
 
@@ -1015,118 +1016,142 @@ const PatientRecordPage = () => {
   // já reflete aqui na próxima vez que a timeline for carregada.
   animalSchedules.forEach(sched => {
     const statusLabel = SCHEDULE_STATUS_LABEL[sched.status] || sched.status;
-    allTimelineEvents.push({
+    const cancelled = sched.status === "cancelled";
+    timelineItems.push({
       id: `sched-${sched.id}`,
       date: format(sched.date, "yyyy-MM-dd"),
       time: sched.time,
-      type: 'Agendamento',
-      description: `${sched.title || "Agendamento"}: ${statusLabel}`,
-      summary: statusLabel,
-      icon: FaCalendarAlt,
-      badgeColor: "bg-blue-100 text-blue-800",
-      author: currentVetName,
-      scheduleStatus: sched.status,
+      kind: "agendamento",
+      label: cancelled ? "Agendamento cancelado" : "Agendamento",
+      title: sched.title || "Agendamento",
+      subtitle: statusLabel,
+      icon: CalendarClockIcon,
+      tone: cancelled ? "rose" : "sky",
+      muted: cancelled,
     });
   });
 
   examsList.forEach(exam => {
-    allTimelineEvents.push({
+    timelineItems.push({
       id: `exam-${exam.id}`,
       date: exam.date,
       time: exam.time,
-      type: 'Exame',
-      description: `${examDisplayName(exam)}: ${(exam.customBlocks?.length ? customExamSummary(exam) : exam.result) || 'Ver detalhes'}`,
-      summary: exam.nota || exam.result || undefined,
-      icon: FaFlask,
-      badgeColor: "bg-[hsl(var(--vf-clinical))]/15 text-vf-clinical",
-      author: exam.vet || currentVetName,
+      kind: "exame",
+      label: "Exame",
+      title: examDisplayName(exam),
+      subtitle: (exam.customBlocks?.length ? customExamSummary(exam) : exam.result) || exam.nota || undefined,
+      author: exam.vet || undefined,
+      icon: FlaskConicalIcon,
+      tone: "violet",
+      actions: [verNaAba("exams", `pr-exam-${exam.id}`)],
     });
   });
 
   prescriptions.forEach(rx => {
-    const description = rx.treatmentDescription || rx.medicationName || "Receita sem descrição";
-    let badgeColor = "bg-green-100 text-green-800"; // simples
-    if (rx.type === 'manipulated') badgeColor = "bg-teal-100 text-teal-800";
-    if (rx.type === 'controlled') badgeColor = "bg-amber-100 text-amber-800";
-
-    const rxIcon = rx.type === 'manipulated' ? FaFlask : rx.type === 'controlled' ? FaExclamationTriangle : FaPrescriptionBottleAlt;
-
-    allTimelineEvents.push({
+    const kindLabel = rx.type === "controlled" ? "Receita controlada" : rx.type === "manipulated" ? "Receita manipulada" : "Receita simples";
+    timelineItems.push({
       id: `rx-${rx.id}`,
       date: rx.date,
       time: rx.time,
-      type: 'Receita',
-      description: `${rx.type === 'simple' ? 'Receita Simples' : rx.type === 'controlled' ? 'Receita Controlada' : 'Receita Manipulada'}: ${description}`,
-      summary: rx.instructions || rx.treatmentDescription || rx.medicationName || undefined,
-      icon: rxIcon,
-      link: subPath(`/edit-prescription/${rx.id}?type=${rx.type}`),
-      badgeColor,
-      author: currentVetName,
+      kind: "receita",
+      label: kindLabel,
+      title: rx.treatmentDescription || rx.medicationName || "Receita sem descrição",
+      subtitle: rx.instructions || undefined,
+      icon: rx.type === "controlled" ? AlertTriangleIcon : rx.type === "manipulated" ? FlaskConicalIcon : PillIcon,
+      tone: rx.type === "controlled" ? "amber" : rx.type === "manipulated" ? "teal" : "emerald",
+      actions: [verNaAba("prescriptions", `pr-rx-${rx.id}`)],
     });
   });
 
   weightHistory.forEach(entry => {
-    allTimelineEvents.push({
+    timelineItems.push({
       id: `weight-${entry.id}`,
       date: entry.date,
       time: entry.time,
-      type: 'Peso',
-      description: `Peso registrado: ${entry.weight.toFixed(1)} kg (${entry.source})`,
-      summary: `Origem: ${entry.source || "-"}`,
-      icon: FaWeightHanging,
-      badgeColor: "bg-yellow-100 text-yellow-800",
-      author: currentVetName,
+      kind: "peso",
+      label: "Peso",
+      title: `${entry.weight.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} kg`,
+      subtitle: entry.source ? `Registrado em: ${entry.source}` : undefined,
+      icon: ScaleIcon,
+      tone: "orange",
+      actions: [verNaAba("weight", `pr-weight-${entry.id}`)],
     });
   });
 
   observations.forEach(obs => {
-    allTimelineEvents.push({
+    const alert = !!obs.displayAsAlert;
+    timelineItems.push({
       id: `obs-${obs.id}`,
       date: obs.date,
       time: obs.time,
-      type: 'Observação',
-      description: `Observação: ${obs.observation}`,
-      summary: obs.observation,
-      icon: FaCommentAlt,
-      badgeColor: "bg-gray-100 text-gray-800",
-      author: currentVetName,
-      isAlert: !!obs.displayAsAlert,
+      kind: "observacao",
+      label: alert ? "Alerta" : "Observação",
+      title: obs.observation,
+      icon: alert ? AlertTriangleIcon : MessageSquareIcon,
+      tone: alert ? "rose" : "slate",
+      actions: [verNaAba("observations", `pr-obs-${obs.id}`)],
     });
   });
 
   animalSalesTransactions.forEach(sale => {
-    allTimelineEvents.push({
+    const status = saleStatus(sale);
+    const cancelled = status.key === "cancelled";
+    timelineItems.push({
       id: `sale-${sale.id}`,
       date: sale.date,
       time: sale.time,
-      type: 'Venda',
-      description: `Venda: ${sale.description} (R$ ${sale.amount.toFixed(2).replace('.', ',')})`,
-      summary: sale.description,
-      icon: FaDollarSign,
-      badgeColor: "bg-green-100 text-green-800",
-      author: currentVetName,
+      kind: "venda",
+      label: cancelled ? "Venda cancelada" : "Venda",
+      title: summarizeSaleItems(sale.description, 3) || "Venda",
+      subtitle: `${formatCurrencyBRL(sale.amount)} · ${status.label}`,
+      icon: CONCEPTS.faturado.icon,
+      tone: cancelled ? "rose" : CONCEPTS.faturado.tone,
+      muted: cancelled,
+      actions: [verNaAba("financial", `pr-sale-${sale.id}`, "vendas")],
     });
   });
 
   documents.forEach(doc => {
-    allTimelineEvents.push({
+    timelineItems.push({
       id: `doc-${doc.id}`,
       date: doc.date,
       time: doc.time,
-      type: 'Documento',
-      description: `Documento: ${doc.name}`,
-      summary: doc.name,
-      icon: FaFileAlt,
-      link: doc.fileUrl,
-      badgeColor: "bg-orange-100 text-orange-800",
-      author: currentVetName,
+      kind: "documento",
+      label: "Documento",
+      title: doc.name,
+      subtitle: doc.source === "editor" ? "Criado no editor de documentos" : "Arquivo enviado",
+      icon: FileTextIcon,
+      tone: "slate",
+      actions: [verNaAba("documents", `pr-doc-${doc.id}`)],
     });
   });
 
-  const sortedTimelineEvents = allTimelineEvents.sort((a, b) => {
-    const dateTimeA = new Date(`${a.date}T${a.time}`);
-    const dateTimeB = new Date(`${b.date}T${b.time}`);
-    return dateTimeB.getTime() - dateTimeA.getTime();
+  // Termos e atestados dos modelos oficiais (tabela própria).
+  (officialDocs ?? []).forEach(doc => {
+    if (!doc.emitidoEm) return;
+    const emitted = new Date(doc.emitidoEm);
+    const cancelled = doc.status === "cancelado";
+    const statusLabel = doc.status === "assinado" ? "Assinado" : cancelled ? "Cancelado" : "Emitido";
+    timelineItems.push({
+      id: `official-${doc.id}`,
+      date: format(emitted, "yyyy-MM-dd"),
+      time: format(emitted, "HH:mm"),
+      kind: "documento",
+      label: cancelled ? "Documento oficial cancelado" : "Documento oficial",
+      title: `${doc.codigo} — ${doc.titulo}`,
+      subtitle: [`nº ${doc.numero}`, statusLabel, cancelled && doc.motivoCancelamento ? `Motivo: ${doc.motivoCancelamento}` : ""]
+        .filter(Boolean)
+        .join(" · "),
+      icon: FileSignatureIcon,
+      tone: cancelled ? "rose" : "sky",
+      muted: cancelled,
+      actions: [
+        ...(doc.pdfPath
+          ? [{ label: "PDF", icon: ExternalLinkIcon, title: "Abrir o PDF", onClick: () => window.open(doc.pdfPath!, "_blank", "noopener,noreferrer") }]
+          : []),
+        verNaAba("documents", `pr-official-${doc.id}`),
+      ],
+    });
   });
 
   const totalAppointments = animalAppointments.length;
@@ -1165,29 +1190,6 @@ const PatientRecordPage = () => {
 
     // Sempre exibir anos e meses (ex.: "6 anos e 4 meses")
     return `${yearsLabel} e ${monthsLabel}`;
-  };
-
-  const getTimelineMarkerColor = (dotClass: string) => {
-    if (dotClass.includes("timeline-dot-clinical")) return "#7fc8b5";
-    if (dotClass.includes("timeline-dot-clinical-strong")) return "#4fa38f";
-    if (dotClass.includes("timeline-dot-green")) return "#86efac";
-    if (dotClass.includes("timeline-dot-amber")) return "#fcd34d";
-    if (dotClass.includes("timeline-dot-teal")) return "#99f6e4";
-    if (dotClass.includes("timeline-dot-orange")) return "#fdba74";
-    if (dotClass.includes("timeline-dot-slate")) return "#cbd5e1";
-    if (dotClass.includes("timeline-dot-gray")) return "#cbd5e1";
-    if (dotClass.includes("bg-red-300")) return "#fca5a5";
-    return "#cbd5e1";
-  };
-
-  const getTimelineMarkerIcon = (event: TimelineEvent) => {
-    if (event.type === "Atendimento") return StethoscopeIcon;
-    if (event.type === "Agendamento") return CalendarClockIcon;
-    if (event.type === "Exame") return FlaskConicalIcon;
-    if (event.type === "Vacina") return SyringeIcon;
-    if (event.type === "Receita") return FileTextIcon;
-    if (event.type === "Observação" && event.isAlert) return AlertTriangleIcon;
-    return CircleIcon;
   };
 
   return (
@@ -1584,7 +1586,7 @@ const PatientRecordPage = () => {
               >
                 <FaClock className="h-3.5 w-3.5 mr-1 md:mr-1.5 text-amber-600" />
                 <span className="max-w-[9.5rem] md:max-w-none truncate">Timeline</span>
-                <span className="ml-1 sm:ml-1.5 shrink-0 inline-flex items-center justify-center h-4 min-w-4 px-1 sm:px-1.5 rounded-full text-[9px] bg-muted text-foreground/70">{sortedTimelineEvents.length}</span>
+                <span className="ml-1 sm:ml-1.5 shrink-0 inline-flex items-center justify-center h-4 min-w-4 px-1 sm:px-1.5 rounded-full text-[9px] bg-muted text-foreground/70">{timelineItems.length}</span>
               </TabsTrigger>
               <TabsTrigger
                 value="appointments"
@@ -1676,188 +1678,7 @@ const PatientRecordPage = () => {
           </TabsList>
 
           <TabsContent value="timeline" className="mt-4">
-            <Card className="premium-card">
-              <CardHeader className="p-4 pb-3 sm:p-6 sm:pb-4">
-                <CardTitle className="flex items-center gap-2 text-base font-semibold text-foreground">
-                  <FaClock className="h-4 w-4 text-muted-foreground" /> Linha do Tempo
-                </CardTitle>
-                <p className="text-sm text-muted-foreground">Eventos clínicos em ordem cronológica (escaneável)</p>
-              </CardHeader>
-              <CardContent className="px-3 pb-4 pt-0 sm:px-6 sm:pb-6">
-                {sortedTimelineEvents.length > 0 ? (
-                  <div className="relative">
-                    <div className="absolute left-4 sm:left-5 top-0 bottom-0 w-px bg-border/70" />
-                    <div className="space-y-3 sm:space-y-5">
-                      {sortedTimelineEvents.map((event) => {
-                        const styles = getEventStyle(event.type);
-                        const iconClass = getEventIconClass(event.type);
-                        const isAlertObs = event.type === 'Observação' && !!event.isAlert;
-
-                        const getRecipeVariantClass = () => {
-                          const desc = (event.description || "").toLowerCase();
-                          if (desc.includes("controlada")) return "badge-soft-amber";
-                          if (desc.includes("manipulada")) return "badge-soft-teal";
-                          return "badge-soft-green";
-                        };
-                        const getRecipeDotClass = () => {
-                          const desc = (event.description || "").toLowerCase();
-                          if (desc.includes("controlada")) return "timeline-dot-amber";
-                          if (desc.includes("manipulada")) return "timeline-dot-teal";
-                          return "timeline-dot-green";
-                        };
-                        const getRecipeIconClass = () => {
-                          const desc = (event.description || "").toLowerCase();
-                          if (desc.includes("controlada")) return "icon-soft-amber";
-                          if (desc.includes("manipulada")) return "icon-soft-teal";
-                          return "icon-soft-green";
-                        };
-
-                        const getTitle = () => {
-                          if (event.type === 'Atendimento') {
-                            return (event.description || "").split(":")[0]?.trim() || "Atendimento";
-                          }
-                          if (event.type === 'Agendamento') {
-                            return (event.description || "").split(":")[0]?.trim() || "Agendamento";
-                          }
-                          if (event.type === 'Exame') {
-                            return (event.description || "").split(":")[0]?.trim() || "Exame";
-                          }
-                          if (event.type === 'Vacina') {
-                            return (event.description || "").split(".")[0]?.trim() || "Vacina";
-                          }
-                          if (event.type === 'Receita') {
-                            const after = (event.description || "").split(":").slice(1).join(":").trim();
-                            return after || "Receita";
-                          }
-                          if (event.type === 'Documento') {
-                            return (event.description || "").replace(/^Documento\s*(:)?\s*/i, '').trim() || "Documento";
-                          }
-                          if (event.type === 'Observação') {
-                            return (event.summary || "").trim() || "Observação";
-                          }
-                          return event.type;
-                        };
-
-                        const getSubtitle = () => {
-                          if (event.type === 'Atendimento') return (event.summary || "").trim();
-                          if (event.type === 'Agendamento') return (event.summary || "").trim();
-                          if (event.type === 'Exame') return (event.summary || "").trim();
-                          if (event.type === 'Receita') return (event.summary || "").trim();
-                          if (event.type === 'Vacina') {
-                            const next = (event.description || "").match(/Próxima dose:\s*(.*)$/i)?.[1];
-                            return next ? `Próxima dose: ${next}` : (event.summary || "").trim();
-                          }
-                          return "";
-                        };
-
-                        // Agendamento cancelado ganha o mesmo destaque em vermelho do
-                        // Alerta em Observação — precisa saltar aos olhos na timeline
-                        // que aquele horário não aconteceu.
-                        const isCancelledAgenda = event.type === 'Agendamento' && event.scheduleStatus === 'cancelled';
-
-                        const dotClass = isAlertObs || isCancelledAgenda
-                          ? "bg-red-300"
-                          : (event.type === 'Receita' ? getRecipeDotClass() : styles.dot);
-
-                        const badgeClass = isAlertObs || isCancelledAgenda
-                          ? "bg-red-100 text-red-800"
-                          : (event.type === 'Receita' ? getRecipeVariantClass() : styles.badge);
-
-                        const iconColorClass = isAlertObs || isCancelledAgenda
-                          ? "text-red-700"
-                          : (event.type === 'Receita' ? getRecipeIconClass() : iconClass);
-
-                        const meta = `${formatDateTime(event.date, event.time)}${event.author ? ` • ${event.author}` : ""}`;
-
-                        const showView = !!event.link || event.type === 'Exame' || event.type === 'Atendimento' || event.type === 'Documento';
-                        const onView = () => {
-                          if (event.type === 'Exame') {
-                            const examId = (event.id || "").replace(/^exam-/, "");
-                            if (examId) navigate(subPath(`/edit-exam/${examId}`));
-                            return;
-                          }
-                          if (event.link) {
-                            if (event.link.startsWith("http") || event.link.startsWith("blob:")) window.open(event.link, "_blank");
-                            else navigate(event.link);
-                          }
-                        };
-
-                        const title = getTitle();
-                        const subtitle = getSubtitle();
-
-                        const MarkerIcon = getTimelineMarkerIcon(event);
-                        const markerColor = getTimelineMarkerColor(dotClass);
-
-                        return (
-                          <div key={event.id} className="relative pl-10 sm:pl-11">
-                            {/* Container maior, ícone no mesmo tamanho. No celular
-                                o marcador encolhe e fica centrado na linha, fora do
-                                card (antes ficava por cima da borda do card). */}
-                            <span className="absolute left-0 top-3 h-8 w-8 sm:left-3.5 sm:top-4 sm:h-10 sm:w-10 rounded-full bg-white ring-1 ring-border flex items-center justify-center">
-                              <MarkerIcon className="h-4 w-4" strokeWidth={1.6} style={{ color: markerColor }} />
-                            </span>
-
-                            <Card className="premium-card p-3 sm:p-5">
-                              <div className="flex items-start justify-between gap-2 sm:gap-4">
-                                <div className="min-w-0 flex-1">
-                                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                                    <span className={cn("chip-soft shrink-0", badgeClass)}>
-                                      {isAlertObs
-                                        ? "Alerta"
-                                        : isCancelledAgenda
-                                        ? "Agendamento cancelado"
-                                        : event.type === 'Receita'
-                                          ? ((event.description || "").toLowerCase().includes('controlada') ? 'Receita Controlada'
-                                            : (event.description || "").toLowerCase().includes('manipulada') ? 'Receita Manipulada'
-                                            : 'Receita Simples')
-                                          : event.type}
-                                    </span>
-                                    <span className="min-w-0 max-w-full break-words text-xs text-muted-foreground lg:truncate">{meta}</span>
-                                  </div>
-
-                                  <div className="mt-2 flex items-start gap-3">
-                                    {/* No celular o marcador da linha já mostra o ícone —
-                                        esconder este devolve ~50px pro título. */}
-                                    <div className={cn("hidden sm:flex h-9 w-9 shrink-0 rounded-xl items-center justify-center bg-muted/30", iconColorClass)}>
-                                      {React.createElement(event.icon, { className: "h-4 w-4" })}
-                                    </div>
-
-                                    <div className="min-w-0">
-                                      <div className="text-[15px] sm:text-base font-semibold text-foreground leading-snug break-words lg:truncate">
-                                        {title}
-                                      </div>
-                                      {subtitle && (
-                                        <div className="mt-0.5 text-sm text-muted-foreground leading-relaxed line-clamp-2">
-                                          {subtitle}
-                                        </div>
-                                      )}
-                                    </div>
-                                  </div>
-                                </div>
-
-                                {showView && (
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={onView}
-                                    className="h-9 w-9 shrink-0 -mr-1 -mt-1 sm:m-0 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/40"
-                                  >
-                                    <FaEye className="h-4 w-4" />
-                                    <span className="sr-only">Ver</span>
-                                  </Button>
-                                )}
-                              </div>
-                            </Card>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ) : (
-                  <p className="text-muted-foreground py-4">Nenhum evento registrado para este paciente.</p>
-                )}
-              </CardContent>
-            </Card>
+            <PatientTimeline items={timelineItems} petName={currentAnimal.name} />
           </TabsContent>
 
           <TabsContent value="appointments" className="mt-4">
@@ -1957,6 +1778,7 @@ const PatientRecordPage = () => {
                       return (
                         <div
                           key={exam.id}
+                          id={`pr-exam-${exam.id}`}
                           className={cn(
                             "relative rounded-xl border bg-white p-3 sm:p-4 transition-all duration-200",
                             "hover:shadow-lg hover:-translate-y-0.5",
@@ -2389,6 +2211,7 @@ const PatientRecordPage = () => {
                       return (
                         <div
                           key={entry.id}
+                          id={`pr-weight-${entry.id}`}
                           className="premium-card rounded-xl p-3 sm:p-4 transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5 border-emerald-200 hover:shadow-emerald-200/60"
                         >
                           <div className="flex items-start justify-between gap-3">
@@ -2626,6 +2449,7 @@ const PatientRecordPage = () => {
                       return (
                         <div
                           key={doc.id}
+                          id={`pr-doc-${doc.id}`}
                           className={cn(
                             "relative rounded-xl border bg-white p-3 sm:p-4 transition-all duration-200",
                             "hover:shadow-lg hover:-translate-y-0.5",
@@ -2832,6 +2656,7 @@ const PatientRecordPage = () => {
                       return (
                         <div
                           key={rx.id}
+                          id={`pr-rx-${rx.id}`}
                           className={cn(
                             "relative rounded-xl border bg-white p-3 sm:p-4 transition-all duration-200",
                             "hover:shadow-lg hover:-translate-y-0.5",
@@ -3107,6 +2932,7 @@ const PatientRecordPage = () => {
                       return (
                         <div
                           key={obs.id}
+                          id={`pr-obs-${obs.id}`}
                           className={cn(
                             "relative rounded-xl border bg-white p-3 sm:p-4 transition-all duration-200",
                             "hover:shadow-lg hover:-translate-y-0.5",
@@ -3273,7 +3099,7 @@ const PatientRecordPage = () => {
                             .sort((a, b) => `${a.date}T${a.time}`.localeCompare(`${b.date}T${b.time}`));
                           const refundable = cancelled ? [] : saleReceipts.filter((r) => r.amount > 0);
                           return (
-                            <li key={t.id} className="relative flex items-start gap-3 px-3 py-3 transition-colors hover:bg-muted/40 sm:px-4">
+                            <li key={t.id} id={`pr-sale-${t.id}`} className="relative flex items-start gap-3 px-3 py-3 transition-colors hover:bg-muted/40 sm:px-4">
                               <IconChip icon={statusVisual.icon} tone={statusVisual.tone} className="mt-0.5" />
                               <div className="min-w-0 flex-1">
                                 <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
