@@ -5,6 +5,7 @@ import { PageShell } from "@/components/saas/PageShell";
 import { PageHeader } from "@/components/saas/PageHeader";
 import { SectionCard } from "@/components/saas/SectionCard";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -12,6 +13,7 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrig
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { FileSignature, ArrowLeft, CheckCircle2, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 import { useClientWithAnimals } from "@/hooks/useSupabaseClients";
 import { usePatientRouteParams } from "@/hooks/usePatientRouteParams";
 import { getPatientRecordPath } from "@/utils/patientDisplayId";
@@ -66,6 +68,11 @@ const FIELD_LABEL: Record<string, string> = {
   endereco: "Endereço",
   telefone: "Telefone",
 };
+// Dados de uma linha só (não aceitam lista) — viram campo curto na etapa
+// "Complete os dados que faltam"; o resto é texto livre em caixa maior.
+const CAMPO_CURTO_RE =
+  /\.(hora|hora_entrada|hora_saida|data|validade|rg|cpf|cnpj|telefone|email|crmv|crmv_uf|numero|peso|pelagem|microchip|cep|cidade|uf|idade|sexo|raca|especie|nome|nome_fantasia|razao_social|valor|prazo_resultado|local|local_obito|castrado)$/;
+
 function labelForPath(caminho: string): string {
   const [escopo, ...resto] = caminho.split(".");
   const campo = resto.join(".");
@@ -316,6 +323,8 @@ const EmitDocumentPage: React.FC = () => {
     );
   }
 
+  const modeloPronto = !!(template && versao && preview && contextoFinal);
+
   // Etapas numeradas conforme o que o modelo pede (a de dados e a de opções
   // só aparecem quando há o que preencher).
   const etapaCampos = 3;
@@ -343,6 +352,9 @@ const EmitDocumentPage: React.FC = () => {
         }
       />
 
+      {/* Monitor grande: escolha do modelo e dados automáticos lado a lado —
+          cada um sozinho numa faixa da largura toda era quase só espaço vazio. */}
+      <div className={cn("grid gap-6", modeloPronto && "xl:grid-cols-2")}>
       <SectionCard title="1. Escolha o modelo" icon={FileSignature} tone="clinical">
         <Select value={selectedCodigo} onValueChange={setSelectedCodigo}>
           <SelectTrigger className="max-w-lg">
@@ -367,14 +379,7 @@ const EmitDocumentPage: React.FC = () => {
         </Select>
       </SectionCard>
 
-      {selectedCodigo && loadingVersao && (
-        <SectionCard title="Carregando modelo..." icon={FileSignature} tone="clinical">
-          <Skeleton className="h-40 w-full" />
-        </SectionCard>
-      )}
-
-      {template && versao && preview && contextoFinal && (
-        <>
+      {modeloPronto && (
           <SectionCard
             title="2. Dados preenchidos automaticamente"
             description="Vêm do cadastro do paciente, do responsável, do seu perfil e das configurações da clínica."
@@ -394,7 +399,17 @@ const EmitDocumentPage: React.FC = () => {
               </div>
             </div>
           </SectionCard>
+      )}
+      </div>
 
+      {selectedCodigo && loadingVersao && (
+        <SectionCard title="Carregando modelo..." icon={FileSignature} tone="clinical">
+          <Skeleton className="h-40 w-full" />
+        </SectionCard>
+      )}
+
+      {modeloPronto && preview && contextoFinal && (
+        <>
           {camposParaPreencher.length > 0 && (
             <SectionCard
               title={`${etapaCampos}. Complete os dados que faltam`}
@@ -402,11 +417,19 @@ const EmitDocumentPage: React.FC = () => {
               icon={FileSignature}
               tone="clinical"
             >
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              {/* Campo curto (hora, RG, validade...) numa linha com largura
+                  própria; texto longo ocupa o resto da linha. Antes tudo era
+                  caixa de texto de meia tela — "Hora" ocupava 900px x 70px. */}
+              <div className="flex flex-wrap items-start gap-4">
                 {camposParaPreencher.map((caminho) => {
                   const aindaPendente = preview.variaveisPendentes.includes(caminho);
+                  const curto = CAMPO_CURTO_RE.test(caminho);
+                  const hora = /\.hora(_entrada|_saida)?$/.test(caminho);
                   return (
-                    <div key={caminho} className="space-y-1.5">
+                    <div
+                      key={caminho}
+                      className={cn("w-full min-w-0 space-y-1.5", curto ? (hora ? "sm:w-40" : "sm:w-64") : "sm:min-w-[20rem] sm:flex-1")}
+                    >
                       <div className="flex items-center gap-1">
                         <label
                           htmlFor={`campo-${caminho}`}
@@ -419,12 +442,22 @@ const EmitDocumentPage: React.FC = () => {
                           <HelpHint text={hintForVariable(caminho)!} label={`Ajuda: ${labelForPath(caminho)}`} className="h-5 w-5" />
                         )}
                       </div>
-                      <Textarea
-                        id={`campo-${caminho}`}
-                        value={manualFields[caminho] ?? ""}
-                        onChange={(e) => setManualFields((prev) => ({ ...prev, [caminho]: e.target.value }))}
-                        className="min-h-[70px] rounded-lg border-border bg-input text-sm"
-                      />
+                      {curto ? (
+                        <Input
+                          id={`campo-${caminho}`}
+                          type={hora ? "time" : "text"}
+                          value={manualFields[caminho] ?? ""}
+                          onChange={(e) => setManualFields((prev) => ({ ...prev, [caminho]: e.target.value }))}
+                          className="h-10 w-full rounded-lg bg-input text-sm"
+                        />
+                      ) : (
+                        <Textarea
+                          id={`campo-${caminho}`}
+                          value={manualFields[caminho] ?? ""}
+                          onChange={(e) => setManualFields((prev) => ({ ...prev, [caminho]: e.target.value }))}
+                          className="min-h-[70px] rounded-lg border-border bg-input text-sm"
+                        />
+                      )}
                     </div>
                   );
                 })}
@@ -432,6 +465,10 @@ const EmitDocumentPage: React.FC = () => {
             </SectionCard>
           )}
 
+          {/* Monitor grande: opções à esquerda e o documento ao lado, fixo —
+              dá pra ver o "(X)" e o texto entrarem enquanto preenche, em vez
+              de duas faixas esticadas na largura toda com espaço sobrando. */}
+          <div className={cn("grid gap-6", fillSections.length > 0 && "2xl:grid-cols-2 2xl:items-start")}>
           {fillSections.length > 0 && (
             <SectionCard
               title={`${etapaOpcoes}. Marque as opções e complete o documento`}
@@ -475,11 +512,15 @@ const EmitDocumentPage: React.FC = () => {
             description="É assim que o documento vai sair. Se precisar, dá para ajustar o texto aqui mesmo — mas aí as opções da etapa anterior ficam travadas (dá para desfazer)."
             icon={FileSignature}
             tone="clinical"
+            className={fillSections.length > 0 ? "2xl:sticky 2xl:top-4" : undefined}
           >
             <Textarea
               value={textoFinalParaEmitir}
               onChange={(e) => setTextoManual(e.target.value)}
-              className="min-h-[420px] max-h-[420px] overflow-y-auto rounded-lg border-border bg-muted/30 font-mono text-xs leading-relaxed"
+              className={cn(
+                "min-h-[420px] max-h-[420px] overflow-y-auto rounded-lg border-border bg-muted/30 font-mono text-xs leading-relaxed",
+                fillSections.length > 0 && "2xl:min-h-[58vh] 2xl:max-h-[58vh]"
+              )}
               spellCheck={false}
             />
             {/* flex-wrap + "Desfazer" quebrando linha: no celular, depois de
@@ -507,6 +548,7 @@ const EmitDocumentPage: React.FC = () => {
               </Button>
             </div>
           </SectionCard>
+          </div>
         </>
       )}
 

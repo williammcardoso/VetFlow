@@ -10,10 +10,13 @@ import { cn } from "@/lib/utils";
 // linha do documento que tem algo a marcar/preencher aparece aqui, com as
 // caixas e campos no lugar exato do texto, agrupada pela seção do modelo.
 
+// Largura pelo que cabe no campo (número, data, nome curto, frase) — nunca
+// esticado na linha toda no computador: um campo de 1.400px para "Bom" era
+// só espaço em branco. No celular o campo longo ocupa a linha.
 const BLANK_WIDTH: Record<"sm" | "md" | "lg", string> = {
   sm: "w-24",
   md: "w-40",
-  lg: "min-w-[12rem] flex-1",
+  lg: "w-full sm:w-80",
 };
 
 /** Texto da linha para exibir: {{variáveis}} resolvidas e "|" de tabela como separador. */
@@ -121,10 +124,10 @@ function FillLineRow({
   return (
     <div className="px-3 py-2.5 text-sm leading-relaxed text-foreground/90">
       {line.context && <p className="mb-1 pr-8 text-xs text-muted-foreground">{display(line.context, false)}</p>}
-      {/* "?" fixo à direita: junto do último campo ele quebrava sozinho
-          para a linha de baixo no celular. */}
+      {/* "?" logo depois do conteúdo no computador; no celular, na borda
+          direita (junto do último campo ele quebrava sozinho para a linha de baixo). */}
       <div className="flex items-start gap-2">
-        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-1.5 gap-y-2">{parts}</div>
+        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-1.5 gap-y-2 sm:flex-initial">{parts}</div>
         {hint && <HelpHint text={hint} label={`Ajuda: ${line.label}`} className="mt-1.5" />}
       </div>
     </div>
