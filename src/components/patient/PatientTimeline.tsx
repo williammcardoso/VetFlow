@@ -20,6 +20,7 @@ export type TimelineKind =
   | "receita"
   | "documento"
   | "venda"
+  | "orcamento"
   | "peso"
   | "observacao";
 
@@ -56,6 +57,7 @@ const KIND_FILTERS: Array<{ kind: TimelineKind; label: string }> = [
   { kind: "receita", label: "Receitas" },
   { kind: "documento", label: "Documentos" },
   { kind: "venda", label: "Vendas" },
+  { kind: "orcamento", label: "Orçamentos" },
   { kind: "peso", label: "Peso" },
   { kind: "observacao", label: "Observações" },
   { kind: "agendamento", label: "Agendamentos" },
@@ -161,7 +163,7 @@ export function PatientTimeline({ items: rawItems, petName }: { items: TimelineI
             <History className="h-6 w-6" aria-hidden />
           </span>
           <p className="mt-3 text-sm font-semibold text-foreground">Nenhum evento registrado</p>
-          <p className="mt-1 text-sm text-muted-foreground">Atendimentos, exames, receitas, documentos e vendas aparecem aqui.</p>
+          <p className="mt-1 text-sm text-muted-foreground">Atendimentos, exames, receitas, documentos, vendas e orçamentos aparecem aqui.</p>
         </div>
       ) : (
         <>

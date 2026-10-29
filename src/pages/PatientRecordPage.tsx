@@ -1126,6 +1126,34 @@ const PatientRecordPage = () => {
     });
   });
 
+  patientBudgets.forEach(b => {
+    const expired = isBudgetExpired(b);
+    const cancelled = b.status === "cancelled";
+    const converted = b.status === "converted";
+    const statusLabel = converted
+      ? "Virou venda"
+      : cancelled
+        ? "Cancelado"
+        : expired
+          ? "Vencido"
+          : b.status === "approved"
+            ? "Aprovado"
+            : "Rascunho";
+    const names = b.items.map((it) => it.name);
+    timelineItems.push({
+      id: `budget-${b.id}`,
+      date: b.date,
+      kind: "orcamento",
+      label: cancelled ? "Orçamento cancelado" : "Orçamento",
+      title: names.length > 0 ? `${names.slice(0, 3).join(", ")}${names.length > 3 ? ` +${names.length - 3}` : ""}` : "Orçamento",
+      subtitle: `${formatCurrencyBRL(budgetNegotiatedTotal(b))} · ${statusLabel}`,
+      icon: FileTextIcon,
+      tone: cancelled ? "rose" : converted ? "emerald" : "violet",
+      muted: cancelled,
+      actions: [verNaAba("financial", `pr-budget-${b.id}`, "orcamentos")],
+    });
+  });
+
   // Termos e atestados dos modelos oficiais (tabela própria).
   (officialDocs ?? []).forEach(doc => {
     if (!doc.emitidoEm) return;
@@ -3231,7 +3259,7 @@ const PatientRecordPage = () => {
                         const st = badge[expired ? "expired" : b.status] ?? badge.draft;
                         const names = b.items.map((it) => it.name);
                         return (
-                          <li key={b.id} className="flex items-start gap-3 px-3 py-3 sm:px-4">
+                          <li key={b.id} id={`pr-budget-${b.id}`} className="flex items-start gap-3 px-3 py-3 sm:px-4">
                             <IconChip icon={FileTextIcon} tone={b.status === "cancelled" ? "slate" : "violet"} className="mt-0.5" />
                             <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
                               <div className="min-w-0 flex-1">
