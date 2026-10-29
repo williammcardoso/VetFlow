@@ -131,8 +131,23 @@ const TiptapRichText = React.forwardRef<TiptapRichTextHandle, TiptapRichTextProp
   const toolbarMenuBtnClass =
     "h-7 rounded-sm bg-transparent px-2 text-sm text-foreground hover:bg-muted/60";
 
+  // Tab dentro do editor não deve mudar o foco: alterna o recuo do parágrafo
+  // (Shift+Tab sempre remove). Vai pelas editorProps do próprio editor — antes
+  // era um listener em editor.view.dom num useEffect, mas no Tiptap 3 ler
+  // editor.view antes de o editor estar montado LANÇA erro (o "?." não
+  // protege) e derrubava a tela inteira (ex.: Cadastros > Modelo de documento).
+  const tabHandlerRef = useRef<(removeIndent: boolean) => void>(() => {});
+
   const editor = useEditor({
     editable: !readOnly,
+    editorProps: {
+      handleKeyDown: (_view, event) => {
+        if (event.key !== "Tab" || readOnly) return false;
+        event.preventDefault();
+        tabHandlerRef.current(event.shiftKey);
+        return true;
+      },
+    },
     extensions: [
       PasteSanitizer,
       StarterKit.configure({
@@ -310,22 +325,9 @@ const TiptapRichText = React.forwardRef<TiptapRichTextHandle, TiptapRichTextProp
     [editor]
   );
 
-  // Tab dentro do editor não deve mudar o foco: alterna o recuo.
-  // Shift+Tab sempre remove (evita ter que usar Backspace, que junta o
-  // parágrafo com o anterior e herda o alinhamento dele).
-  useEffect(() => {
-    if (!editor) return;
-    const handler = (e: KeyboardEvent) => {
-      if (e.key !== "Tab") return;
-      e.preventDefault();
-      toggleParagraphIndent(e.shiftKey);
-    };
-    const dom = editor.view?.dom as HTMLElement | undefined;
-    dom?.addEventListener("keydown", handler);
-    return () => {
-      dom?.removeEventListener("keydown", handler);
-    };
-  }, [editor, toggleParagraphIndent]);
+  // Shift+Tab sempre remove o recuo (evita ter que usar Backspace, que junta
+  // o parágrafo com o anterior e herda o alinhamento dele).
+  tabHandlerRef.current = toggleParagraphIndent;
 
   const applyFontSize = useCallback(
     (size: string | null) => {
