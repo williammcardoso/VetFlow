@@ -276,7 +276,7 @@ const AccessProfilePage: React.FC = () => {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-[16rem_16rem_minmax(0,32rem)]">
               <div className="space-y-2">
                 <Label>Perfil</Label>
                 <Select value={selectedProfileId} onValueChange={setSelectedProfileId}>

@@ -340,7 +340,9 @@ const AgendaPage = () => {
         </div>
       )}
 
-      <div className="grid flex-1 grid-cols-1 gap-5 lg:grid-cols-2">
+      {/* Monitor grande: o calendário tem o tamanho dele e a lista do dia fica
+          com o resto — antes cada um tinha meia tela e o calendário sobrava. */}
+      <div className="grid flex-1 grid-cols-1 gap-5 lg:grid-cols-2 xl:grid-cols-[22rem_minmax(0,1fr)]">
         <Card className="vf-surface-card vf-tone-clinical card-hover rounded-2xl border-border/80">
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-lg font-semibold text-foreground">
@@ -550,11 +552,12 @@ const AgendaPage = () => {
           <CardTitle className="text-lg font-semibold text-foreground">Relatório de atendimentos</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4 pt-0">
-          <div className="grid grid-cols-1 gap-2 md:grid-cols-4">
-            <Input type="date" value={reportFrom} onChange={(e) => setReportFrom(e.target.value)} className="bg-input" />
-            <Input type="date" value={reportTo} onChange={(e) => setReportTo(e.target.value)} className="bg-input" />
+          {/* Filtros com a largura do conteúdo (antes, 4 colunas de 25% cada). */}
+          <div className="flex flex-wrap items-center gap-2">
+            <Input type="date" value={reportFrom} onChange={(e) => setReportFrom(e.target.value)} className="bg-input sm:w-44" aria-label="De" />
+            <Input type="date" value={reportTo} onChange={(e) => setReportTo(e.target.value)} className="bg-input sm:w-44" aria-label="Até" />
             <Select value={reportStatus} onValueChange={(v) => setReportStatus(v as "all" | ScheduleStatus)}>
-              <SelectTrigger className="bg-input">
+              <SelectTrigger className="bg-input sm:w-52">
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>

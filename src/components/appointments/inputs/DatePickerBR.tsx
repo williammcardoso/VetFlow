@@ -46,7 +46,7 @@ export default function DatePickerBR({
   const selected = isoToDate(valueISO);
 
   return (
-    <div className={cn("relative", className)}>
+    <div className={cn("relative max-w-[12rem]", className)}>
       <DateInputBR
         id={id}
         valueISO={valueISO}

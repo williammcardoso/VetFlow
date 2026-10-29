@@ -118,7 +118,8 @@ export default function SurgeryForm({
                 <Scissors className="h-4 w-4 text-muted-foreground" /> Dados básicos
               </CardTitle>
             </CardHeader>
-            <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Data, horas e tempo são curtos: 4 por linha no computador. */}
+            <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
               <div className="space-y-2">
                 <Label>Data da cirurgia</Label>
                 <Input value={isoToBR(appointmentDateISO)} disabled />
@@ -182,7 +183,7 @@ export default function SurgeryForm({
             <CardHeader>
               <CardTitle className="text-base">Avaliação pré-operatória</CardTitle>
             </CardHeader>
-            <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5">
               <div className="space-y-2">
                 <Label htmlFor="pesoPreOp">Peso pré-operatório (kg)</Label>
                 <WeightInput
@@ -302,7 +303,7 @@ export default function SurgeryForm({
                 </RadioGroup>
               </div>
 
-              <div className="space-y-2 md:col-span-3">
+              <div className="space-y-2 sm:col-span-2 md:col-span-3 xl:col-span-5">
                 <Label htmlFor="obsPreOp">Observações pré-operatórias</Label>
                 <Textarea
                   id="obsPreOp"

@@ -11,6 +11,10 @@ Interface, textos e mensagens de commit em português do Brasil.
 - **Monitor grande é o uso principal no computador** (1920px com o menu lateral aberto). Tela não pode ficar
   "esticada": em vez de uma faixa larga com pouco conteúdo, use colunas (ex.: formulário + resumo/preview lado
   a lado, cartões curtos lado a lado em `xl`/`2xl`), larguras por conteúdo ou listas com colunas alinhadas.
+- Campos de data e hora já têm largura máxima global (`input[type=date|time]` em `src/globals.css`,
+  e `DateInputBR`/`DatePickerBR`); em grade de formulário, dê a coluna do tamanho deles
+  (ex.: `lg:grid-cols-[12rem_11rem_minmax(0,1fr)_minmax(0,1fr)]`) em vez de meia linha.
+- Grade com coluna `auto` (botão) num container largo: use `justify-start`, senão a sobra de espaço estica o botão.
 - Ícone de ajuda/ação fica junto do que se refere, não isolado na borda oposta da tela.
 - Seguir o padrão das telas já refeitas — PDV (`src/pages/sales/POSPage.tsx`), Vendas, Orçamentos e a linha do
   tempo do prontuário (`src/components/patient/PatientTimeline.tsx`): `Panel`, `IconChip`, `KpiStrip`,

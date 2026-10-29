@@ -49,7 +49,8 @@ export default function EmergencyForm({
         <CardHeader className="pb-3">
           <CardTitle className="text-base">Sinais vitais / medidas</CardTitle>
         </CardHeader>
-        <CardContent className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        {/* Sinais vitais são números curtos: 4 campos de 10rem, sem esticar. */}
+        <CardContent className="grid grid-cols-2 gap-4 sm:grid-cols-[repeat(4,10rem)]">
           <div className="space-y-2">
             <Label>Peso (kg)</Label>
             <WeightInput

@@ -1048,7 +1048,8 @@ const AddExamPage = () => {
         <Card className="vf-surface-card vf-tone-clinical card-hover rounded-2xl border border-border/80">
           <CardContent className="grid grid-cols-1 gap-4 py-4">
             {/* Passo 1: Data, Hora, Tipo, Veterinário - na mesma linha */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Data e hora com a largura delas; tipo e veterinário dividem o resto. */}
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-[12rem_9rem_minmax(0,1fr)_minmax(0,1fr)]">
               <div className="space-y-2">
                 <Label htmlFor="examDate">Data do Exame</Label>
                 <Input
@@ -1104,7 +1105,7 @@ const AddExamPage = () => {
                       <FaMicroscope className="h-5 w-5 text-vf-clinical" /> Informações do Laboratório
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-0 px-2">
+                  <CardContent className="grid grid-cols-1 gap-4 px-2 pt-0 md:grid-cols-2 lg:grid-cols-3">
                     <div className="space-y-2">
                       <Label htmlFor="material">Material</Label>
                       <Input id="material" value={material} onChange={(e) => setMaterial(e.target.value)} className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200 w-full" />
@@ -1133,7 +1134,7 @@ const AddExamPage = () => {
                         className="bg-input rounded-md border-border focus:ring-2 focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200"
                       />
                     </div>
-                    <div className="space-y-2 col-span-full">
+                    <div className="space-y-2 md:col-span-2">
                       <Label htmlFor="liberadoPor">Liberado por</Label>
                       <Input
                         id="liberadoPor"
@@ -1418,7 +1419,7 @@ const AddExamPage = () => {
                       <FaMicroscope className="h-5 w-5 text-vf-clinical" /> Informações do Laboratório
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-0 px-2">
+                  <CardContent className="grid grid-cols-1 gap-4 px-2 pt-0 md:grid-cols-2 lg:grid-cols-3">
                     <div className="space-y-2">
                       <Label htmlFor="laboratory">Laboratório</Label>
                       <Input
@@ -1439,7 +1440,7 @@ const AddExamPage = () => {
                         className="bg-input rounded-md border-border focus:ring-2 focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200"
                       />
                     </div>
-                    <div className="space-y-2 col-span-full">
+                    <div className="space-y-2 md:col-span-2">
                       <Label htmlFor="liberadoPor">Liberado por</Label>
                       <Input
                         id="liberadoPor"
@@ -1631,7 +1632,7 @@ const AddExamPage = () => {
                       <FaMicroscope className="h-5 w-5 text-vf-clinical" /> Informações do Laboratório
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-0 px-2">
+                  <CardContent className="grid grid-cols-1 gap-4 px-2 pt-0 md:grid-cols-2 lg:grid-cols-3">
                     <div className="space-y-2">
                       <Label htmlFor="cytoLaboratory">Laboratório</Label>
                       <Input
@@ -2041,7 +2042,7 @@ const AddExamPage = () => {
                       <FaMicroscope className="h-5 w-5 text-vf-clinical" /> Informações do Laboratório
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-0 px-2">
+                  <CardContent className="grid grid-cols-1 gap-4 px-2 pt-0 md:grid-cols-2 lg:grid-cols-3">
                     <div className="space-y-2">
                       <Label htmlFor="laboratory">Laboratório</Label>
                       <Input
@@ -2062,7 +2063,7 @@ const AddExamPage = () => {
                         className="bg-input rounded-md border-border focus:ring-2 focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200"
                       />
                     </div>
-                    <div className="space-y-2 col-span-full">
+                    <div className="space-y-2 md:col-span-2">
                       <Label htmlFor="liberadoPor">Liberado por</Label>
                       <Input
                         id="liberadoPor"

@@ -245,7 +245,9 @@ export default function ConsultationClinicalForm({
         <AccordionItem value="avaliacao">
           <AccordionTrigger className="text-sm font-semibold">Avaliação Clínica (Resumo)</AccordionTrigger>
           <AccordionContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
+            {/* Peso, temperatura e os 4 seletores são curtos: numa linha só no
+                computador, em vez de 3 por linha com campos de 350px. */}
+            <div className="grid grid-cols-1 gap-4 pt-2 sm:grid-cols-2 md:grid-cols-3 2xl:grid-cols-6">
               <div className="space-y-2">
                 <Label htmlFor="pesoAtual">Peso atual (kg)</Label>
                 <WeightInput
@@ -365,7 +367,7 @@ export default function ConsultationClinicalForm({
                 )}
               </div>
 
-              <div className="space-y-2 md:col-span-3">
+              <div className="space-y-2 sm:col-span-2 md:col-span-3 2xl:col-span-6">
                 <Label htmlFor="exameFisicoObs">Observações do exame físico</Label>
                 <Textarea
                   id="exameFisicoObs"
@@ -532,6 +534,7 @@ export default function ConsultationClinicalForm({
                   id="retornoDias"
                   type="number"
                   min={0}
+                  className="max-w-[10rem]"
                   value={details.retornoRecomendadoEmDias || ""}
                   onChange={(e) =>
                     patch({ retornoRecomendadoEmDias: e.target.value ? Number(e.target.value) : undefined })

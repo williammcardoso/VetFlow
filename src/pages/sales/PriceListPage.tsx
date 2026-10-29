@@ -107,7 +107,7 @@ const PriceListPage: React.FC = () => {
 
       <SectionCard title="Filtros" description="Busque por nome, tipo ou categoria." icon={Search} tone="sales">
         <div className="flex flex-wrap items-end gap-3">
-          <div className="min-w-[220px] flex-1">
+          <div className="min-w-[220px] max-w-md flex-1">
             <label className="text-xs font-medium text-muted-foreground">Buscar por nome</label>
             <Input
               value={search}

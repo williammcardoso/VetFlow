@@ -141,6 +141,20 @@ body,
     outline: 2px solid hsl(var(--sv-accent-ring));
     outline-offset: 2px;
   }
+
+  /* Data e hora nunca precisam de mais que isso. Sem o limite, campo de data
+     em formulário de grade ficava com 400–550px no monitor grande (atendimento,
+     exame, filtros de relatório) — só espaço em branco. Dá pra sobrescrever
+     com max-w-* na tela, se algum caso pedir. */
+  input[type="date"] {
+    max-width: 12rem;
+  }
+  input[type="time"] {
+    max-width: 9rem;
+  }
+  input[type="datetime-local"] {
+    max-width: 16rem;
+  }
 }
 
 @layer utilities {

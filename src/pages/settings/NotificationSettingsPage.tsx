@@ -151,7 +151,7 @@ export default function NotificationSettingsPage() {
       </Panel>
 
       <Panel title="Prazos das vacinas e acompanhamentos" icon={CalendarRange} tone="orange" description="Vale para o sininho">
-        <div className="grid gap-4 p-4 sm:grid-cols-2">
+        <div className="grid gap-4 p-4 sm:grid-cols-[18rem_18rem]">
           <div className="space-y-1.5">
             <label className="text-sm font-semibold text-foreground">Avisar com antecedência de</label>
             <Select value={String(prefs.diasAntes)} onValueChange={(v) => void update({ diasAntes: Number(v) })}>

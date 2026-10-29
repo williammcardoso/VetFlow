@@ -913,7 +913,8 @@ export default function AppointmentForm({
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Temperatura e peso são números curtos — lado a lado, sem esticar. */}
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-[10rem_10rem]">
                 <div className="space-y-2">
                   <Label htmlFor="temp">Temperatura (°C)</Label>
                   <div className="relative">
@@ -974,7 +975,7 @@ export default function AppointmentForm({
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-semibold">Dados da Vacina</CardTitle>
             </CardHeader>
-            <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
               <div className="space-y-2">
                 <Label>Nome da Vacina *</Label>
                 <Select
@@ -1087,7 +1088,7 @@ export default function AppointmentForm({
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-semibold">Aplicação</CardTitle>
             </CardHeader>
-            <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
               <div className="space-y-2">
                 <Label>Local de Aplicação</Label>
                 <Select
@@ -1216,6 +1217,7 @@ export default function AppointmentForm({
               id="proximoAcompanhamentoDias"
               type="number"
               min={0}
+              className="max-w-[10rem]"
               value={r.retornoRecomendadoEmDias || ""}
               onChange={(e) =>
                 setDetails({ ...r, retornoRecomendadoEmDias: e.target.value ? Number(e.target.value) : undefined })
@@ -1240,7 +1242,8 @@ export default function AppointmentForm({
           informações, você pode revisar/ajustar os campos abaixo.
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Peso, temperatura, FC e FR são números curtos: os quatro na mesma linha. */}
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-[repeat(4,10rem)]">
           <div className="space-y-2">
             <Label>Peso (kg)</Label>
             <WeightInput
@@ -1274,7 +1277,7 @@ export default function AppointmentForm({
             />
           </div>
 
-          <div className="space-y-2 md:col-span-2">
+          <div className="col-span-2 space-y-2 sm:col-span-4">
             <Label>Descrição clínica</Label>
             <Textarea
               value={(legacyDetails.historicoClinico as string) || ""}
@@ -1316,7 +1319,9 @@ export default function AppointmentForm({
         <CardHeader>
           <CardTitle className="text-base">Dados gerais do atendimento</CardTitle>
         </CardHeader>
-        <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Data e hora com a largura delas, tipo e veterinário dividindo o
+            resto — antes eram 4 campos de meia linha (540px para uma hora). */}
+        <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-[12rem_11rem_minmax(0,1fr)_minmax(0,1fr)]">
           <div className="space-y-2">
             <Label htmlFor="date">Data do atendimento *</Label>
             <DateInputBR
@@ -1406,7 +1411,7 @@ export default function AppointmentForm({
             <p className="text-xs text-muted-foreground">Padrão: usuário logado. Você pode trocar manualmente.</p>
           </div>
 
-          <div className="space-y-2 md:col-span-2">
+          <div className="space-y-2 md:col-span-2 lg:col-span-4">
             <Label htmlFor="adminNote">Nota administrativa rápida (opcional)</Label>
             <Input
               id="adminNote"
@@ -1417,7 +1422,7 @@ export default function AppointmentForm({
             />
           </div>
 
-          <div className="flex items-center justify-between gap-4 md:col-span-2 pt-2 border-t border-border/60">
+          <div className="flex items-center justify-between gap-4 md:col-span-2 lg:col-span-4 pt-2 border-t border-border/60">
             <div className="flex items-center gap-2">
               <Sparkles className="h-4 w-4 text-primary" />
               <Label htmlFor="useAssistantIA" className="cursor-pointer">

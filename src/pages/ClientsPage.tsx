@@ -269,7 +269,8 @@ const ClientsPage = () => {
         {/* Busca, filtro e ordem */}
         <div className="flex flex-col gap-3 border-b border-border/70 p-3 sm:p-4 lg:flex-row lg:items-center">
           <div className="flex min-w-0 flex-1 gap-2">
-            <div className="relative min-w-0 flex-1">
+            {/* Busca até ~36rem: com a tela toda ela ficava com 1.000px+ no monitor grande. */}
+            <div className="relative min-w-0 flex-1 lg:max-w-xl">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
               <Input
                 value={search}

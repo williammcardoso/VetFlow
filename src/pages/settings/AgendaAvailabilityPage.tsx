@@ -312,7 +312,7 @@ const AgendaAvailabilityPage: React.FC = () => {
       />
 
       <div className="flex-1">
-        <div className="mx-auto max-w-4xl space-y-5">
+        <div className="space-y-5">
           {usingFallback && !loading && (
             <Alert>
               <AlertTriangle className="h-4 w-4" />
@@ -333,6 +333,11 @@ const AgendaAvailabilityPage: React.FC = () => {
             </div>
           ) : (
             <>
+              {/* Monitor grande: configurações à esquerda e a semana à direita,
+                  com os dias em duas colunas — antes era uma coluna estreita no
+                  meio da tela, com 2.300px de altura e as laterais vazias. */}
+              <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.7fr)] xl:items-start">
+              <div className="space-y-5">
               {/* Intervalo entre horários */}
               <Card className="vf-surface-card vf-tone-settings rounded-2xl border-border/80">
                 <CardHeader className="pb-3">
@@ -366,43 +371,6 @@ const AgendaAvailabilityPage: React.FC = () => {
               </Card>
 
               <VaccineOptionsCard />
-
-              {/* Horário-padrão da semana */}
-              <Card className="vf-surface-card vf-tone-settings rounded-2xl border-border/80">
-                <CardHeader className="pb-3">
-                  <CardTitle className="flex items-center gap-2 text-lg font-semibold text-foreground">
-                    <Clock className="h-5 w-5 text-vf-settings" /> Horário-padrão da semana
-                  </CardTitle>
-                  <CardDescription>
-                    O horário que vale toda semana. Pra fechar um dia específico (feriado) ou abrir com horário diferente só numa data,
-                    use as exceções abaixo — não precisa mudar o padrão pra isso.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4 pt-0">
-                  {localWeekly
-                    .slice()
-                    .sort((a, b) => a.weekday - b.weekday)
-                    .map((day) => (
-                      <div key={day.weekday} className="rounded-xl border border-border/70 p-3">
-                        <div className="mb-2 flex items-center justify-between gap-3">
-                          <span className="font-medium text-foreground">{WEEKDAY_NAMES[day.weekday]}</span>
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm text-muted-foreground">{day.isOpen ? "Aberto" : "Fechado"}</span>
-                            <Switch checked={day.isOpen} onCheckedChange={(v) => setDay(day.weekday, { isOpen: v })} />
-                          </div>
-                        </div>
-                        {day.isOpen && (
-                          <BlockListEditor blocks={day.blocks} onChange={(blocks) => setDay(day.weekday, { blocks })} />
-                        )}
-                      </div>
-                    ))}
-                  <div className="flex justify-end">
-                    <Button onClick={handleSaveWeekly} disabled={savingWeekly || !weeklyValid}>
-                      {savingWeekly ? "Salvando..." : "Salvar horário-padrão"}
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
 
               {/* Exceções por data */}
               <Card className="vf-surface-card vf-tone-settings rounded-2xl border-border/80">
@@ -449,6 +417,47 @@ const AgendaAvailabilityPage: React.FC = () => {
                   )}
                 </CardContent>
               </Card>
+              </div>
+              {/* Horário-padrão da semana */}
+              <Card className="vf-surface-card vf-tone-settings rounded-2xl border-border/80">
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2 text-lg font-semibold text-foreground">
+                    <Clock className="h-5 w-5 text-vf-settings" /> Horário-padrão da semana
+                  </CardTitle>
+                  <CardDescription>
+                    O horário que vale toda semana. Pra fechar um dia específico (feriado) ou abrir com horário diferente só numa data,
+                    use as exceções abaixo — não precisa mudar o padrão pra isso.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4 pt-0">
+                  <div className="grid grid-cols-1 gap-3 2xl:grid-cols-2">
+                  {localWeekly
+                    .slice()
+                    .sort((a, b) => a.weekday - b.weekday)
+                    .map((day) => (
+                      <div key={day.weekday} className="rounded-xl border border-border/70 p-3">
+                        <div className="mb-2 flex items-center justify-between gap-3">
+                          <span className="font-medium text-foreground">{WEEKDAY_NAMES[day.weekday]}</span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm text-muted-foreground">{day.isOpen ? "Aberto" : "Fechado"}</span>
+                            <Switch checked={day.isOpen} onCheckedChange={(v) => setDay(day.weekday, { isOpen: v })} />
+                          </div>
+                        </div>
+                        {day.isOpen && (
+                          <BlockListEditor blocks={day.blocks} onChange={(blocks) => setDay(day.weekday, { blocks })} />
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex justify-end">
+                    <Button onClick={handleSaveWeekly} disabled={savingWeekly || !weeklyValid}>
+                      {savingWeekly ? "Salvando..." : "Salvar horário-padrão"}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              </div>
             </>
           )}
         </div>

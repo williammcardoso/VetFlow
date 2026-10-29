@@ -428,6 +428,9 @@ const MonthlyClosingPage: React.FC = () => {
           </Card>
         </div>
 
+        {/* Monitor grande: a conta e a divisão lado a lado — antes a conta era uma
+            faixa da largura toda, com o valor a ~1.400px do rótulo. */}
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] xl:items-start">
         <Card className="rounded-xl border-border/80">
           <CardHeader className="pb-2">
             <CardTitle className="text-base">Composição do resultado</CardTitle>
@@ -477,19 +480,7 @@ const MonthlyClosingPage: React.FC = () => {
           </CardContent>
         </Card>
 
-        <ClosingExtrasCard
-          year={year}
-          month={month}
-          items={extras}
-          available={extrasAvailable}
-          loading={extrasLoading}
-          locked={isClosed}
-          descriptions={extraDescriptions}
-          createdBy={session?.username}
-          onChange={setExtras}
-        />
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-1">
           {(
             [
               { key: "clinic", label: CLOSING_PARTNERS.clinic, half: closing.metadeClinica, extra: extraTotals.clinic, tone: "teal", note: "Parte da clínica no lucro líquido do mês." },
@@ -515,6 +506,19 @@ const MonthlyClosingPage: React.FC = () => {
             </Card>
           ))}
         </div>
+        </div>
+
+        <ClosingExtrasCard
+          year={year}
+          month={month}
+          items={extras}
+          available={extrasAvailable}
+          loading={extrasLoading}
+          locked={isClosed}
+          descriptions={extraDescriptions}
+          createdBy={session?.username}
+          onChange={setExtras}
+        />
       </div>
     </PageShell>
   );

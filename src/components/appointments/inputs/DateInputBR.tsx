@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
 
 const pad2 = (n: number) => String(n).padStart(2, "0");
 
@@ -80,7 +81,8 @@ export default function DateInputBR({
       placeholder={placeholder}
       value={raw}
       required={required}
-      className={className}
+      // Mesma largura máxima dos campos de data nativos (globals.css).
+      className={cn("max-w-[12rem]", className)}
       onChange={(e) => {
         const masked = maskDDMMYYYY(e.target.value);
         setRaw(masked);

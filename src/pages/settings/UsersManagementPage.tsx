@@ -221,8 +221,10 @@ const UsersManagementPage: React.FC = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleCreate} className="grid grid-cols-1 gap-4 md:grid-cols-4">
-              <div className="space-y-2 md:col-span-2">
+            {/* Campos com a largura do conteúdo e o botão na mesma linha (antes o
+                usuário ocupava meia tela e o botão ia para uma linha só dele). */}
+            <form onSubmit={handleCreate} className="grid grid-cols-1 gap-4 md:grid-cols-[minmax(0,20rem)_14rem_12rem_auto] md:items-end md:justify-start">
+              <div className="space-y-2">
                 <Label htmlFor="new-username">Usuário</Label>
                 <Input
                   id="new-username"
@@ -253,7 +255,7 @@ const UsersManagementPage: React.FC = () => {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="md:col-span-4 flex justify-end">
+              <div className="flex justify-end md:justify-start">
                 <Button
                   type="submit"
                   disabled={creating}

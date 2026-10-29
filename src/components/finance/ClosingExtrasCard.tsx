@@ -164,7 +164,8 @@ export function ClosingExtrasCard({
                 <Lock className="h-3.5 w-3.5" aria-hidden /> Mês fechado: para lançar ou excluir acréscimos, reabra o mês.
               </p>
             ) : (
-              <form onSubmit={handleAdd} className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_8.5rem_auto_auto] sm:items-end">
+              // Descrição até 24rem: esticada na linha toda ficava com 1.000px+ no monitor grande.
+              <form onSubmit={handleAdd} className="grid gap-2 sm:grid-cols-[minmax(0,24rem)_8.5rem_auto_auto] sm:items-end sm:justify-start">
                 <div className="min-w-0 space-y-1">
                   <Label htmlFor="extra-description" className="text-xs">
                     Descrição

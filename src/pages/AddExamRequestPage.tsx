@@ -344,7 +344,9 @@ ${signatureBlock}
                 <div className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   {section.title}
                 </div>
-                <div className="grid grid-cols-1 gap-x-4 gap-y-1.5 sm:grid-cols-2">
+                {/* Nomes de exame são curtos: mais colunas no monitor grande em
+                    vez de duas colunas de 500px com o resto vazio. */}
+                <div className="grid grid-cols-1 gap-x-4 gap-y-1.5 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
                   {section.items.map((item) => (
                     <label key={item} className="flex items-center gap-2 text-sm cursor-pointer">
                       <Checkbox checked={selected.has(item)} onCheckedChange={() => toggle(item)} />
@@ -359,7 +361,7 @@ ${signatureBlock}
               <div className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Outro exame (não está na lista)
               </div>
-              <div className="flex gap-2">
+              <div className="flex max-w-xl gap-2">
                 <Input
                   value={customInput}
                   onChange={(e) => setCustomInput(e.target.value)}

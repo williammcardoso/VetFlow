@@ -583,7 +583,7 @@ const AddPrescriptionPage = () => {
                     animalWeight={weightKg || undefined}
                   />
                 ))}
-                <Button onClick={handleAddMedication} className="w-full bg-[hsl(var(--vf-clinical))] font-semibold text-white transition-all duration-200 shadow-md hover:bg-[hsl(var(--vf-clinical)/0.9)] hover:shadow-lg">
+                <Button onClick={handleAddMedication} className="w-full sm:w-auto bg-[hsl(var(--vf-clinical))] font-semibold text-white transition-all duration-200 shadow-md hover:bg-[hsl(var(--vf-clinical)/0.9)] hover:shadow-lg">
                   <FaPlus className="mr-2 h-4 w-4" /> Adicionar Medicamento
                 </Button>
               </CardContent>
