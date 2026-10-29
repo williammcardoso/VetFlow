@@ -26,6 +26,10 @@ import { generateQrCodeDataUrl } from "@/lib/qrCode";
 import { renderPdf } from "@/lib/pdfExport";
 import { insertEmittedDocument, updateDocumentHashAndPdf, uploadDocumentPdf } from "@/lib/documentEmissionApi";
 import DocumentSignaturePanel from "@/components/DocumentSignaturePanel";
+import { DocumentFillForm } from "@/components/documents/DocumentFillForm";
+import { HelpHint } from "@/components/documents/HelpHint";
+import { applyFillAnswers, countAnswered, countFillFields, parseFillFields, type FillAnswers } from "@/lib/documentFillFields";
+import { hintForVariable } from "@/lib/documentFieldHints";
 import { useAuth } from "@/contexts/AuthContext";
 import type { DocumentTemplateGroup } from "@/types/documentTemplate";
 
@@ -115,17 +119,19 @@ const EmitDocumentPage: React.FC = () => {
     emitidoEm: Date;
   } | null>(null);
   const [retrying, setRetrying] = useState(false);
-  // Texto final, editável à mão antes de emitir — necessário porque muitos
-  // modelos têm checkbox "( )" e linhas de reticências "......." que não são
-  // {{variável}} nenhuma (não têm como virar campo de formulário genérico);
-  // o jeito de marcar essas opções é editando o texto final diretamente.
+  // Texto final, editável à mão antes de emitir (ajuste fino). As opções
+  // "( )" e as linhas "......" do modelo agora têm formulário próprio
+  // (fillAnswers); editar o texto à mão congela o texto com o que já estava
+  // marcado — dá pra desfazer e voltar a usar o formulário.
   // null = ainda não editado manualmente, usa o texto calculado automático.
   const [textoManual, setTextoManual] = useState<string | null>(null);
+  const [fillAnswers, setFillAnswers] = useState<FillAnswers>({});
 
   useEffect(() => {
     setManualFields({});
     setResultado(null);
     setTextoManual(null);
+    setFillAnswers({});
   }, [selectedCodigo]);
 
   const autoContext = useMemo(() => {
@@ -142,10 +148,17 @@ const EmitDocumentPage: React.FC = () => {
 
   const contextoFinal = useMemo(() => (autoContext ? mergeManualFields(autoContext, manualFields) : null), [autoContext, manualFields]);
 
+  // Opções e linhas a completar do modelo, lidas do próprio corpo da versão.
+  // As respostas entram no corpo ANTES de resolver as {{variáveis}}: assim a
+  // numeração dos campos não depende do que foi digitado na etapa anterior.
+  const fillSections = useMemo(() => (versao ? parseFillFields(versao.corpo) : []), [versao]);
+  const fillTotal = useMemo(() => countFillFields(fillSections), [fillSections]);
+  const corpoPreenchido = useMemo(() => (versao ? applyFillAnswers(versao.corpo, fillAnswers) : ""), [versao, fillAnswers]);
+
   const preview = useMemo(() => {
     if (!versao || !contextoFinal) return null;
-    return renderDocumentTemplate(versao.corpo, contextoFinal);
-  }, [versao, contextoFinal]);
+    return renderDocumentTemplate(corpoPreenchido, contextoFinal);
+  }, [versao, contextoFinal, corpoPreenchido]);
 
   // Calculado só a partir do contexto AUTOMÁTICO (sem manualFields de propósito):
   // é a lista de campos a mostrar no formulário, e não pode encolher conforme o
@@ -303,6 +316,12 @@ const EmitDocumentPage: React.FC = () => {
     );
   }
 
+  // Etapas numeradas conforme o que o modelo pede (a de dados e a de opções
+  // só aparecem quando há o que preencher).
+  const etapaCampos = 3;
+  const etapaOpcoes = camposParaPreencher.length > 0 ? 4 : 3;
+  const etapaPreview = etapaOpcoes + (fillSections.length > 0 ? 1 : 0);
+
   return (
     // pb-32 no celular: o "Emitir documento" é o último item da página e
     // ficava colado no rodapé da tela, logo acima da barra flutuante do
@@ -378,7 +397,7 @@ const EmitDocumentPage: React.FC = () => {
 
           {camposParaPreencher.length > 0 && (
             <SectionCard
-              title="3. Complete os dados que faltam"
+              title={`${etapaCampos}. Complete os dados que faltam`}
               description="Esses campos não vêm de nenhum cadastro — preencha pra liberar a emissão. Uma linha por item se o campo aceitar lista (ex.: exames)."
               icon={FileSignature}
               tone="clinical"
@@ -388,11 +407,20 @@ const EmitDocumentPage: React.FC = () => {
                   const aindaPendente = preview.variaveisPendentes.includes(caminho);
                   return (
                     <div key={caminho} className="space-y-1.5">
-                      <label className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                        {labelForPath(caminho)}
-                        {!aindaPendente && <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />}
-                      </label>
+                      <div className="flex items-center gap-1">
+                        <label
+                          htmlFor={`campo-${caminho}`}
+                          className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+                        >
+                          {labelForPath(caminho)}
+                          {!aindaPendente && <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />}
+                        </label>
+                        {hintForVariable(caminho) && (
+                          <HelpHint text={hintForVariable(caminho)!} label={`Ajuda: ${labelForPath(caminho)}`} className="h-5 w-5" />
+                        )}
+                      </div>
                       <Textarea
+                        id={`campo-${caminho}`}
                         value={manualFields[caminho] ?? ""}
                         onChange={(e) => setManualFields((prev) => ({ ...prev, [caminho]: e.target.value }))}
                         className="min-h-[70px] rounded-lg border-border bg-input text-sm"
@@ -404,9 +432,47 @@ const EmitDocumentPage: React.FC = () => {
             </SectionCard>
           )}
 
+          {fillSections.length > 0 && (
+            <SectionCard
+              title={`${etapaOpcoes}. Marque as opções e complete o documento`}
+              description="Só as partes do modelo que pedem resposta. Toque no ? para ver o que preencher. O que ficar em branco sai pontilhado para completar à caneta, e opção não marcada sai como ( )."
+              icon={FileSignature}
+              tone="clinical"
+            >
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                <span className="text-xs font-medium text-muted-foreground">
+                  {countAnswered(fillAnswers)} de {fillTotal} marcados/preenchidos
+                </span>
+                {countAnswered(fillAnswers) > 0 && textoManual === null && (
+                  <Button variant="ghost" size="sm" className="h-8" onClick={() => setFillAnswers({})}>
+                    Limpar respostas
+                  </Button>
+                )}
+              </div>
+              {textoManual !== null && (
+                <Alert className="mb-3 border-amber-200 bg-amber-50 text-amber-900">
+                  <AlertTitle>O texto do documento foi editado à mão</AlertTitle>
+                  <AlertDescription className="flex flex-wrap items-center gap-2">
+                    Por isso estas opções estão travadas — o que já estava marcado continua no texto.
+                    <Button variant="outline" size="sm" className="h-8 border-amber-300 bg-white" onClick={() => setTextoManual(null)}>
+                      Desfazer edições do texto
+                    </Button>
+                  </AlertDescription>
+                </Alert>
+              )}
+              <DocumentFillForm
+                sections={fillSections}
+                answers={fillAnswers}
+                onAnswersChange={setFillAnswers}
+                context={contextoFinal}
+                disabled={textoManual !== null}
+              />
+            </SectionCard>
+          )}
+
           <SectionCard
-            title="4. Preview — pode editar antes de emitir"
-            description='Marque as opções "( )" trocando por "(X)" e preencha as linhas de reticências direto no texto abaixo — é assim que checkboxes e campos específicos de cada modelo (ex.: classificação ASA, tipo de anestesia) são preenchidos, já que variam demais de modelo pra modelo pra virar formulário.'
+            title={`${etapaPreview}. Confira o documento`}
+            description="É assim que o documento vai sair. Se precisar, dá para ajustar o texto aqui mesmo — mas aí as opções da etapa anterior ficam travadas (dá para desfazer)."
             icon={FileSignature}
             tone="clinical"
           >
