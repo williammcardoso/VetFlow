@@ -46,6 +46,8 @@ function summarizeBlocks(blocks: HourBlock[]): string {
   return blocks.map((b) => `${b.start}–${b.end}`).join(" e ");
 }
 
+const TIME_INPUT = "px-2 max-sm:[&::-webkit-calendar-picker-indicator]:hidden sm:w-32 sm:px-3";
+
 // Editor de uma lista de blocos {start,end} — usado tanto no horário-padrão
 // (por dia da semana) quanto no horário customizado de uma exceção.
 function BlockListEditor({
@@ -64,14 +66,17 @@ function BlockListEditor({
   return (
     <div className="space-y-2">
       {blocks.map((b, i) => (
-        <div key={i} className="flex items-center gap-2">
-          <Input type="time" value={b.start} onChange={(e) => update(i, "start", e.target.value)} className="w-32" />
+        // No celular os dois horários dividem a linha em partes iguais e sem o
+        // ícone de relógio (o toque já abre o seletor) — antes o w-32 fixo
+        // encolhia e cortava o horário; "fim antes do início" desce.
+        <div key={i} className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto] items-center gap-x-1.5 gap-y-1 sm:flex sm:flex-wrap sm:gap-x-2">
+          <Input type="time" value={b.start} onChange={(e) => update(i, "start", e.target.value)} aria-label="Início" className={TIME_INPUT} />
           <span className="text-sm text-muted-foreground">até</span>
-          <Input type="time" value={b.end} onChange={(e) => update(i, "end", e.target.value)} className="w-32" />
-          {b.start >= b.end && <span className="text-xs text-destructive">fim antes do início</span>}
-          <Button type="button" variant="ghost" size="icon" onClick={() => remove(i)} className="ml-auto h-8 w-8 text-muted-foreground hover:text-destructive">
+          <Input type="time" value={b.end} onChange={(e) => update(i, "end", e.target.value)} aria-label="Fim" className={TIME_INPUT} />
+          <Button type="button" variant="ghost" size="icon" onClick={() => remove(i)} aria-label="Remover intervalo" className="h-8 w-8 text-muted-foreground hover:text-destructive sm:order-last sm:ml-auto">
             <Trash2 className="h-4 w-4" />
           </Button>
+          {b.start >= b.end && <span className="col-span-4 text-xs text-destructive">fim antes do início</span>}
         </div>
       ))}
       <Button type="button" variant="outline" size="sm" onClick={add}>

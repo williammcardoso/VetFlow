@@ -2,10 +2,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { getSession } from "@/lib/authApi";
 
 // Contador de envios ao tutor (WhatsApp): quantas vezes cada exame, receita,
-// orçamento ou documento foi mandado e quando foi a última. Tabela
+// orçamento, documento ou aviso de agendamento foi mandado e quando foi a última. Tabela
 // send_log (migration 20260930130000); sem ela, guarda no aparelho.
 
-export type SendItemType = "exam" | "prescription" | "budget" | "document";
+export type SendItemType = "exam" | "prescription" | "budget" | "document" | "schedule";
 
 export interface SendTrack {
   type: SendItemType;

@@ -34,6 +34,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 import { useClientsList } from "@/hooks/useSupabaseClients";
 import { useSchedulesList, useScheduleMutations } from "@/hooks/useSchedules";
 import { type ScheduleStatus, type ScheduleUI } from "@/lib/schedulesApi";
@@ -44,9 +45,10 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import StatusBadge from "@/components/saas/StatusBadge";
 import ClientCombobox from "@/components/ClientCombobox";
 import { SiWhatsapp } from "react-icons/si";
-import { sendAppointmentReminderViaWhatsApp } from "@/lib/whatsappShare";
 import { formatScheduleTimeRange } from "@/lib/agendaKinds";
 import { KindBadge } from "@/components/agenda/bookingKindVisual";
+import { AppointmentNoticeDialog } from "@/components/agenda/AppointmentNoticeDialog";
+import { SentBadge } from "@/components/SentBadge";
 
 const AgendaPage = () => {
   const { data: dbClients, isError: isClientsError } = useClientsList();
@@ -194,25 +196,9 @@ const AgendaPage = () => {
     }
   };
 
-  const handleSendWhatsAppReminder = (app: ScheduleUI) => {
-    const client = clients.find((c) => c.id === app.clientId);
-    const phone = client?.mainPhoneContact;
-    if (!phone) {
-      toast.error(
-        app.clientId
-          ? "Este cliente não tem telefone cadastrado."
-          : "Esse agendamento não tem cliente cadastrado vinculado (provavelmente veio da agenda pública) — não dá pra saber o telefone."
-      );
-      return;
-    }
-    sendAppointmentReminderViaWhatsApp(phone, {
-      clientName: app.clientName || "tutor(a)",
-      animalName: app.animalName,
-      title: app.title,
-      date: app.date,
-      time: app.time,
-    });
-  };
+  // Aviso pelo WhatsApp: abre a prévia com o texto do serviço (vacina,
+  // consulta domiciliar...) e o telefone já achado — dá para conferir antes.
+  const [noticeFor, setNoticeFor] = useState<ScheduleUI | null>(null);
 
   const handleSaveAppointment = async () => {
     if (!newAppointmentTitle || !selectedDate || !newAppointmentTime || !newAppointmentClientId || !newAppointmentAnimalId) {
@@ -431,6 +417,7 @@ const AgendaPage = () => {
                       <div className="mt-2 flex flex-wrap items-center gap-1.5">
                         <StatusBadge status={app.status || "scheduled"} className="inline-flex" />
                         {app.kind && <KindBadge kind={app.kind} info={app.kindInfo} />}
+                        <SentBadge type="schedule" id={app.id} />
                       </div>
                     </div>
                     <div className="flex gap-2">
@@ -441,10 +428,6 @@ const AgendaPage = () => {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-52">
-                          <DropdownMenuItem className="text-foreground" onClick={() => handleSendWhatsAppReminder(app)}>
-                            <SiWhatsapp className="mr-2 h-3.5 w-3.5 text-[#25D366]" /> Enviar lembrete por WhatsApp
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
                           <DropdownMenuItem className="text-foreground" onClick={() => void handleSetStatus(app, "scheduled")}>Agendado</DropdownMenuItem>
                           <DropdownMenuItem className="text-foreground" onClick={() => void handleSetStatus(app, "in_progress")}>Em atendimento</DropdownMenuItem>
                           <DropdownMenuItem className="text-foreground" onClick={() => void handleSetStatus(app, "attended")}>Atendido</DropdownMenuItem>
@@ -452,6 +435,21 @@ const AgendaPage = () => {
                           <DropdownMenuItem className="text-foreground" onClick={() => void handleSetStatus(app, "cancelled")}>Cancelado</DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
+                      {/* Horário bloqueado não tem tutor: o botão fica invisível
+                          (não some) para editar/excluir seguirem alinhados. */}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        aria-label={`Avisar pelo WhatsApp: ${app.title}`}
+                        title="Aviso pelo WhatsApp"
+                        onClick={() => setNoticeFor(app)}
+                        disabled={app.kind === "bloqueio"}
+                        aria-hidden={app.kind === "bloqueio" || undefined}
+                        tabIndex={app.kind === "bloqueio" ? -1 : undefined}
+                        className={cn("rounded-md hover:bg-[#25D366]/10 transition-colors duration-200", app.kind === "bloqueio" && "invisible")}
+                      >
+                        <SiWhatsapp className="h-4 w-4 text-[#25D366]" />
+                      </Button>
                       <Button
                         variant="ghost"
                         size="sm"
@@ -614,10 +612,14 @@ const AgendaPage = () => {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="w-52">
-                            <DropdownMenuItem className="text-foreground" onClick={() => handleSendWhatsAppReminder(item)}>
-                              <SiWhatsapp className="mr-2 h-3.5 w-3.5 text-[#25D366]" /> Enviar lembrete por WhatsApp
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
+                            {item.kind !== "bloqueio" && (
+                              <>
+                                <DropdownMenuItem className="text-foreground" onClick={() => setNoticeFor(item)}>
+                                  <SiWhatsapp className="mr-2 h-3.5 w-3.5 text-[#25D366]" /> Aviso pelo WhatsApp
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                              </>
+                            )}
                             <DropdownMenuItem className="text-foreground" onClick={() => void handleSetStatus(item, "scheduled")}>Agendado</DropdownMenuItem>
                             <DropdownMenuItem className="text-foreground" onClick={() => void handleSetStatus(item, "in_progress")}>Em atendimento</DropdownMenuItem>
                             <DropdownMenuItem className="text-foreground" onClick={() => void handleSetStatus(item, "attended")}>Atendido</DropdownMenuItem>
@@ -754,6 +756,8 @@ const AgendaPage = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AppointmentNoticeDialog appointment={noticeFor} clients={clients} onOpenChange={(open) => !open && setNoticeFor(null)} />
 
       <AlertDialog open={!!pastEditConfirm} onOpenChange={(open) => !open && setPastEditConfirm(null)}>
         <AlertDialogContent>
