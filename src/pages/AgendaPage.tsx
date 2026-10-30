@@ -6,7 +6,7 @@ import { eachDayOfInterval, endOfWeek, format, isSameDay, isToday, startOfWeek }
 import { ptBR } from "date-fns/locale";
 import { FaArrowLeft, FaCalendarPlus, FaPlus, FaTimes, FaSave, FaCalendarAlt, FaClock, FaUser, FaPaw, FaStickyNote, FaEdit, FaTrashAlt } from "@/components/icons/fa";
 
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar } from "@/components/ui/calendar";
 import {
@@ -37,15 +37,15 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useClientsList } from "@/hooks/useSupabaseClients";
 import { useSchedulesList, useScheduleMutations } from "@/hooks/useSchedules";
-import { type ScheduleStatus, type ScheduleUI } from "@/lib/schedulesApi";
+import { publicBookingNote, type ScheduleStatus, type ScheduleUI } from "@/lib/schedulesApi";
 import { PageShell } from "@/components/saas/PageShell";
 import { PageHeader } from "@/components/saas/PageHeader";
-import { CalendarDays, ChevronDown } from "lucide-react";
+import { CalendarDays, ChevronDown, Globe } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import StatusBadge from "@/components/saas/StatusBadge";
 import ClientCombobox from "@/components/ClientCombobox";
 import { SiWhatsapp } from "react-icons/si";
-import { formatScheduleTimeRange } from "@/lib/agendaKinds";
+import { formatScheduleTimeRange, scheduleEndTime } from "@/lib/agendaKinds";
 import { KindBadge } from "@/components/agenda/bookingKindVisual";
 import { AppointmentNoticeDialog } from "@/components/agenda/AppointmentNoticeDialog";
 import { SentBadge } from "@/components/SentBadge";
@@ -88,11 +88,6 @@ const AgendaPage = () => {
     setNewAppointmentAnimalId("");
   };
 
-  const appointmentsForSelectedDate = useMemo(() => {
-    if (!selectedDate) return [];
-    return schedules.filter((app) => isSameDay(app.date, selectedDate));
-  }, [schedules, selectedDate]);
-
   const appointmentsSorted = useMemo(
     () =>
       [...schedules].sort(
@@ -100,6 +95,12 @@ const AgendaPage = () => {
       ),
     [schedules]
   );
+
+  const appointmentsForSelectedDate = useMemo(() => {
+    if (!selectedDate) return [];
+    return appointmentsSorted.filter((app) => isSameDay(app.date, selectedDate));
+  }, [appointmentsSorted, selectedDate]);
+
 
 
   const weekDays = useMemo(() => {
@@ -326,9 +327,9 @@ const AgendaPage = () => {
         </div>
       )}
 
-      {/* Monitor grande: o calendário tem o tamanho dele e a lista do dia fica
-          com o resto — antes cada um tinha meia tela e o calendário sobrava. */}
-      <div className="grid flex-1 grid-cols-1 gap-5 lg:grid-cols-2 xl:grid-cols-[22rem_minmax(0,1fr)]">
+      {/* Monitor grande: o calendário cresce com a tela (dias maiores) e a lista
+          do dia fica com o resto, em cartões compactos. */}
+      <div className="grid flex-1 grid-cols-1 gap-5 lg:grid-cols-2 xl:grid-cols-[24rem_minmax(0,1fr)] 2xl:grid-cols-[28rem_minmax(0,1fr)]">
         <Card className="vf-surface-card vf-tone-clinical card-hover rounded-2xl border-border/80">
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-lg font-semibold text-foreground">
@@ -351,7 +352,20 @@ const AgendaPage = () => {
                 hasAppointments: "vf-calendar-day-has-appointments",
                 todayWithAppointments: "vf-calendar-day-today-has-appointments",
               }}
+              // Dias ocupam a largura do cartão (antes 36px fixos e sobrava
+              // espaço dos lados) e crescem no monitor grande.
               classNames={{
+                months: "w-full",
+                month: "w-full space-y-3",
+                caption_label: "text-base font-semibold capitalize",
+                head_row: "flex w-full",
+                head_cell: "flex-1 text-center text-[0.8rem] font-normal text-muted-foreground",
+                row: "mt-1.5 flex w-full",
+                cell: "relative flex flex-1 items-center justify-center p-0 text-center focus-within:relative focus-within:z-20",
+                day: cn(
+                  buttonVariants({ variant: "ghost" }),
+                  "h-9 w-9 p-0 font-normal tabular-nums aria-selected:opacity-100 sm:h-10 sm:w-10 2xl:h-11 2xl:w-11 2xl:text-base"
+                ),
                 day_today: "vf-calendar-day-today",
               }}
             />
@@ -389,92 +403,114 @@ const AgendaPage = () => {
             ) : isError ? (
               <p className="text-muted-foreground py-4">Não foi possível exibir os agendamentos.</p>
             ) : viewMode === "day" && appointmentsForSelectedDate.length > 0 ? (
-              <div className="space-y-4">
-                {appointmentsForSelectedDate.map((app) => (
-                  <div
-                    key={app.id}
-                    className="flex flex-col items-start justify-between gap-2 rounded-xl border border-border/80 bg-input/70 p-3 shadow-sm transition-all duration-200 hover:border-[hsl(var(--vf-clinical))]/40 hover:bg-[hsl(var(--vf-clinical))]/[0.06] sm:flex-row sm:items-center"
-                  >
-                    <div>
-                      <p className="text-lg font-semibold text-foreground">
-                        {formatScheduleTimeRange(app.time, app.durationMinutes)} - {app.title}
-                      </p>
-                      <p className="text-sm text-muted-foreground flex items-center gap-1">
-                        <FaUser className="h-3 w-3" /> {app.clientName}
-                        <span className="mx-1">•</span>
-                        <FaPaw className="h-3 w-3" /> {app.animalName}
-                      </p>
-                      {app.kindInfo?.obs && (
-                        <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-                          <FaStickyNote className="h-3 w-3" /> Obs.: {app.kindInfo.obs}
-                        </p>
-                      )}
-                      {app.notes && (
-                        <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-                          <FaStickyNote className="h-3 w-3" /> {app.notes}
-                        </p>
-                      )}
-                      <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                        <StatusBadge status={app.status || "scheduled"} className="inline-flex" />
-                        {app.kind && <KindBadge kind={app.kind} info={app.kindInfo} />}
-                        <SentBadge type="schedule" id={app.id} />
+              // Cartão compacto: horário numa coluna, ações ao lado do texto
+              // (não na outra ponta da tela) e, no monitor grande, dois por linha.
+              <div className="grid grid-cols-1 gap-3 min-[1800px]:grid-cols-2">
+                {appointmentsForSelectedDate.map((app) => {
+                  const end = scheduleEndTime(app.time, app.durationMinutes);
+                  const publicNote = publicBookingNote(app.notes);
+                  const blocked = app.kind === "bloqueio";
+                  const cancelled = app.status === "cancelled";
+                  return (
+                    <div
+                      key={app.id}
+                      className="grid grid-cols-[3.5rem_minmax(0,1fr)] gap-x-3 gap-y-2 rounded-xl border border-border/80 bg-input/70 p-3 shadow-sm transition-colors duration-200 hover:border-[hsl(var(--vf-clinical))]/40 hover:bg-[hsl(var(--vf-clinical))]/[0.06] sm:grid-cols-[3.5rem_minmax(0,1fr)_auto]"
+                    >
+                      <div className="pt-0.5">
+                        <p className={cn("text-lg font-bold leading-none tabular-nums", cancelled ? "text-muted-foreground line-through" : "text-foreground")}>{app.time}</p>
+                        {end && <p className="mt-1 text-[11px] font-medium tabular-nums text-muted-foreground">até {end}</p>}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-[15px] font-semibold leading-snug text-foreground">{app.title}</p>
+                        {!blocked && (
+                          <p className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-sm text-muted-foreground">
+                            <span className="inline-flex min-w-0 items-center gap-1"><FaUser className="h-3 w-3 shrink-0" /> {app.clientName || "Sem nome"}</span>
+                            {app.animalName && (
+                              <>
+                                <span aria-hidden>•</span>
+                                <span className="inline-flex min-w-0 items-center gap-1"><FaPaw className="h-3 w-3 shrink-0" /> {app.animalName}</span>
+                              </>
+                            )}
+                          </p>
+                        )}
+                        {app.kindInfo?.obs && (
+                          <p className="mt-1 flex items-start gap-1 text-xs text-muted-foreground">
+                            <FaStickyNote className="mt-0.5 h-3 w-3 shrink-0" /> Obs.: {app.kindInfo.obs}
+                          </p>
+                        )}
+                        {publicNote ? (
+                          <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground" title={app.notes}>
+                            <Globe className="h-3 w-3 shrink-0" /> Agenda pública{publicNote.station ? ` · ${publicNote.station}` : ""}
+                          </p>
+                        ) : (
+                          app.notes && (
+                            <p className="mt-1 flex items-start gap-1 text-xs text-muted-foreground">
+                              <FaStickyNote className="mt-0.5 h-3 w-3 shrink-0" /> {app.notes}
+                            </p>
+                          )
+                        )}
+                        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                          <StatusBadge status={app.status || "scheduled"} className="inline-flex" />
+                          {app.kind && <KindBadge kind={app.kind} info={app.kindInfo} />}
+                          <SentBadge type="schedule" id={app.id} />
+                        </div>
+                      </div>
+                      <div className="col-start-2 flex items-center gap-1 sm:col-start-3 sm:row-start-1 sm:self-start">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="outline" size="icon" disabled={remove.isPending || update.isPending} className="h-8 w-8 border-[hsl(var(--vf-clinical))]/35 hover:bg-[hsl(var(--vf-clinical))]/12" aria-label="Abrir ações de status">
+                              <ChevronDown className="h-3.5 w-3.5" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-52">
+                            <DropdownMenuItem className="text-foreground" onClick={() => void handleSetStatus(app, "scheduled")}>Agendado</DropdownMenuItem>
+                            <DropdownMenuItem className="text-foreground" onClick={() => void handleSetStatus(app, "in_progress")}>Em atendimento</DropdownMenuItem>
+                            <DropdownMenuItem className="text-foreground" onClick={() => void handleSetStatus(app, "attended")}>Atendido</DropdownMenuItem>
+                            <DropdownMenuItem className="text-foreground" onClick={() => void handleSetStatus(app, "no_show")}>Não atendido</DropdownMenuItem>
+                            <DropdownMenuItem className="text-foreground" onClick={() => void handleSetStatus(app, "cancelled")}>Cancelado</DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                        {/* Horário bloqueado não tem tutor: o botão fica invisível
+                            (não some) para editar/excluir seguirem alinhados. */}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          aria-label={`Avisar pelo WhatsApp: ${app.title}`}
+                          title="Aviso pelo WhatsApp"
+                          onClick={() => setNoticeFor(app)}
+                          disabled={blocked}
+                          aria-hidden={blocked || undefined}
+                          tabIndex={blocked ? -1 : undefined}
+                          className={cn("h-8 w-8 rounded-md transition-colors duration-200 hover:bg-[#25D366]/10", blocked && "invisible")}
+                        >
+                          <SiWhatsapp className="h-4 w-4 text-[#25D366]" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          aria-label={`Editar agendamento ${app.title}`}
+                          title={`Editar agendamento ${app.title}`}
+                          onClick={() => handleEditAppointmentClick(app)}
+                          disabled={remove.isPending}
+                          className="h-8 w-8 rounded-md transition-colors duration-200 hover:bg-muted hover:text-foreground"
+                        >
+                          <FaEdit className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          aria-label={`Excluir agendamento ${app.title}`}
+                          title={`Excluir agendamento ${app.title}`}
+                          onClick={() => handleDeleteAppointment(app.id)}
+                          disabled={remove.isPending}
+                          className="h-8 w-8 rounded-md transition-colors duration-200 hover:bg-muted hover:text-foreground"
+                        >
+                          <FaTrashAlt className="h-4 w-4 text-destructive" />
+                        </Button>
                       </div>
                     </div>
-                    <div className="flex gap-2">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="outline" size="icon" disabled={remove.isPending || update.isPending} className="h-8 w-8 border-[hsl(var(--vf-clinical))]/35 hover:bg-[hsl(var(--vf-clinical))]/12" aria-label="Abrir ações de status">
-                            <ChevronDown className="h-3.5 w-3.5" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-52">
-                          <DropdownMenuItem className="text-foreground" onClick={() => void handleSetStatus(app, "scheduled")}>Agendado</DropdownMenuItem>
-                          <DropdownMenuItem className="text-foreground" onClick={() => void handleSetStatus(app, "in_progress")}>Em atendimento</DropdownMenuItem>
-                          <DropdownMenuItem className="text-foreground" onClick={() => void handleSetStatus(app, "attended")}>Atendido</DropdownMenuItem>
-                          <DropdownMenuItem className="text-foreground" onClick={() => void handleSetStatus(app, "no_show")}>Não atendido</DropdownMenuItem>
-                          <DropdownMenuItem className="text-foreground" onClick={() => void handleSetStatus(app, "cancelled")}>Cancelado</DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                      {/* Horário bloqueado não tem tutor: o botão fica invisível
-                          (não some) para editar/excluir seguirem alinhados. */}
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        aria-label={`Avisar pelo WhatsApp: ${app.title}`}
-                        title="Aviso pelo WhatsApp"
-                        onClick={() => setNoticeFor(app)}
-                        disabled={app.kind === "bloqueio"}
-                        aria-hidden={app.kind === "bloqueio" || undefined}
-                        tabIndex={app.kind === "bloqueio" ? -1 : undefined}
-                        className={cn("rounded-md hover:bg-[#25D366]/10 transition-colors duration-200", app.kind === "bloqueio" && "invisible")}
-                      >
-                        <SiWhatsapp className="h-4 w-4 text-[#25D366]" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        aria-label={`Editar agendamento ${app.title}`}
-                        title={`Editar agendamento ${app.title}`}
-                        onClick={() => handleEditAppointmentClick(app)}
-                        disabled={remove.isPending}
-                        className="rounded-md hover:bg-muted hover:text-foreground transition-colors duration-200"
-                      >
-                        <FaEdit className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        aria-label={`Excluir agendamento ${app.title}`}
-                        title={`Excluir agendamento ${app.title}`}
-                        onClick={() => handleDeleteAppointment(app.id)}
-                        disabled={remove.isPending}
-                        className="rounded-md hover:bg-muted hover:text-foreground transition-colors duration-200"
-                      >
-                        <FaTrashAlt className="h-4 w-4 text-destructive" />
-                      </Button>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             ) : viewMode === "week" ? (
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
@@ -602,7 +638,7 @@ const AgendaPage = () => {
                     <tr key={`report-${item.id}`} className="border-b border-border/60">
                       <td className="px-3 py-2">{format(item.date, "dd/MM/yyyy")} {item.time}</td>
                       <td className="px-3 py-2 font-medium">{item.title}</td>
-                      <td className="px-3 py-2 text-muted-foreground">{item.clientName} • {item.animalName}</td>
+                      <td className="px-3 py-2 text-muted-foreground">{[item.clientName, item.animalName].filter(Boolean).join(" • ")}</td>
                       <td className="px-3 py-2"><StatusBadge status={item.status || "scheduled"} /></td>
                       <td className="px-3 py-2">
                         <DropdownMenu>

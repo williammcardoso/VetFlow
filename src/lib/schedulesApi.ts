@@ -139,6 +139,20 @@ export interface ScheduleTimeSummary {
 // lado sem o outro quebra a extração do nome do computador no hover.
 const STATION_NAME_NOTES_PATTERN = /— computador: (.+?)\.?$/;
 
+/**
+ * Nota automática da agenda pública ("Agendado pelo link público (balcão da
+ * agropecuária) — computador: Balcao 1.") → só o computador, para a Agenda
+ * mostrar "Agenda pública · Balcao 1" em vez da frase inteira. null quando a
+ * nota foi escrita por alguém (aí aparece como está).
+ */
+export function publicBookingNote(notes?: string | null): { station?: string } | null {
+  const text = (notes ?? "").trim();
+  // Nota com mais coisa depois (editada à mão) não é só a automática.
+  if (!/^Agendado pelo link público \([^)]*\)(?: — computador: [^\n]+?)?\.?$/.test(text)) return null;
+  const station = STATION_NAME_NOTES_PATTERN.exec(text)?.[1]?.trim();
+  return station ? { station } : {};
+}
+
 // Usado pela página pública de agendamento (balcão da agropecuária) — tanto
 // pro calendário semanal (marcar horários ocupados, com nome/descrição em
 // hint no hover — pedido explícito do usuário) quanto pra checar conflito
