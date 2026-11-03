@@ -40,7 +40,7 @@ import {
   type MonthlyClosingRecord,
 } from "@/lib/monthlyClosingsApi";
 import { renderPdf, openPdf } from "@/lib/pdfExport";
-import { ArrowLeft, Calculator, ListOrdered, Lock, Unlock, Printer, Scale, ShoppingBag } from "lucide-react";
+import { ArrowLeft, Calculator, ListChecks, ListOrdered, Lock, Unlock, Printer, Scale, ShoppingBag } from "lucide-react";
 import { groupSaleItemsByItem, type SaleRef } from "@/lib/salesBreakdown";
 import { ClosingExtrasCard } from "@/components/finance/ClosingExtrasCard";
 import { listClosingExtras, listExtraDescriptions, sumExtras, type ClosingExtra } from "@/lib/closingExtrasApi";
@@ -346,6 +346,11 @@ const MonthlyClosingPage: React.FC = () => {
                 </AlertDialog>
               )
             )}
+            <Link to={`/financial/sales-items?de=${from}&ate=${to}`}>
+              <Button variant="outline" className="gap-2" title="Lista item a item do mês no modelo do relatório da Agrocentro, para conferir com o deles">
+                <ListChecks className="h-4 w-4 text-amber-600" /> Conferir com a Agrocentro
+              </Button>
+            </Link>
             <Link to={`/financial/reports?de=${from}&ate=${to}`}>
               <Button variant="outline" className="gap-2" title="Abre os Relatórios neste mês: vendas por item, por dia e movimentações">
                 <ListOrdered className="h-4 w-4 text-sky-600" /> Ver detalhamento do mês

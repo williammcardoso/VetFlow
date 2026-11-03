@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { ArrowLeftRight, Combine, FileDown, FileText, FlaskConical, Layers, Printer, Wallet } from "lucide-react";
+import { ArrowLeftRight, Combine, FileDown, FileText, FlaskConical, Layers, ListOrdered, Printer, Wallet } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { PageShell } from "@/components/saas/PageShell";
@@ -363,6 +363,11 @@ const FinancialReportsPage: React.FC = () => {
             <Button asChild variant="outline" className="flex-1 sm:flex-none">
               <Link to="/financial">
                 <Wallet className="mr-2 h-4 w-4 text-[hsl(var(--vf-finance))]" /> Visão geral
+              </Link>
+            </Button>
+            <Button asChild variant="outline" className="flex-1 sm:flex-none">
+              <Link to={`/financial/sales-items?de=${period.from}&ate=${period.to}`} title="Lista item a item no modelo do relatório da Agrocentro">
+                <ListOrdered className="mr-2 h-4 w-4 text-sky-600" /> Item a item
               </Link>
             </Button>
             <Button variant="outline" className="flex-1 sm:flex-none" onClick={() => void handlePrintDetailedReport()} disabled={exportingPdf}>

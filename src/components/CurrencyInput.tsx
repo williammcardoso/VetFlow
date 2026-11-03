@@ -50,6 +50,8 @@ const CurrencyInput: React.FC<CurrencyInputProps> = ({
   return (
     <Input
       id={id}
+      // Só dígitos (a máscara monta os centavos): teclado numérico no celular.
+      inputMode="numeric"
       value={display}
       onChange={handleChange}
       onBlur={handleBlur}

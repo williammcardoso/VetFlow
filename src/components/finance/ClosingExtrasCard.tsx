@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import CurrencyInput from "@/components/CurrencyInput";
 import { addClosingExtra, deleteClosingExtra, type ClosingExtra, type ExtraBeneficiary } from "@/lib/closingExtrasApi";
 import { CLOSING_PARTNERS } from "@/lib/monthlyClosing";
 import { cn, formatCurrencyBRL } from "@/lib/utils";
@@ -28,14 +29,6 @@ const PARTNER_LABEL: Record<ExtraBeneficiary, string> = {
   clinic: CLOSING_PARTNERS.clinic,
   agro: CLOSING_PARTNERS.agro,
 };
-
-/** "1.000,50" / "1000.50" / "R$ 80" → número (NaN se não der). */
-export function parseMoneyBR(raw: string): number {
-  const s = raw.replace(/R\$|\s/g, "");
-  if (!s) return NaN;
-  const normalized = s.includes(",") ? s.replace(/\./g, "").replace(",", ".") : s;
-  return Number(normalized);
-}
 
 // Valores fora do 50/50 (ex.: aplicações a domicílio cobradas no sistema da
 // agropecuária = 100% clínica). Não mexem no lucro; somam na parte de quem recebe.
@@ -64,29 +57,28 @@ export function ClosingExtrasCard({
   onChange: (items: ClosingExtra[]) => void;
 }) {
   const [description, setDescription] = React.useState("");
-  const [amount, setAmount] = React.useState("");
+  const [amount, setAmount] = React.useState(0);
   const [beneficiary, setBeneficiary] = React.useState<ExtraBeneficiary>("clinic");
   const [saving, setSaving] = React.useState(false);
   const [deleting, setDeleting] = React.useState<string | null>(null);
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
-    const value = parseMoneyBR(amount);
     if (!description.trim()) {
       toast.error("Escreva a descrição (ex.: Aplicações a domicílio).");
       return;
     }
-    if (!Number.isFinite(value) || value <= 0) {
+    if (!(amount > 0)) {
       toast.error("Informe um valor maior que zero.");
       return;
     }
     setSaving(true);
     try {
-      const created = await addClosingExtra({ year, month, description, amount: value, beneficiary, createdBy });
+      const created = await addClosingExtra({ year, month, description, amount, beneficiary, createdBy });
       onChange([...items, created]);
       setDescription("");
-      setAmount("");
-      toast.success(`Acréscimo de ${fmt(value)} para ${PARTNER_LABEL[beneficiary]} lançado.`);
+      setAmount(0);
+      toast.success(`Acréscimo de ${fmt(amount)} para ${PARTNER_LABEL[beneficiary]} lançado.`);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Falha ao salvar o acréscimo.");
     } finally {
@@ -186,16 +178,10 @@ export function ClosingExtrasCard({
                 </div>
                 <div className="space-y-1">
                   <Label htmlFor="extra-amount" className="text-xs">
-                    Valor (R$)
+                    Valor
                   </Label>
-                  <Input
-                    id="extra-amount"
-                    inputMode="decimal"
-                    value={amount}
-                    onChange={(e) => setAmount(e.target.value)}
-                    placeholder="0,00"
-                    className="bg-input text-right tabular-nums"
-                  />
+                  {/* Máscara de dinheiro: digita só os números (15000 → R$ 150,00). */}
+                  <CurrencyInput id="extra-amount" value={amount} onValueChange={setAmount} className="text-right tabular-nums" />
                 </div>
                 <div className="space-y-1">
                   <span className="block text-xs font-medium">Para quem</span>

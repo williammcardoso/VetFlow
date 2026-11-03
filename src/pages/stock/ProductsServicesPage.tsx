@@ -84,6 +84,7 @@ const ProductsServicesPage: React.FC = () => {
 
   const [editingItem, setEditingItem] = useState<CatalogItem | null>(null);
   const [editName, setEditName] = useState("");
+  const [editSKU, setEditSKU] = useState("");
   const [editPrice, setEditPrice] = useState<number>(0);
   const [editCategory, setEditCategory] = useState("");
   const [editCategoryCustom, setEditCategoryCustom] = useState("");
@@ -238,6 +239,7 @@ const ProductsServicesPage: React.FC = () => {
   const openEditModal = (item: CatalogItem) => {
     setEditingItem(item);
     setEditName(item.name);
+    setEditSKU(item.sku || "");
     setEditPrice(item.price);
     setEditCategory(item.category || "");
     setEditCategoryCustom("");
@@ -264,6 +266,7 @@ const ProductsServicesPage: React.FC = () => {
     const updated: CatalogItem = {
       ...editingItem,
       name: editName.trim(),
+      sku: editSKU.trim() || undefined,
       price: editPrice,
       category: editCategory === 'outro'
         ? (editCategoryCustom.trim() || undefined)
@@ -393,6 +396,18 @@ const ProductsServicesPage: React.FC = () => {
                 onChange={(e) => setNewName(e.target.value)}
                 className="mt-1 h-10 border border-border bg-card text-sm"
                 placeholder={newType === 'product' ? 'Ex.: Ração Premium 1kg' : 'Ex.: Consulta de Rotina'}
+              />
+            </div>
+
+            {/* Código do mesmo item no sistema da Agrocentro: sai na coluna
+                "Código" de Financeiro › Vendas item a item, como no relatório deles. */}
+            <div className="w-28 shrink-0">
+              <Label className="text-xs font-medium text-muted-foreground" title="Código do item no sistema da Agrocentro">Código</Label>
+              <Input
+                value={newSKU}
+                onChange={(e) => setNewSKU(e.target.value)}
+                className="mt-1 h-10 border border-border bg-card text-sm tabular-nums"
+                placeholder="Ex.: 8931"
               />
             </div>
 
@@ -841,14 +856,25 @@ const ProductsServicesPage: React.FC = () => {
           </DialogHeader>
 
           <div className="space-y-4 py-2">
-            <div>
-              <Label className="text-xs font-medium text-muted-foreground">Nome *</Label>
-              <Input
-                value={editName}
-                onChange={(e) => setEditName(e.target.value)}
-                className="mt-1 h-10 border border-border"
-                placeholder="Nome do item"
-              />
+            <div className="grid grid-cols-[minmax(0,1fr)_7rem] gap-3">
+              <div>
+                <Label className="text-xs font-medium text-muted-foreground">Nome *</Label>
+                <Input
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  className="mt-1 h-10 border border-border"
+                  placeholder="Nome do item"
+                />
+              </div>
+              <div>
+                <Label className="text-xs font-medium text-muted-foreground" title="Código do item no sistema da Agrocentro">Código</Label>
+                <Input
+                  value={editSKU}
+                  onChange={(e) => setEditSKU(e.target.value)}
+                  className="mt-1 h-10 border border-border tabular-nums"
+                  placeholder="Ex.: 8931"
+                />
+              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
