@@ -49,6 +49,8 @@ export const BACKUP_TABLES: BackupTable[] = [
   { table: "sale_items", label: "Itens das vendas", group: "Vendas e financeiro" },
   { table: "sale_item_consumptions", label: "Insumos das vendas (antigo)", group: "Vendas e financeiro" },
   { table: "monthly_closings", label: "Fechamentos 50/50", group: "Vendas e financeiro" },
+  { table: "monthly_closing_extras", label: "Acréscimos dos fechamentos", group: "Vendas e financeiro", optional: true },
+  { table: "monthly_closing_orion", label: "Total do Orion nos fechamentos", group: "Vendas e financeiro", optional: true },
   { table: "purchase_items", label: "Itens das compras", group: "Estoque" },
   { table: "purchase_orders", label: "Pedidos de compra", group: "Estoque" },
   { table: "purchase_order_items", label: "Itens dos pedidos de compra", group: "Estoque" },

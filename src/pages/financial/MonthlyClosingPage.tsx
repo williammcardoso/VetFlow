@@ -43,6 +43,8 @@ import { renderPdf, openPdf } from "@/lib/pdfExport";
 import { ArrowLeft, Calculator, ListChecks, ListOrdered, Lock, Unlock, Printer, Scale, ShoppingBag } from "lucide-react";
 import { groupSaleItemsByItem, type SaleRef } from "@/lib/salesBreakdown";
 import { ClosingExtrasCard } from "@/components/finance/ClosingExtrasCard";
+import { OrionCheckCard } from "@/components/finance/OrionCheckCard";
+import { getOrionTotal, saveOrionTotal } from "@/lib/orionTotalsApi";
 import { listClosingExtras, listExtraDescriptions, sumExtras, type ClosingExtra } from "@/lib/closingExtrasApi";
 import { toast } from "sonner";
 
@@ -91,6 +93,29 @@ const MonthlyClosingPage: React.FC = () => {
     void listExtraDescriptions().then(setExtraDescriptions);
   }, [extras.length]);
   const extraTotals = useMemo(() => sumExtras(extras), [extras]);
+  const extrasTotal = Math.round((extraTotals.clinic + extraTotals.agro) * 100) / 100;
+
+  // Total Venda do Orion (sistema da Agrocentro) — conferência do mês.
+  const [orion, setOrion] = useState<{ value: number | null; shared: boolean; loading: boolean }>({ value: null, shared: true, loading: true });
+  useEffect(() => {
+    let cancelled = false;
+    setOrion((prev) => ({ ...prev, loading: true }));
+    getOrionTotal(year, month)
+      .then((r) => !cancelled && setOrion({ ...r, loading: false }))
+      .catch(() => !cancelled && setOrion({ value: null, shared: true, loading: false }));
+    return () => {
+      cancelled = true;
+    };
+  }, [year, month]);
+  const handleSaveOrion = async (value: number | null) => {
+    try {
+      const { shared } = await saveOrionTotal(year, month, value, session?.username);
+      setOrion({ value, shared, loading: false });
+      toast.success(value == null ? "Total do Orion apagado." : `Total do Orion de ${monthLabel(year, month)} salvo.`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Falha ao salvar o total do Orion.");
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -234,6 +259,7 @@ const MonthlyClosingPage: React.FC = () => {
           data={closing}
           items={items}
           extras={extras.map((e) => ({ description: e.description, amount: e.amount, beneficiary: e.beneficiary }))}
+          orion={orion.value != null ? { total: orion.value, vendas: closing.bruto, acrescimos: extrasTotal } : undefined}
         />
       ));
       await openPdf({
@@ -513,17 +539,31 @@ const MonthlyClosingPage: React.FC = () => {
         </div>
         </div>
 
-        <ClosingExtrasCard
-          year={year}
-          month={month}
-          items={extras}
-          available={extrasAvailable}
-          loading={extrasLoading}
-          locked={isClosed}
-          descriptions={extraDescriptions}
-          createdBy={session?.username}
-          onChange={setExtras}
-        />
+        {/* Acréscimos e a conferência com o Orion lado a lado no monitor grande:
+            o total do Orion = vendas + acréscimos. */}
+        <div className="grid grid-cols-1 gap-4 2xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] 2xl:items-start">
+          <ClosingExtrasCard
+            year={year}
+            month={month}
+            items={extras}
+            available={extrasAvailable}
+            loading={extrasLoading}
+            locked={isClosed}
+            descriptions={extraDescriptions}
+            createdBy={session?.username}
+            onChange={setExtras}
+          />
+          <OrionCheckCard
+            vendas={closing.bruto}
+            acrescimos={extrasTotal}
+            value={orion.value}
+            loading={orion.loading}
+            shared={orion.shared}
+            locked={isClosed}
+            detailHref={`/financial/sales-items?de=${from}&ate=${to}`}
+            onSave={handleSaveOrion}
+          />
+        </div>
       </div>
     </PageShell>
   );

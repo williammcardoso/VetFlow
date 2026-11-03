@@ -47,6 +47,14 @@ const CurrencyInput: React.FC<CurrencyInputProps> = ({
     setDisplay(formatBRL(value));
   };
 
+  // A máscara monta os centavos pelos dígitos em ordem: clicar no meio do
+  // "R$ 0,00" e digitar ali embaralhava o valor. Ao entrar no campo, seleciona
+  // tudo — o que se digita substitui o valor.
+  const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
+    const el = e.currentTarget;
+    requestAnimationFrame(() => el.setSelectionRange(0, el.value.length));
+  };
+
   return (
     <Input
       id={id}
@@ -55,6 +63,7 @@ const CurrencyInput: React.FC<CurrencyInputProps> = ({
       value={display}
       onChange={handleChange}
       onBlur={handleBlur}
+      onFocus={handleFocus}
       placeholder={placeholder}
       disabled={disabled}
       className={cn("bg-input", className)}

@@ -1,7 +1,7 @@
 import React from "react";
 import { Document, Page, Text, View, StyleSheet, Font } from "@react-pdf/renderer";
 import type { MonthlyClosingBreakdown } from "@/lib/monthlyClosing";
-import { CLOSING_PARTNERS } from "@/lib/monthlyClosing";
+import { CLOSING_PARTNERS, reconcileWithOrion } from "@/lib/monthlyClosing";
 import { mockCompanySettings } from "@/mockData/settings";
 
 Font.register({
@@ -97,11 +97,13 @@ interface Props {
   items?: ClosingItemRow[];
   /** Acréscimos fora do 50/50 — somam na parte de quem recebe. */
   extras?: ClosingExtraRow[];
+  /** Conferência com o Orion: Total Venda deles × vendas + acréscimos. */
+  orion?: { total: number; vendas: number; acrescimos: number };
 }
 
 const qty = (q: number) => (Number.isInteger(q) ? String(q) : q.toLocaleString("pt-BR"));
 
-const MonthlyClosingPdfContent: React.FC<Props> = ({ data, items, extras }) => {
+const MonthlyClosingPdfContent: React.FC<Props> = ({ data, items, extras, orion }) => {
   const company = mockCompanySettings;
   const generatedAt = new Date().toLocaleString("pt-BR");
   const extraClinic = (extras ?? []).filter((e) => e.beneficiary === "clinic").reduce((t, e) => t + e.amount, 0);
@@ -204,6 +206,29 @@ const MonthlyClosingPdfContent: React.FC<Props> = ({ data, items, extras }) => {
             </View>
           </View>
         )}
+
+        {orion && (() => {
+          const { vetflow, diff } = reconcileWithOrion(orion.vendas, orion.acrescimos, orion.total);
+          return (
+            <View style={s.section} wrap={false}>
+              <Text style={s.sectionTitle}>Conferência com o Orion</Text>
+              <View style={s.row}>
+                <Text style={s.rowLabel}>Vendas do mês no VetFlow + acréscimos ({fmt(orion.vendas)} + {fmt(orion.acrescimos)})</Text>
+                <Text style={s.rowValue}>{fmt(vetflow)}</Text>
+              </View>
+              <View style={s.row}>
+                <Text style={s.rowLabel}>Total Venda no Orion (Agrocentro)</Text>
+                <Text style={s.rowValue}>{fmt(orion.total)}</Text>
+              </View>
+              <View style={[s.row, { borderBottomWidth: 0 }]}>
+                <Text style={[s.rowLabel, { fontWeight: 700, color: DARK }]}>Resultado</Text>
+                <Text style={[s.rowValue, diff === 0 ? s.rowPos : s.rowNeg]}>
+                  {diff === 0 ? "Bateu" : `Diferença ${fmt(diff ?? 0)}`}
+                </Text>
+              </View>
+            </View>
+          );
+        })()}
 
         <Text style={s.note}>
           Modelo 50/50: o lucro líquido real é dividido igualmente entre {CLOSING_PARTNERS.clinic} e{" "}

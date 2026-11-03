@@ -150,8 +150,12 @@ export interface AgroLine {
 
 export interface AgroReport {
   lines: AgroLine[];
-  /** Linhas "Total" impressas no relatório (categoria e geral). */
-  printedTotals: Array<{ quantity: number; cost: number; total: number }>;
+  /**
+   * Linhas "Total" impressas no relatório (categoria e geral), com a soma das
+   * linhas que elas fecham: as da categoria logo acima, ou todas até ali
+   * quando é o total geral (vem logo depois de outro total).
+   */
+  printedTotals: Array<{ quantity: number; cost: number; total: number; linesTotal: number }>;
 }
 
 const num = (s: string) => Number(s.replace(/\./g, "").replace(",", "."));
@@ -167,6 +171,9 @@ export function parseAgrocentroReport(text: string): AgroReport {
   const money = "-?[\\d.]+,\\d{2}";
   const lineRe = new RegExp(`^(\\d+)\\s+(.+?)\\s*(\\d{2})\\/(\\d{2})\\/(\\d{4})\\s+\\d+\\s+(\\S+)\\s+(-?[\\d.,]+)\\s+\\S+\\s+(${money})\\s+(${money})$`);
   const totalRe = new RegExp(`^Total\\s+([\\d.,]+)\\s+(${money})\\s+(${money})$`, "i");
+  let sectionCents = 0;
+  let sectionLines = 0;
+  let allCents = 0;
   for (const raw of text.split(/\r?\n/)) {
     const line = raw.replace(/\u00a0/g, " ").trim();
     const m = lineRe.exec(line);
@@ -180,10 +187,18 @@ export function parseAgrocentroReport(text: string): AgroReport {
         cost: sign * num(m[8]),
         total: sign * num(m[9]),
       });
+      const c = cents(sign * num(m[9]));
+      sectionCents += c;
+      allCents += c;
+      sectionLines++;
       continue;
     }
     const t = totalRe.exec(line);
-    if (t) printedTotals.push({ quantity: num(t[1]), cost: num(t[2]), total: num(t[3]) });
+    if (t) {
+      printedTotals.push({ quantity: num(t[1]), cost: num(t[2]), total: num(t[3]), linesTotal: fromCents(sectionLines > 0 ? sectionCents : allCents) });
+      sectionCents = 0;
+      sectionLines = 0;
+    }
   }
   return { lines, printedTotals };
 }
@@ -395,4 +410,51 @@ export function compareWithAgrocentro(vetflow: ItemReportLine[], agro: AgroLine[
   const vetflowTotal = fromCents(vetflow.reduce((s, l) => s + cents(l.total), 0));
   const agroTotal = fromCents(agro.reduce((s, l) => s + cents(l.total), 0));
   return { days, shifts, issues, vetflowTotal, agroTotal, diff: fromCents(cents(vetflowTotal) - cents(agroTotal)) };
+}
+
+export interface ExtraGroup {
+  /** Descrição do acréscimo no fechamento (ex.: "Aplicações a domicílio"). */
+  description: string;
+  /** Valor lançado como acréscimo no fechamento do mês. */
+  extra: number;
+  /** O que o Orion tem dessas linhas no período. */
+  agro: number;
+  agroQty: number;
+  lines: AgroLine[];
+}
+
+/**
+ * Linhas do Orion que no VetFlow não são venda, e sim acréscimo do
+ * fechamento (ex.: "4475 APLICACAO A DOMICILIO" × acréscimo "Aplicações a
+ * domicílio"): saem da comparação dia a dia e são conferidas pelo total.
+ */
+export function splitExtrasFromAgro(agro: AgroLine[], extras: Array<{ description: string; amount: number }>): { rest: AgroLine[]; groups: ExtraGroup[] } {
+  const byName = new Map<string, ExtraGroup>();
+  for (const e of extras) {
+    const key = normalize(e.description);
+    const g = byName.get(key) ?? { description: e.description.trim(), extra: 0, agro: 0, agroQty: 0, lines: [] };
+    g.extra = fromCents(cents(g.extra) + cents(e.amount));
+    byName.set(key, g);
+  }
+  const groups = Array.from(byName.values());
+  const rest: AgroLine[] = [];
+  for (const line of agro) {
+    let best: ExtraGroup | undefined;
+    let bestScore = 0.5 - 1e-9;
+    for (const g of groups) {
+      const score = nameScore(line.description, g.description);
+      if (score > bestScore) {
+        best = g;
+        bestScore = score;
+      }
+    }
+    if (!best) {
+      rest.push(line);
+      continue;
+    }
+    best.lines.push(line);
+    best.agro = fromCents(cents(best.agro) + cents(line.total));
+    best.agroQty = Math.round((best.agroQty + line.quantity) * 1000) / 1000;
+  }
+  return { rest, groups: groups.filter((g) => g.lines.length > 0) };
 }

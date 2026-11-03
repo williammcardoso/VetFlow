@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { SaleItem } from "./saleItemsApi";
-import { ADJUSTMENT_CATEGORY, buildItemReportLines, compareWithAgrocentro, nameScore, parseAgrocentroReport, sumLines, totalsByDay } from "./salesItemReport";
+import { ADJUSTMENT_CATEGORY, buildItemReportLines, compareWithAgrocentro, nameScore, parseAgrocentroReport, splitExtrasFromAgro, sumLines, totalsByDay } from "./salesItemReport";
 
 // Relatório "Serviços veterinários" da Agrocentro de outubro/2026, como sai
 // do sistema deles (transcrito da imagem que o usuário mandou).
@@ -79,8 +79,23 @@ describe("parseAgrocentroReport", () => {
     expect(sumLines(lines)).toEqual({ quantity: 72, total: 4750 });
     // O total da categoria impresso (4.315,00) não fecha com as linhas (4.750,00).
     expect(printedTotals).toEqual([
-      { quantity: 72, cost: 2776, total: 4315 },
-      { quantity: 72, cost: 3211, total: 4750 },
+      { quantity: 72, cost: 2776, total: 4315, linesTotal: 4750 },
+      { quantity: 72, cost: 3211, total: 4750, linesTotal: 4750 },
+    ]);
+  });
+
+  it("cada total confere com as linhas dele (categoria × geral)", () => {
+    const text = [
+      "8931 CONSULTA 05/10/2026 1 VENDAS 1 S 120,00 120,00",
+      "Total 1 120,00 120,00",
+      "4475 APLICACAO A DOMICILIO 06/10/2026 1 VENDAS 2 S 0,00 40,00",
+      "Total 2 0,00 40,00",
+      "Total 3,00 120,00 160,00",
+    ].join("\n");
+    expect(parseAgrocentroReport(text).printedTotals.map((t) => [t.total, t.linesTotal])).toEqual([
+      [120, 120],
+      [40, 40],
+      [160, 160],
     ]);
   });
 
@@ -222,5 +237,28 @@ describe("compareWithAgrocentro", () => {
     expect(nameScore("Consulta", "CONSULTA")).toBeGreaterThan(nameScore("Consulta", "CONSULTA DOMICILIAR"));
     expect(nameScore("Fluidoterapia IV / SC 20 a 40kg", "FLUIDOTERAPIA IV / SC 20")).toBeGreaterThan(nameScore("Fluidoterapia IV / SC 20 a 40kg", "FLUIDOTERAPIA IV / SC ATE"));
     expect(nameScore("Ultrassom abdominal", "CITOLOGIA")).toBe(0);
+  });
+});
+
+describe("splitExtrasFromAgro", () => {
+  it("aplicações a domicílio do Orion = acréscimo do fechamento", () => {
+    // Relatório completo do Orion: os serviços + as aplicações a domicílio (R$ 20 cada).
+    const domicilio = [
+      "4475 APLICACAO A DOMICILIO 02/10/2026 1 VENDAS 1 S 0,00 20,00",
+      "4475 APLICACAO A DOMICILIO 06/10/2026 1 VENDAS 2 S 0,00 40,00",
+      "4475 APLICACAO A DOMICILIO 08/10/2026 1 VENDAS 0,5 S 0,00 10,00",
+    ].join("\n");
+    const { lines } = parseAgrocentroReport(`${AGRO_OUTUBRO}\n${domicilio}`);
+    expect(lines).toHaveLength(46);
+    const { rest, groups } = splitExtrasFromAgro(lines, [
+      { description: "Aplicações a domicílio", amount: 50 },
+      { description: "aplicações a domicílio", amount: 20 },
+      { description: "Reembolso de combustível", amount: 80 },
+    ]);
+    expect(rest).toHaveLength(43);
+    expect(sumLines(rest).total).toBe(4750);
+    // "Aplicação de medicação" não é confundida com "aplicações a domicílio"
+    expect(rest.filter((l) => l.code === "16225")).toHaveLength(15);
+    expect(groups.map((g) => [g.description, g.extra, g.agro, g.agroQty, g.lines.length])).toEqual([["Aplicações a domicílio", 70, 70, 3.5, 3]]);
   });
 });

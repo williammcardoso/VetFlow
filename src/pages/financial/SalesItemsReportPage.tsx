@@ -17,11 +17,14 @@ import { getSaleItemsBySaleIds, type SaleItem } from "@/lib/saleItemsApi";
 import { isCancelled, isSale } from "@/lib/financialSummary";
 import { parseSaleObservations } from "@/lib/salePayment";
 import { catalogCategoryLabel } from "@/lib/catalogCategories";
+import { listClosingExtras, type ClosingExtra } from "@/lib/closingExtrasApi";
+import { getMonthBounds } from "@/lib/monthlyClosing";
 import {
   ADJUSTMENT_CATEGORY,
   buildItemReportLines,
   compareWithAgrocentro,
   parseAgrocentroReport,
+  splitExtrasFromAgro,
   sumLines,
   totalsByDay,
   type DayComparison,
@@ -157,7 +160,34 @@ const SalesItemsReportPage: React.FC = () => {
   const agro = useMemo(() => parseAgrocentroReport(agroText), [agroText]);
   const agroInPeriod = useMemo(() => agro.lines.filter((l) => inRange(l.date, period)), [agro.lines, period]);
   const agroSum = sumLines(agroInPeriod);
-  const comparison = useMemo(() => (agroInPeriod.length ? compareWithAgrocentro(visible, agroInPeriod) : null), [visible, agroInPeriod]);
+
+  // Acréscimos do Fechamento 50/50 do mês (ex.: aplicações a domicílio): no
+  // Orion são venda, no VetFlow são lançados à parte — as linhas deles saem
+  // do dia a dia e são conferidas pelo total do mês.
+  const periodMonth = period.from && period.to && period.from.slice(0, 7) === period.to.slice(0, 7) ? period.from.slice(0, 7) : null;
+  const [monthExtras, setMonthExtras] = useState<ClosingExtra[]>([]);
+  useEffect(() => {
+    if (!periodMonth) {
+      setMonthExtras([]);
+      return;
+    }
+    let stale = false;
+    listClosingExtras(Number(periodMonth.slice(0, 4)), Number(periodMonth.slice(5, 7)))
+      .then((r) => !stale && setMonthExtras(r.items))
+      .catch(() => !stale && setMonthExtras([]));
+    return () => {
+      stale = true;
+    };
+  }, [periodMonth]);
+  const bounds = periodMonth ? getMonthBounds(Number(periodMonth.slice(0, 4)), Number(periodMonth.slice(5, 7))) : null;
+  const fullMonth = !!bounds && bounds.from === period.from && bounds.to === period.to;
+  const split = useMemo(() => splitExtrasFromAgro(agroInPeriod, monthExtras), [agroInPeriod, monthExtras]);
+  const extraGroups = split.groups;
+  // Só dá para conferir o total do acréscimo com o mês inteiro.
+  const extrasDiff = fullMonth ? extraGroups.reduce((sum, g) => sum + cents(g.extra) - cents(g.agro), 0) / 100 : 0;
+  const extrasMatched = fullMonth ? extraGroups.reduce((sum, g) => sum + g.extra, 0) : 0;
+  const comparison = useMemo(() => (agroInPeriod.length ? compareWithAgrocentro(visible, split.rest) : null), [visible, agroInPeriod.length, split.rest]);
+  const totalDiff = comparison ? Math.round((comparison.diff + extrasDiff) * 100) / 100 : 0;
   const daysByDate = new Map((comparison?.days ?? []).map((d) => [d.date, d]));
   // Marca na lista: o que é diferença de verdade e o que a Agrocentro lançou em outro dia.
   const issueOfLine = new Map<string, DayIssue>();
@@ -167,8 +197,7 @@ const SalesItemsReportPage: React.FC = () => {
   const issues = comparison?.issues ?? [];
   const shifts = comparison?.shifts ?? [];
   // O relatório deles também pode não fechar: total impresso ≠ soma das linhas.
-  const agroAllSum = sumLines(agro.lines);
-  const printedMismatch = agro.printedTotals.filter((t) => cents(t.total) !== cents(agroAllSum.total));
+  const printedMismatch = agro.printedTotals.filter((t) => cents(t.total) !== cents(t.linesTotal));
   const dayRows: DayComparison[] = comparison
     ? comparison.days
     : days.map((d) => ({ date: d.date, vetflow: d.total, agro: 0, diff: 0, status: "ok", shifts: [], issues: [] }));
@@ -181,9 +210,15 @@ const SalesItemsReportPage: React.FC = () => {
   const kpis: KpiItem[] = comparison
     ? [
         { label: "Itens vendidos", value: qty(totals.quantity), hint: `${visible.length} lançamentos · ${days.length} dias`, concept: CONCEPTS.ticket },
-        { label: "Total no VetFlow", value: fmt(totals.total), concept: CONCEPTS.faturado, colorValue: true },
-        { label: "Relatório da Agrocentro", value: fmt(comparison.agroTotal), hint: `${agroInPeriod.length} linhas · ${qty(agroSum.quantity)} itens`, icon: ClipboardPaste, tone: "amber" },
-        comparison.diff === 0 && issues.length === 0
+        {
+          label: "Total no VetFlow",
+          value: fmt(totals.total + extrasMatched),
+          hint: extrasMatched ? `vendas ${fmt(totals.total)} + acréscimos ${fmt(extrasMatched)}` : undefined,
+          concept: CONCEPTS.faturado,
+          colorValue: true,
+        },
+        { label: "Relatório da Agrocentro", value: fmt(agroSum.total), hint: `${agroInPeriod.length} linhas · ${qty(agroSum.quantity)} itens`, icon: ClipboardPaste, tone: "amber" },
+        totalDiff === 0 && issues.length === 0
           ? {
               label: "Diferença",
               value: "Bateu",
@@ -195,7 +230,7 @@ const SalesItemsReportPage: React.FC = () => {
             }
           : {
               label: "Diferença (VetFlow − Agrocentro)",
-              value: fmt(comparison.diff),
+              value: fmt(totalDiff),
               hint: `${issues.length} ${issues.length === 1 ? "diferença" : "diferenças"} de verdade${shifts.length ? ` · ${shifts.length} em outro dia` : ""}`,
               icon: AlertTriangle,
               tone: "rose",
@@ -438,12 +473,42 @@ const SalesItemsReportPage: React.FC = () => {
                 <p key={i} className="flex items-start gap-1.5 rounded-lg bg-amber-50 px-2.5 py-2 text-xs text-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
                   <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
                   <span>
-                    O próprio relatório não fecha: as linhas somam <strong className="tabular-nums">{fmt(agroAllSum.total)}</strong>, mas o total impresso é{" "}
-                    <strong className="tabular-nums">{fmt(t.total)}</strong> ({fmt(agroAllSum.total - t.total)} de diferença, com {qty(t.quantity)} itens).
+                    O próprio relatório não fecha: as linhas somam <strong className="tabular-nums">{fmt(t.linesTotal)}</strong>, mas o total impresso é{" "}
+                    <strong className="tabular-nums">{fmt(t.total)}</strong> ({fmt(t.linesTotal - t.total)} de diferença, com {qty(t.quantity)} itens).
                   </span>
                 </p>
               ))}
             </div>
+
+            {extraGroups.length > 0 && (
+              <div className="border-b border-border/70 px-4 py-3">
+                <p className="text-xs font-semibold text-violet-800 dark:text-violet-300">
+                  Acréscimos do fechamento <span className="font-normal text-muted-foreground">— no Orion entram como venda</span>
+                </p>
+                <ul className="mt-1 space-y-1">
+                  {extraGroups.map((g) => {
+                    const diff = Math.round((g.extra - g.agro) * 100) / 100;
+                    return (
+                      <li key={g.description} className="flex items-baseline justify-between gap-2 px-1.5 text-xs">
+                        <span className="min-w-0">
+                          {g.description}
+                          <span className="block text-muted-foreground tabular-nums">
+                            Orion {qty(g.agroQty)}× {fmt(g.agro)}
+                            {fullMonth ? ` · Fechamento ${fmt(g.extra)}` : " · acréscimo é do mês inteiro"}
+                          </span>
+                        </span>
+                        {fullMonth &&
+                          (diff === 0 ? (
+                            <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-700" aria-label="Bateu" />
+                          ) : (
+                            <span className="shrink-0 font-semibold tabular-nums text-rose-700">{fmt(diff)}</span>
+                          ))}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            )}
 
             {(issues.length > 0 || shifts.length > 0) && (
               <div className="space-y-3 border-b border-border/70 px-4 py-3">

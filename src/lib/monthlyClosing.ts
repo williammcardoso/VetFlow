@@ -136,3 +136,15 @@ export function computeMonthlyClosing(params: {
     margemPct: recebido > 0 ? Math.round((lucroLiquido / recebido) * 100) : 0,
   };
 }
+
+/**
+ * Conferência com o Orion (sistema da Agrocentro, onde o cliente paga): o
+ * "Total Venda" do relatório completo deles tem que dar as vendas do mês no
+ * VetFlow mais os acréscimos lançados à parte (ex.: aplicações a domicílio,
+ * que no Orion entram como venda). `diff` = VetFlow − Orion (null sem o
+ * total do Orion).
+ */
+export function reconcileWithOrion(vendas: number, acrescimos: number, orionTotal: number | null): { vetflow: number; diff: number | null } {
+  const vetflow = Math.round((vendas + acrescimos) * 100) / 100;
+  return { vetflow, diff: orionTotal == null ? null : Math.round((vetflow - orionTotal) * 100) / 100 };
+}
