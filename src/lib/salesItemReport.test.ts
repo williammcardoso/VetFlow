@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { SaleItem } from "./saleItemsApi";
-import { ADJUSTMENT_CATEGORY, buildItemReportLines, compareWithAgrocentro, parseAgrocentroReport, similarNames, sumLines, totalsByDay } from "./salesItemReport";
+import { ADJUSTMENT_CATEGORY, buildItemReportLines, compareWithAgrocentro, nameScore, parseAgrocentroReport, sumLines, totalsByDay } from "./salesItemReport";
 
 // Relatório "Serviços veterinários" da Agrocentro de outubro/2026, como sai
 // do sistema deles (transcrito da imagem que o usuário mandou).
@@ -138,36 +138,89 @@ describe("compareWithAgrocentro", () => {
     total,
     category: "servico",
   });
+  const NAMES: Record<string, string> = {
+    "8931": "Consulta",
+    "16225": "Aplicação de medicação",
+    "16199": "Consulta domicílio",
+    "16226": "Fluidoterapia IV / SC até 10kg",
+    "16228": "Fluidoterapia IV / SC 20 a 40kg",
+    "16230": "Ultrassom abdominal",
+    "16292": "Atestado de saúde animal (Sem consulta)",
+    "16309": "Cultura aeróbia com antibiograma",
+  };
+  // VetFlow espelhando a Agrocentro, com o nome do VetFlow (sem código).
+  const mirror = (agro: ReturnType<typeof parseAgrocentroReport>["lines"]) =>
+    agro.map((a) => line(a.date, NAMES[a.code] ?? a.description.toLowerCase(), a.total, a.quantity));
 
-  it("aponta o dia que não bate e o lançamento sem par", () => {
+  it("tudo igual: bate, mesmo com lançamento quebrado diferente", () => {
     const { lines: agro } = parseAgrocentroReport(AGRO_OUTUBRO);
-    // VetFlow igual à Agrocentro, menos a eutanásia do dia 30 e com uma
-    // aplicação a mais no dia 28; dia 16 lançado agrupado (2× 15 = 30).
-    const vet = agro
-      .filter((a) => !(a.date === "2026-10-30" && a.code === "16203"))
-      .filter((a) => !(a.date === "2026-10-16" && a.total === 15))
-      .map((a) => line(a.date, a.description.toLowerCase(), a.total, a.quantity));
+    // dia 16: duas aplicações de 15,00 viraram uma de 2× no VetFlow
+    const vet = mirror(agro.filter((a) => !(a.date === "2026-10-16" && a.total === 15)));
     vet.push(line("2026-10-16", "Aplicação de medicação", 30, 2));
-    vet.push(line("2026-10-28", "Aplicação de medicação", 15));
     const result = compareWithAgrocentro(vet, agro);
-    expect(result.agroTotal).toBe(4750);
-    expect(result.vetflowTotal).toBe(4750 - 250 + 15);
-    expect(result.diff).toBe(-235);
-    const wrong = result.days.filter((d) => d.diff !== 0);
-    expect(wrong.map((d) => [d.date, d.diff])).toEqual([
-      ["2026-10-28", 15],
+    expect(result.diff).toBe(0);
+    expect(result.issues).toEqual([]);
+    expect(result.shifts).toEqual([]);
+    expect(result.days.every((d) => d.status === "ok")).toBe(true);
+  });
+
+  it("lançado em outro dia não é diferença; aponta só o que falta de verdade", () => {
+    // O caso de outubro: consulta domiciliar do dia 10 lançada no 13, ultrassom
+    // do 15 lançado no 14, e no 23 faltou uma consulta e uma aplicação (e as
+    // fluidoterapias foram lançadas juntas, 2× 150,00).
+    const { lines: agro } = parseAgrocentroReport(AGRO_OUTUBRO);
+    const vet = mirror(
+      agro.filter(
+        (a) =>
+          !(a.date === "2026-10-10" && a.code === "16199") &&
+          !(a.date === "2026-10-15" && a.code === "16230") &&
+          !(a.date === "2026-10-23" && ["8931", "16225", "16226"].includes(a.code))
+      )
+    );
+    vet.push(line("2026-10-13", "Consulta domicílio", 180));
+    vet.push(line("2026-10-14", "Ultrassom abdominal", 250));
+    vet.push(line("2026-10-23", "Fluidoterapia IV / SC até 10kg", 300, 2));
+    vet.push(line("2026-10-23", "Aplicação de medicação", 90, 6));
+
+    const result = compareWithAgrocentro(vet, agro);
+    expect(result.diff).toBe(-135);
+    expect(result.shifts.map((s) => [s.description, s.total, s.vetflowDate, s.agroDate])).toEqual([
+      ["Consulta domicílio", 180, "2026-10-13", "2026-10-10"],
+      ["Ultrassom abdominal", 250, "2026-10-14", "2026-10-15"],
+    ]);
+    expect(result.issues.map((i) => [i.date, i.description, i.vetflow, i.agro, i.vetflowQty, i.agroQty, i.diff])).toEqual([
+      ["2026-10-23", "Aplicação de medicação", 90, 105, 6, 7, -15],
+      ["2026-10-23", "CONSULTA", 0, 120, 0, 1, -120],
+    ]);
+    const status = Object.fromEntries(result.days.filter((d) => d.status !== "ok").map((d) => [d.date, d.status]));
+    expect(status).toEqual({
+      "2026-10-10": "shifted",
+      "2026-10-13": "shifted",
+      "2026-10-14": "shifted",
+      "2026-10-15": "shifted",
+      "2026-10-23": "wrong",
+    });
+    // a soma das diferenças de verdade é a diferença do mês
+    expect(result.issues.reduce((s, i) => s + i.diff, 0)).toBe(result.diff);
+  });
+
+  it("falta de um lado e sobra do outro em dias diferentes, item diferente: não inventa troca de dia", () => {
+    const agro = parseAgrocentroReport("16203 EUTANASIA ATE 10KG 30/10/2026 1 VENDAS 1 S 0,00 250,00").lines;
+    const vet = [line("2026-10-28", "Ultrassom abdominal", 250)];
+    const result = compareWithAgrocentro(vet, agro);
+    expect(result.shifts).toEqual([]);
+    expect(result.issues.map((i) => [i.date, i.diff])).toEqual([
+      ["2026-10-28", 250],
       ["2026-10-30", -250],
     ]);
-    expect(wrong[0].onlyVetflow.map((l) => l.total)).toEqual([15]);
-    expect(wrong[0].onlyAgro).toEqual([]);
-    expect(wrong[1].onlyAgro.map((l) => l.description)).toEqual(["EUTANASIA ATE 10KG"]);
-    // dia 16 fecha mesmo com os lançamentos quebrados diferente
-    expect(result.days.find((d) => d.date === "2026-10-16")).toMatchObject({ diff: 0, onlyVetflow: [], onlyAgro: [] });
   });
 
   it("nome parecido nos dois sistemas", () => {
-    expect(similarNames("Aplicação de medicação", "APLICACAO DE MEDICACAO")).toBe(true);
-    expect(similarNames("Fluidoterapia IV / SC até 10kg", "FLUIDOTERAPIA IV / SC ATE")).toBe(true);
-    expect(similarNames("Ultrassom abdominal", "CITOLOGIA")).toBe(false);
+    expect(nameScore("Aplicação de medicação", "APLICACAO DE MEDICACAO")).toBe(1);
+    expect(nameScore("Cultura aeróbia com antibiograma", "CULTURA AEROBIA COM ANTIB")).toBe(1);
+    expect(nameScore("Consulta domicílio", "CONSULTA DOMICILIAR")).toBe(1);
+    expect(nameScore("Consulta", "CONSULTA")).toBeGreaterThan(nameScore("Consulta", "CONSULTA DOMICILIAR"));
+    expect(nameScore("Fluidoterapia IV / SC 20 a 40kg", "FLUIDOTERAPIA IV / SC 20")).toBeGreaterThan(nameScore("Fluidoterapia IV / SC 20 a 40kg", "FLUIDOTERAPIA IV / SC ATE"));
+    expect(nameScore("Ultrassom abdominal", "CITOLOGIA")).toBe(0);
   });
 });

@@ -196,14 +196,42 @@ const normalize = (s: string) =>
     .replace(/[^a-z0-9]+/g, " ")
     .trim();
 
-/** Mesmo serviço com nomes diferentes nos dois sistemas ("Aplicação de medicação" × "APLICACAO DE MEDICACAO"). */
-export function similarNames(a: string, b: string): boolean {
-  const x = normalize(a);
-  const y = normalize(b);
-  if (!x || !y) return false;
-  // A Agrocentro corta a descrição em ~25 letras.
-  if (x.startsWith(y) || y.startsWith(x)) return true;
-  return x.split(" ")[0] === y.split(" ")[0];
+const STOPWORDS = new Set(["de", "da", "do", "das", "dos", "e", "a", "o", "com", "ate", "para", "sem"]);
+// Palavra pelas 5 primeiras letras: a Agrocentro corta a descrição em ~25
+// letras ("COM ANTIB") e escreve diferente ("DOMICILIAR" × "domicílio").
+const tokens = (s: string) => new Set(normalize(s).split(" ").filter((t) => t && !STOPWORDS.has(t)).map((t) => t.slice(0, 5)));
+
+/** 0–1: quanto dois nomes do mesmo serviço nos dois sistemas se parecem. */
+export function nameScore(a: string, b: string): number {
+  const x = tokens(a);
+  const y = tokens(b);
+  if (x.size === 0 || y.size === 0) return 0;
+  let shared = 0;
+  for (const t of x) if (y.has(t)) shared++;
+  return shared / (x.size + y.size - shared);
+}
+
+/** Lançamento que está num dia no VetFlow e em outro na Agrocentro (não muda o total do mês). */
+export interface ShiftedEntry {
+  description: string;
+  total: number;
+  vetflowDate: string;
+  agroDate: string;
+  vetflowKeys: string[];
+}
+
+/** Diferença de verdade num dia: um item que falta ou com valor diferente. */
+export interface DayIssue {
+  date: string;
+  description: string;
+  vetflow: number;
+  agro: number;
+  vetflowQty: number;
+  agroQty: number;
+  /** VetFlow − Agrocentro. */
+  diff: number;
+  vetflowLines: ItemReportLine[];
+  agroLines: AgroLine[];
 }
 
 export interface DayComparison {
@@ -212,49 +240,159 @@ export interface DayComparison {
   agro: number;
   /** VetFlow − Agrocentro. */
   diff: number;
-  /** Só nos dias que não batem: o que sobrou sem par de cada lado. */
-  onlyVetflow: ItemReportLine[];
-  onlyAgro: AgroLine[];
+  /** ok = fecha; shifted = só lançamento em outro dia; wrong = tem diferença de verdade. */
+  status: "ok" | "shifted" | "wrong";
+  shifts: ShiftedEntry[];
+  issues: DayIssue[];
 }
 
-/**
- * Compara dia a dia. Dentro do dia, casa as linhas pelo valor (código igual
- * primeiro, depois nome parecido, depois só o valor); o que sobra sem par só
- * é apontado nos dias em que o total não bate — num dia que fecha, a sobra é
- * só lançamento quebrado diferente (2× 15,00 de um lado, 1× 30,00 do outro).
- */
-export function compareWithAgrocentro(vetflow: ItemReportLine[], agro: AgroLine[]): {
+export interface AgroComparison {
   days: DayComparison[];
+  shifts: ShiftedEntry[];
+  issues: DayIssue[];
   vetflowTotal: number;
   agroTotal: number;
   diff: number;
-} {
-  const dates = Array.from(new Set([...vetflow.map((l) => l.date), ...agro.map((l) => l.date)])).sort();
-  const days: DayComparison[] = dates.map((date) => {
-    const v = vetflow.filter((l) => l.date === date);
-    const a = agro.filter((l) => l.date === date);
-    const vCents = v.reduce((s, l) => s + cents(l.total), 0);
-    const aCents = a.reduce((s, l) => s + cents(l.total), 0);
-    const diffCents = vCents - aCents;
-    if (diffCents === 0) return { date, vetflow: fromCents(vCents), agro: fromCents(aCents), diff: 0, onlyVetflow: [], onlyAgro: [] };
+}
 
-    const restV = [...v];
-    const restA = [...a];
-    const pass = (same: (x: ItemReportLine, y: AgroLine) => boolean) => {
-      for (let i = 0; i < restV.length; ) {
-        const j = restA.findIndex((y) => cents(y.total) === cents(restV[i].total) && same(restV[i], y));
-        if (j >= 0) {
-          restV.splice(i, 1);
-          restA.splice(j, 1);
-        } else i++;
+/** Até quantos dias de distância um lançamento ainda conta como "lançado em outro dia". */
+const SHIFT_WINDOW_DAYS = 10;
+const dayDistance = (a: string, b: string) => Math.abs(Date.parse(`${a}T12:00:00Z`) - Date.parse(`${b}T12:00:00Z`)) / 86_400_000;
+
+type Side<T> = { line: T; key: string; date: string; c: number };
+
+/**
+ * Compara com o relatório da Agrocentro. Cada item do VetFlow é ligado a um
+ * código deles (o do cadastro ou o do nome mais parecido) e o casamento é,
+ * nesta ordem: mesmo dia e mesmo valor; mesmo dia e mesma soma do item
+ * (2× 15,00 de um lado, 1× 30,00 do outro); outro dia, até 10 dias, com o
+ * mesmo item e valor (lançado em outro dia); mesmo dia e mesmo valor com
+ * nomes diferentes. O que sobra é a diferença de verdade, agrupada por item.
+ */
+export function compareWithAgrocentro(vetflow: ItemReportLine[], agro: AgroLine[]): AgroComparison {
+  // Nome de cada código deles (o primeiro que aparece).
+  const agroNames = new Map<string, string>();
+  for (const l of agro) if (!agroNames.has(l.code)) agroNames.set(l.code, l.description);
+  const keyOfVetflow = (l: ItemReportLine): string => {
+    if (l.code) return l.code;
+    let best = "";
+    let bestScore = 0.5 - 1e-9;
+    for (const [code, name] of agroNames) {
+      const score = nameScore(l.description, name);
+      if (score > bestScore) {
+        best = code;
+        bestScore = score;
       }
+    }
+    return best || `vf:${normalize(l.description)}`;
+  };
+
+  let restV: Side<ItemReportLine>[] = vetflow.map((line) => ({ line, key: keyOfVetflow(line), date: line.date, c: cents(line.total) }));
+  let restA: Side<AgroLine>[] = agro.map((line) => ({ line, key: line.code, date: line.date, c: cents(line.total) }));
+  const shifts: ShiftedEntry[] = [];
+
+  const pairLines = (ok: (v: Side<ItemReportLine>, a: Side<AgroLine>) => boolean, pick: (v: Side<ItemReportLine>, options: Side<AgroLine>[]) => Side<AgroLine> | undefined, onPair?: (v: Side<ItemReportLine>, a: Side<AgroLine>) => void) => {
+    const usedA = new Set<Side<AgroLine>>();
+    const keepV: Side<ItemReportLine>[] = [];
+    for (const v of restV) {
+      const match = pick(v, restA.filter((a) => !usedA.has(a) && a.c === v.c && ok(v, a)));
+      if (match) {
+        usedA.add(match);
+        onPair?.(v, match);
+      } else keepV.push(v);
+    }
+    restV = keepV;
+    restA = restA.filter((a) => !usedA.has(a));
+  };
+  const first = <T,>(_v: unknown, options: T[]) => options[0];
+
+  // 1. mesmo dia, mesmo item, mesmo valor
+  pairLines((v, a) => v.date === a.date && v.key === a.key, first);
+
+  // 2. mesmo dia, mesmo item, soma igual (quebrado diferente)
+  const inGroup = <T,>(list: Side<T>[], date: string, key: string) => list.filter((x) => x.date === date && x.key === key);
+  const pairGroups = (sameDay: boolean) => {
+    const groupsV = new Map<string, Side<ItemReportLine>[]>();
+    for (const v of restV) groupsV.set(`${v.date}|${v.key}`, [...(groupsV.get(`${v.date}|${v.key}`) ?? []), v]);
+    for (const list of groupsV.values()) {
+      const { date, key } = list[0];
+      const sum = list.reduce((s, x) => s + x.c, 0);
+      const candidates = sameDay
+        ? [date]
+        : Array.from(new Set(restA.filter((a) => a.key === key && a.date !== date && dayDistance(a.date, date) <= SHIFT_WINDOW_DAYS).map((a) => a.date))).sort(
+            (x, y) => dayDistance(x, date) - dayDistance(y, date) || x.localeCompare(y)
+          );
+      for (const d of candidates) {
+        const groupA = inGroup(restA, d, key);
+        if (groupA.length === 0 || groupA.reduce((s, x) => s + x.c, 0) !== sum) continue;
+        if (!sameDay) {
+          shifts.push({ description: list[0].line.description, total: fromCents(sum), vetflowDate: date, agroDate: d, vetflowKeys: list.map((x) => x.line.key) });
+        }
+        restV = restV.filter((x) => !list.includes(x));
+        restA = restA.filter((x) => !groupA.includes(x));
+        break;
+      }
+    }
+  };
+  pairGroups(true);
+
+  // 3. outro dia (o mais perto), mesmo item e valor
+  pairLines(
+    (v, a) => v.key === a.key && v.date !== a.date && dayDistance(v.date, a.date) <= SHIFT_WINDOW_DAYS,
+    (v, options) => [...options].sort((x, y) => dayDistance(x.date, v.date) - dayDistance(y.date, v.date))[0],
+    (v, a) => shifts.push({ description: v.line.description, total: v.line.total, vetflowDate: v.date, agroDate: a.date, vetflowKeys: [v.line.key] })
+  );
+  pairGroups(false);
+
+  // 4. mesmo dia e valor, nomes diferentes nos dois sistemas
+  pairLines((v, a) => v.date === a.date, first);
+
+  // Por dia: o que não se explica por lançamento em outro dia.
+  const dates = Array.from(new Set([...vetflow.map((l) => l.date), ...agro.map((l) => l.date)])).sort();
+  const issues: DayIssue[] = [];
+  const days: DayComparison[] = dates.map((date) => {
+    const vCents = vetflow.filter((l) => l.date === date).reduce((s, l) => s + cents(l.total), 0);
+    const aCents = agro.filter((l) => l.date === date).reduce((s, l) => s + cents(l.total), 0);
+    const dayShifts = shifts.filter((x) => x.vetflowDate === date || x.agroDate === date);
+    const leftV = restV.filter((x) => x.date === date);
+    const leftA = restA.filter((x) => x.date === date);
+    const residual = leftV.reduce((s, x) => s + x.c, 0) - leftA.reduce((s, x) => s + x.c, 0);
+    const dayIssues: DayIssue[] = [];
+    // Sobra que se anula no dia = lançamento quebrado/nomeado diferente, não diferença.
+    if (residual !== 0) {
+      const keys = Array.from(new Set([...leftV.map((x) => x.key), ...leftA.map((x) => x.key)]));
+      for (const key of keys) {
+        const v = leftV.filter((x) => x.key === key);
+        const a = leftA.filter((x) => x.key === key);
+        const vc = v.reduce((s, x) => s + x.c, 0);
+        const ac = a.reduce((s, x) => s + x.c, 0);
+        if (vc === ac) continue;
+        dayIssues.push({
+          date,
+          description: v[0]?.line.description ?? a[0].line.description,
+          vetflow: fromCents(vc),
+          agro: fromCents(ac),
+          vetflowQty: v.reduce((s, x) => s + x.line.quantity, 0),
+          agroQty: a.reduce((s, x) => s + x.line.quantity, 0),
+          diff: fromCents(vc - ac),
+          vetflowLines: v.map((x) => x.line),
+          agroLines: a.map((x) => x.line),
+        });
+      }
+    }
+    issues.push(...dayIssues);
+    const diff = vCents - aCents;
+    return {
+      date,
+      vetflow: fromCents(vCents),
+      agro: fromCents(aCents),
+      diff: fromCents(diff),
+      status: dayIssues.length > 0 ? "wrong" : diff !== 0 ? "shifted" : "ok",
+      shifts: dayShifts,
+      issues: dayIssues,
     };
-    pass((x, y) => !!x.code && x.code === y.code);
-    pass((x, y) => similarNames(x.description, y.description));
-    pass(() => true);
-    return { date, vetflow: fromCents(vCents), agro: fromCents(aCents), diff: fromCents(diffCents), onlyVetflow: restV, onlyAgro: restA };
   });
   const vetflowTotal = fromCents(vetflow.reduce((s, l) => s + cents(l.total), 0));
   const agroTotal = fromCents(agro.reduce((s, l) => s + cents(l.total), 0));
-  return { days, vetflowTotal, agroTotal, diff: fromCents(cents(vetflowTotal) - cents(agroTotal)) };
+  return { days, shifts, issues, vetflowTotal, agroTotal, diff: fromCents(cents(vetflowTotal) - cents(agroTotal)) };
 }

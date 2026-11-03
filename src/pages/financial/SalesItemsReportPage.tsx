@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { AlertTriangle, ArrowLeft, CheckCircle2, ClipboardPaste, ListOrdered, Scale, X } from "lucide-react";
+import { AlertTriangle, ArrowLeft, CalendarClock, CheckCircle2, ClipboardPaste, ListOrdered, Scale, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { PageShell } from "@/components/saas/PageShell";
@@ -24,6 +24,8 @@ import {
   parseAgrocentroReport,
   sumLines,
   totalsByDay,
+  type DayComparison,
+  type DayIssue,
 } from "@/lib/salesItemReport";
 import { cn, formatCurrencyBRL } from "@/lib/utils";
 
@@ -40,6 +42,15 @@ const weekday = (iso: string) => WEEKDAYS[new Date(`${iso}T12:00:00`).getDay()];
 const qty = (q: number) => (Number.isInteger(q) ? String(q) : q.toLocaleString("pt-BR"));
 const cents = (v: number) => Math.round(v * 100);
 const inRange = (date: string, p: { from: string; to: string }) => (!p.from || date >= p.from) && (!p.to || date <= p.to);
+
+/** "falta na Agrocentro" / "VetFlow 6× R$ 90,00 · Agrocentro 7× R$ 105,00". */
+const issueText = (i: DayIssue) =>
+  i.agro === 0
+    ? "só no VetFlow — falta na Agrocentro?"
+    : i.vetflow === 0
+      ? "só na Agrocentro — falta no VetFlow?"
+      : `VetFlow ${qty(i.vetflowQty)}× ${fmt(i.vetflow)} · Agrocentro ${qty(i.agroQty)}× ${fmt(i.agro)}`;
+const issueName = (i: DayIssue) => (i.vetflowLines.length ? i.description : `${i.agroLines[0]?.code ?? ""} ${i.description}`.trim());
 
 const categoryLabel = (c: string) =>
   c === ADJUSTMENT_CATEGORY ? "Descontos e acréscimos" : c === "sem_itens" ? "Vendas sem itens" : catalogCategoryLabel(c);
@@ -148,14 +159,19 @@ const SalesItemsReportPage: React.FC = () => {
   const agroSum = sumLines(agroInPeriod);
   const comparison = useMemo(() => (agroInPeriod.length ? compareWithAgrocentro(visible, agroInPeriod) : null), [visible, agroInPeriod]);
   const daysByDate = new Map((comparison?.days ?? []).map((d) => [d.date, d]));
-  const unmatchedKeys = new Set((comparison?.days ?? []).flatMap((d) => d.onlyVetflow.map((l) => l.key)));
-  const badDays = (comparison?.days ?? []).filter((d) => d.diff !== 0);
+  // Marca na lista: o que é diferença de verdade e o que a Agrocentro lançou em outro dia.
+  const issueOfLine = new Map<string, DayIssue>();
+  for (const i of comparison?.issues ?? []) for (const l of i.vetflowLines) issueOfLine.set(l.key, i);
+  const shiftedTo = new Map<string, string>();
+  for (const sh of comparison?.shifts ?? []) for (const k of sh.vetflowKeys) shiftedTo.set(k, sh.agroDate);
+  const issues = comparison?.issues ?? [];
+  const shifts = comparison?.shifts ?? [];
   // O relatório deles também pode não fechar: total impresso ≠ soma das linhas.
   const agroAllSum = sumLines(agro.lines);
   const printedMismatch = agro.printedTotals.filter((t) => cents(t.total) !== cents(agroAllSum.total));
-  const dayRows = comparison
+  const dayRows: DayComparison[] = comparison
     ? comparison.days
-    : days.map((d) => ({ date: d.date, vetflow: d.total, agro: 0, diff: 0, onlyVetflow: [], onlyAgro: [] }));
+    : days.map((d) => ({ date: d.date, vetflow: d.total, agro: 0, diff: 0, status: "ok", shifts: [], issues: [] }));
   const quantityByDay = new Map(days.map((d) => [d.date, d.quantity]));
   const detail = day ? daysByDate.get(day) : undefined;
 
@@ -167,12 +183,20 @@ const SalesItemsReportPage: React.FC = () => {
         { label: "Itens vendidos", value: qty(totals.quantity), hint: `${visible.length} lançamentos · ${days.length} dias`, concept: CONCEPTS.ticket },
         { label: "Total no VetFlow", value: fmt(totals.total), concept: CONCEPTS.faturado, colorValue: true },
         { label: "Relatório da Agrocentro", value: fmt(comparison.agroTotal), hint: `${agroInPeriod.length} linhas · ${qty(agroSum.quantity)} itens`, icon: ClipboardPaste, tone: "amber" },
-        comparison.diff === 0
-          ? { label: "Diferença", value: "Bateu", hint: "todos os dias fecham", icon: CheckCircle2, tone: "emerald", colorValue: true, highlight: true }
+        comparison.diff === 0 && issues.length === 0
+          ? {
+              label: "Diferença",
+              value: "Bateu",
+              hint: shifts.length ? `${shifts.length} ${shifts.length === 1 ? "lançado" : "lançados"} em outro dia` : "todos os dias fecham",
+              icon: CheckCircle2,
+              tone: "emerald",
+              colorValue: true,
+              highlight: true,
+            }
           : {
               label: "Diferença (VetFlow − Agrocentro)",
               value: fmt(comparison.diff),
-              hint: `${badDays.length} ${badDays.length === 1 ? "dia não bate" : "dias não batem"}`,
+              hint: `${issues.length} ${issues.length === 1 ? "diferença" : "diferenças"} de verdade${shifts.length ? ` · ${shifts.length} em outro dia` : ""}`,
               icon: AlertTriangle,
               tone: "rose",
               colorValue: true,
@@ -319,7 +343,8 @@ const SalesItemsReportPage: React.FC = () => {
                   // Faixa alternada por dia: ajuda a acompanhar com o papel da Agrocentro do lado.
                   const dayIndex = days.findIndex((d) => d.date === l.date);
                   const newDay = i === 0 || shown[i - 1].date !== l.date;
-                  const unmatched = unmatchedKeys.has(l.key);
+                  const issue = issueOfLine.get(l.key);
+                  const movedTo = shiftedTo.get(l.key);
                   return (
                     <li
                       key={l.key}
@@ -327,13 +352,17 @@ const SalesItemsReportPage: React.FC = () => {
                         "grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 px-4 py-2 text-sm md:grid-cols-[4.5rem_minmax(0,1fr)_6.5rem_3.5rem_6.5rem_7rem] md:items-baseline",
                         newDay && i > 0 && "border-t border-border/70",
                         dayIndex % 2 === 1 && "bg-muted/30",
-                        unmatched && "bg-rose-50 dark:bg-rose-950/30"
+                        movedTo && "bg-amber-50/70 dark:bg-amber-950/20",
+                        issue && "bg-rose-50 dark:bg-rose-950/30"
                       )}
                     >
                       <span className="hidden tabular-nums text-muted-foreground md:block">{l.code ?? ""}</span>
                       <span className="min-w-0">
                         <span className={cn("font-medium", adjustment ? "italic text-muted-foreground" : "text-foreground")}>{l.description}</span>
-                        {unmatched && <span className="ml-1.5 text-[11px] font-semibold text-rose-700">sem par na Agrocentro</span>}
+                        {issue && (
+                          <span className="ml-1.5 text-[11px] font-semibold text-rose-700">{issue.agro === 0 ? "sem par na Agrocentro" : "valor diferente da Agrocentro"}</span>
+                        )}
+                        {movedTo && <span className="ml-1.5 text-[11px] font-semibold text-amber-700">na Agrocentro em {dm(movedTo)}</span>}
                         <span className="block truncate text-xs text-muted-foreground">
                           <span className="md:hidden">
                             {dm(l.date)}
@@ -416,6 +445,59 @@ const SalesItemsReportPage: React.FC = () => {
               ))}
             </div>
 
+            {(issues.length > 0 || shifts.length > 0) && (
+              <div className="space-y-3 border-b border-border/70 px-4 py-3">
+                {issues.length > 0 && (
+                  <div>
+                    <p className="flex items-center justify-between gap-2 text-xs font-semibold text-rose-800 dark:text-rose-300">
+                      <span className="inline-flex items-center gap-1.5">
+                        <AlertTriangle className="h-3.5 w-3.5" aria-hidden /> O que não bate
+                      </span>
+                      <span className="tabular-nums">{fmt(comparison?.diff ?? 0)}</span>
+                    </p>
+                    <ul className="mt-1 space-y-0.5">
+                      {issues.map((i, k) => (
+                        <li key={`${i.date}-${k}`}>
+                          <button
+                            type="button"
+                            onClick={() => setDay(i.date)}
+                            className="flex w-full items-baseline justify-between gap-2 rounded-md px-1.5 py-1 text-left text-xs transition-colors hover:bg-rose-50 dark:hover:bg-rose-950/30"
+                          >
+                            <span className="min-w-0">
+                              <span className="font-semibold tabular-nums">{dm(i.date)}</span> {issueName(i)}
+                              <span className="block text-muted-foreground">{issueText(i)}</span>
+                            </span>
+                            <span className="shrink-0 font-semibold tabular-nums text-rose-700">{fmt(i.diff)}</span>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {shifts.length > 0 && (
+                  <div>
+                    <p className="flex items-center gap-1.5 text-xs font-semibold text-amber-800 dark:text-amber-300">
+                      <CalendarClock className="h-3.5 w-3.5" aria-hidden /> Lançados em outro dia
+                      <span className="font-normal text-muted-foreground">— não mudam o total</span>
+                    </p>
+                    <ul className="mt-1 space-y-0.5">
+                      {shifts.map((sh, k) => (
+                        <li key={k} className="flex items-baseline justify-between gap-2 px-1.5 py-0.5 text-xs">
+                          <span className="min-w-0">
+                            {sh.description}
+                            <span className="block text-muted-foreground tabular-nums">
+                              VetFlow {dm(sh.vetflowDate)} · Agrocentro {dm(sh.agroDate)}
+                            </span>
+                          </span>
+                          <span className="shrink-0 font-semibold tabular-nums text-amber-800 dark:text-amber-300">{fmt(sh.total)}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
+
             {dayRows.length === 0 ? (
               <p className="px-4 py-6 text-sm text-muted-foreground">Nenhuma venda no período.</p>
             ) : (
@@ -444,7 +526,8 @@ const SalesItemsReportPage: React.FC = () => {
                 <ul>
                   {dayRows.map((d) => {
                     const on = day === d.date;
-                    const wrong = d.diff !== 0;
+                    const wrong = d.status === "wrong";
+                    const moved = d.status === "shifted";
                     return (
                       <li key={d.date} className="border-b border-border/50 last:border-0">
                         <button
@@ -454,6 +537,7 @@ const SalesItemsReportPage: React.FC = () => {
                           className={cn(
                             "grid w-full gap-x-2 px-4 py-2 text-left text-sm transition-colors hover:bg-muted/60",
                             comparison ? "grid-cols-[4.5rem_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]" : "grid-cols-[4.5rem_3rem_minmax(0,1fr)]",
+                            moved && "bg-amber-50/60 dark:bg-amber-950/20",
                             wrong && "bg-rose-50/70 dark:bg-rose-950/30",
                             on && "ring-2 ring-inset ring-sky-400"
                           )}
@@ -465,8 +549,15 @@ const SalesItemsReportPage: React.FC = () => {
                             <>
                               <span className="text-right tabular-nums">{fmt(d.vetflow)}</span>
                               <span className="text-right tabular-nums">{fmt(d.agro)}</span>
-                              <span className={cn("flex items-center justify-end gap-1 text-right font-semibold tabular-nums", wrong ? "text-rose-700" : "text-emerald-700")}>
-                                {wrong ? fmt(d.diff) : <CheckCircle2 className="h-4 w-4" aria-label="Bateu" />}
+                              <span
+                                className={cn(
+                                  "flex items-center justify-end gap-1 text-right font-semibold tabular-nums",
+                                  wrong ? "text-rose-700" : moved ? "text-amber-700" : "text-emerald-700"
+                                )}
+                                title={moved ? "Diferença só de lançamento em outro dia" : undefined}
+                              >
+                                {moved && <CalendarClock className="h-3.5 w-3.5 shrink-0" aria-hidden />}
+                                {wrong || moved ? fmt(d.diff) : <CheckCircle2 className="h-4 w-4" aria-label="Bateu" />}
                               </span>
                             </>
                           ) : (
@@ -476,39 +567,28 @@ const SalesItemsReportPage: React.FC = () => {
                             </>
                           )}
                         </button>
-                        {on && detail && wrong && (
-                          <div className="space-y-2 bg-rose-50/40 px-4 pb-3 pt-1 text-xs dark:bg-rose-950/20">
-                            {detail.onlyAgro.length > 0 && (
-                              <div>
-                                <p className="font-semibold text-amber-800 dark:text-amber-300">Só na Agrocentro (falta no VetFlow?)</p>
-                                <ul className="mt-0.5 space-y-0.5">
-                                  {detail.onlyAgro.map((l, i) => (
-                                    <li key={i} className="flex justify-between gap-2">
-                                      <span className="min-w-0 truncate">
-                                        {l.code} {l.description} {l.quantity !== 1 ? `(${qty(l.quantity)}×)` : ""}
-                                      </span>
-                                      <span className="shrink-0 font-semibold tabular-nums">{fmt(l.total)}</span>
-                                    </li>
-                                  ))}
-                                </ul>
+                        {on && detail && detail.status !== "ok" && (
+                          <div className="space-y-2 bg-muted/30 px-4 pb-3 pt-1 text-xs">
+                            {detail.issues.map((i, k) => (
+                              <div key={k} className="flex items-baseline justify-between gap-2">
+                                <span className="min-w-0">
+                                  <span className="font-semibold text-rose-800 dark:text-rose-300">{issueName(i)}</span>
+                                  <span className="block text-muted-foreground">{issueText(i)}</span>
+                                </span>
+                                <span className="shrink-0 font-semibold tabular-nums text-rose-700">{fmt(i.diff)}</span>
                               </div>
-                            )}
-                            {detail.onlyVetflow.length > 0 && (
-                              <div>
-                                <p className="font-semibold text-rose-800 dark:text-rose-300">Só no VetFlow (falta na Agrocentro?)</p>
-                                <ul className="mt-0.5 space-y-0.5">
-                                  {detail.onlyVetflow.map((l) => (
-                                    <li key={l.key} className="flex justify-between gap-2">
-                                      <span className="min-w-0 truncate">
-                                        {l.description}
-                                        {l.clientName ? ` · ${l.clientName}` : ""}
-                                      </span>
-                                      <span className="shrink-0 font-semibold tabular-nums">{fmt(l.total)}</span>
-                                    </li>
-                                  ))}
-                                </ul>
+                            ))}
+                            {detail.shifts.map((sh, k) => (
+                              <div key={`s${k}`} className="flex items-baseline justify-between gap-2">
+                                <span className="min-w-0">
+                                  <span className="font-semibold text-amber-800 dark:text-amber-300">{sh.description}</span>
+                                  <span className="block text-muted-foreground">
+                                    lançado em outro dia: VetFlow {dm(sh.vetflowDate)} · Agrocentro {dm(sh.agroDate)}
+                                  </span>
+                                </span>
+                                <span className="shrink-0 font-semibold tabular-nums text-amber-800 dark:text-amber-300">{fmt(sh.total)}</span>
                               </div>
-                            )}
+                            ))}
                           </div>
                         )}
                       </li>
