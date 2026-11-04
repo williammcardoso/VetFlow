@@ -8,7 +8,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import WeightInput from "@/components/inputs/WeightInput";
 import ClientCombobox from "@/components/ClientCombobox";
 import AutocompleteSelect from "@/components/AutocompleteSelect";
@@ -463,6 +462,11 @@ const AddAnimalPage = () => {
                     }
                   }}
                   options={[...breedOptions.map((b) => ({ value: b, label: b })), { value: OTHER, label: "Outra raça" }]}
+                  onCreate={(text) => {
+                    clearError("breed");
+                    setBreedIsCustom(true);
+                    setBreed(text);
+                  }}
                   placeholder={speciesId ? "Digite para buscar…" : "Escolha a espécie primeiro"}
                 />
               )}
@@ -585,9 +589,11 @@ const AddAnimalPage = () => {
             </Field>
 
             <Field label="Pelagem" htmlFor="coatColor" error={errors.coatColor} className="col-span-1">
-              <Select
+              {/* Muitas cores cadastradas: campo de digitar e buscar, igual à raça. */}
+              <AutocompleteSelect
+                id={showCustomCoat ? undefined : "coatColor"}
                 value={coatInList ? coatColor : showCustomCoat ? OTHER : undefined}
-                onValueChange={(value) => {
+                onChange={(value) => {
                   clearError("coatColor");
                   if (value === OTHER) {
                     setCoatIsCustom(true);
@@ -597,19 +603,15 @@ const AddAnimalPage = () => {
                     setCoatColor(value);
                   }
                 }}
-              >
-                <SelectTrigger id={showCustomCoat ? undefined : "coatColor"}>
-                  <SelectValue placeholder="Escolha a cor" />
-                </SelectTrigger>
-                <SelectContent>
-                  {coatOptions.map((name) => (
-                    <SelectItem key={name} value={name}>
-                      {name}
-                    </SelectItem>
-                  ))}
-                  <SelectItem value={OTHER}>Outra cor</SelectItem>
-                </SelectContent>
-              </Select>
+                options={[...coatOptions.map((name) => ({ value: name, label: name })), { value: OTHER, label: "Outra cor" }]}
+                // Cor que não está na lista: já usa o que foi digitado.
+                onCreate={(text) => {
+                  clearError("coatColor");
+                  setCoatIsCustom(true);
+                  setCoatColor(text);
+                }}
+                placeholder="Digite para buscar…"
+              />
               {showCustomCoat && (
                 <Input
                   id="coatColor"

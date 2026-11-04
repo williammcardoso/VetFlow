@@ -34,7 +34,14 @@ interface SmartComboInputProps {
   className?: string;
   id?: string;
   disabled?: boolean;
+  /**
+   * Texto digitado que não está na lista vira a opção "Usar “…”" no fim —
+   * para campos onde dá para escrever um valor novo (ex.: cor da pelagem).
+   */
+  onCreate?: (text: string) => void;
 }
+
+const CREATE_VALUE = "__smartcombo_create__";
 
 const normalize = (s: string) =>
   s
@@ -62,6 +69,7 @@ const SmartComboInput = forwardRef<SmartComboInputHandle, SmartComboInputProps>(
       className,
       id,
       disabled,
+      onCreate,
     } = props;
     // `"value" in props` (não `value !== undefined`) distingue "componente
     // controlado, sem seleção agora" de "nunca foi controlado" — o PDV e
@@ -96,11 +104,17 @@ const SmartComboInput = forwardRef<SmartComboInputHandle, SmartComboInputProps>(
 
     const filtered = useMemo(() => {
       const q = normalize(query.trim());
-      if (!q) return options;
-      return options.filter((o) => normalize(o.label).includes(q));
-    }, [options, query]);
+      const list = q ? options.filter((o) => normalize(o.label).includes(q)) : options;
+      if (!onCreate || !q || options.some((o) => normalize(o.label) === q)) return list;
+      return [...list, { value: CREATE_VALUE, label: `Usar “${query.trim()}”` }];
+    }, [options, query, onCreate]);
 
     const handleSelect = (opt: SmartComboOption) => {
+      if (opt.value === CREATE_VALUE && onCreate) {
+        setOpen(false);
+        onCreate(query.trim());
+        return;
+      }
       setQuery(opt.label);
       setOpen(false);
       onSelect(opt.value, opt);
@@ -180,6 +194,7 @@ const SmartComboInput = forwardRef<SmartComboInputHandle, SmartComboInputProps>(
                   // py maior no celular: item de 28px de altura era fácil de
                   // errar com o dedo (tocava o de cima/baixo).
                   "cursor-pointer rounded-sm px-2 py-2.5 text-sm sm:py-1.5",
+                  opt.value === CREATE_VALUE && "font-medium text-primary",
                   i === activeIndex ? "bg-accent text-accent-foreground" : "hover:bg-muted"
                 )}
               >

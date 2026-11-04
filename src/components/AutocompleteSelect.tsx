@@ -16,6 +16,10 @@ interface AutocompleteSelectProps {
   emptyLabel?: string;
   className?: string;
   disabled?: boolean;
+  /** id do campo (para o <label htmlFor> e o foco no erro). */
+  id?: string;
+  /** Aceita valor fora da lista ("Usar “…”"). */
+  onCreate?: (text: string) => void;
 }
 
 /**
@@ -32,6 +36,8 @@ const AutocompleteSelect: React.FC<AutocompleteSelectProps> = ({
   emptyLabel = "Nenhuma opção encontrada.",
   className,
   disabled = false,
+  id,
+  onCreate,
 }) => {
   return (
     <SmartComboInput
@@ -42,6 +48,8 @@ const AutocompleteSelect: React.FC<AutocompleteSelectProps> = ({
       emptyLabel={emptyLabel}
       className={className}
       disabled={disabled}
+      id={id}
+      onCreate={onCreate}
     />
   );
 };
