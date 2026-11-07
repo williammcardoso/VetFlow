@@ -46,8 +46,8 @@ export const KIND_VISUAL: Record<BookingKind, { icon: LucideIcon; chip: string; 
 export const PLACE_ICON: Record<BookingPlace, LucideIcon> = { loja: Store, domicilio: Home };
 
 const PLACE_CHIP: Record<BookingPlace, string> = {
-  loja: "bg-blue-600 text-white ring-blue-700/30",
-  domicilio: "bg-rose-600 text-white ring-rose-700/30",
+  loja: "border-blue-900 bg-blue-600 text-white",
+  domicilio: "border-rose-900 bg-rose-600 text-white",
 };
 
 /**
@@ -61,7 +61,7 @@ export function KindPlaceChip({ kind, info, className }: { kind: BookingKind; in
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-base font-extrabold leading-tight shadow-sm ring-1 ring-inset",
+        "inline-flex items-center gap-1.5 rounded-full border-[3px] px-3 py-1 text-base font-normal leading-tight shadow-sm",
         PLACE_CHIP[place],
         className
       )}
