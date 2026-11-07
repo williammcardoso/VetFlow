@@ -45,9 +45,10 @@ export const KIND_VISUAL: Record<BookingKind, { icon: LucideIcon; chip: string; 
 
 export const PLACE_ICON: Record<BookingPlace, LucideIcon> = { loja: Store, domicilio: Home };
 
-const PLACE_CHIP: Record<BookingPlace, string> = {
-  loja: "border-blue-900 bg-blue-600 text-white",
-  domicilio: "border-rose-900 bg-rose-600 text-white",
+// Fundo suave + borda firme na cor do local; o ícone vai numa "bolinha" cheia.
+const PLACE_CHIP: Record<BookingPlace, { box: string; dot: string }> = {
+  loja: { box: "border-blue-500 bg-blue-50 text-blue-950", dot: "bg-blue-600" },
+  domicilio: { box: "border-rose-500 bg-rose-50 text-rose-950", dot: "bg-rose-600" },
 };
 
 /**
@@ -58,15 +59,18 @@ export function KindPlaceChip({ kind, info, className }: { kind: BookingKind; in
   const place = info?.place;
   if (!kindNeedsPlace(kind) || !place) return <KindBadge kind={kind} info={info} className={className} />;
   const Icon = PLACE_ICON[place];
+  const tone = PLACE_CHIP[place];
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-full border-[3px] px-3 py-1 text-base font-normal leading-tight shadow-sm",
-        PLACE_CHIP[place],
+        "inline-flex items-center gap-2 rounded-full border-2 py-1 pl-1 pr-3.5 text-base font-medium leading-tight",
+        tone.box,
         className
       )}
     >
-      <Icon className="h-4 w-4" aria-hidden />
+      <span className={cn("grid h-7 w-7 shrink-0 place-items-center rounded-full text-white", tone.dot)}>
+        <Icon className="h-4 w-4" aria-hidden />
+      </span>
       {KIND_LABEL[kind]} {place === "domicilio" ? "domiciliar" : "na loja"}
     </span>
   );
