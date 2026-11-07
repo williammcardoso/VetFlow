@@ -1,6 +1,6 @@
 import React from "react";
 import { Ban, CircleEllipsis, Home, Pill, Stethoscope, Store, Syringe, type LucideIcon } from "lucide-react";
-import { KIND_LABEL, type BookingKind, type BookingKindInfo, type BookingPlace } from "@/lib/agendaKinds";
+import { KIND_LABEL, kindNeedsPlace, type BookingKind, type BookingKindInfo, type BookingPlace } from "@/lib/agendaKinds";
 import { cn } from "@/lib/utils";
 
 // Cor e ícone de cada tipo de atendimento — os mesmos na agenda pública, na
@@ -44,6 +44,33 @@ export const KIND_VISUAL: Record<BookingKind, { icon: LucideIcon; chip: string; 
 };
 
 export const PLACE_ICON: Record<BookingPlace, LucideIcon> = { loja: Store, domicilio: Home };
+
+const PLACE_CHIP: Record<BookingPlace, string> = {
+  loja: "bg-blue-600 text-white ring-blue-700/30",
+  domicilio: "bg-rose-600 text-white ring-rose-700/30",
+};
+
+/**
+ * Chip grande "Vacina na loja" / "Vacina domiciliar" (e o mesmo para consulta), com cor própria
+ * para cada local — para diferenciar de relance. Sem local informado, mostra o selo comum do tipo.
+ */
+export function KindPlaceChip({ kind, info, className }: { kind: BookingKind; info?: BookingKindInfo | null; className?: string }) {
+  const place = info?.place;
+  if (!kindNeedsPlace(kind) || !place) return <KindBadge kind={kind} info={info} className={className} />;
+  const Icon = PLACE_ICON[place];
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-base font-extrabold leading-tight shadow-sm ring-1 ring-inset",
+        PLACE_CHIP[place],
+        className
+      )}
+    >
+      <Icon className="h-4 w-4" aria-hidden />
+      {KIND_LABEL[kind]} {place === "domicilio" ? "domiciliar" : "na loja"}
+    </span>
+  );
+}
 
 /** Selo do tipo (agenda interna, painel, resumo do dia). */
 export function KindBadge({ kind, info, className }: { kind: BookingKind; info?: BookingKindInfo | null; className?: string }) {

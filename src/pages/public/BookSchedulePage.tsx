@@ -66,7 +66,7 @@ import {
   type BookingKindInfo,
 } from "@/lib/agendaKinds";
 import { BookingKindFields } from "@/components/agenda/BookingKindFields";
-import { KIND_VISUAL, KindBadge } from "@/components/agenda/bookingKindVisual";
+import { KIND_VISUAL, KindBadge, KindPlaceChip } from "@/components/agenda/bookingKindVisual";
 import { useBookingHold, type HeldCells } from "@/hooks/useBookingHold";
 
 const WEEKDAY_LABELS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
@@ -743,8 +743,8 @@ const BookSchedulePage: React.FC = () => {
           </button>
         </HoverCardTrigger>
         <HoverCardContent className="w-72 text-sm" align="center">
+          {b.kind && <KindPlaceChip kind={b.kind} info={b.kindInfo} className="mb-1.5" />}
           <p className="font-semibold text-foreground">{blocked ? "Horário bloqueado" : b.clientName || "Sem nome"}</p>
-          {b.kind && <KindBadge kind={b.kind} info={b.kindInfo} className="mt-1" />}
           {b.title && <p className="mt-1 text-muted-foreground">{b.title}</p>}
           {b.kindInfo?.obs && <p className="mt-0.5 text-muted-foreground">Obs.: {b.kindInfo.obs}</p>}
           <p className="mt-2 text-xs text-muted-foreground">
@@ -1403,13 +1403,13 @@ const BookSchedulePage: React.FC = () => {
           {infoBooking && (
             <>
               <DialogHeader>
+                {infoBooking.kind && <KindPlaceChip kind={infoBooking.kind} info={infoBooking.kindInfo} className="mb-1 self-start" />}
                 <DialogTitle>{infoBooking.kind === "bloqueio" ? "Horário bloqueado" : infoBooking.clientName || "Sem nome"}</DialogTitle>
                 <DialogDescription>
                   {dayLabel(infoBooking.date)} · {formatScheduleTimeRange(infoBooking.time, infoBooking.durationMinutes)}
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-2 text-sm">
-                {infoBooking.kind && <KindBadge kind={infoBooking.kind} info={infoBooking.kindInfo} />}
                 {infoBooking.title && <p className="font-medium text-foreground">{infoBooking.title}</p>}
                 {infoBooking.kindInfo?.obs && <p className="text-muted-foreground">Obs.: {infoBooking.kindInfo.obs}</p>}
                 {infoBooking.stationName && <p className="text-xs text-muted-foreground">Agendado por: {infoBooking.stationName}</p>}
