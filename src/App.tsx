@@ -47,6 +47,7 @@ const LoginPage = lazyPage(() => import("./pages/auth/LoginPage"));
 const ValidateDocumentPage = lazyPage(() => import("./pages/public/ValidateDocumentPage"));
 const SignDocumentPage = lazyPage(() => import("./pages/public/SignDocumentPage"));
 const BookSchedulePage = lazyPage(() => import("./pages/public/BookSchedulePage"));
+const MiniAgendaPage = lazyPage(() => import("./pages/public/MiniAgendaPage"));
 const DocumentRedirectPage = lazyPage(() => import("./pages/public/DocumentRedirectPage"));
 const UsersManagementPage = lazyPage(() => import("./pages/settings/UsersManagementPage"));
 const SalesPage = lazyPage(() => import("./pages/sales/SalesPage"));
@@ -153,6 +154,7 @@ const App = () => {
                 <Route path="/validar/:hash" element={<ValidateDocumentPage />} />
                 <Route path="/assinar/:documentId" element={<SignDocumentPage />} />
                 <Route path="/agendar-horario" element={<BookSchedulePage />} />
+                <Route path="/agenda-mini" element={<MiniAgendaPage />} />
                 {/* Em produção o /d/:code é respondido pela função
                     api/share-link.ts (prévia do WhatsApp com título); esta
                     rota da SPA vale no `npm run dev` e como reserva:

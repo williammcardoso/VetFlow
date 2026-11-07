@@ -35,6 +35,7 @@ import {
   Loader2,
   Lock,
   Monitor,
+  Pin,
   PawPrint,
   Pencil,
   Trash2,
@@ -50,6 +51,7 @@ import {
 } from "@/lib/schedulesApi";
 import { getCompanySettings } from "@/lib/settingsApi";
 import { cn, generateUUID, getTodayLocalISO } from "@/lib/utils";
+import { openMiniAgenda } from "@/lib/pinMiniAgenda";
 import { useAgendaAvailability } from "@/hooks/useAgendaAvailability";
 import { generateSlotsForDay, getVaccineOptions } from "@/lib/agendaAvailabilityApi";
 import { bookSlot, listHoldsInRange, subscribeAgendaChanges, type HoldConflict, type ScheduleHold } from "@/lib/agendaHoldsApi";
@@ -361,6 +363,30 @@ const BookSchedulePage: React.FC = () => {
   // consulta não couber, o primeiro horário continua seu enquanto escolhe outro.
   const holdTarget = sel && selIdx !== -1 ? daySel.slice(selIdx, selIdx + Math.min(neededCells, runSel)) : [];
 
+  // Horários em que o atendimento (com a duração mínima do tipo) pode COMEÇAR naquele dia — alimenta os
+  // campos "Dia" e "Hora" do formulário, para trocar o horário sem precisar caçar um horário livre na grade.
+  const startsFor = (dateISO: string) => {
+    const slots = getDaySlots(dateISO);
+    return slots.filter((c) => {
+      if (sel && dateISO === sel.date && c === sel.time) return true;
+      if (dateISO < todayISO) return false;
+      if (dateISO === todayISO && (toMinutes(c) ?? 0) < nowMinutes) return false;
+      if (!isFreeForMe(dateISO, c)) return false;
+      return freeRunLength(slots, c, intervalMinutes, (x) => isFreeForMe(dateISO, x), minCells) >= minCells;
+    });
+  };
+  const dayChoices = sel ? Array.from(new Set([...weekDays.map(toISODate).filter((d) => d >= todayISO), sel.date])).sort() : [];
+  const timeChoices = sel ? Array.from(new Set([sel.time, ...startsFor(sel.date)])).sort() : [];
+  const changeDay = (dateISO: string) => {
+    if (!sel || !dateISO || dateISO === sel.date) return;
+    const starts = startsFor(dateISO);
+    if (starts.length === 0) {
+      setNotice({ tone: "red", title: `${dayLabel(dateISO)} não tem horário livre${kind ? ` para ${KIND_LABEL[kind]}` : ""}.`, text: "Escolha outro dia." });
+      return;
+    }
+    handlePickSlot(dateISO, starts.includes(sel.time) ? sel.time : starts[0], false);
+  };
+
   const durationOptions = React.useMemo(() => {
     const maxCells = Math.max(minCells, Math.min(runSel, 8));
     return Array.from({ length: maxCells - minCells + 1 }, (_, i) => (minCells + i) * intervalMinutes);
@@ -468,7 +494,7 @@ const BookSchedulePage: React.FC = () => {
   const mobilePrev = () => (mobileIdx > 0 ? setMobileIdx((i) => i - 1) : setDayOffset((o) => o - 1));
   const mobileNext = () => (mobileIdx < 6 ? setMobileIdx((i) => i + 1) : setDayOffset((o) => o + 1));
 
-  const handlePickSlot = (dateISO: string, cell: string) => {
+  const handlePickSlot = (dateISO: string, cell: string, focusName = true) => {
     setNotice(null);
     const other = otherHoldAt(dateISO, cell);
     if (other) {
@@ -494,8 +520,8 @@ const BookSchedulePage: React.FC = () => {
     }
     setSel({ date: dateISO, time: cell });
     setChosenDuration(null);
-    // Próximo passo natural: o nome do cliente.
-    window.setTimeout(() => clientNameRef.current?.focus(), 0);
+    // Próximo passo natural: o nome do cliente (não quando o horário foi trocado pelos campos do formulário).
+    if (focusName) window.setTimeout(() => clientNameRef.current?.focus(), 0);
   };
 
   const startEdit = (b: ScheduleTimeSummary) => {
@@ -958,6 +984,14 @@ const BookSchedulePage: React.FC = () => {
               <Monitor className="h-3 w-3" aria-hidden /> Computador: {stationName} (trocar)
             </button>
           )}
+          <button
+            type="button"
+            onClick={() => void openMiniAgenda()}
+            title="Abre a agenda numa janelinha que fica por cima das outras, como um post-it"
+            className="mx-auto mt-1 inline-flex items-center gap-1.5 rounded-full border border-amber-300 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-900 hover:bg-amber-100"
+          >
+            <Pin className="h-3.5 w-3.5" aria-hidden /> Fixar agenda na tela
+          </button>
         </CardHeader>
         <CardContent className="px-3 sm:px-6">
           {!stationName ? (
@@ -1229,7 +1263,7 @@ const BookSchedulePage: React.FC = () => {
                     <span className="inline-flex min-w-0 items-center gap-1.5">
                       <Pencil className="h-4 w-4 shrink-0" aria-hidden />
                       <span>
-                        Editando o agendamento de <strong>{editing.clientName || "sem nome"}</strong> — clique num horário livre para mudar o horário.
+                        Editando o agendamento de <strong>{editing.clientName || "sem nome"}</strong> — para mudar o dia ou o horário, use os campos <strong>Dia</strong> e <strong>Hora</strong> abaixo (ou clique num horário livre na grade).
                         {!editing.kind && editing.title && (
                           <span className="mt-0.5 block text-xs">
                             Agendamento antigo: "{editing.title}" — escolha o tipo abaixo (o texto vai para a observação).
@@ -1244,13 +1278,34 @@ const BookSchedulePage: React.FC = () => {
                 )}
 
                 <div className="space-y-1.5">
-                  <Label>Horário</Label>
+                  <Label>Dia e horário</Label>
                   {sel ? (
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="inline-flex items-center gap-1.5 rounded-lg bg-teal-600 px-3 py-1.5 text-sm font-semibold text-white">
-                        <Clock className="h-4 w-4" aria-hidden />
-                        {dayLabel(sel.date)} · {sel.time}
-                      </span>
+                      <Clock className="h-4 w-4 text-teal-700" aria-hidden />
+                      <Select value={sel.date} onValueChange={(v) => v && changeDay(v)}>
+                        <SelectTrigger className="h-9 w-[150px] border-teal-600 bg-teal-50 font-semibold text-teal-900" aria-label="Dia do agendamento">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {dayChoices.map((d) => (
+                            <SelectItem key={d} value={d}>
+                              {dayLabel(d)}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Select value={sel.time} onValueChange={(v) => v && handlePickSlot(sel.date, v, false)}>
+                        <SelectTrigger className="h-9 w-[92px] border-teal-600 bg-teal-50 font-semibold text-teal-900" aria-label="Hora de início">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {timeChoices.map((t) => (
+                            <SelectItem key={t} value={t}>
+                              {t}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                       <span className="text-sm text-muted-foreground">até</span>
                       <Select value={String(effectiveDuration)} onValueChange={(v) => setChosenDuration(Number(v))}>
                         <SelectTrigger className="h-9 w-[92px]" aria-label="Horário de término">
