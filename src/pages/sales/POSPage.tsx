@@ -422,6 +422,7 @@ const POSPage = () => {
                   clients={clients}
                   clientId={selectedClientId}
                   animalId={selectedAnimalId}
+                  counterShortcut
                   onChange={(clientId, animalId) => {
                     setSelectedClientId(clientId);
                     setSelectedAnimalId(animalId);

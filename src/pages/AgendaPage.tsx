@@ -43,7 +43,7 @@ import { PageHeader } from "@/components/saas/PageHeader";
 import { CalendarDays, ChevronDown, Globe } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import StatusBadge from "@/components/saas/StatusBadge";
-import ClientCombobox from "@/components/ClientCombobox";
+import { ClientPetPicker } from "@/components/clients/ClientPetPicker";
 import { SiWhatsapp } from "react-icons/si";
 import { formatScheduleTimeRange, scheduleEndTime } from "@/lib/agendaKinds";
 import { KindBadge } from "@/components/agenda/bookingKindVisual";
@@ -77,15 +77,6 @@ const AgendaPage = () => {
     attended: "Atendido",
     no_show: "Não atendido",
     cancelled: "Cancelado",
-  };
-
-  const filteredAnimals = newAppointmentClientId
-    ? clients.find((c) => c.id === newAppointmentClientId)?.animals || []
-    : [];
-
-  const handleClientChange = (clientId: string) => {
-    setNewAppointmentClientId(clientId);
-    setNewAppointmentAnimalId("");
   };
 
   const appointmentsSorted = useMemo(
@@ -718,34 +709,23 @@ const AgendaPage = () => {
                 className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200"
               />
             </div>
-            <div className="space-y-2">
+            <div className="min-w-0 space-y-2">
               <Label htmlFor="clientSelect" className="text-muted-foreground font-medium">
-                Cliente
+                Cliente e animal
               </Label>
-              <ClientCombobox
+              <ClientPetPicker
                 id="clientSelect"
                 clients={clients}
-                value={newAppointmentClientId || undefined}
-                onChange={(id) => handleClientChange(id ?? "")}
-                className="h-10 bg-input rounded-md"
+                clientId={newAppointmentClientId}
+                animalId={newAppointmentAnimalId}
+                onChange={(clientId, animalId) => {
+                  setNewAppointmentClientId(clientId);
+                  setNewAppointmentAnimalId(animalId);
+                }}
+                petRequired
+                inline
               />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="animalSelect" className="text-muted-foreground font-medium">
-                Animal
-              </Label>
-              <Select onValueChange={setNewAppointmentAnimalId} value={newAppointmentAnimalId || undefined} disabled={!newAppointmentClientId}>
-                <SelectTrigger id="animalSelect" className="bg-input rounded-md border-border focus:ring-2 focus:ring-ring placeholder-muted-foreground transition-all duration-200">
-                  <SelectValue placeholder="Selecione o animal" />
-                </SelectTrigger>
-                <SelectContent>
-                  {filteredAnimals.map((animal) => (
-                    <SelectItem key={animal.id} value={animal.id}>
-                      {animal.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {isClientsError && <p className="text-xs text-destructive">Falha ao carregar clientes.</p>}
             </div>
             <div className="space-y-2">
               <Label htmlFor="appointmentNotes" className="text-muted-foreground font-medium">

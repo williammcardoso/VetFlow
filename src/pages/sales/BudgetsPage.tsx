@@ -27,7 +27,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -47,7 +46,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import CurrencyInput from "@/components/CurrencyInput";
 import AutocompleteSelect from "@/components/AutocompleteSelect";
-import ClientCombobox from "@/components/ClientCombobox";
+import { ClientPetPicker } from "@/components/clients/ClientPetPicker";
 import { SentBadge } from "@/components/SentBadge";
 import { PageShell } from "@/components/saas/PageShell";
 import { PageHeader } from "@/components/saas/PageHeader";
@@ -176,12 +175,6 @@ const BudgetsPage: React.FC = () => {
     setLoadingBudgets(false);
   }, []);
   React.useEffect(() => { void refreshBudgets(); }, [refreshBudgets]);
-
-  const animals = React.useMemo(() => {
-    if (!clientId) return [];
-    const client = clients.find(c => c.id === clientId);
-    return client?.animals || [];
-  }, [clientId, clients]);
 
   React.useEffect(() => {
     if (!productId) {
@@ -642,35 +635,19 @@ const BudgetsPage: React.FC = () => {
           <Panel title="Resumo" icon={Calculator} tone="teal" className="xl:sticky xl:top-4">
             <div className="space-y-4 p-4">
               <div className="space-y-1.5">
-                <Label className="text-sm font-medium">Cliente</Label>
-                <ClientCombobox
+                <Label htmlFor="budgetClient" className="text-sm font-medium">Cliente</Label>
+                <ClientPetPicker
+                  id="budgetClient"
                   clients={clients}
-                  value={clientId}
-                  onChange={(id) => { setClientId(id); setAnimalId(undefined); }}
-                  placeholder="Selecione"
-                  className="h-10"
+                  clientId={clientId ?? ""}
+                  animalId={animalId ?? ""}
+                  onChange={(c, a) => {
+                    setClientId(c || undefined);
+                    setAnimalId(a || undefined);
+                  }}
                 />
                 {isClientsError && <p className="text-xs text-destructive">Falha ao carregar clientes.</p>}
               </div>
-
-              {clientId && animals.length > 0 && (
-                <div className="space-y-1.5">
-                  <Label className="text-sm font-medium">
-                    Animal <span className="font-normal text-muted-foreground">(opcional)</span>
-                  </Label>
-                  <Select value={animalId ?? "__none__"} onValueChange={(v) => setAnimalId(v === "__none__" ? undefined : v)}>
-                    <SelectTrigger className="h-10 rounded-lg bg-input">
-                      <SelectValue placeholder="Nenhum" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="__none__">Nenhum</SelectItem>
-                      {animals.map((a) => (
-                        <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
 
               {/* Negociação: cirurgia/procedimento caro costuma sair com
                   desconto combinado na hora — precisa constar no orçamento impresso. */}
