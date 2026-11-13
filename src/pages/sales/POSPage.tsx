@@ -12,7 +12,8 @@ import type { CatalogItem } from "@/mockData/catalog";
 import { useClientsList } from "@/hooks/useSupabaseClients";
 import { useRegistryList } from "@/hooks/useRegistryList";
 import { ShoppingCart, Plus, Trash2, Loader2, Receipt, Wallet, Coins, TrendingUp } from "lucide-react";
-import ClientCombobox from "@/components/ClientCombobox";
+import { ClientPetPicker } from "@/components/clients/ClientPetPicker";
+import DatePickerBR from "@/components/appointments/inputs/DatePickerBR";
 import SmartComboInput, { type SmartComboInputHandle } from "@/components/SmartComboInput";
 import { PageShell } from "@/components/saas/PageShell";
 import { PageHeader } from "@/components/saas/PageHeader";
@@ -22,7 +23,7 @@ import { IconChip, Panel } from "@/components/finance/FinanceUI";
 import { CONCEPTS, TONES, categoryVisual } from "@/components/finance/financeTheme";
 import { groupRepassesByProvider, resolveCostProvider } from "@/lib/costProviders";
 import { catalogCategoryLabel } from "@/lib/catalogCategories";
-import { cn, formatCurrencyBRL, formatItemQty, getTodayLocalISO } from "@/lib/utils";
+import { cn, formatCurrencyBRL, formatDateTime, formatItemQty, getTodayLocalISO } from "@/lib/utils";
 import { resolveCartLineCosts } from "@/lib/saleCosting";
 import { fulfillSaleLines } from "@/lib/saleFulfillment";
 import { nowTimeHHMM, receiveSalePayment, toCents, type PayMode } from "@/lib/salePayment";
@@ -54,6 +55,12 @@ const POSPage = () => {
   const quantity = Number(quantityInput.replace(",", ".")) || 0;
   const [selectedClientId, setSelectedClientId] = useState<string>("");
   const [selectedAnimalId, setSelectedAnimalId] = useState<string>("");
+  // Data/hora da venda. Sem mexer, acompanham o relógio e a venda grava a hora
+  // em que foi registrada (não a hora em que a tela abriu); alteradas, servem
+  // para lançar depois uma venda que ficou para trás.
+  const [saleDate, setSaleDate] = useState<string>(getTodayLocalISO());
+  const [saleTime, setSaleTime] = useState<string>(nowTimeHHMM());
+  const [whenEdited, setWhenEdited] = useState(false);
   // Venda de balcão é paga na hora quase sempre: "Recebido agora" é o padrão
   // e a venda já nasce quitada (antes ficava "pendente" e a baixa, em
   // Recebimentos, perguntava a forma de pagamento de novo).
@@ -92,9 +99,19 @@ const POSPage = () => {
     });
   }, []);
 
-  const filteredAnimals = selectedClientId
-    ? clients.find(c => c.id === selectedClientId)?.animals || []
-    : [];
+  useEffect(() => {
+    if (whenEdited) return;
+    const tick = () => {
+      setSaleDate(getTodayLocalISO());
+      setSaleTime(nowTimeHHMM());
+    };
+    tick();
+    const timer = window.setInterval(tick, 30_000);
+    return () => window.clearInterval(timer);
+  }, [whenEdited]);
+
+  const today = getTodayLocalISO();
+  const isBackdated = Boolean(saleDate) && saleDate < today;
 
   const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const totalCost = cart.reduce((sum, item) => sum + item.cost * item.quantity, 0);
@@ -163,6 +180,11 @@ const POSPage = () => {
     if (cart.length === 0) { toast.error("Carrinho vazio."); return; }
     if (!selectedClientId) { toast.error("Selecione o cliente."); return; }
     if (payMode === "now" && !paymentMethod) { toast.error("Escolha a forma de pagamento."); return; }
+    const date = whenEdited ? saleDate : getTodayLocalISO();
+    const time = (whenEdited ? saleTime : nowTimeHHMM()) || nowTimeHHMM();
+    if (!date) { toast.error("Informe a data da venda."); return; }
+    if (date > getTodayLocalISO()) { toast.error("A data da venda não pode ser futura."); return; }
+    const when = date === getTodayLocalISO() ? "" : ` em ${formatDateTime(date, time)}`;
     setProcessing(true);
     try {
       const client = clients.find(c => c.id === selectedClientId);
@@ -171,8 +193,8 @@ const POSPage = () => {
       const description = `Venda para ${clientName}${animalName ? ` (${animalName})` : ""}: ${cart.map(i => formatItemQty(i.name, i.quantity)).join(", ")}`;
       const transaction = await addFinancialTransaction({
         // Data/hora LOCAIS (toISOString é UTC: depois das 21h a venda caía no dia seguinte).
-        date: getTodayLocalISO(),
-        time: nowTimeHHMM(),
+        date,
+        time,
         description,
         type: "income",
         amount: totalFinal,
@@ -211,17 +233,21 @@ const POSPage = () => {
         const received = await receiveSalePayment({
           sale: transaction,
           paymentMethod,
+          // Recebido no mesmo dia da venda (venda lançada depois não entra no caixa de hoje).
+          date,
+          time,
           clientName,
           animalName,
         });
-        if (received) toast.success(`Venda concluída — ${formatCurrencyBRL(totalFinal)} recebido (${paymentMethod}).`);
+        if (received) toast.success(`Venda concluída${when} — ${formatCurrencyBRL(totalFinal)} recebido (${paymentMethod}).`);
         else toast.warning("Venda registrada, mas o recebimento não foi gravado. Use “Receber” na lista de vendas.");
       } else {
-        toast.success(totalFinal > 0 ? `Venda registrada — fica a receber ${formatCurrencyBRL(totalFinal)}.` : "Venda registrada.");
+        toast.success(totalFinal > 0 ? `Venda registrada${when} — fica a receber ${formatCurrencyBRL(totalFinal)}.` : `Venda registrada${when}.`);
       }
       setCart([]);
       setSelectedClientId("");
       setSelectedAnimalId("");
+      setWhenEdited(false);
       setPayMode("now");
       setPaymentMethod("");
       setInstallments(1);
@@ -235,7 +261,8 @@ const POSPage = () => {
     }
   };
 
-  const canSubmit = cart.length > 0 && !!selectedClientId && (payMode === "later" || !!paymentMethod) && !processing;
+  const canSubmit =
+    cart.length > 0 && !!selectedClientId && !!saleDate && saleDate <= today && (payMode === "later" || !!paymentMethod) && !processing;
   const repasses = groupRepassesByProvider(cart);
 
   return (
@@ -387,39 +414,64 @@ const POSPage = () => {
           <Panel title="Pagamento" icon={Wallet} tone="teal" className="xl:sticky xl:top-4">
             <div className="space-y-4 p-4">
               <div className="space-y-1.5">
-                <Label className="text-sm font-medium">
+                <Label htmlFor="posClient" className="text-sm font-medium">
                   Cliente<span className="text-destructive" aria-hidden> *</span>
                 </Label>
-                <ClientCombobox
+                <ClientPetPicker
+                  id="posClient"
                   clients={clients}
-                  value={selectedClientId || undefined}
-                  onChange={(id) => {
-                    setSelectedClientId(id || "");
-                    setSelectedAnimalId("");
+                  clientId={selectedClientId}
+                  animalId={selectedAnimalId}
+                  onChange={(clientId, animalId) => {
+                    setSelectedClientId(clientId);
+                    setSelectedAnimalId(animalId);
                   }}
-                  className="h-10"
                 />
                 {isClientsError && <p className="text-xs text-destructive">Falha ao carregar clientes.</p>}
               </div>
 
-              {selectedClientId && filteredAnimals.length > 0 && (
-                <div className="relative space-y-1.5">
-                  <Label className="text-sm font-medium">
-                    Animal <span className="font-normal text-muted-foreground">(opcional)</span>
-                  </Label>
-                  <Select value={selectedAnimalId || "__none__"} onValueChange={(v) => setSelectedAnimalId(v === "__none__" ? "" : v)}>
-                    <SelectTrigger className="h-10 rounded-lg bg-input">
-                      <SelectValue placeholder="Nenhum" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="__none__">Nenhum</SelectItem>
-                      {filteredAnimals.map(a => (
-                        <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+              <div className="space-y-1.5">
+                <div className="flex items-baseline justify-between gap-2">
+                  <Label htmlFor="posDate" className="text-sm font-medium">Data da venda</Label>
+                  {whenEdited && (
+                    <button
+                      type="button"
+                      onClick={() => setWhenEdited(false)}
+                      className="text-xs font-medium text-primary hover:underline"
+                    >
+                      Usar agora
+                    </button>
+                  )}
                 </div>
-              )}
+                <div className="flex items-center gap-2">
+                  <DatePickerBR
+                    id="posDate"
+                    valueISO={saleDate}
+                    onChangeISO={(v) => {
+                      setSaleDate(v);
+                      setWhenEdited(true);
+                    }}
+                    className="w-[10.5rem]"
+                  />
+                  <Input
+                    id="posTime"
+                    type="time"
+                    aria-label="Hora da venda"
+                    value={saleTime}
+                    onChange={(e) => {
+                      setSaleTime(e.target.value);
+                      setWhenEdited(true);
+                    }}
+                    className="h-10 w-[7.5rem] rounded-lg bg-input"
+                  />
+                </div>
+                {isBackdated && (
+                  <p className="text-xs font-medium text-amber-700">Venda lançada com data anterior a hoje.</p>
+                )}
+                {saleDate > today && (
+                  <p className="text-xs font-medium text-destructive">A data da venda não pode ser futura.</p>
+                )}
+              </div>
 
               <PaymentChoice
                 idPrefix="pos"

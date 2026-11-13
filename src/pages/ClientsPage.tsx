@@ -21,6 +21,7 @@ import { getPatientRecordPath } from "@/utils/patientDisplayId";
 import { useClientsList } from "@/hooks/useSupabaseClients";
 import { useLastVisits } from "@/hooks/useLastAppointmentDates";
 import { clientLastVisit, type LastVisit } from "@/lib/lastVisits";
+import { digitsOf, matchClientSearch, normalizeSearch } from "@/lib/clientSearch";
 import type { Client } from "@/types/client";
 
 type SpeciesFilter = "all" | SpeciesKind;
@@ -56,13 +57,6 @@ const SPECIES_FILTERS: Array<{ key: SpeciesFilter; label: string }> = [
 // a coluna do meio começava no meio da tela e o olho atravessava um vazio).
 const COLUMNS = "lg:grid lg:grid-cols-[minmax(14rem,24rem)_minmax(0,1fr)_9.5rem] lg:items-center lg:gap-10";
 
-const norm = (s: string | undefined) =>
-  (s || "")
-    .normalize("NFD")
-    .replace(/\p{M}/gu, "")
-    .toLowerCase()
-    .trim();
-const digitsOf = (s: string | undefined) => (s || "").replace(/\D/g, "");
 
 interface ClientRowData {
   client: Client;
@@ -72,27 +66,10 @@ interface ClientRowData {
   lastVisit?: LastVisit;
 }
 
-/** Busca por nome do tutor, nome do pet, telefone (os dois), CPF/CNPJ ou nº da ficha do pet. */
+/** Filtro de espécie + busca por tutor, pet, telefone, CPF/CNPJ ou nº da ficha (lib/clientSearch). */
 function matchClient(client: Client, q: string, digits: string, species: SpeciesFilter): string[] | null {
-  const pets = client.animals ?? [];
-  if (species !== "all" && !pets.some((a) => speciesKind(a.species) === species)) return null;
-  if (!q && digits.length < 3) return [];
-
-  const nameHit = Boolean(q) && norm(client.name).includes(q);
-  const petIds = pets
-    .filter(
-      (a) =>
-        (Boolean(q) && norm(a.name).includes(q)) ||
-        (digits.length >= 3 && Boolean(a.patientCode) && String(a.patientCode).padStart(4, "0").includes(digits))
-    )
-    .map((a) => a.id);
-  const docHit =
-    digits.length >= 3 &&
-    (digitsOf(client.mainPhoneContact).includes(digits) ||
-      digitsOf(client.secondaryPhoneContact).includes(digits) ||
-      digitsOf(client.identificationNumber).includes(digits));
-
-  return nameHit || petIds.length || docHit ? petIds : null;
+  if (species !== "all" && !(client.animals ?? []).some((a) => speciesKind(a.species) === species)) return null;
+  return matchClientSearch(client, q, digits);
 }
 
 const createdTime = (c: Client) => (c.createdAt ? new Date(c.createdAt).getTime() : 0);
@@ -213,7 +190,7 @@ const ClientsPage = () => {
   }, [clients]);
 
   const rows = useMemo(() => {
-    const q = norm(search);
+    const q = normalizeSearch(search);
     const digits = digitsOf(search);
     const found: ClientRowData[] = [];
     for (const client of clients) {
