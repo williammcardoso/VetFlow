@@ -79,10 +79,9 @@ import type { SendTrack } from "@/lib/sendLog";
 import { mockCompanySettings } from "@/mockData/settings";
 import AutocompleteSelect from "@/components/AutocompleteSelect";
 import CurrencyInput from "@/components/CurrencyInput";
-import type { ExamRequestPdfData } from "@/components/ExamRequestPdfContent";
 import PatientDocumentSignDialog from "@/components/PatientDocumentSignDialog";
 import { getPatientDocumentSignatures } from "@/lib/patientDocumentSignatureApi";
-import { EXAM_REQUEST_MARKER } from "@/lib/examRequestMarker";
+import { parseExamRequestData } from "@/lib/examRequestMarker";
 import { replaceTemplateVariables } from "@/utils/templateReplacements";
 import { getPatientDisplayId, getPatientSubPath } from "@/utils/patientDisplayId";
 import PatientAppointmentsTab from "@/components/patient/appointments/PatientAppointmentsTab";
@@ -193,21 +192,6 @@ const SCHEDULE_STATUS_LABEL: Record<string, string> = {
   cancelled: "Cancelado",
 };
 
-
-/**
- * Documentos "Pedido de Exame" carregam os dados estruturados num comentário
- * HTML no início do content (ver AddExamRequestPage) — se achar, usamos o PDF
- * dedicado (visual premium) em vez do conversor HTML->PDF genérico.
- */
-function extractExamRequestData(content: string): ExamRequestPdfData | null {
-  const match = content.match(new RegExp(`^<!--${EXAM_REQUEST_MARKER}:([\\s\\S]*?)-->`));
-  if (!match) return null;
-  try {
-    return JSON.parse(match[1].replace(/--\\>/g, "-->")) as ExamRequestPdfData;
-  } catch {
-    return null;
-  }
-}
 
 const PatientRecordPage = () => {
   const {
@@ -2334,7 +2318,9 @@ const PatientRecordPage = () => {
                 {documents.length > 0 ? (
                   <div className="space-y-3">
                     {documents.map((doc) => {
-                      const examRequestData = doc.source === "editor" && doc.content ? extractExamRequestData(doc.content) : null;
+                      // Pedido de exame: dados estruturados num comentário no início do
+                      // content (ver AddExamRequestPage) — PDF dedicado e tela própria no "Editar".
+                      const examRequestData = doc.source === "editor" && doc.content ? parseExamRequestData(doc.content) : null;
                       // Assinaturas já coletadas (ver "Assinar" abaixo) — esses documentos
                       // não têm PDF "final" persistido, então cada visualização/download/
                       // envio busca de novo e já sai com as assinaturas, se houver.
@@ -2545,7 +2531,11 @@ const PatientRecordPage = () => {
                                   className="rounded-md hover:bg-muted hover:text-foreground transition-colors duration-200"
                                   title="Editar"
                                 >
-                                  <Link to={subPath(`/add-document?edit=${encodeURIComponent(doc.id)}`)}>
+                                  <Link
+                                    to={subPath(
+                                      `${examRequestData ? "/add-exam-request" : "/add-document"}?edit=${encodeURIComponent(doc.id)}`
+                                    )}
+                                  >
                                     <FaEdit className="h-4 w-4" />
                                   </Link>
                                 </Button>

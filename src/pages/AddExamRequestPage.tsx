@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { PageShell } from "@/components/saas/PageShell";
 import { PageHeader } from "@/components/saas/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,9 +17,10 @@ import { usePatientRouteParams } from "@/hooks/usePatientRouteParams";
 import { getPatientRecordPath } from "@/utils/patientDisplayId";
 import { useCurrentUserProfile } from "@/hooks/useCurrentUserProfile";
 import { useSystemVets } from "@/hooks/useSystemVets";
-import { addPatientDocument } from "@/lib/documentsApi";
+import { addPatientDocument, readPatientDocuments, updatePatientDocument } from "@/lib/documentsApi";
 import { fetchBiochemicalNames, DEFAULT_BIOCHEMICAL_NAMES } from "@/constants/examReferences";
-import { EXAM_REQUEST_MARKER } from "@/lib/examRequestMarker";
+import { buildExamRequestMarker, parseExamRequestData } from "@/lib/examRequestMarker";
+import type { ExamRequestPdfData } from "@/components/ExamRequestPdfContent";
 import { formatAgeLong, formatPhoneBR } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -46,6 +47,9 @@ const escapeHtml = (s: string) =>
 const AddExamRequestPage: React.FC = () => {
   const { clientId, animalId } = usePatientRouteParams();
   const navigate = useNavigate();
+  // ?edit=<id>: abre um pedido já salvo (botão "Editar" em Documentos do prontuário).
+  const [searchParams] = useSearchParams();
+  const editDocId = searchParams.get("edit") ?? undefined;
   const { data: clientData } = useClientWithAnimals(clientId);
   const { profile: currentUserProfile } = useCurrentUserProfile();
   const { vets } = useSystemVets({ onlyVets: true });
@@ -81,11 +85,48 @@ const AddExamRequestPage: React.FC = () => {
   }, [vets, currentUserProfile?.full_name]);
 
   const [bioquimicos, setBioquimicos] = useState<string[]>(DEFAULT_BIOCHEMICAL_NAMES);
+  const [bioquimicosLoaded, setBioquimicosLoaded] = useState(false);
   useEffect(() => {
     let cancelled = false;
-    fetchBiochemicalNames().then((names) => { if (!cancelled) setBioquimicos(names); });
+    fetchBiochemicalNames()
+      .then((names) => { if (!cancelled) setBioquimicos(names); })
+      .finally(() => { if (!cancelled) setBioquimicosLoaded(true); });
     return () => { cancelled = true; };
   }, []);
+
+  // Edição: carrega o pedido salvo e preenche o formulário. Espera a lista de
+  // bioquímicos (vem do banco) para separar o que é exame da lista do que foi
+  // digitado em "Outro exame".
+  const [editData, setEditData] = useState<ExamRequestPdfData | null>(null);
+  const [editState, setEditState] = useState<"idle" | "loading" | "ready" | "missing">(editDocId ? "loading" : "idle");
+  useEffect(() => {
+    if (!editDocId || !animalId) return;
+    let cancelled = false;
+    setEditState("loading");
+    readPatientDocuments(animalId).then((docs) => {
+      if (cancelled) return;
+      const data = parseExamRequestData(docs.find((d) => d.id === editDocId)?.content);
+      setEditData(data);
+      if (!data) setEditState("missing");
+    });
+    return () => { cancelled = true; };
+  }, [editDocId, animalId]);
+
+  useEffect(() => {
+    if (!editData || !bioquimicosLoaded || editState === "ready") return;
+    const known = new Set([...HEMATOLOGIA, ...bioquimicos, ...URINA_FEZES, ...CITOLOGIA, ...SOROLOGIA, ...ENDOCRINO]);
+    setLaboratorio(editData.laboratorio || "");
+    setVetSolicitante(editData.vetSolicitante || "");
+    setDataColeta(editData.dataColeta || getTodayLocalISO());
+    setHorarioColeta(editData.horarioColeta || "");
+    setSuspeita(editData.suspeita || "");
+    setObservacoes(editData.observacoes || "");
+    setUseDigitalSignature(Boolean(editData.useDigitalSignature));
+    const exames = editData.exames || [];
+    setSelected(new Set(exames.filter((e) => known.has(e))));
+    setCustomExams(exames.filter((e) => !known.has(e)));
+    setEditState("ready");
+  }, [editData, bioquimicosLoaded, bioquimicos, editState]);
 
   const sections = useMemo(
     () => [
@@ -217,20 +258,20 @@ ${signatureBlock}
       return;
     }
     if (!animalId) return;
+    if (editDocId && editState !== "ready") return;
 
     setSaving(true);
     try {
-      const payload = buildStructuredPayload();
-      const marker = `<!--${EXAM_REQUEST_MARKER}:${JSON.stringify(payload).replace(/-->/g, "--\\>")}-->`;
-      const content = marker + buildContentHtml();
+      const content = buildExamRequestMarker(buildStructuredPayload()) + buildContentHtml();
       const dataFormatada = new Date(`${dataColeta}T00:00`).toLocaleDateString("pt-BR");
-      const created = await addPatientDocument(animalId, {
-        name: `Pedido de Exame - ${laboratorio.trim()} - ${dataFormatada}`,
-        source: "editor",
-        content,
-      });
-      if (created) {
-        toast.success("Pedido de exame gerado e salvo em Documentos!");
+      const name = `Pedido de Exame - ${laboratorio.trim()} - ${dataFormatada}`;
+      // Editando: atualiza o mesmo documento (antes não havia edição — o
+      // "Editar" abria o editor de documento livre).
+      const saved = editDocId
+        ? await updatePatientDocument(animalId, editDocId, { name, content })
+        : await addPatientDocument(animalId, { name, source: "editor", content });
+      if (saved) {
+        toast.success(editDocId ? "Pedido de exame atualizado." : "Pedido de exame gerado e salvo em Documentos!");
         navigate(recordLink);
       } else {
         toast.error("Não foi possível salvar o pedido de exame.");
@@ -251,11 +292,30 @@ ${signatureBlock}
     );
   }
 
+  if (editState === "missing") {
+    return (
+      <div className="p-6">
+        <p className="text-muted-foreground">Pedido de exame não encontrado (pode ter sido excluído).</p>
+        <Button variant="link" asChild className="px-0">
+          <Link to={recordLink}>Voltar ao prontuário</Link>
+        </Button>
+      </div>
+    );
+  }
+
+  if (editState === "loading") {
+    return <p className="p-6 text-sm text-muted-foreground">Carregando o pedido de exame…</p>;
+  }
+
   return (
     <PageShell>
       <PageHeader
-        title="Pedido de Exame Laboratorial"
-        description={`Monte o pedido para enviar ao laboratório — ${animal.name} (${client.name}).`}
+        title={editDocId ? "Editar Pedido de Exame" : "Pedido de Exame Laboratorial"}
+        description={
+          editDocId
+            ? `Altere o pedido de ${animal.name} (${client.name}) — o documento salvo é atualizado.`
+            : `Monte o pedido para enviar ao laboratório — ${animal.name} (${client.name}).`
+        }
         icon={FlaskConical}
         module="clinical"
         breadcrumb={<>Painel &gt; Prontuário &gt; Pedido de Exame</>}
@@ -329,7 +389,7 @@ ${signatureBlock}
               disabled={saving}
               className="w-full rounded-md bg-[hsl(var(--vf-clinical))] font-semibold text-white hover:bg-[hsl(var(--vf-clinical)/0.9)]"
             >
-              {saving ? "Gerando..." : "Gerar Pedido de Exame"}
+              {saving ? "Salvando..." : editDocId ? "Salvar alterações" : "Gerar Pedido de Exame"}
             </Button>
           </CardContent>
         </Card>

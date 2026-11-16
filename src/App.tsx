@@ -1,7 +1,7 @@
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate, Outlet, useLocation, useParams } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, Outlet, useLocation, useParams, useSearchParams } from "react-router-dom";
 import { Suspense, useEffect } from "react";
 import Layout from "./components/Layout";
 import { ErrorBoundary } from "./components/ErrorBoundary";
@@ -94,7 +94,10 @@ const PatientRecordRoute = () => {
 function makeKeyedPatientRoute(Component: React.ComponentType) {
   return function KeyedPatientRoute() {
     const params = useParams();
-    const key = Object.values(params).filter(Boolean).join("|") || "new";
+    // ?edit=<id> entra na chave: trocar de registro (ou de "editar" para
+    // "novo") na mesma rota remonta a tela, sem herdar o formulário anterior.
+    const [searchParams] = useSearchParams();
+    const key = [...Object.values(params), searchParams.get("edit")].filter(Boolean).join("|") || "new";
     return <Component key={key} />;
   };
 }
