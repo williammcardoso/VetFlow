@@ -29,6 +29,9 @@ Interface, textos e mensagens de commit em português do Brasil.
 
 - O usuário autorizou commit direto no `main`. Mensagem no estilo `area: o que mudou` (sem acento), com o
   porquê no corpo.
+- **Todo commit vai para o GitHub na hora** (`git push origin main`), sem perguntar e sem esperar o usuário
+  pedir — a Vercel publica a partir da `main`, então commit só local não chega à clínica. Parar e perguntar
+  só se o push falhar ou exigir force/merge.
 - Testes: `VITE_SUPABASE_URL=https://x.supabase.co VITE_SUPABASE_ANON_KEY=x npx vitest run` — sem essas
   variáveis vários arquivos falham com "supabaseUrl is required" (não é erro do código).
 - Lint: `npx eslint <arquivos>`. Há erros antigos de `no-explicit-any` em várias telas; não somar novos.
