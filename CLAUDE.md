@@ -33,8 +33,8 @@ Interface, textos e mensagens de commit em português do Brasil.
   pedir — a Vercel publica a partir da `main`, então commit só local não chega à clínica. Parar e perguntar
   só se o push falhar ou exigir force/merge.
 - **Depois do push, conferir se a Vercel publicou** (GitHub CLI já logado):
-  `gh api repos/williammcardoso/VetFlow/commits/<sha>/status --jq '.state'` → `pending` (publicando, ~2–5 min),
-  `success` ou `failure`. Se falhar, ver `.statuses[].description`/`target_url`, corrigir o build e avisar.
+  `gh api repos/williammcardoso/VetFlow/commits/<sha>/status --jq '.state'` → `pending` (publicando — cada
+  publicação leva ~8–12 min e a Vercel faz uma por vez), `success` ou `failure`. Se falhar, ver `.statuses[].description`/`target_url`, corrigir o build e avisar.
   No Windows, rodar o `gh` pelo Bash (o PowerShell 5.1 quebra o argumento `--jq`).
 - Testes: `VITE_SUPABASE_URL=https://x.supabase.co VITE_SUPABASE_ANON_KEY=x npx vitest run` — sem essas
   variáveis vários arquivos falham com "supabaseUrl is required" (não é erro do código).
