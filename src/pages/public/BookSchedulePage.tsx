@@ -1281,46 +1281,52 @@ const BookSchedulePage: React.FC = () => {
                   <Label>Dia e horário</Label>
                   {sel ? (
                     <div className="flex flex-wrap items-center gap-2">
-                      <Clock className="h-4 w-4 text-teal-700" aria-hidden />
-                      <Select value={sel.date} onValueChange={(v) => v && changeDay(v)}>
-                        <SelectTrigger className="h-9 w-[150px] border-teal-600 bg-teal-50 font-semibold text-teal-900" aria-label="Dia do agendamento">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {dayChoices.map((d) => (
-                            <SelectItem key={d} value={d}>
-                              {dayLabel(d)}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <Select value={sel.time} onValueChange={(v) => v && handlePickSlot(sel.date, v, false)}>
-                        <SelectTrigger className="h-9 w-[92px] border-teal-600 bg-teal-50 font-semibold text-teal-900" aria-label="Hora de início">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {timeChoices.map((t) => (
-                            <SelectItem key={t} value={t}>
-                              {t}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <span className="text-sm text-muted-foreground">até</span>
-                      <Select value={String(effectiveDuration)} onValueChange={(v) => setChosenDuration(Number(v))}>
-                        <SelectTrigger className="h-9 w-[92px]" aria-label="Horário de término">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {Array.from(new Set([...durationOptions, effectiveDuration]))
-                            .sort((a, b) => a - b)
-                            .map((d) => (
-                              <SelectItem key={d} value={String(d)}>
-                                {minutesToHHMM((toMinutes(sel.time) ?? 0) + d)}
+                      <span className="inline-flex items-center gap-2">
+                        <Clock className="h-4 w-4 text-teal-700" aria-hidden />
+                        <Select value={sel.date} onValueChange={(v) => v && changeDay(v)}>
+                          <SelectTrigger className="h-9 w-[150px] border-teal-600 bg-teal-50 font-semibold text-teal-900" aria-label="Dia do agendamento">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {dayChoices.map((d) => (
+                              <SelectItem key={d} value={d}>
+                                {dayLabel(d)}
                               </SelectItem>
                             ))}
-                        </SelectContent>
-                      </Select>
+                          </SelectContent>
+                        </Select>
+                      </span>
+                      {/* Início, "até" e fim num bloco que não se separa: no celular a quebra
+                          caía no meio ("até" no fim de uma linha e o término sozinho na de baixo). */}
+                      <span className="inline-flex items-center gap-2">
+                        <Select value={sel.time} onValueChange={(v) => v && handlePickSlot(sel.date, v, false)}>
+                          <SelectTrigger className="h-9 w-[92px] border-teal-600 bg-teal-50 font-semibold text-teal-900" aria-label="Hora de início">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {timeChoices.map((t) => (
+                              <SelectItem key={t} value={t}>
+                                {t}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <span className="text-sm text-muted-foreground">até</span>
+                        <Select value={String(effectiveDuration)} onValueChange={(v) => setChosenDuration(Number(v))}>
+                          <SelectTrigger className="h-9 w-[92px]" aria-label="Horário de término">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {Array.from(new Set([...durationOptions, effectiveDuration]))
+                              .sort((a, b) => a - b)
+                              .map((d) => (
+                                <SelectItem key={d} value={String(d)}>
+                                  {minutesToHHMM((toMinutes(sel.time) ?? 0) + d)}
+                                </SelectItem>
+                              ))}
+                          </SelectContent>
+                        </Select>
+                      </span>
                       {holdSupported !== false &&
                         (holdPending ? (
                           <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
