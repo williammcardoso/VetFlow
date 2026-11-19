@@ -113,9 +113,11 @@ import {
   Pill as PillIcon,
   Scale as ScaleIcon,
   ArrowUpRight as ArrowUpRightIcon,
+  Send,
 } from "lucide-react";
 import { Calendar } from "lucide-react";
 import { PatientTimeline, type TimelineItem } from "@/components/patient/PatientTimeline";
+import { PatientShareDialog } from "@/components/patient/PatientShareDialog";
 import SaleDetailModal from "@/components/SaleDetailModal";
 import CancelSaleDialog from "@/components/CancelSaleDialog";
 import DeleteSaleDialog from "@/components/DeleteSaleDialog";
@@ -500,6 +502,7 @@ const PatientRecordPage = () => {
   const [selectedWeight, setSelectedWeight] = useState<WeightEntry | null>(null);
 
   const [isTutorExpanded, setIsTutorExpanded] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
 
   // Vendas deste paciente (as mais recentes primeiro) e os pagamentos delas.
   const animalSalesTransactions = useMemo(
@@ -1174,15 +1177,10 @@ const PatientRecordPage = () => {
   const lastAppointment = [...animalAppointments]
     .sort((a, b) => new Date(`${b.date}T${b.time || "00:00"}`).getTime() - new Date(`${a.date}T${a.time || "00:00"}`).getTime())[0];
 
-  const latestWeight = (() => {
-    if (weightHistory.length === 0) return currentAnimal.weight;
-    const sorted = [...weightHistory].sort((a, b) => {
-      const da = new Date(`${a.date}T${a.time || "00:00"}`).getTime();
-      const db = new Date(`${b.date}T${b.time || "00:00"}`).getTime();
-      return db - da;
-    });
-    return sorted[0]?.weight ?? currentAnimal.weight;
-  })();
+  const latestWeightEntry = [...weightHistory].sort(
+    (a, b) => new Date(`${b.date}T${b.time || "00:00"}`).getTime() - new Date(`${a.date}T${a.time || "00:00"}`).getTime()
+  )[0];
+  const latestWeight = latestWeightEntry?.weight ?? currentAnimal.weight;
 
   const formatAgeYearsMonths = (birthday?: string) => {
     if (!birthday) return "-";
@@ -1303,15 +1301,30 @@ const PatientRecordPage = () => {
                   </div>
                 </div>
 
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={handleEditAnimal}
-                  className="h-9 w-9 shrink-0 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/40"
-                >
-                  <FaEdit className="h-4 w-4" />
-                  <span className="sr-only">Editar paciente</span>
-                </Button>
+                <div className="flex shrink-0 items-center gap-1">
+                  {/* Especialista externo pede os dados do tutor e do pet para
+                      cadastrar: sai pronto para copiar ou mandar no WhatsApp. */}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShareOpen(true)}
+                    className="h-9 gap-1.5 rounded-lg px-2.5 text-muted-foreground hover:text-foreground"
+                    title="Dados do tutor e do pet para mandar ao especialista"
+                  >
+                    <Send className="h-4 w-4 text-sky-600" aria-hidden />
+                    <span className="hidden sm:inline">Dados p/ especialista</span>
+                    <span className="sr-only sm:hidden">Dados para especialista</span>
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={handleEditAnimal}
+                    className="h-9 w-9 shrink-0 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/40"
+                  >
+                    <FaEdit className="h-4 w-4" />
+                    <span className="sr-only">Editar paciente</span>
+                  </Button>
+                </div>
               </div>
 
               {/* CHIPS DO PACIENTE */}
@@ -4016,6 +4029,14 @@ const PatientRecordPage = () => {
           )}
         </DialogContent>
       </Dialog>
+
+      <PatientShareDialog
+        open={shareOpen}
+        onOpenChange={setShareOpen}
+        animal={currentAnimal}
+        client={currentClient}
+        weight={latestWeight ? { kg: Number(latestWeight), date: latestWeightEntry?.date } : null}
+      />
     </div>
   );
 };

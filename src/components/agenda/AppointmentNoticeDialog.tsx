@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { SiWhatsapp } from "react-icons/si";
 import { Pencil, RotateCcw, Eye } from "lucide-react";
 import { toast } from "sonner";
@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { KindBadge } from "@/components/agenda/bookingKindVisual";
+import { WhatsAppPreview } from "@/components/WhatsAppPreview";
 import { reminderPhone } from "@/hooks/useReminderSender";
 import { buildAppointmentNotice, clinicAddressLine, phoneFromText } from "@/lib/appointmentNotice";
 import type { ScheduleUI } from "@/lib/schedulesApi";
@@ -51,18 +52,6 @@ const SOURCE_HINT: Record<PhoneSource, string> = {
   nome: "Telefone do cliente cadastrado com esse nome.",
   nenhum: "Sem telefone no cadastro — digite o número ou deixe vazio para escolher o contato no WhatsApp.",
 };
-
-// "*negrito*" do WhatsApp na prévia.
-function WhatsAppText({ text }: { text: string }) {
-  const parts = text.split(/(\*[^*\n]+\*)/g);
-  return (
-    <>
-      {parts.map((p, i) =>
-        p.length > 2 && p.startsWith("*") && p.endsWith("*") ? <strong key={i}>{p.slice(1, -1)}</strong> : <React.Fragment key={i}>{p}</React.Fragment>
-      )}
-    </>
-  );
-}
 
 export function AppointmentNoticeDialog({
   appointment,
@@ -192,14 +181,7 @@ function NoticeBody({ appointment: app, clients, onDone }: { appointment: Schedu
             className="h-[30vh] min-h-[10rem] text-sm leading-relaxed sm:h-[22rem]"
           />
         ) : (
-          // Fundo e balão no estilo da conversa do WhatsApp — o que o tutor vai ver.
-          <div className="max-h-[30vh] overflow-y-auto rounded-lg sm:max-h-[45vh] bg-[#efeae2] p-3 dark:bg-[#0b141a]">
-            <div className="ml-auto w-fit max-w-full rounded-lg rounded-tr-none bg-[#d9fdd3] px-3 py-2 text-[13px] leading-relaxed text-[#111b21] shadow-sm dark:bg-[#005c4b] dark:text-[#e9edef]">
-              <p className="whitespace-pre-wrap break-words">
-                <WhatsAppText text={message} />
-              </p>
-            </div>
-          </div>
+          <WhatsAppPreview text={message} className="max-h-[30vh] sm:max-h-[45vh]" />
         )}
       </div>
 
