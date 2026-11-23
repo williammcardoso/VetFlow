@@ -37,6 +37,10 @@ Interface, textos e mensagens de commit em português do Brasil.
      rodar build e testes de novo e só então `git push origin main`.
   3. Push recusado ("fetch first"/"non-fast-forward"): fazer o passo 2 e enviar de novo, **sem perguntar**.
   Parar e perguntar só se o rebase der **conflito** ou se algo exigir `--force`. Nunca usar `--force`.
+  **Outra sessão na mesma pasta** (`git status` mostra arquivos alterados que não são seus): commitar só os
+  seus (`git commit -- <arquivos>`), nunca `git add -A`; e no lugar do pull com `--autostash` (que tiraria do
+  lugar o trabalho dela) usar `git fetch origin main` — se o GitHub não andou, push direto; se andou, esperar
+  a outra sessão commitar antes do rebase (ou avisar o usuário).
   O remoto não tem fetch refspec: `origin/main` fica velho — comparar com `git ls-remote origin refs/heads/main`.
 - **Depois do push, conferir se a Vercel publicou** (GitHub CLI já logado):
   `gh api repos/williammcardoso/VetFlow/commits/<sha>/status --jq '.state'` → `pending` (publicando — ~1 min;
