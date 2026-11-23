@@ -11,7 +11,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { FileSignature, ArrowLeft, CheckCircle2, ExternalLink } from "lucide-react";
+import { FileSignature, ArrowLeft, CheckCircle2, Download, ExternalLink } from "lucide-react";
+import { SiWhatsapp } from "react-icons/si";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useClientWithAnimals } from "@/hooks/useSupabaseClients";
@@ -25,9 +26,11 @@ import { buildAutoDocumentContext, mergeManualFields } from "@/lib/documentConte
 import { blankPendingMarkers, fillPendingMarkers, pendingPaths, renderDocumentTemplate } from "@/lib/documentTemplateEngine";
 import { computeDocumentHash } from "@/lib/documentHash";
 import { generateQrCodeDataUrl } from "@/lib/qrCode";
-import { renderPdf } from "@/lib/pdfExport";
+import { downloadPdfFromUrl, renderPdf } from "@/lib/pdfExport";
 import { insertEmittedDocument, updateDocumentHashAndPdf, uploadDocumentPdf } from "@/lib/documentEmissionApi";
+import { officialDocumentFileName } from "@/lib/documentFileName";
 import DocumentSignaturePanel from "@/components/DocumentSignaturePanel";
+import { DocumentWhatsAppDialog, type DocumentWhatsAppTarget } from "@/components/documents/DocumentWhatsAppDialog";
 import { DocumentFillForm } from "@/components/documents/DocumentFillForm";
 import { HelpHint } from "@/components/documents/HelpHint";
 import { applyFillAnswers, countAnswered, countFillFields, parseFillFields, type FillAnswers } from "@/lib/documentFillFields";
@@ -126,6 +129,7 @@ const EmitDocumentPage: React.FC = () => {
     emitidoEm: Date;
   } | null>(null);
   const [retrying, setRetrying] = useState(false);
+  const [whatsTarget, setWhatsTarget] = useState<DocumentWhatsAppTarget | null>(null);
   // Texto final, editável à mão antes de emitir (ajuste fino). As opções
   // "( )" e as linhas "......" do modelo agora têm formulário próprio
   // (fillAnswers); editar o texto à mão congela o texto com o que já estava
@@ -234,7 +238,7 @@ const EmitDocumentPage: React.FC = () => {
       return { url: null, errorMessage: `Falha ao montar o PDF: ${err?.message || "erro desconhecido"}` };
     }
 
-    const { url, errorMessage } = await uploadDocumentPdf(blob, `${template.codigo}_${animal?.name}_${params.numero}.pdf`);
+    const { url, errorMessage } = await uploadDocumentPdf(blob, officialDocumentFileName(template.titulo, animal?.name, params.emitidoEm));
     // Salva o hash sempre — mesmo se o upload do PDF falhar, o documento já
     // está emitido e o hash já foi calculado; não faz sentido perdê-lo.
     await updateDocumentHashAndPdf(params.documentId, hash, url);
@@ -558,11 +562,32 @@ const EmitDocumentPage: React.FC = () => {
             <CheckCircle2 className="h-5 w-5 text-emerald-600" />
             <span>Documento nº {resultado.numero} emitido com sucesso.</span>
             {resultado.url ? (
-              <Button asChild variant="outline" size="sm">
-                <a href={resultado.url} target="_blank" rel="noopener noreferrer">
-                  <ExternalLink className="mr-2 h-4 w-4" /> Abrir PDF
-                </a>
-              </Button>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button asChild variant="outline" size="sm">
+                  <a href={resultado.url} target="_blank" rel="noopener noreferrer">
+                    <ExternalLink className="mr-2 h-4 w-4" /> Abrir PDF
+                  </a>
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    template && downloadPdfFromUrl(resultado.url!, officialDocumentFileName(template.titulo, animal.name, resultado.emitidoEm))
+                  }
+                >
+                  <Download className="mr-2 h-4 w-4" /> Baixar
+                </Button>
+                <Button
+                  size="sm"
+                  className="bg-[#25D366] font-semibold text-white hover:bg-[#1ebe5b]"
+                  onClick={() =>
+                    template &&
+                    setWhatsTarget({ id: resultado.id, titulo: template.titulo, pdfUrl: resultado.url!, emitidoEm: resultado.emitidoEm })
+                  }
+                >
+                  <SiWhatsapp className="mr-2 h-4 w-4" aria-hidden /> Enviar no WhatsApp
+                </Button>
+              </div>
             ) : (
               <Button variant="outline" size="sm" onClick={handleTentarPdfNovamente} disabled={retrying}>
                 {retrying ? "Gerando..." : "Tentar gerar PDF novamente"}
@@ -597,6 +622,14 @@ const EmitDocumentPage: React.FC = () => {
           )}
         </SectionCard>
       )}
+
+      <DocumentWhatsAppDialog
+        target={whatsTarget}
+        petName={animal.name}
+        animalId={animal.id}
+        client={client}
+        onOpenChange={(open) => !open && setWhatsTarget(null)}
+      />
 
       <Dialog open={confirmOpen} onOpenChange={(open) => !emitting && setConfirmOpen(open)}>
         <DialogContent className="sm:max-w-lg">

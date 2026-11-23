@@ -63,7 +63,7 @@ import { budgetTotal } from "@/lib/budgetConversion";
 import type { Budget, BudgetStatus } from "@/mockData/budgets";
 import { useRegistryList } from "@/hooks/useRegistryList";
 import { getPatientRecordPath } from "@/utils/patientDisplayId";
-import { cn, formatAgeLong, formatCurrencyBRL, formatDateBRForFileName, formatDateTime, slugifyFileName } from "@/lib/utils";
+import { buildPdfFileName, cn, formatAgeLong, formatCurrencyBRL, formatDateBRForFileName, formatDateTime } from "@/lib/utils";
 import { useClientsList } from "@/hooks/useSupabaseClients";
 import { renderPdf, openPdf } from "@/lib/pdfExport";
 import { sendPdfViaWhatsApp } from "@/lib/whatsappShare";
@@ -355,7 +355,7 @@ const BudgetsPage: React.FC = () => {
     const { blob } = await buildBudgetPdfBlob(b);
     await openPdf({
       blob,
-      fileName: `${slugifyFileName("orcamento", b.animalName, formatDateBRForFileName(b.date))}.pdf`,
+      fileName: buildPdfFileName("Orçamento", b.animalName, formatDateBRForFileName(b.date)),
       persistOptions: { folder: "budgets" },
     });
   };
@@ -366,7 +366,7 @@ const BudgetsPage: React.FC = () => {
       await sendPdfViaWhatsApp({
         phone,
         blob,
-        fileName: `${slugifyFileName("orcamento", b.animalName, formatDateBRForFileName(b.date))}.pdf`,
+        fileName: buildPdfFileName("Orçamento", b.animalName, formatDateBRForFileName(b.date)),
         folder: "budgets",
         track: { type: "budget", id: b.id, animalId: b.animalId },
         title: "Orçamento",

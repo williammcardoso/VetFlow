@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
-import { generateUUID, getTodayLocalISO } from "@/lib/utils";
+import { buildPdfFileName, formatDateBRForFileName, generateUUID, getTodayLocalISO } from "@/lib/utils";
 import { useSystemVets } from "@/hooks/useSystemVets";
 
 import SaasButton from "@/components/saas/SaasButton";
@@ -810,7 +810,7 @@ export default function AppointmentForm({
 
     await openPdf({
       blob,
-      fileName: `atendimento_${animal.name}_${date}.pdf`,
+      fileName: buildPdfFileName("Atendimento", animal.name, formatDateBRForFileName(date)),
       persistOptions: { folder: "appointments" },
     });
   };

@@ -34,6 +34,7 @@ import type {
 import { useClientWithAnimals } from "@/hooks/useSupabaseClients";
 import { usePatientRouteParams } from "@/hooks/usePatientRouteParams";
 import { getPatientRecordPath, getPatientSubPath } from "@/utils/patientDisplayId";
+import { buildPdfFileName, formatDateBRForFileName } from "@/lib/utils";
 import { getAppointmentById, getAppointmentsByAnimal } from "@/lib/appointmentsApi";
 
 const formatDateBR = (dateISO?: string) => {
@@ -205,7 +206,7 @@ export default function AppointmentViewPage() {
       );
       await openPdf({
         blob,
-        fileName: `atendimento_${animal.name}_${appointment.date}.pdf`,
+        fileName: buildPdfFileName("Atendimento", animal.name, formatDateBRForFileName(appointment.date)),
         persistOptions: { folder: "appointments" },
       });
     } catch {

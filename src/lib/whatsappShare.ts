@@ -36,6 +36,29 @@ export function openWhatsAppText(message: string): void {
 }
 
 /**
+ * Texto da mensagem que leva um PDF pro tutor (receita, laudo, documento...).
+ * Sem `link`, avisa que o arquivo foi baixado pra anexar à mão.
+ */
+export function buildPdfShareMessage(opts: { title: string; intro: string; dateLabel: string; link?: string | null }): string {
+  return [
+    `🐾 *${opts.title}*`,
+    "",
+    opts.intro,
+    `🗓️ ${opts.dateLabel}`,
+    "",
+    opts.link ? `📎 Abra o PDF aqui:\n${opts.link}` : "📎 O PDF foi baixado — por favor anexe o arquivo e envie.",
+    "",
+    "Qualquer dúvida, é só chamar! 💬",
+  ].join("\n");
+}
+
+/** Prévia do link curto no WhatsApp: título + "data · nome da clínica". */
+export function buildSharePreview(title: string, description: string): { title: string; description: string } {
+  const clinicName = (mockCompanySettings.companyName || "").trim();
+  return { title: title.trim(), description: [description.trim(), clinicName].filter(Boolean).join(" · ") };
+}
+
+/**
  * Envia um PDF (receita, laudo de exame, orçamento etc.) por WhatsApp: sobe o
  * arquivo e manda o link direto na mensagem (WhatsApp não aceita anexo via
  * link, só texto) — compartilhado entre as telas pra não duplicar a validação
@@ -62,19 +85,8 @@ export async function sendPdfViaWhatsApp(opts: {
     return false;
   }
 
-  const buildMsg = (link?: string) => {
-    const parts = [
-      `🐾 *${opts.title}*`,
-      "",
-      opts.intro,
-      `🗓️ ${opts.dateLabel}`,
-      "",
-      link ? `📎 Abra o PDF aqui:\n${link}` : "📎 O PDF foi baixado — por favor anexe o arquivo e envie.",
-      "",
-      "Qualquer dúvida, é só chamar! 💬",
-    ];
-    return encodeURIComponent(parts.join("\n"));
-  };
+  const buildMsg = (link?: string) =>
+    encodeURIComponent(buildPdfShareMessage({ title: opts.title, intro: opts.intro, dateLabel: opts.dateLabel, link }));
 
   // api.whatsapp.com/send direto, em vez de wa.me — wa.me é um redirect da
   // própria Meta que, ao converter pra api.whatsapp.com/send, corrompe
@@ -82,11 +94,7 @@ export async function sendPdfViaWhatsApp(opts: {
   // %F0%9F%90%BE certo em wa.me virava %EF%BF%BD no api.whatsapp.com/send
   // gerado por eles ~1s depois). Indo direto no endpoint final, pula essa
   // conversão que estava mastigando os emoji.
-  const clinicName = (mockCompanySettings.companyName || "").trim();
-  const sharePreview = {
-    title: opts.preview?.title?.trim() || opts.title,
-    description: [opts.preview?.description?.trim() || opts.dateLabel, clinicName].filter(Boolean).join(" · "),
-  };
+  const sharePreview = buildSharePreview(opts.preview?.title?.trim() || opts.title, opts.preview?.description?.trim() || opts.dateLabel);
   const pdfUrl = await persistPdf(opts.blob, { folder: opts.folder, fileName: opts.fileName, sharePreview });
   if (pdfUrl) {
     window.open(`https://api.whatsapp.com/send?phone=${num}&text=${buildMsg(pdfUrl)}`, "_blank");

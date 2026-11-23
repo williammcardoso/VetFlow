@@ -38,7 +38,7 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { PrescriptionEntry } from "@/types/medication";
-import { cn, formatAgeLong, formatCurrencyBRL, formatDateBRForFileName, formatDateTime, formatItemQty, getTodayLocalISO, parseLocalDate, slugifyFileName } from "@/lib/utils";
+import { buildPdfFileName, cn, formatAgeLong, formatCurrencyBRL, formatDateBRForFileName, formatDateTime, formatItemQty, getTodayLocalISO, parseLocalDate } from "@/lib/utils";
 import { DeceasedBadge, isDeceased } from "@/components/clients/clientVisuals";
 import { displayAppointmentType } from "@/lib/appointmentDisplay";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -815,7 +815,7 @@ const PatientRecordPage = () => {
     const blob = await renderPdf((K) => <K.BudgetReportPdfContent budget={b} userProfile={currentUserProfile} catalogItems={catalogItems} />);
     await openPdf({
       blob,
-      fileName: `${slugifyFileName("orcamento", b.animalName || currentAnimal?.name, formatDateBRForFileName(b.date))}.pdf`,
+      fileName: buildPdfFileName("Orçamento", b.animalName || currentAnimal?.name, formatDateBRForFileName(b.date)),
       persistOptions: { folder: "budgets" },
     });
   };
@@ -825,7 +825,7 @@ const PatientRecordPage = () => {
       const blob = await renderPdf((K) => <K.BudgetReportPdfContent budget={b} userProfile={currentUserProfile} catalogItems={catalogItems} />);
       await sendPdfViaWhatsApp({
         blob,
-        fileName: `${slugifyFileName("orcamento", b.animalName || currentAnimal?.name, formatDateBRForFileName(b.date))}.pdf`,
+        fileName: buildPdfFileName("Orçamento", b.animalName || currentAnimal?.name, formatDateBRForFileName(b.date)),
         folder: "budgets",
         track: { type: "budget", id: b.id, animalId: currentAnimal?.id },
         title: "Orçamento",
@@ -1735,7 +1735,7 @@ const PatientRecordPage = () => {
                       />
                     ));
                     const single = trends.length === 1 ? trends[0].name : undefined;
-                    const fileName = `${slugifyFileName("evolucao", single || "exames", currentAnimal.name, formatDateBRForFileName(getTodayLocalISO()))}.pdf`;
+                    const fileName = buildPdfFileName(single ? `Evolução - ${single}` : "Evolução dos exames", currentAnimal.name, formatDateBRForFileName(getTodayLocalISO()));
                     if (mode === "open") {
                       await openPdf({ blob, fileName, persistOptions: { folder: "exams" } });
                       return;
@@ -1864,7 +1864,7 @@ const PatientRecordPage = () => {
                                       />
                                     ).then((blob) => openPdf({
                                       blob,
-                                      fileName: `${slugifyFileName("laudo", exam.type, currentAnimal.name, formatDateBRForFileName(exam.date))}.pdf`,
+                                      fileName: buildPdfFileName("Laudo", examDisplayName(exam), currentAnimal.name, formatDateBRForFileName(exam.date)),
                                       persistOptions: { folder: "exams" },
                                     })).then(() => {
                                       toast.success("Laudo de exame enviado para impressão!");
@@ -1892,7 +1892,7 @@ const PatientRecordPage = () => {
                                       />
                                     ).then((blob) => openPdf({
                                       blob,
-                                      fileName: `${slugifyFileName("laudo", exam.type, currentAnimal.name, formatDateBRForFileName(exam.date))}.pdf`,
+                                      fileName: buildPdfFileName("Laudo", examDisplayName(exam), currentAnimal.name, formatDateBRForFileName(exam.date)),
                                       persistOptions: { folder: "exams" },
                                     })).then(() => {
                                       toast.success("Laudo de exame enviado para impressão!");
@@ -1917,7 +1917,7 @@ const PatientRecordPage = () => {
                                       />
                                     ).then((blob) => openPdf({
                                       blob,
-                                      fileName: `${slugifyFileName("laudo", examDisplayName(exam), currentAnimal.name, formatDateBRForFileName(exam.date))}.pdf`,
+                                      fileName: buildPdfFileName("Laudo", examDisplayName(exam), currentAnimal.name, formatDateBRForFileName(exam.date)),
                                       persistOptions: { folder: "exams" },
                                     })).then(() => {
                                       toast.success("Laudo de exame enviado para impressão!");
@@ -1941,7 +1941,7 @@ const PatientRecordPage = () => {
                                     />
                                   ).then((blob) => openPdf({
                                     blob,
-                                    fileName: `${slugifyFileName("laudo", exam.type, currentAnimal.name, formatDateBRForFileName(exam.date))}.pdf`,
+                                    fileName: buildPdfFileName("Laudo", examDisplayName(exam), currentAnimal.name, formatDateBRForFileName(exam.date)),
                                     persistOptions: { folder: "exams" },
                                   })).then(() => {
                                     toast.success("Laudo de exame enviado para impressão!");
@@ -1978,7 +1978,7 @@ const PatientRecordPage = () => {
                                       />
                                     ).then((blob) => openPdf({
                                       blob,
-                                      fileName: `${slugifyFileName("laudo-compacto", exam.type, currentAnimal.name, formatDateBRForFileName(exam.date))}.pdf`,
+                                      fileName: buildPdfFileName("Laudo compacto", examDisplayName(exam), currentAnimal.name, formatDateBRForFileName(exam.date)),
                                       persistOptions: { folder: "exams" },
                                     })).then(() => {
                                       toast.success("Laudo compacto (hemograma) gerado!");
@@ -2014,7 +2014,7 @@ const PatientRecordPage = () => {
                                       />
                                     ).then((blob) => openPdf({
                                       blob,
-                                      fileName: `${slugifyFileName("laudo-compacto", exam.type, currentAnimal.name, formatDateBRForFileName(exam.date))}.pdf`,
+                                      fileName: buildPdfFileName("Laudo compacto", examDisplayName(exam), currentAnimal.name, formatDateBRForFileName(exam.date)),
                                       persistOptions: { folder: "exams" },
                                     })).then(() => {
                                       toast.success("Laudo compacto (bioquímico) gerado!");
@@ -2128,7 +2128,7 @@ const PatientRecordPage = () => {
                                           );
                                     await sendPdfViaWhatsApp({
                                       blob,
-                                      fileName: `${slugifyFileName("laudo", examDisplayName(exam), currentAnimal.name, formatDateBRForFileName(exam.date))}.pdf`,
+                                      fileName: buildPdfFileName("Laudo", examDisplayName(exam), currentAnimal.name, formatDateBRForFileName(exam.date)),
                                       folder: "exams",
                                       track: { type: "exam", id: exam.id, animalId: currentAnimal.id },
                                       title: `Resultado de Exame — ${examDisplayName(exam)}`,
@@ -2361,7 +2361,7 @@ const PatientRecordPage = () => {
                                 );
                             await openPdf({
                               blob,
-                              fileName: `${doc.name}.pdf`,
+                              fileName: buildPdfFileName(doc.name, currentAnimal.name, formatDateBRForFileName(doc.date)),
                               persistOptions: { folder: "documents/generated" },
                             });
                           } catch (err) {
@@ -2403,7 +2403,7 @@ const PatientRecordPage = () => {
                                 );
                             await downloadPdf({
                               blob,
-                              fileName: `${slugifyFileName(doc.name)}.pdf`,
+                              fileName: buildPdfFileName(doc.name, currentAnimal.name, formatDateBRForFileName(doc.date)),
                               persistOptions: { folder: "documents/generated" },
                             });
                           } catch (err) {
@@ -2457,7 +2457,7 @@ const PatientRecordPage = () => {
                           }
                           await sendPdfViaWhatsApp({
                             blob,
-                            fileName: `${slugifyFileName(doc.name)}.pdf`,
+                            fileName: buildPdfFileName(doc.name, currentAnimal.name, formatDateBRForFileName(doc.date)),
                             track: { type: "document", id: doc.id, animalId: currentAnimal?.id },
                             folder: "documents/generated",
                             title: doc.name,
@@ -2588,6 +2588,8 @@ const PatientRecordPage = () => {
                 {animalId && (
                   <DocumentTimeline
                     pacienteId={animalId}
+                    petName={currentAnimal.name}
+                    client={currentClient}
                     className={documents.length > 0 ? "mt-5 border-t border-border/60 pt-4" : undefined}
                   />
                 )}
@@ -2765,7 +2767,7 @@ const PatientRecordPage = () => {
                                     })
                                   ).then((blob) => openPdf({
                                     blob,
-                                    fileName: `${slugifyFileName("receita", currentAnimal.name, rx.date ? formatDateBRForFileName(rx.date) : "sem-data")}.pdf`,
+                                    fileName: buildPdfFileName("Receita", currentAnimal.name, rx.date ? formatDateBRForFileName(rx.date) : ""),
                                     persistOptions: { folder: "prescriptions" },
                                   })).then(() => {
                                     toast.success("Receita enviada para impressão!");
@@ -2813,7 +2815,7 @@ const PatientRecordPage = () => {
                                     })
                                   ).then((blob) => downloadPdf({
                                     blob,
-                                    fileName: `${slugifyFileName("receita", currentAnimal.name, rx.date ? formatDateBRForFileName(rx.date) : "sem-data")}.pdf`,
+                                    fileName: buildPdfFileName("Receita", currentAnimal.name, rx.date ? formatDateBRForFileName(rx.date) : ""),
                                     persistOptions: { folder: "prescriptions" },
                                   })).then(() => {
                                     toast.success("PDF baixado.");
@@ -2865,7 +2867,7 @@ const PatientRecordPage = () => {
                                   );
                                   await sendPdfViaWhatsApp({
                                     blob,
-                                    fileName: `${slugifyFileName("receita", currentAnimal.name, rx.date ? formatDateBRForFileName(rx.date) : "sem-data")}.pdf`,
+                                    fileName: buildPdfFileName("Receita", currentAnimal.name, rx.date ? formatDateBRForFileName(rx.date) : ""),
                                     folder: "prescriptions",
                                     track: { type: "prescription", id: rx.id, animalId: currentAnimal.id },
                                     title: "Receita Veterinária",

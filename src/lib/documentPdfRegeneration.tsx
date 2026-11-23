@@ -2,6 +2,7 @@ import { renderPdf } from "@/lib/pdfExport";
 import { getDocumentForPdfRegeneration, updateDocumentHashAndPdf, uploadDocumentPdf } from "@/lib/documentEmissionApi";
 import { getSignaturesByDocument } from "@/lib/documentSignatureApi";
 import { generateQrCodeDataUrl } from "@/lib/qrCode";
+import { officialDocumentFileName } from "@/lib/documentFileName";
 
 /**
  * Regera o PDF de um documento já emitido incluindo as imagens de assinatura
@@ -55,7 +56,8 @@ export async function regenerarPdfComAssinaturas(documentId: string): Promise<{ 
     return { url: null, errorMessage: `Falha ao montar o PDF: ${err?.message || "erro desconhecido"}` };
   }
 
-  const { url, errorMessage } = await uploadDocumentPdf(blob, `${doc.codigo}_${doc.numero}_assinado.pdf`);
+  // Mesmo nome do PDF da emissão ("Atestado de vacinação - Thor - 23-11-2026.pdf").
+  const { url, errorMessage } = await uploadDocumentPdf(blob, officialDocumentFileName(doc.titulo, doc.petNome, doc.emitidoEm));
   if (url) {
     await updateDocumentHashAndPdf(documentId, doc.hashSha256, url);
   }

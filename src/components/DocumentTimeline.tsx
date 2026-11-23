@@ -5,15 +5,21 @@ import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { FileSignature, ExternalLink, Ban, Link2, PenLine, XCircle } from "lucide-react";
+import { FileSignature, ExternalLink, Ban, Download, Link2, PenLine, XCircle } from "lucide-react";
+import { SiWhatsapp } from "react-icons/si";
 import { toast } from "sonner";
 import { usePatientDocuments } from "@/hooks/usePatientDocuments";
 import { cancelDocument, type EmittedDocumentSummary } from "@/lib/documentEmissionApi";
 import { getDocumentForSigning, type DocumentForSigning } from "@/lib/documentSigningLinkApi";
 import { getMyUserProfile } from "@/lib/authApi";
 import DocumentSignaturePanel from "@/components/DocumentSignaturePanel";
+import { DocumentWhatsAppDialog, type DocumentWhatsAppTarget } from "@/components/documents/DocumentWhatsAppDialog";
+import { SentBadge } from "@/components/SentBadge";
 import { displayDocumentText } from "@/lib/documentTemplateEngine";
+import { officialDocumentFileName } from "@/lib/documentFileName";
+import { downloadPdfFromUrl } from "@/lib/pdfExport";
 import { cn } from "@/lib/utils";
+import type { Client } from "@/types/client";
 
 const STATUS_LABEL: Record<string, string> = {
   rascunho: "Rascunho",
@@ -193,17 +199,22 @@ function SignInPersonDialog({
 
 interface DocumentTimelineProps {
   pacienteId: string;
+  /** Nome do pet — vai no nome do arquivo baixado e na mensagem do WhatsApp. */
+  petName: string;
+  /** Tutor (telefone do cadastro para o WhatsApp). */
+  client?: Client | null;
   className?: string;
 }
 
 // Fica dentro do cartão "Documentos" do prontuário, embaixo dos documentos
 // livres — o botão de emitir é o do cabeçalho do cartão, e sem nenhum termo
 // emitido a seção some (o aviso de "nenhum documento" é o do cartão).
-const DocumentTimeline: React.FC<DocumentTimelineProps> = ({ pacienteId, className }) => {
+const DocumentTimeline: React.FC<DocumentTimelineProps> = ({ pacienteId, petName, client, className }) => {
   const { data: docs, isLoading, isError } = usePatientDocuments(pacienteId);
   const queryClient = useQueryClient();
   const [cancelTarget, setCancelTarget] = useState<EmittedDocumentSummary | null>(null);
   const [signTarget, setSignTarget] = useState<EmittedDocumentSummary | null>(null);
+  const [whatsTarget, setWhatsTarget] = useState<DocumentWhatsAppTarget | null>(null);
 
   const refetch = () => queryClient.invalidateQueries({ queryKey: ["patient-documents", pacienteId] });
 
@@ -250,19 +261,46 @@ const DocumentTimeline: React.FC<DocumentTimelineProps> = ({ pacienteId, classNa
                     Emitido em {formatDateTime(doc.emitidoEm)}
                     {doc.status === "cancelado" && doc.motivoCancelamento ? ` · Motivo: ${doc.motivoCancelamento}` : ""}
                   </p>
+                  <SentBadge type="document" id={doc.id} className="mt-1" />
                 </div>
               </div>
-              <div className="flex items-center justify-between gap-2 sm:contents">
+              {/* Celular: até 6 ícones — quebram linha em vez de empurrar o
+                  cartão pra fora da tela. */}
+              <div className="flex flex-wrap items-center justify-between gap-2 sm:contents">
               <span className={`shrink-0 rounded-full border px-2 py-0.5 text-xs font-semibold ${STATUS_CLASS[doc.status] ?? ""}`}>
                 {STATUS_LABEL[doc.status] ?? doc.status}
               </span>
-              <div className="flex shrink-0 items-center gap-1">
+              <div className="flex flex-wrap items-center justify-end gap-1 sm:shrink-0 sm:flex-nowrap">
                 {doc.pdfPath && (
-                  <Button asChild variant="ghost" size="icon" title="Abrir PDF">
-                    <a href={doc.pdfPath} target="_blank" rel="noopener noreferrer">
-                      <ExternalLink className="h-4 w-4" />
-                    </a>
-                  </Button>
+                  <>
+                    <Button asChild variant="ghost" size="icon" title="Abrir PDF">
+                      <a href={doc.pdfPath} target="_blank" rel="noopener noreferrer" aria-label="Abrir PDF">
+                        <ExternalLink className="h-4 w-4" />
+                      </a>
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      title="Baixar PDF"
+                      aria-label="Baixar PDF"
+                      onClick={() => downloadPdfFromUrl(doc.pdfPath!, officialDocumentFileName(doc.titulo, petName, doc.emitidoEm))}
+                    >
+                      <Download className="h-4 w-4" />
+                    </Button>
+                    {doc.status !== "cancelado" && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        title="Enviar no WhatsApp (com o link do PDF)"
+                        aria-label="Enviar no WhatsApp"
+                        onClick={() =>
+                          setWhatsTarget({ id: doc.id, titulo: doc.titulo, pdfUrl: doc.pdfPath!, emitidoEm: doc.emitidoEm })
+                        }
+                      >
+                        <SiWhatsapp className="h-5 w-5 text-[#25D366]" />
+                      </Button>
+                    )}
+                  </>
                 )}
                 {doc.status === "emitido" && (
                   <>
@@ -316,6 +354,14 @@ const DocumentTimeline: React.FC<DocumentTimelineProps> = ({ pacienteId, classNa
           }}
         />
       )}
+
+      <DocumentWhatsAppDialog
+        target={whatsTarget}
+        petName={petName}
+        animalId={pacienteId}
+        client={client}
+        onOpenChange={(open) => !open && setWhatsTarget(null)}
+      />
     </div>
   );
 };

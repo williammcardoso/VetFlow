@@ -1,6 +1,7 @@
 import type { ReactElement } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { createShareLink, type ShareLinkPreview } from "@/lib/documentShareLinksApi";
+import { cleanDownloadFileName, storageFileName, withDownloadName } from "@/lib/utils";
 
 const DEFAULT_BUCKET = "documents";
 
@@ -10,23 +11,10 @@ type PersistOptions = {
   fileName?: string;
 };
 
-function sanitizeFileName(name: string) {
-  return name
-    .trim()
-    // Remove acentos (ex.: "Bioquímico" -> "Bioquimico") - nome de arquivo com
-    // caractere acentuado no path do Storage vinha falhando o upload em silêncio
-    // (persistPdf caía no fallback de download local sem avisar o motivo).
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .replace(/[\\/:*?"<>|]+/g, "-")
-    .replace(/\s+/g, "_")
-    .replace(/_+/g, "_");
-}
-
-function ensurePdfName(name: string) {
-  const clean = sanitizeFileName(name || "arquivo");
-  return clean.toLowerCase().endsWith(".pdf") ? clean : `${clean}.pdf`;
-}
+// O `fileName` que as telas passam é o nome "bonito" (buildPdfFileName, com
+// acento e espaço) — é o que fica no arquivo baixado. No caminho do Storage
+// vai a versão sem acento/espaço (storageFileName): chave com acento falha o
+// upload em silêncio ("Invalid key") e o persistPdf caía no download local.
 
 /** Sobe o PDF pro storage e devolve um link curto (/d/:code) — usado quando
  * o PDF precisa virar um link visível pra alguém (ex.: mensagem de
@@ -49,7 +37,7 @@ async function tryPersistPdf(blob: Blob, options?: PersistOptions): Promise<stri
   try {
     const bucket = options?.bucket || DEFAULT_BUCKET;
     const folder = (options?.folder || "generated_pdfs").replace(/^\/+|\/+$/g, "");
-    const fileName = ensurePdfName(options?.fileName || `documento_${Date.now()}.pdf`);
+    const fileName = storageFileName(options?.fileName || "documento");
     // O identificador único vira subpasta, não prefixo do nome — evita
     // colisão no Storage sem sujar o nome que o navegador mostra (a URL
     // pública termina no nome do arquivo; era esse prefixo que aparecia
@@ -85,11 +73,26 @@ function downloadBlob(blob: Blob, fileName: string) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = ensurePdfName(fileName);
+  a.download = cleanDownloadFileName(fileName);
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
+}
+
+/**
+ * Baixa um PDF que já está no Storage com o nome escolhido (com acento):
+ * `?download=` faz o Supabase mandar o arquivo como anexo com esse nome. Sem
+ * nova aba — download não troca de página. Antes, o "baixar" abria o PDF e
+ * o arquivo salvo levava o fim da URL (ex.: "1732…_k3j4_A03_Thor_12.pdf").
+ */
+export function downloadPdfFromUrl(url: string, fileName: string): void {
+  const a = document.createElement("a");
+  a.href = withDownloadName(url, fileName);
+  a.rel = "noopener";
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
 }
 
 // A biblioteca de PDF (~1,3 MB) é carregada só aqui, na hora de gerar — antes
@@ -146,14 +149,7 @@ export async function downloadPdf({
   if (persist) {
     const persistedUrl = await tryPersistPdf(blob, { ...persistOptions, fileName });
     if (persistedUrl) {
-      const a = document.createElement("a");
-      a.href = persistedUrl;
-      a.download = ensurePdfName(fileName);
-      a.target = "_blank";
-      a.rel = "noopener noreferrer";
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
+      downloadPdfFromUrl(persistedUrl, fileName);
       return;
     }
   }

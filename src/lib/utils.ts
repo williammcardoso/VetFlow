@@ -184,3 +184,59 @@ export function slugifyFileName(...parts: Array<string | undefined | null>): str
     .replace(/-+/g, "-")
     .toLowerCase();
 }
+
+// Caracteres que o Windows/macOS não aceitam em nome de arquivo. Barra entre
+// espaços é "ou" nos títulos dos modelos ("Atestado / Declaração de Óbito");
+// colada vira traço ("Ureia/Creatinina").
+const cleanFileNamePart = (part: string) =>
+  part
+    .replace(/\s+[\\/]\s+/g, " ou ")
+    .replace(/[\\/]+/g, "-")
+    .replace(/[–—]/g, "-") // "TCLE — Eutanásia" → "TCLE - Eutanásia"
+    .replace(/[:*?"<>|]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+/**
+ * Nome do PDF como o tutor e a clínica veem no arquivo baixado — com acento
+ * e espaço, partes separadas por " - ":
+ * `buildPdfFileName("Atestado de vacinação", "Thor", formatDateBRForFileName(iso))`
+ * → "Atestado de vacinação - Thor - 23-11-2026.pdf". Data sempre em formato
+ * BR (formatDateBRForFileName), nunca ISO. O caminho no Storage não aceita
+ * acento: lá vai storageFileName() deste mesmo nome.
+ */
+export function buildPdfFileName(...parts: Array<string | undefined | null>): string {
+  const base = parts
+    .map((p) => cleanFileNamePart(p ?? ""))
+    .filter(Boolean)
+    .join(" - ")
+    .slice(0, 150)
+    .trim();
+  return `${base || "Documento"}.pdf`;
+}
+
+/** Nome pronto pro atributo download/arquivo local: tira só o que o sistema de arquivos recusa. */
+export function cleanDownloadFileName(name: string): string {
+  const base = cleanFileNamePart((name || "").replace(/\.pdf$/i, ""));
+  return `${base || "Documento"}.pdf`;
+}
+
+/**
+ * Último pedaço do caminho no Storage (o que aparece no fim do link e no
+ * título da aba ao abrir o PDF): o mesmo nome sem acento, espaço ou símbolo —
+ * o Supabase recusa chave com acento ("Invalid key").
+ * "Atestado de vacinação - Thor - 23-11-2026.pdf" → "atestado-de-vacinacao-thor-23-11-2026.pdf".
+ */
+export function storageFileName(name: string): string {
+  return `${slugifyFileName((name || "").replace(/\.pdf$/i, "")) || "documento"}.pdf`;
+}
+
+/**
+ * Link público do Storage que baixa o arquivo com o nome escolhido (com
+ * acento): o Supabase responde `Content-Disposition: attachment` com
+ * `filename*=UTF-8''…` quando a URL leva `?download=`. Outras URLs voltam iguais.
+ */
+export function withDownloadName(url: string, fileName: string): string {
+  if (!/\/storage\/v1\/object\/public\//.test(url) || /[?&]download=/.test(url)) return url;
+  return `${url}${url.includes("?") ? "&" : "?"}download=${encodeURIComponent(cleanDownloadFileName(fileName))}`;
+}

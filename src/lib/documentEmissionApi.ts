@@ -1,23 +1,16 @@
 import { supabase } from "@/integrations/supabase/client";
-
-// O Storage do Supabase rejeita chave com acento ("Invalid key") — nome de
-// paciente/tutor com "é", "ã", "ç" etc. quebrava o upload. Remove os acentos
-// (NFD + strip de diacríticos) antes de qualquer outra limpeza.
-const DIACRITICS_RE = new RegExp("[\\u0300-\\u036f]", "g");
-
-export function sanitizeFileName(name: string): string {
-  const semAcento = name.normalize("NFD").replace(DIACRITICS_RE, "");
-  return semAcento
-    .trim()
-    .replace(/[^a-zA-Z0-9._-]+/g, "_")
-    .replace(/_+/g, "_");
-}
+import { storageFileName } from "@/lib/utils";
 
 /**
  * Sobe o PDF pro Storage SEM engolir o erro (diferente de src/lib/pdfExport.ts
  * persistPdf, que devolve null em qualquer falha — bom o suficiente pros
  * outros PDFs do sistema, mas aqui precisamos saber o motivo real quando dá
  * errado, pra não ficar tentando às cegas).
+ *
+ * `fileName` = nome legível (buildPdfFileName). O identificador único vai
+ * numa subpasta, não colado no nome: a URL termina em
+ * "atestado-de-vacinacao-thor-23-11-2026.pdf", que é o nome que o navegador
+ * usa ao salvar o PDF aberto — antes saía "1732…_k3j4_A03_Thor_12.pdf".
  */
 export async function uploadDocumentPdf(
   blob: Blob,
@@ -25,8 +18,9 @@ export async function uploadDocumentPdf(
 ): Promise<{ url: string | null; errorMessage: string | null }> {
   try {
     const bucket = "documents";
-    const clean = sanitizeFileName(fileName) || "documento.pdf";
-    const path = `generated_pdfs/${Date.now()}_${Math.random().toString(36).slice(2, 10)}_${clean}`;
+    // storageFileName tira acento: o Storage recusa chave com acento ("Invalid key").
+    const clean = storageFileName(fileName);
+    const path = `generated_pdfs/${Date.now()}_${Math.random().toString(36).slice(2, 10)}/${clean}`;
     const file = new File([blob], clean, { type: "application/pdf" });
 
     const { error: uploadError } = await supabase.storage.from(bucket).upload(path, file, {
@@ -112,6 +106,8 @@ export interface DocumentForPdfRegeneration {
   titulo: string;
   vetNome: string;
   vetCrmvLabel: string;
+  /** Nome do pet (vai no nome do arquivo). */
+  petNome: string;
 }
 
 /** Tudo que o PDF precisa pra ser regerado (ex.: depois que uma assinatura é coletada) sem precisar reemitir o documento. */
@@ -131,7 +127,7 @@ export async function getDocumentForPdfRegeneration(documentId: string): Promise
   if (!data) return null;
 
   const row = data as any;
-  const payload = (row.payload ?? {}) as { vet?: { nome?: string; crmv?: string; crmv_uf?: string } };
+  const payload = (row.payload ?? {}) as { vet?: { nome?: string; crmv?: string; crmv_uf?: string }; pac?: { nome?: string } };
   const vet = payload.vet;
 
   return {
@@ -145,6 +141,7 @@ export async function getDocumentForPdfRegeneration(documentId: string): Promise
     titulo: row.document_template_versions?.document_templates?.titulo ?? "Documento",
     vetNome: vet?.nome || "",
     vetCrmvLabel: vet?.crmv_uf && vet?.crmv ? `${vet.crmv_uf}/${vet.crmv}` : vet?.crmv || "",
+    petNome: payload.pac?.nome || "",
   };
 }
 
