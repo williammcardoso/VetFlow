@@ -38,10 +38,13 @@ import {
   Pin,
   PawPrint,
   Pencil,
+  ScrollText,
   Trash2,
   X,
 } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
+import { AgendaLogDialog } from "@/components/agenda/AgendaLogDialog";
 import {
   cancelPublicBooking,
   createSchedule,
@@ -185,7 +188,21 @@ const BookSchedulePage: React.FC = () => {
   // virada do dia com a aba aberta não precisa de F5.
   const todayISO = getTodayLocalISO();
   const nowMinutes = new Date().getHours() * 60 + new Date().getMinutes();
-  const [dayOffset, setDayOffset] = React.useState(0);
+  // `?data=AAAA-MM-DD` (link "Abrir na agenda" do aviso no Pushover): abre a
+  // janela começando nesse dia — no celular, o próprio dia fica selecionado.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [dayOffset, setDayOffset] = React.useState(() => {
+    const d = searchParams.get("data") ?? "";
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return 0;
+    const diff = Math.round((new Date(`${d}T12:00:00`).getTime() - new Date(`${todayISO}T12:00:00`).getTime()) / 86_400_000);
+    return Number.isFinite(diff) ? diff : 0;
+  });
+  // Depois de usado, tira da barra (recarregar a página volta para hoje).
+  React.useEffect(() => {
+    if (searchParams.has("data")) setSearchParams({}, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const [logOpen, setLogOpen] = React.useState(false);
   const weekStart = React.useMemo(() => addDays(new Date(`${todayISO}T12:00:00`), dayOffset), [todayISO, dayOffset]);
   const weekDays = React.useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)), [weekStart]);
   const startISO = toISODate(weekDays[0]);
@@ -984,14 +1001,24 @@ const BookSchedulePage: React.FC = () => {
               <Monitor className="h-3 w-3" aria-hidden /> Computador: {stationName} (trocar)
             </button>
           )}
-          <button
-            type="button"
-            onClick={() => void openMiniAgenda()}
-            title="Abre a agenda numa janelinha que fica por cima das outras, como um post-it"
-            className="mx-auto mt-1 inline-flex items-center gap-1.5 rounded-full border border-amber-300 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-900 hover:bg-amber-100"
-          >
-            <Pin className="h-3.5 w-3.5" aria-hidden /> Fixar agenda na tela
-          </button>
+          <div className="mt-1 flex flex-wrap items-center justify-center gap-2">
+            <button
+              type="button"
+              onClick={() => void openMiniAgenda()}
+              title="Abre a agenda numa janelinha que fica por cima das outras, como um post-it"
+              className="inline-flex items-center gap-1.5 rounded-full border border-amber-300 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-900 hover:bg-amber-100"
+            >
+              <Pin className="h-3.5 w-3.5" aria-hidden /> Fixar agenda na tela
+            </button>
+            <button
+              type="button"
+              onClick={() => setLogOpen(true)}
+              title="Histórico de tudo o que foi agendado, alterado e cancelado (pede usuário e senha do VetFlow)"
+              className="inline-flex items-center gap-1.5 rounded-full border border-slate-300 bg-white px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+            >
+              <ScrollText className="h-3.5 w-3.5" aria-hidden /> Log da agenda
+            </button>
+          </div>
         </CardHeader>
         <CardContent className="px-3 sm:px-6">
           {!stationName ? (
@@ -1585,6 +1612,8 @@ const BookSchedulePage: React.FC = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AgendaLogDialog open={logOpen} onOpenChange={setLogOpen} />
     </div>
   );
 };
