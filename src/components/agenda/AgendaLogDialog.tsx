@@ -29,6 +29,7 @@ import { getSession } from "@/lib/authApi";
 import { fetchAgendaLog, AgendaLogError } from "@/lib/agendaLogApi";
 import {
   EVENT_LABEL,
+  entrySentence,
   entryTitle,
   formatDayHeader,
   formatLoggedAt,
@@ -37,8 +38,9 @@ import {
   matchesLogSearch,
   type AgendaLogEntry,
   type AgendaLogEvent,
+  type Seg,
 } from "@/lib/agendaLog";
-import { cn } from "@/lib/utils";
+import { cn, getTodayLocalISO } from "@/lib/utils";
 
 // Cor e ícone por tipo de registro: verde = agendado, âmbar = alterado,
 // vermelho = cancelado (mesmo mapa de conceitos do resto do sistema).
@@ -67,11 +69,32 @@ function dayKeyOffset(offset: number): string {
   return loggedDayKey(d.toISOString());
 }
 
-function LogEntryRow({ entry }: { entry: AgendaLogEntry }) {
+function Sentence({ segs }: { segs: Seg[] }) {
+  return (
+    <p className="text-[15px] leading-snug text-foreground/80">
+      {segs.map((s, i) =>
+        s.bold ? (
+          <strong key={i} className="font-bold text-foreground">
+            {s.text}
+          </strong>
+        ) : (
+          <React.Fragment key={i}>{s.text}</React.Fragment>
+        )
+      )}
+    </p>
+  );
+}
+
+function LogEntryRow({ entry, todayISO }: { entry: AgendaLogEntry; todayISO: string }) {
   const visual = EVENT_VISUAL[entry.event];
   const snap = entry.event === "excluido" ? entry.before : entry.after ?? entry.before;
   const obs = snap?.kindInfo.obs;
-  const struck = entry.event === "cancelado" || entry.event === "excluido";
+  const sentence = entrySentence(entry, todayISO);
+  // O que a frase já disse não se repete no quadro de alterações.
+  const labels = new Set(entry.changes.map((c) => c.label));
+  const boxChanges = entry.changes.filter(
+    (c) => c.label !== "Dia e horário" && !(c.label === "Cliente" && !labels.has("Dia e horário"))
+  );
   return (
     <li className="grid gap-x-5 gap-y-2 border-b border-border/70 px-1 py-3 last:border-b-0 sm:grid-cols-[13rem_minmax(0,1fr)]">
       {/* O que aconteceu, quando e quem */}
@@ -92,45 +115,35 @@ function LogEntryRow({ entry }: { entry: AgendaLogEntry }) {
         </div>
       </div>
 
-      {/* O agendamento */}
+      {/* O agendamento: a frase de bater o olho e, embaixo, os detalhes */}
       <div className="min-w-0 space-y-1.5">
+        {sentence ? <Sentence segs={sentence} /> : null}
+
         {entry.legacyLines ? (
-          <div className="rounded-lg border border-dashed border-border bg-muted/40 px-3 py-2 text-sm">
-            <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-              Registro antigo — texto do aviso enviado na época
-            </p>
-            {entry.legacyLines.slice(1).map((line, i) => (
-              <p key={i} className="break-words">{line}</p>
-            ))}
-          </div>
+          // Registro de antes do log: o texto do aviso da época, numa linha corrida.
+          <p className="break-words rounded-md bg-muted/50 px-2 py-1 text-xs text-muted-foreground">
+            <span className="font-semibold uppercase tracking-wide text-[10px]">Aviso da época: </span>
+            {entry.legacyLines.slice(1).join("  ·  ")}
+          </p>
         ) : snap ? (
-          <>
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-              <p className={cn("break-words text-sm font-bold text-foreground", struck && "line-through decoration-rose-400/70")}>
-                {snap.clientName || "Sem nome"}
-                {snap.animalName ? <span className="font-medium text-muted-foreground"> · {snap.animalName}</span> : null}
-              </p>
-              {snap.kind ? <KindPlaceChip kind={snap.kind} info={snap.kindInfo} className="text-[11px]" /> : null}
-            </div>
-            <p className="flex flex-wrap items-center gap-x-2 text-sm text-foreground">
-              <span className="inline-flex items-center gap-1 font-semibold tabular-nums">
-                <CalendarDays className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
-                {formatWhen(snap)}
-              </span>
-              {snap.title ? <span className="break-words text-muted-foreground">{snap.title}</span> : null}
-            </p>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+            {snap.kind ? <KindPlaceChip kind={snap.kind} info={snap.kindInfo} className="text-[11px]" /> : null}
+            <span className="inline-flex items-center gap-1 tabular-nums">
+              <CalendarDays className="h-3.5 w-3.5" aria-hidden />
+              {formatWhen(snap)}
+            </span>
             {obs ? (
-              <p className="flex items-start gap-1 text-sm text-muted-foreground">
-                <StickyNote className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
+              <span className="inline-flex min-w-0 items-start gap-1">
+                <StickyNote className="mt-px h-3.5 w-3.5 shrink-0" aria-hidden />
                 <span className="break-words">{obs}</span>
-              </p>
+              </span>
             ) : null}
-          </>
+          </div>
         ) : null}
 
-        {entry.changes.length > 0 ? (
+        {boxChanges.length > 0 ? (
           <ul className="mt-1 space-y-1 rounded-lg border border-amber-200 bg-amber-50/60 px-3 py-2 text-sm">
-            {entry.changes.map((c, i) => (
+            {boxChanges.map((c, i) => (
               <li key={i} className="grid gap-x-2 sm:grid-cols-[9.5rem_minmax(0,1fr)]">
                 <span className="font-semibold text-amber-900">{c.label}</span>
                 <span className="min-w-0 break-words">
@@ -150,7 +163,7 @@ function LogEntryRow({ entry }: { entry: AgendaLogEntry }) {
 /**
  * Log detalhado da agenda (agenda pública). Abre só com usuário e senha do
  * VetFlow — a senha é conferida no banco a cada consulta e fica só na memória
- * desta aba (some ao fechar a página ou ao tocar em "Sair").
+ * enquanto o log está aberto (fechou, pede de novo).
  */
 export function AgendaLogDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
   const [username, setUsername] = React.useState(() => getSession()?.username ?? "");
@@ -212,9 +225,17 @@ export function AgendaLogDialog({ open, onOpenChange }: { open: boolean; onOpenC
 
   const todayKey = dayKeyOffset(0);
   const yesterdayKey = dayKeyOffset(-1);
+  const todayISO = getTodayLocalISO();
+
+  // Pedido do usuário: toda vez que abrir o log, pede a senha de novo — ao
+  // fechar, a senha e o histórico saem da memória (o usuário fica preenchido).
+  const handleOpenChange = (next: boolean) => {
+    if (!next) signOut();
+    onOpenChange(next);
+  };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent
         className={cn(
           "flex flex-col gap-3 overflow-hidden sm:p-5",
@@ -367,7 +388,7 @@ export function AgendaLogDialog({ open, onOpenChange }: { open: boolean; onOpenC
                     </h3>
                     <ul className="px-2 sm:px-3">
                       {g.items.map((e) => (
-                        <LogEntryRow key={e.id} entry={e} />
+                        <LogEntryRow key={e.id} entry={e} todayISO={todayISO} />
                       ))}
                     </ul>
                   </section>

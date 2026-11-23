@@ -8,6 +8,7 @@ import {
   formatScheduleTimeRange,
   isBookingKind,
   parseKindInfo,
+  scheduleEndTime,
   vaccineList,
   type BookingKind,
   type BookingKindInfo,
@@ -225,8 +226,23 @@ export function entryFromRpc(r: Record<string, unknown>): AgendaLogEntry {
   };
 }
 
-/** Título do registro: "Agendado", "Cancelado", "Marcado como atendido"... */
+/** Título do registro: "Agendado", "Remarcado", "Cancelado", "Marcado como atendido"... */
 export function entryTitle(e: AgendaLogEntry): string {
+  const snap = e.event === "excluido" ? e.before : e.after ?? e.before;
+  const isBlock =
+    snap?.kind === "bloqueio" || /^horário bloqueado$/i.test(parseLegacy(e.legacyLines, e.at)?.title ?? "");
+  if (isBlock) {
+    if (e.event === "novo") return "Horário bloqueado";
+    if (e.event === "cancelado") return "Bloqueio liberado";
+    if (e.event === "excluido") return "Bloqueio apagado";
+    if (e.event === "reativado") return "Bloqueado de novo";
+  }
+  if (e.event === "alterado") {
+    const labels = new Set(e.changes.map((c) => c.label));
+    if (labels.has("Dia e horário") || parseLegacy(e.legacyLines, e.at)?.whenBefore) return "Remarcado";
+    if (labels.has("Cliente")) return "Cliente trocado";
+    return "Alterado";
+  }
   if (e.event === "situacao" && e.after) {
     const s = e.after.status;
     if (s === "attended") return "Marcado como atendido";
@@ -249,4 +265,203 @@ export function matchesLogSearch(e: AgendaLogEntry, query: string): boolean {
   }
   for (const c of e.changes) parts.push(c.before, c.after);
   return parts.some((p) => normalizeSearch(p).includes(q));
+}
+
+// ---------------------------------------------------------------------------
+// Frase "de bater o olho": o que aconteceu, com o essencial em negrito.
+// Ex.: "Mudou o horário: Vacina na loja de Karyz era hoje às 09:00 e passou
+// para sex 28/11 às 10:00."
+// ---------------------------------------------------------------------------
+
+/** Pedaço da frase; `bold` = destaque (o quê, de quem, quando). */
+export interface Seg {
+  text: string;
+  bold?: boolean;
+}
+
+interface When {
+  date: string;
+  time: string;
+  end?: string | null;
+}
+
+const WEEKDAYS_LOWER = WEEKDAYS.map((w) => w.toLowerCase());
+
+const isoToLocal = (iso: string) => {
+  const [y, m, d] = iso.split("-").map(Number);
+  return new Date(y, (m || 1) - 1, d || 1);
+};
+const dayDiff = (a: string, b: string) => Math.round((isoToLocal(a).getTime() - isoToLocal(b).getTime()) / 86_400_000);
+
+/** "hoje", "amanhã", "ontem" ou "sex 28/11" (com o ano só se for outro). */
+export function relativeDay(dateISO: string, todayISO: string): string {
+  const diff = dayDiff(dateISO, todayISO);
+  if (diff === 0) return "hoje";
+  if (diff === 1) return "amanhã";
+  if (diff === -1) return "ontem";
+  const [y, m, d] = dateISO.split("-").map(Number);
+  const year = todayISO.slice(0, 4) === String(y) ? "" : `/${y}`;
+  return `${WEEKDAYS_LOWER[isoToLocal(dateISO).getDay()]} ${pad(d)}/${pad(m)}${year}`;
+}
+
+/** "hoje às 09:00" ou "amanhã, das 14:00 às 15:00". */
+export function whenPhrase(w: When | null | undefined, todayISO: string): string {
+  if (!w || !w.date) return "data não informada";
+  const day = relativeDay(w.date, todayISO);
+  if (!w.time) return day;
+  return w.end ? `${day}, das ${w.time} às ${w.end}` : `${day} às ${w.time}`;
+}
+
+const whenOf = (s: ScheduleSnapshot | null): When | null =>
+  s ? { date: s.date, time: s.time, end: scheduleEndTime(s.time, s.durationMinutes) } : null;
+
+const whoOf = (s: ScheduleSnapshot) =>
+  s.animalName ? `${s.clientName || "Sem nome"} (${s.animalName})` : s.clientName || "Sem nome";
+const whatOf = (s: ScheduleSnapshot) => s.title || (s.kind ? KIND_LABEL[s.kind] : "") || "Agendamento";
+
+const seg = (text: string): Seg => ({ text });
+const bold = (text: string): Seg => ({ text, bold: true });
+
+function joinLabels(labels: string[]): string {
+  const lower = labels.map((l) => l.toLowerCase());
+  return lower.length <= 1 ? lower.join("") : `${lower.slice(0, -1).join(", ")} e ${lower[lower.length - 1]}`;
+}
+
+interface SentenceInput {
+  event: AgendaLogEvent;
+  status?: string;
+  what: string;
+  who: string;
+  isBlock: boolean;
+  when: When | null;
+  whenBefore?: When | null;
+  clientBefore?: string | null;
+  otherChanges?: string[];
+}
+
+function buildSentence(p: SentenceInput, todayISO: string): Seg[] {
+  const when = whenPhrase(p.when, todayISO);
+  const what = bold(p.what);
+  const who = bold(p.who);
+  if (p.isBlock) {
+    if (p.event === "novo") return [seg("Bloqueou a agenda "), bold(when), seg(".")];
+    if (p.event === "cancelado") return [seg("Liberou o horário bloqueado de "), bold(when), seg(".")];
+    if (p.event === "excluido") return [seg("Apagou o bloqueio de "), bold(when), seg(".")];
+    if (p.event === "reativado") return [seg("Bloqueou de novo "), bold(when), seg(".")];
+    if (p.whenBefore) {
+      return [seg("Mudou o horário bloqueado: era "), bold(whenPhrase(p.whenBefore, todayISO)), seg(" e passou para "), bold(when), seg(".")];
+    }
+  }
+  switch (p.event) {
+    case "novo":
+      return [seg("Marcou "), what, seg(" para "), who, seg(", "), bold(when), seg(".")];
+    case "cancelado":
+      return [seg("Cancelou "), what, seg(" de "), who, seg(", que seria "), bold(when), seg(".")];
+    case "excluido":
+      return [seg("Apagou da agenda "), what, seg(" de "), who, seg(", que seria "), bold(when), seg(".")];
+    case "reativado":
+      return [seg("Reativou "), what, seg(" de "), who, seg(": volta a valer "), bold(when), seg(".")];
+    case "situacao":
+      if (p.status === "attended") return [seg("Marcou como atendido: "), what, seg(" de "), who, seg(", "), bold(when), seg(".")];
+      if (p.status === "no_show") return [seg("Marcou falta: "), who, seg(" não veio para "), what, seg(", "), bold(when), seg(".")];
+      if (p.status === "in_progress") return [seg("Começou o atendimento: "), what, seg(" de "), who, seg(", "), bold(when), seg(".")];
+      return [seg("Voltou para agendado: "), what, seg(" de "), who, seg(", "), bold(when), seg(".")];
+    default: {
+      if (p.whenBefore) {
+        return [
+          seg("Mudou o horário: "), what, seg(" de "), who,
+          seg(" era "), bold(whenPhrase(p.whenBefore, todayISO)), seg(" e passou para "), bold(when), seg("."),
+        ];
+      }
+      if (p.clientBefore) {
+        return [seg("Trocou o cliente de "), what, seg(" ("), bold(when), seg("): era "), bold(p.clientBefore), seg(", agora é "), who, seg(".")];
+      }
+      const others = p.otherChanges?.length ? [seg(` — mudou ${joinLabels(p.otherChanges)}`)] : [];
+      return [seg("Alterou "), what, seg(" de "), who, seg(", "), bold(when), ...others, seg(".")];
+    }
+  }
+}
+
+// Avisos antigos (texto do Pushover/WhatsApp). Dois formatos: até 22/10 a data
+// vinha depois do cliente; depois, logo abaixo do título. Data sem ano:
+// "Qui 06/11 · 16:00–16:30".
+interface LegacyParsed {
+  when?: When;
+  whenBefore?: When;
+  title?: string;
+  client?: string;
+  clientBefore?: string;
+  obs?: string;
+}
+
+const ANTES = /\s*\(antes: (.*)\)\s*$/;
+
+function parseLegacyWhen(text: string, loggedAtISO: string): When | undefined {
+  const m = /(\d{2})\/(\d{2})(?:\/(\d{4}))?\s*·\s*(\d{1,2}:\d{2})(?:\s*[–-]\s*(\d{1,2}:\d{2}))?/.exec(text);
+  if (!m) return undefined;
+  const [, dd, mm, yyyy, start, end] = m;
+  const loggedKey = loggedDayKey(loggedAtISO);
+  let year = yyyy ? Number(yyyy) : loggedKey ? Number(loggedKey.slice(0, 4)) : new Date().getFullYear();
+  // Aviso de dezembro para janeiro: sem o ano, a data "volta" → é do ano seguinte.
+  if (!yyyy && loggedKey && dayDiff(`${year}-${mm}-${dd}`, loggedKey) < -180) year += 1;
+  return { date: `${year}-${mm}-${dd}`, time: start.padStart(5, "0"), end: end ? end.padStart(5, "0") : null };
+}
+
+export function parseLegacy(lines: string[] | null, loggedAtISO: string): LegacyParsed | null {
+  if (!lines || lines.length < 2) return null;
+  const out: LegacyParsed = {};
+  for (const raw of lines.slice(1)) {
+    const line = raw.trim();
+    if (line.startsWith("🗓")) out.when = parseLegacyWhen(line, loggedAtISO);
+    else if (line.startsWith("↩")) {
+      // "↩️ antes: Qui 06/11 · 16:00" (dia/horário) ou "↩️ obs. antes: ..." (ignora)
+      if (/antes:/.test(line) && !/obs\. antes:/.test(line)) out.whenBefore = parseLegacyWhen(line, loggedAtISO);
+    } else if (line.startsWith("👤")) {
+      const text = line.replace(/^👤\s*/u, "");
+      const before = ANTES.exec(text)?.[1]?.trim();
+      out.client = text.replace(ANTES, "").trim();
+      if (before && before !== "—") out.clientBefore = before;
+    } else if (line.startsWith("📝")) out.obs = line.replace(/^📝\s*/u, "").trim();
+    else if (/^[\p{L}\p{N}]/u.test(line) && !out.title) out.title = line.replace(ANTES, "").trim();
+  }
+  return out;
+}
+
+/** A frase do registro (nula só quando faltam dados para montar). */
+export function entrySentence(e: AgendaLogEntry, todayISO: string): Seg[] | null {
+  if (e.legacyLines) {
+    const p = parseLegacy(e.legacyLines, e.at);
+    if (!p || !p.when || !p.client) return null;
+    return buildSentence(
+      {
+        event: e.event,
+        what: p.title || "Agendamento",
+        who: p.client,
+        isBlock: /^horário bloqueado$/i.test(p.title ?? ""),
+        when: p.when,
+        whenBefore: p.whenBefore,
+        clientBefore: p.whenBefore ? null : p.clientBefore,
+      },
+      todayISO
+    );
+  }
+  const snap = e.event === "excluido" ? e.before : e.after ?? e.before;
+  if (!snap) return null;
+  const labels = e.changes.map((c) => c.label);
+  const timeChanged = labels.includes("Dia e horário");
+  const clientChanged = labels.includes("Cliente");
+  return buildSentence(
+    {
+      event: e.event,
+      status: e.after?.status,
+      what: whatOf(snap),
+      who: whoOf(snap),
+      isBlock: snap.kind === "bloqueio",
+      when: whenOf(snap),
+      whenBefore: timeChanged ? whenOf(e.before) : null,
+      clientBefore: !timeChanged && clientChanged ? e.before?.clientName || "Sem nome" : null,
+      otherChanges: labels.filter((l) => l !== "Dia e horário" && l !== "Cliente"),
+    },
+    todayISO
+  );
 }
