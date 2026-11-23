@@ -20,6 +20,7 @@ import {
   type RepeatMode,
 } from "@/lib/agendaParticular";
 import { saveReminder, type Creds } from "@/lib/agendaParticularApi";
+import { SoundPreviewButton } from "@/components/agenda-particular/SoundPreviewButton";
 import { cn, getTodayLocalISO } from "@/lib/utils";
 
 const DEFAULT_SOUND = "__padrao";
@@ -28,6 +29,7 @@ const MODES: RepeatMode[] = ["uma", "dia", "semana", "cada"];
 export function ReminderForm({
   creds,
   defaultHour,
+  defaultSound,
   editing,
   onSaved,
   onCancelEdit,
@@ -35,6 +37,8 @@ export function ReminderForm({
 }: {
   creds: Creds;
   defaultHour: string;
+  /** Som padrão da agenda particular (nulo = padrão do app, "pushover"). */
+  defaultSound: string | null;
   editing: PrivateReminder | null;
   onSaved: () => void;
   onCancelEdit: () => void;
@@ -214,19 +218,23 @@ export function ReminderForm({
 
         <div className="space-y-1.5">
           <Label>Som</Label>
-          <Select value={som} onValueChange={setSom}>
-            <SelectTrigger className="w-full sm:w-[16rem]" aria-label="Som do aviso">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={DEFAULT_SOUND}>Padrão da agenda particular</SelectItem>
-              {PUSHOVER_SOUNDS.map((s) => (
-                <SelectItem key={s.value} value={s.value}>
-                  {s.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="flex items-center gap-2">
+            <Select value={som} onValueChange={setSom}>
+              <SelectTrigger className="w-full sm:w-[16rem]" aria-label="Som do aviso">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={DEFAULT_SOUND}>Padrão da agenda particular</SelectItem>
+                {PUSHOVER_SOUNDS.map((s) => (
+                  <SelectItem key={s.value} value={s.value}>
+                    {s.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {/* Ouvir aqui mesmo, sem mandar aviso (o "padrão" toca o som padrão escolhido). */}
+            <SoundPreviewButton sound={som === DEFAULT_SOUND ? defaultSound ?? "pushover" : som} />
+          </div>
         </div>
 
         {error ? <p className="rounded-md bg-rose-50 px-3 py-2 text-sm font-medium text-rose-700">{error}</p> : null}

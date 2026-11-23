@@ -192,6 +192,7 @@ const PrivateAgendaPage: React.FC = () => {
         <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_26rem]">
           <ReminderList
             reminders={data.lembretes}
+            defaultSound={data.config.somPadrao}
             todayISO={todayISO}
             busyId={busyId}
             onNew={() => {
@@ -213,6 +214,7 @@ const PrivateAgendaPage: React.FC = () => {
               sectionRef={formRef}
               creds={creds}
               defaultHour={data.config.horaPadrao}
+              defaultSound={data.config.somPadrao}
               editing={editing}
               onSaved={() => {
                 setEditing(null);

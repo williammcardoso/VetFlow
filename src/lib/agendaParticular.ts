@@ -160,34 +160,45 @@ export function upcomingLabel(firstISO: string, hora: string, dias: number | nul
 // ---------------------------------------------------------------------------
 // Sons do Pushover (https://pushover.net/api#sounds)
 // ---------------------------------------------------------------------------
-export const PUSHOVER_SOUNDS: { value: string; label: string }[] = [
-  { value: "pushover", label: "Pushover (padrão)" },
-  { value: "bugle", label: "Corneta" },
-  { value: "cashregister", label: "Caixa registradora" },
-  { value: "magic", label: "Mágica" },
-  { value: "cosmic", label: "Cósmico" },
-  { value: "classical", label: "Clássico" },
-  { value: "pianobar", label: "Piano bar" },
-  { value: "incoming", label: "Chegando" },
-  { value: "intermission", label: "Intervalo" },
-  { value: "gamelan", label: "Gamelão" },
-  { value: "bike", label: "Campainha de bicicleta" },
-  { value: "falling", label: "Queda" },
-  { value: "mechanical", label: "Mecânico" },
-  { value: "tugboat", label: "Rebocador" },
-  { value: "spacealarm", label: "Alarme espacial" },
-  { value: "siren", label: "Sirene" },
-  { value: "alien", label: "Alarme alienígena (longo)" },
-  { value: "climb", label: "Subida (longo)" },
-  { value: "persistent", label: "Persistente (longo)" },
-  { value: "echo", label: "Eco (longo)" },
-  { value: "updown", label: "Sobe e desce (longo)" },
+// `file`: amostra que o próprio site do Pushover toca no alto-falante da
+// página da API (https://api.pushover.net/sounds/<file>) — ouvir aqui não
+// gasta mensagem. "Só vibrar" e "Silencioso" não têm áudio.
+export const PUSHOVER_SOUNDS: { value: string; label: string; file?: string }[] = [
+  { value: "pushover", label: "Pushover (padrão)", file: "po.mp3" },
+  { value: "bugle", label: "Corneta", file: "bu.mp3" },
+  { value: "cashregister", label: "Caixa registradora", file: "ch.mp3" },
+  { value: "magic", label: "Mágica", file: "ma.mp3" },
+  { value: "cosmic", label: "Cósmico", file: "co.mp3" },
+  { value: "classical", label: "Clássico", file: "cl.mp3" },
+  { value: "pianobar", label: "Piano bar", file: "pn.mp3" },
+  { value: "incoming", label: "Chegando", file: "ic.mp3" },
+  { value: "intermission", label: "Intervalo", file: "im.mp3" },
+  { value: "gamelan", label: "Gamelão", file: "gl.mp3" },
+  { value: "bike", label: "Campainha de bicicleta", file: "bk.mp3" },
+  { value: "falling", label: "Queda", file: "fa.mp3" },
+  { value: "mechanical", label: "Mecânico", file: "mc.mp3" },
+  { value: "tugboat", label: "Rebocador", file: "tg.mp3" },
+  { value: "spacealarm", label: "Alarme espacial", file: "sp.mp3" },
+  { value: "siren", label: "Sirene", file: "si.mp3" },
+  { value: "alien", label: "Alarme alienígena (longo)", file: "ln.mp3" },
+  { value: "climb", label: "Subida (longo)", file: "mb.mp3" },
+  { value: "persistent", label: "Persistente (longo)", file: "ps.mp3" },
+  { value: "echo", label: "Eco (longo)", file: "ec.mp3" },
+  { value: "updown", label: "Sobe e desce (longo)", file: "ud.mp3" },
   { value: "vibrate", label: "Só vibrar" },
   { value: "none", label: "Silencioso" },
 ];
 
 export const soundLabel = (value: string | null | undefined) =>
   PUSHOVER_SOUNDS.find((s) => s.value === value)?.label ?? value ?? "";
+
+const SOUND_BASE_URL = "https://api.pushover.net/sounds/";
+
+/** Endereço da amostra do som (nulo para "só vibrar", "silencioso" ou desconhecido). */
+export function soundPreviewUrl(value: string | null | undefined): string | null {
+  const file = PUSHOVER_SOUNDS.find((s) => s.value === value)?.file;
+  return file ? SOUND_BASE_URL + file : null;
+}
 
 /** "iphone-a, iphone-b" ↔ lista (nomes de aparelho do Pushover). */
 export const splitDevices = (s: string | null | undefined): string[] =>

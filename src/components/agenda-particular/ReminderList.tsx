@@ -1,5 +1,6 @@
 import React from "react";
-import { BellRing, CheckCheck, Loader2, PauseCircle, Pencil, Plus, Repeat, Send, Siren, Trash2, Volume2 } from "lucide-react";
+import { BellRing, CheckCheck, Loader2, PauseCircle, Pencil, Plus, Repeat, Send, Siren, Trash2 } from "lucide-react";
+import { SoundPreviewButton } from "@/components/agenda-particular/SoundPreviewButton";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { IconChip, Panel } from "@/components/finance/FinanceUI";
@@ -18,6 +19,7 @@ const fmtLocal = (s: string) => {
 
 function ReminderRow({
   r,
+  defaultSound,
   todayISO,
   busy,
   onEdit,
@@ -26,6 +28,7 @@ function ReminderRow({
   onDelete,
 }: {
   r: PrivateReminder;
+  defaultSound: string | null;
   todayISO: string;
   busy: boolean;
   onEdit: () => void;
@@ -66,11 +69,11 @@ function ReminderRow({
                 <Siren className="h-3 w-3" aria-hidden /> Insiste até confirmar
               </span>
             ) : null}
-            {r.som ? (
-              <span className="inline-flex items-center gap-1">
-                <Volume2 className="h-3.5 w-3.5" aria-hidden /> {soundLabel(r.som)}
-              </span>
-            ) : null}
+            {/* Som do lembrete (ou o padrão) com o alto-falante para ouvir aqui. */}
+            <span className="inline-flex items-center gap-1.5">
+              <SoundPreviewButton sound={r.som ?? defaultSound ?? "pushover"} className="h-6 w-6" />
+              {r.som ? soundLabel(r.som) : `Som padrão (${soundLabel(defaultSound ?? "pushover")})`}
+            </span>
             {r.ultimo && !sentOnce ? <span title={`Último aviso: ${fmtLocal(r.ultimo)}`}>Último: {fmtLocal(r.ultimo)}</span> : null}
           </div>
         </div>
@@ -99,6 +102,7 @@ function ReminderRow({
 
 export function ReminderList({
   reminders,
+  defaultSound,
   todayISO,
   busyId,
   onNew,
@@ -108,6 +112,8 @@ export function ReminderList({
   onDelete,
 }: {
   reminders: PrivateReminder[];
+  /** Som padrão da agenda particular (nulo = padrão do app). */
+  defaultSound: string | null;
   todayISO: string;
   busyId: number | null;
   onNew: () => void;
@@ -160,6 +166,7 @@ export function ReminderList({
             <ReminderRow
               key={r.id}
               r={r}
+              defaultSound={defaultSound}
               todayISO={todayISO}
               busy={busyId === r.id}
               onEdit={() => onEdit(r)}

@@ -7,6 +7,7 @@ import {
   parsePrivateData,
   repeatModeOf,
   ruleLabel,
+  soundPreviewUrl,
   splitDevices,
   upcomingDays,
   upcomingLabel,
@@ -63,6 +64,16 @@ describe("próximos avisos", () => {
     const agora = new Date(2026, 10, 23, 10, 0);
     expect(isDue("2026-11-23T08:00", agora)).toBe(true);
     expect(isDue("2026-11-23T10:30", agora)).toBe(false);
+  });
+});
+
+describe("som para ouvir", () => {
+  it("usa a amostra do site do Pushover; vibrar/silencioso não têm áudio", () => {
+    expect(soundPreviewUrl("siren")).toBe("https://api.pushover.net/sounds/si.mp3");
+    expect(soundPreviewUrl("pushover")).toBe("https://api.pushover.net/sounds/po.mp3");
+    expect(soundPreviewUrl("vibrate")).toBeNull();
+    expect(soundPreviewUrl("none")).toBeNull();
+    expect(soundPreviewUrl(null)).toBeNull();
   });
 });
 

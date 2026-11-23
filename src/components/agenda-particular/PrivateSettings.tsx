@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Panel } from "@/components/finance/FinanceUI";
 import { PUSHOVER_SOUNDS, joinDevices, splitDevices, type PrivateConfig } from "@/lib/agendaParticular";
 import { fetchPushoverDevices, saveConfig, sendTest, type Creds, type PushoverDevices } from "@/lib/agendaParticularApi";
+import { SoundPreviewButton } from "@/components/agenda-particular/SoundPreviewButton";
 
 const NO_SOUND = "__nenhum";
 
@@ -197,19 +198,23 @@ export function PrivateSettings({ creds, config, onChanged }: { creds: Creds; co
           </div>
           <div className="space-y-1">
             <Label className="text-xs">Som</Label>
-            <Select value={som} onValueChange={setSom}>
-              <SelectTrigger className="w-[13rem]" aria-label="Som padrão">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={NO_SOUND}>Padrão do app</SelectItem>
-                {PUSHOVER_SOUNDS.map((s) => (
-                  <SelectItem key={s.value} value={s.value}>
-                    {s.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="flex items-center gap-2">
+              <Select value={som} onValueChange={setSom}>
+                <SelectTrigger className="w-[13rem]" aria-label="Som padrão">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NO_SOUND}>Padrão do app</SelectItem>
+                  {PUSHOVER_SOUNDS.map((s) => (
+                    <SelectItem key={s.value} value={s.value}>
+                      {s.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {/* "Padrão do app" = som "Pushover". */}
+              <SoundPreviewButton sound={som === NO_SOUND ? "pushover" : som} />
+            </div>
           </div>
           <Button
             size="sm"
