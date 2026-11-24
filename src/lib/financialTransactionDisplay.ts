@@ -1,4 +1,5 @@
 import type { FinancialTransaction } from "@/mockData/financial";
+import { SHARED_EXPENSE_CATEGORY } from "@/lib/monthlyClosing";
 
 /**
  * Classifica o lançamento pra exibição (rótulo, cor, sinal). Um estorno é
@@ -21,7 +22,7 @@ export const classifyTransaction = (t: FinancialTransaction) => {
   }
   if (t.type === "expense") {
     return {
-      label: t.category === "Estoque" ? "Compra" : "Saída",
+      label: t.category === "Estoque" ? "Compra" : t.category === SHARED_EXPENSE_CATEGORY ? "Despesa" : "Saída",
       badgeClass: "bg-orange-100 text-orange-700",
       amountClass: "text-orange-700",
       signal: "− ",

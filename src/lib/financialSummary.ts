@@ -1,7 +1,7 @@
 import type { FinancialTransaction } from "@/mockData/financial";
 import type { CatalogItem } from "@/mockData/catalog";
 import type { SaleItem } from "@/lib/saleItemsApi";
-import { computeMonthlyClosing, type MonthlyClosingBreakdown } from "@/lib/monthlyClosing";
+import { computeMonthlyClosing, isSharedExpense, type MonthlyClosingBreakdown } from "@/lib/monthlyClosing";
 import { saleBalance } from "@/lib/salePayment";
 
 // Números do período num lugar só — Visão geral, Relatório financeiro e
@@ -23,12 +23,14 @@ export interface PeriodFinancials {
   receipts: FinancialTransaction[];
   /** Compras do almoxarifado (despesa "Estoque") — entram no lucro. */
   purchases: FinancialTransaction[];
+  /** Despesas lançadas em Financeiro → Despesas — entram no lucro, com reembolso a quem pagou. */
+  sharedExpenses: FinancialTransaction[];
   /** Demais despesas — mostradas à parte, fora do 50/50. */
   otherExpenses: FinancialTransaction[];
   faturado: number;
   recebido: number;
   ticketMedio: number;
-  /** Mesma conta do Fechamento 50/50 (recebido − produtos − compras − repasses − taxas). */
+  /** Mesma conta do Fechamento 50/50 (recebido − produtos − compras − repasses − despesas − taxas). */
   closing: MonthlyClosingBreakdown;
   /** Em aberto em TODAS as datas — conta a receber não some atrás do filtro de período. */
   openSales: FinancialTransaction[];
@@ -47,7 +49,8 @@ export function computePeriodFinancials(
   const cancelledSales = periodSales.filter(isCancelled);
   const receipts = inPeriod.filter(isReceipt);
   const purchases = inPeriod.filter((t) => t.type === "expense" && t.category === "Estoque");
-  const otherExpenses = inPeriod.filter((t) => t.type === "expense" && t.category !== "Estoque");
+  const sharedExpenses = inPeriod.filter(isSharedExpense);
+  const otherExpenses = inPeriod.filter((t) => t.type === "expense" && t.category !== "Estoque" && !isSharedExpense(t));
   const faturado = sales.reduce((s, t) => s + t.amount, 0);
   const recebido = receipts.reduce((s, t) => s + t.amount, 0);
 
@@ -59,6 +62,7 @@ export function computePeriodFinancials(
     saleItems,
     purchases,
     receipts,
+    expenses: sharedExpenses,
   });
 
   const openSales = transactions.filter((t) => isSale(t) && saleBalance(t) > 0);
@@ -67,6 +71,7 @@ export function computePeriodFinancials(
     cancelledSales,
     receipts,
     purchases,
+    sharedExpenses,
     otherExpenses,
     faturado,
     recebido,

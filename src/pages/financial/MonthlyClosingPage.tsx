@@ -29,7 +29,9 @@ import { getSaleItemsBySaleIds, type SaleItem } from "@/lib/saleItemsApi";
 import {
   CLOSING_PARTNERS,
   computeMonthlyClosing,
+  expensePayer,
   getMonthBounds,
+  isSharedExpense,
   monthLabel,
   type MonthlyClosingBreakdown,
 } from "@/lib/monthlyClosing";
@@ -40,7 +42,7 @@ import {
   type MonthlyClosingRecord,
 } from "@/lib/monthlyClosingsApi";
 import { renderPdf, openPdf } from "@/lib/pdfExport";
-import { ArrowLeft, Calculator, ListChecks, ListOrdered, Lock, Unlock, Printer, Scale, ShoppingBag } from "lucide-react";
+import { ArrowLeft, Building, Calculator, ListChecks, ListOrdered, Lock, Unlock, Printer, Scale, ShoppingBag } from "lucide-react";
 import { groupSaleItemsByItem, type SaleRef } from "@/lib/salesBreakdown";
 import { ClosingExtrasCard } from "@/components/finance/ClosingExtrasCard";
 import { OrionCheckCard } from "@/components/finance/OrionCheckCard";
@@ -157,6 +159,13 @@ const MonthlyClosingPage: React.FC = () => {
     [transactions, from, to]
   );
 
+  // Despesas que entram no 50/50 (Financeiro → Despesas): saem do lucro e
+  // voltam para quem pagou.
+  const monthExpenses = useMemo(
+    () => transactions.filter((t) => isSharedExpense(t) && t.date >= from && t.date <= to),
+    [transactions, from, to]
+  );
+
   // Dinheiro que entrou no mês (base do 50/50): recebimentos com data no mês,
   // inclusive de vendas de meses anteriores; estornos entram negativos.
   const monthReceipts = useMemo(
@@ -186,14 +195,30 @@ const MonthlyClosingPage: React.FC = () => {
         saleItems,
         purchases: monthPurchases,
         receipts: monthReceipts,
+        expenses: monthExpenses,
       }),
-    [year, month, monthSales, saleItems, monthPurchases, monthReceipts]
+    [year, month, monthSales, saleItems, monthPurchases, monthReceipts, monthExpenses]
   );
 
   const isClosed = !!closedRecord;
+  // Fechado antes da migration das despesas: completa com os lançamentos do
+  // mês (travados enquanto o mês está fechado). O lucro gravado já vem com
+  // elas descontadas.
   const closing: MonthlyClosingBreakdown = isClosed
-    ? { ...closedRecord!, label: monthLabel(year, month) }
+    ? {
+        ...closedRecord!,
+        label: monthLabel(year, month),
+        ...(closedRecord!.hasExpenseColumns
+          ? {}
+          : {
+              custoDespesas: liveClosing.custoDespesas,
+              reembolsoClinica: liveClosing.reembolsoClinica,
+              reembolsoAgro: liveClosing.reembolsoAgro,
+              recebido: Math.round((closedRecord!.recebido + liveClosing.custoDespesas) * 100) / 100,
+            }),
+      }
     : liveClosing;
+  const expensesHref = `/financial/expenses?mes=${year}-${String(month).padStart(2, "0")}`;
 
   const diverged =
     isClosed &&
@@ -259,6 +284,9 @@ const MonthlyClosingPage: React.FC = () => {
           data={closing}
           items={items}
           extras={extras.map((e) => ({ description: e.description, amount: e.amount, beneficiary: e.beneficiary }))}
+          expenses={[...monthExpenses]
+            .sort((a, b) => a.date.localeCompare(b.date))
+            .map((t) => ({ date: t.date, description: t.description, amount: t.amount, payer: expensePayer(t) }))}
           orion={orion.value != null ? { total: orion.value, vendas: closing.bruto, acrescimos: extrasTotal } : undefined}
         />
       ));
@@ -282,8 +310,15 @@ const MonthlyClosingPage: React.FC = () => {
       ? [{ label: "(−) Custo de produtos (venda antiga)", value: -closing.custoProdutos, tone: "amber" as const }]
       : []),
     { label: "(−) Repasses (labs / especialistas)", value: -closing.custoRepasses, tone: "amber" as const },
+    {
+      label: "(−) Despesas (aluguel, sala...)",
+      value: -closing.custoDespesas,
+      tone: "amber" as const,
+      href: expensesHref,
+      linkLabel: monthExpenses.length > 0 ? `${monthExpenses.length} lançamento(s) · ver` : "lançar",
+    },
     { label: "(−) Taxas de cartão / operadora", value: -closing.taxasCartao, tone: "amber" as const },
-  ];
+  ] as { label: string; value: number; tone: "neutral" | "amber"; href?: string; linkLabel?: string }[];
 
   return (
     <PageShell>
@@ -387,6 +422,11 @@ const MonthlyClosingPage: React.FC = () => {
                 <ShoppingBag className="h-4 w-4" /> Lista de Compras
               </Button>
             </Link>
+            <Link to={expensesHref}>
+              <Button variant="outline" className="gap-2" title="Gastos que não foram cobrados do cliente — saem do lucro e voltam para quem pagou">
+                <Building className="h-4 w-4 text-rose-600" /> Despesas
+              </Button>
+            </Link>
             <Link to="/financial">
               <Button variant="ghost" className="gap-2 text-muted-foreground">
                 <ArrowLeft className="h-4 w-4" /> Voltar
@@ -449,10 +489,10 @@ const MonthlyClosingPage: React.FC = () => {
               <div>
                 <div className="text-xs text-muted-foreground">Fórmula</div>
                 <div className="text-sm font-medium mt-1 leading-snug">
-                  Recebido − compras (almoxarifado) − repasses − taxas
+                  Recebido − compras (almoxarifado) − repasses − despesas − taxas
                 </div>
                 <div className="text-[11px] text-muted-foreground mt-1">
-                  Só divide o que entrou no caixa · saídas operacionais não entram
+                  Só divide o que entrou no caixa · quem pagou uma despesa recebe de volta
                 </div>
               </div>
             </CardContent>
@@ -486,7 +526,14 @@ const MonthlyClosingPage: React.FC = () => {
                   key={row.label}
                   className="flex items-center justify-between py-2.5 border-b border-border/50 last:border-0"
                 >
-                  <span className="text-sm text-muted-foreground">{row.label}</span>
+                  <span className="text-sm text-muted-foreground">
+                    {row.label}
+                    {row.href && (
+                      <Link to={row.href} className="ml-2 text-xs font-semibold text-primary hover:underline">
+                        {row.linkLabel}
+                      </Link>
+                    )}
+                  </span>
                   <span
                     className={`text-sm font-semibold tabular-nums ${
                       row.tone === "amber"
@@ -514,21 +561,23 @@ const MonthlyClosingPage: React.FC = () => {
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-1">
           {(
             [
-              { key: "clinic", label: CLOSING_PARTNERS.clinic, half: closing.metadeClinica, extra: extraTotals.clinic, tone: "teal", note: "Parte da clínica no lucro líquido do mês." },
-              { key: "agro", label: CLOSING_PARTNERS.agro, half: closing.metadeAgro, extra: extraTotals.agro, tone: "amber", note: "Parte da agropecuária (Agrocentro) no lucro líquido do mês." },
+              { key: "clinic", label: CLOSING_PARTNERS.clinic, half: closing.metadeClinica, extra: extraTotals.clinic, refund: closing.reembolsoClinica, tone: "teal", note: "Parte da clínica no lucro líquido do mês." },
+              { key: "agro", label: CLOSING_PARTNERS.agro, half: closing.metadeAgro, extra: extraTotals.agro, refund: closing.reembolsoAgro, tone: "amber", note: "Parte da agropecuária (Agrocentro) no lucro líquido do mês." },
             ] as const
           ).map((p) => (
             <Card key={p.key} className={p.tone === "teal" ? "rounded-xl border-teal-200 bg-teal-50/30" : "rounded-xl border-amber-200 bg-amber-50/30"}>
               <CardContent className="p-5">
                 <div className={`text-xs font-semibold uppercase tracking-wide ${p.tone === "teal" ? "text-teal-800" : "text-amber-800"}`}>
-                  {p.label} · {p.extra > 0 ? "total a receber" : "50%"}
+                  {p.label} · {p.extra > 0 || p.refund > 0 ? "total a receber" : "50%"}
                 </div>
                 <div className={`text-3xl font-bold mt-2 tabular-nums ${p.tone === "teal" ? "text-teal-800" : "text-amber-800"}`}>
-                  {fmt(p.half + p.extra)}
+                  {fmt(p.half + p.extra + p.refund)}
                 </div>
-                {p.extra > 0 ? (
+                {p.extra > 0 || p.refund > 0 ? (
                   <p className="text-xs text-muted-foreground mt-2 tabular-nums">
-                    50% do lucro {fmt(p.half)} <span className="font-semibold text-violet-700">+ acréscimos {fmt(p.extra)}</span>
+                    50% do lucro {fmt(p.half)}
+                    {p.extra > 0 && <span className="font-semibold text-violet-700"> + acréscimos {fmt(p.extra)}</span>}
+                    {p.refund > 0 && <span className="font-semibold text-teal-700"> + reembolso de despesas {fmt(p.refund)}</span>}
                   </p>
                 ) : (
                   <p className="text-xs text-muted-foreground mt-2">{p.note}</p>

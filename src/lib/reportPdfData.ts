@@ -3,6 +3,7 @@ import { formatQtyName, type DayGroup, type ItemGroup } from "@/lib/salesBreakdo
 import { saleStatus, summarizeSaleItems } from "@/lib/salePayment";
 import { formatCurrencyBRL } from "@/lib/utils";
 import type { FinancialTransaction } from "@/mockData/financial";
+import { CLOSING_PARTNERS, expensePayer, isSharedExpense } from "@/lib/monthlyClosing";
 
 // Monta o conteúdo dos PDFs dos cartões de Financeiro › Relatórios — o que a
 // tela mostra, com o detalhe já aberto (clientes de cada item, vendas de cada
@@ -193,14 +194,15 @@ export function expensesReportPdf(
       {
         rows: [...expenses].reverse().map((t): ReportPdfRow => {
           const purchase = t.category === "Estoque" ? parsePurchaseDescription(t.description) : null;
+          const shared = isSharedExpense(t);
           return {
             cells: [
               when(t.date, t.time),
               purchase ? purchase.supplier || "Compra do almoxarifado" : t.description,
-              purchase ? `Compra${t.installmentLabel ? ` ${t.installmentLabel.replace("Parcela ", "")}` : ""}` : t.category || "Saída",
+              purchase ? `Compra${t.installmentLabel ? ` ${t.installmentLabel.replace("Parcela ", "")}` : ""}` : shared ? "Despesa" : t.category || "Saída",
               `− ${fmt(Math.abs(t.amount))}`,
             ],
-            sub: purchase ? itemsOf(t) || purchase.itemsText : undefined,
+            sub: purchase ? itemsOf(t) || purchase.itemsText : shared ? `Pago por: ${CLOSING_PARTNERS[expensePayer(t)]} · entra no 50/50` : undefined,
           };
         }),
       },

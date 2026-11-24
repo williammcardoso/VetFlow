@@ -6,7 +6,7 @@ import { CLOSING_PARTNERS, type MonthlyClosingBreakdown } from "@/lib/monthlyClo
 import { Panel } from "@/components/finance/FinanceUI";
 import { CONCEPTS, TONES, type Tone } from "@/components/finance/financeTheme";
 
-type RowKey = "bruto" | "repasses" | "produtos" | "compras" | "taxas";
+type RowKey = "bruto" | "repasses" | "produtos" | "compras" | "despesas" | "taxas";
 
 interface Row {
   key: RowKey;
@@ -50,6 +50,7 @@ export function ResultBreakdown({
       ? [{ key: "produtos" as const, label: "Custo de produtos", hint: "vendas antigas", value: closing.custoProdutos, ...pick(CONCEPTS.produtos) }]
       : []),
     { key: "compras", label: "Compras do almoxarifado", hint: "insumos", value: closing.custoCompras, ...pick(CONCEPTS.compras) },
+    { key: "despesas", label: "Despesas", hint: "aluguel, sala · volta para quem pagou", value: closing.custoDespesas, ...pick(CONCEPTS.despesas) },
     { key: "taxas", label: "Taxas de cartão", hint: "repassadas ao cliente", value: closing.taxasCartao, ...pick(CONCEPTS.taxas) },
   ];
   const clickable = (key: RowKey) => Boolean(onRowClick) && (key === "bruto" || key === "repasses" || key === "compras");
@@ -130,7 +131,7 @@ export function ResultBreakdown({
         </div>
 
         <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
-          <span>{footer ?? "Saídas operacionais não entram no 50/50."}</span>
+          <span>{footer ?? "Só as despesas lançadas em Financeiro → Despesas entram no 50/50."}</span>
           <Link to="/financial/monthly-closing" className="inline-flex items-center gap-1 font-semibold text-primary hover:underline">
             Fechamento 50/50 <ArrowRight className="h-3.5 w-3.5" />
           </Link>

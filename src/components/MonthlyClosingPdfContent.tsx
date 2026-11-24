@@ -84,6 +84,14 @@ export interface ClosingItemRow {
   total: number;
 }
 
+/** Despesa que entrou no 50/50 — volta para quem pagou. */
+export interface ClosingExpenseRow {
+  date: string;
+  description: string;
+  amount: number;
+  payer: "clinic" | "agro";
+}
+
 /** Acréscimo fora do 50/50 (vai direto para uma das partes). */
 export interface ClosingExtraRow {
   description: string;
@@ -97,18 +105,31 @@ interface Props {
   items?: ClosingItemRow[];
   /** Acréscimos fora do 50/50 — somam na parte de quem recebe. */
   extras?: ClosingExtraRow[];
+  /** Despesas do mês (Financeiro → Despesas). */
+  expenses?: ClosingExpenseRow[];
   /** Conferência com o Orion: Total Venda deles × vendas + acréscimos. */
   orion?: { total: number; vendas: number; acrescimos: number };
 }
 
 const qty = (q: number) => (Number.isInteger(q) ? String(q) : q.toLocaleString("pt-BR"));
 
-const MonthlyClosingPdfContent: React.FC<Props> = ({ data, items, extras, orion }) => {
+const brDate = (iso: string) => {
+  const [y, m, d] = iso.split("-");
+  return d && m && y ? `${d}/${m}/${y}` : iso;
+};
+
+const MonthlyClosingPdfContent: React.FC<Props> = ({ data, items, extras, expenses, orion }) => {
   const company = mockCompanySettings;
   const generatedAt = new Date().toLocaleString("pt-BR");
   const extraClinic = (extras ?? []).filter((e) => e.beneficiary === "clinic").reduce((t, e) => t + e.amount, 0);
   const extraAgro = (extras ?? []).filter((e) => e.beneficiary === "agro").reduce((t, e) => t + e.amount, 0);
   const hasExtras = (extras ?? []).length > 0;
+  const hasExpenses = (expenses ?? []).length > 0;
+  const refundClinic = data.reembolsoClinica ?? 0;
+  const refundAgro = data.reembolsoAgro ?? 0;
+  const hasRefunds = refundClinic > 0 || refundAgro > 0;
+  const breakdownLine = (half: number, extra: number, refund: number) =>
+    `50% ${fmt(half)}${extra > 0 ? ` + acréscimos ${fmt(extra)}` : ""}${refund > 0 ? ` + reembolso ${fmt(refund)}` : ""}`;
   const partnerName = (b: "clinic" | "agro") => (b === "clinic" ? CLOSING_PARTNERS.clinic : CLOSING_PARTNERS.agro);
 
   return (
@@ -144,6 +165,10 @@ const MonthlyClosingPdfContent: React.FC<Props> = ({ data, items, extras, orion 
             <Text style={[s.rowValue, s.rowNeg]}>{fmt(data.custoRepasses)}</Text>
           </View>
           <View style={s.row}>
+            <Text style={s.rowLabel}>(−) Despesas (aluguel, sala...)</Text>
+            <Text style={[s.rowValue, s.rowNeg]}>{fmt(data.custoDespesas ?? 0)}</Text>
+          </View>
+          <View style={s.row}>
             <Text style={s.rowLabel}>(−) Taxas de cartão / operadora</Text>
             <Text style={[s.rowValue, s.rowNeg]}>{fmt(data.taxasCartao)}</Text>
           </View>
@@ -174,6 +199,20 @@ const MonthlyClosingPdfContent: React.FC<Props> = ({ data, items, extras, orion 
           </View>
         </View>
 
+        {hasExpenses && (
+          <View style={s.section} wrap={false}>
+            <Text style={s.sectionTitle}>Despesas do mês (voltam para quem pagou)</Text>
+            {(expenses ?? []).map((e, i) => (
+              <View key={i} style={s.row}>
+                <Text style={[s.rowLabel, { width: "75%" }]}>
+                  {brDate(e.date)} · {e.description} — pago por {partnerName(e.payer)}
+                </Text>
+                <Text style={[s.rowValue, s.rowNeg]}>{fmt(e.amount)}</Text>
+              </View>
+            ))}
+          </View>
+        )}
+
         {hasExtras && (
           <View style={s.section} wrap={false}>
             <Text style={s.sectionTitle}>Acréscimos fora do 50/50</Text>
@@ -185,23 +224,22 @@ const MonthlyClosingPdfContent: React.FC<Props> = ({ data, items, extras, orion 
                 <Text style={[s.rowValue, s.rowPos]}>+ {fmt(e.amount)}</Text>
               </View>
             ))}
-            <Text style={[s.sectionTitle, { marginTop: 14 }]}>Total a receber</Text>
+          </View>
+        )}
+
+        {(hasExtras || hasRefunds) && (
+          <View style={s.section} wrap={false}>
+            <Text style={s.sectionTitle}>Total a receber</Text>
             <View style={s.splitRow}>
               <View style={s.splitCard}>
                 <Text style={s.splitLabel}>{CLOSING_PARTNERS.clinic}</Text>
-                <Text style={s.splitValue}>{fmt(data.metadeClinica + extraClinic)}</Text>
-                <Text style={{ fontSize: 8, color: GRAY, marginTop: 3 }}>
-                  50% {fmt(data.metadeClinica)}
-                  {extraClinic > 0 ? ` + acréscimos ${fmt(extraClinic)}` : ""}
-                </Text>
+                <Text style={s.splitValue}>{fmt(data.metadeClinica + extraClinic + refundClinic)}</Text>
+                <Text style={{ fontSize: 8, color: GRAY, marginTop: 3 }}>{breakdownLine(data.metadeClinica, extraClinic, refundClinic)}</Text>
               </View>
               <View style={s.splitCard}>
                 <Text style={s.splitLabel}>{CLOSING_PARTNERS.agro}</Text>
-                <Text style={s.splitValue}>{fmt(data.metadeAgro + extraAgro)}</Text>
-                <Text style={{ fontSize: 8, color: GRAY, marginTop: 3 }}>
-                  50% {fmt(data.metadeAgro)}
-                  {extraAgro > 0 ? ` + acréscimos ${fmt(extraAgro)}` : ""}
-                </Text>
+                <Text style={s.splitValue}>{fmt(data.metadeAgro + extraAgro + refundAgro)}</Text>
+                <Text style={{ fontSize: 8, color: GRAY, marginTop: 3 }}>{breakdownLine(data.metadeAgro, extraAgro, refundAgro)}</Text>
               </View>
             </View>
           </View>
@@ -233,8 +271,9 @@ const MonthlyClosingPdfContent: React.FC<Props> = ({ data, items, extras, orion 
         <Text style={s.note}>
           Modelo 50/50: o lucro líquido real é dividido igualmente entre {CLOSING_PARTNERS.clinic} e{" "}
           {CLOSING_PARTNERS.agro}. A base é o que foi recebido no mês (venda paga aos poucos entra conforme o
-          dinheiro chega); repasses e compras entram no mês da venda/compra. Saídas operacionais (aluguel, luz,
-          salários etc.) não entram neste cálculo. Documento gerado em {generatedAt}.
+          dinheiro chega); repasses e compras entram no mês da venda/compra. Despesas lançadas no sistema (ex.: aluguel
+          de centro cirúrgico) saem do lucro antes da divisão e o valor volta inteiro para quem pagou. Documento
+          gerado em {generatedAt}.
         </Text>
 
         <Text

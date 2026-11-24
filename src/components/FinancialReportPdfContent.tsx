@@ -203,6 +203,9 @@ export interface FinancialReportPdfContentProps {
   liquidoReal: number;
   margemLiquida: number;
   comprasAlmoxarifado: number;
+  /** Despesas lançadas em Financeiro → Despesas (entram no 50/50). */
+  despesas?: number;
+  /** Saídas de outras categorias (fora do 50/50). */
   saidas: number;
   totalEmAberto: number;
   providerFilterLabel?: string;
@@ -222,6 +225,7 @@ const FinancialReportPdfContent: React.FC<FinancialReportPdfContentProps> = ({
   liquidoReal,
   margemLiquida,
   comprasAlmoxarifado,
+  despesas = 0,
   saidas,
   totalEmAberto,
   providerFilterLabel,
@@ -287,9 +291,15 @@ const FinancialReportPdfContent: React.FC<FinancialReportPdfContentProps> = ({
             <Text style={[styles.kpiValue, { color: EMERALD }]}>{fmt(lucroReal)} ({margemReal}%)</Text>
           </View>
           <View style={styles.kpiCard}>
-            <Text style={styles.kpiLabel}>SAÍDAS OPERACIONAIS</Text>
-            <Text style={[styles.kpiValue, { color: RED }]}>{fmt(saidas)}</Text>
+            <Text style={styles.kpiLabel}>DESPESAS (50/50)</Text>
+            <Text style={[styles.kpiValue, { color: RED }]}>{fmt(despesas)}</Text>
           </View>
+          {saidas > 0 && (
+            <View style={styles.kpiCard}>
+              <Text style={styles.kpiLabel}>SAÍDAS FORA DO 50/50</Text>
+              <Text style={[styles.kpiValue, { color: RED }]}>{fmt(saidas)}</Text>
+            </View>
+          )}
           <View style={styles.kpiCard}>
             <Text style={styles.kpiLabel}>A RECEBER (GERAL)</Text>
             <Text style={styles.kpiValue}>{fmt(totalEmAberto)}</Text>
@@ -299,7 +309,7 @@ const FinancialReportPdfContent: React.FC<FinancialReportPdfContentProps> = ({
         <View style={styles.highlight}>
           <View>
             <Text style={styles.highlightLabel}>LUCRO LÍQUIDO REAL</Text>
-            <Text style={styles.highlightSub}>Faturamento − repasses − compras do almoxarifado − taxas de operadora</Text>
+            <Text style={styles.highlightSub}>Recebido − repasses − compras do almoxarifado − despesas − taxas de operadora</Text>
           </View>
           <Text style={styles.highlightValue}>{fmt(liquidoReal)} ({margemLiquida}%)</Text>
         </View>

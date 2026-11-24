@@ -6,6 +6,23 @@ export const CLOSING_PARTNERS = {
   agro: "Agropecuária",
 } as const;
 
+/**
+ * Despesa que entra no 50/50 sem ser cobrada do cliente (aluguel de centro
+ * cirúrgico, insulfilm da sala...). Fica em financial_transactions como
+ * despesa desta categoria; quem pagou vai em `responsible` ("clinic"/"agro")
+ * e recebe o valor de volta no fechamento — como um repasse a fornecedor.
+ */
+export const SHARED_EXPENSE_CATEGORY = "Despesa 50/50";
+
+export type ExpensePayer = "clinic" | "agro";
+
+export const isSharedExpense = (t: Pick<FinancialTransaction, "type" | "category">) =>
+  t.type === "expense" && t.category === SHARED_EXPENSE_CATEGORY;
+
+/** Quem pagou a despesa (sem informação = clínica, que é quem lança). */
+export const expensePayer = (t: Pick<FinancialTransaction, "responsible">): ExpensePayer =>
+  t.responsible === "agro" ? "agro" : "clinic";
+
 export interface MonthlyClosingBreakdown {
   year: number;
   month: number; // 1-12
@@ -29,7 +46,13 @@ export interface MonthlyClosingBreakdown {
   custoRepasses: number;
   /** Taxas de operadora (cartão) */
   taxasCartao: number;
-  /** recebido - produtos - compras - repasses - taxas */
+  /** Despesas do mês que entram no 50/50 (Financeiro → Despesas). */
+  custoDespesas: number;
+  /** Parte das despesas que a clínica pagou do bolso — volta para ela no fechamento. */
+  reembolsoClinica: number;
+  /** Parte das despesas que a agropecuária pagou — volta para ela no fechamento. */
+  reembolsoAgro: number;
+  /** recebido - produtos - compras - repasses - despesas - taxas */
   lucroLiquido: number;
   metadeClinica: number;
   metadeAgro: number;
@@ -69,8 +92,13 @@ export function lineProviderCost(item: SaleItem): number {
 
 /**
  * Fechamento 50/50:
- * Lucro líquido = RECEBIDO no mês − custo produtos (legado) − compras do almoxarifado − repasses − taxas
- * (saídas operacionais NÃO entram)
+ * Lucro líquido = RECEBIDO no mês − custo produtos (legado) − compras do almoxarifado − repasses − despesas − taxas
+ * (saídas operacionais de outras categorias NÃO entram)
+ *
+ * Despesas (desde 2026-11-24): gasto que não foi cobrado do cliente (aluguel
+ * de centro cirúrgico, material da sala). Sai do lucro antes da divisão — cada
+ * parte arca com metade — e quem pagou recebe o valor inteiro de volta
+ * (`reembolsoClinica`/`reembolsoAgro`), somado na parte dele.
  *
  * Desde 2026-10-13 a base é o que entrou no caixa, não o faturado: venda
  * paga aos poucos só é dividida conforme o dinheiro entra (cada parcela
@@ -94,8 +122,10 @@ export function computeMonthlyClosing(params: {
   purchases: FinancialTransaction[];
   /** Recebimentos do mês (categoria "Recebimento"; estornos negativos). */
   receipts?: FinancialTransaction[];
+  /** Despesas do mês que entram no 50/50 (categoria SHARED_EXPENSE_CATEGORY). */
+  expenses?: FinancialTransaction[];
 }): MonthlyClosingBreakdown {
-  const { year, month, sales, saleItems, purchases, receipts } = params;
+  const { year, month, sales, saleItems, purchases, receipts, expenses = [] } = params;
   const activeSales = sales.filter((s) => (s.status || "pending") !== "cancelled");
   const saleIds = new Set(activeSales.map((s) => s.id));
   const items = saleItems.filter((i) => saleIds.has(i.saleId));
@@ -105,6 +135,10 @@ export function computeMonthlyClosing(params: {
   const custoRepasses = items.reduce((s, i) => s + lineProviderCost(i), 0);
   const taxasCartao = activeSales.reduce((s, t) => s + (t.financialFee ?? 0), 0);
   const custoCompras = purchases.reduce((s, t) => s + t.amount, 0);
+  const round2 = (v: number) => Math.round(v * 100) / 100;
+  const reembolsoClinica = round2(expenses.filter((t) => expensePayer(t) === "clinic").reduce((s, t) => s + t.amount, 0));
+  const reembolsoAgro = round2(expenses.filter((t) => expensePayer(t) === "agro").reduce((s, t) => s + t.amount, 0));
+  const custoDespesas = round2(reembolsoClinica + reembolsoAgro);
 
   // Fallback: vendas antigas sem itens — usa supplierCost agregado
   const legacySupplier = activeSales.reduce((s, t) => s + (t.supplierCost ?? 0), 0);
@@ -115,7 +149,7 @@ export function computeMonthlyClosing(params: {
   const recebido = receipts ? receipts.reduce((s, t) => s + t.amount, 0) : bruto;
   const aReceberDoMes = activeSales.reduce((s, t) => s + Math.max(0, t.amount - (t.paidAmount ?? (receipts ? 0 : t.amount))), 0);
 
-  const lucroLiquido = recebido - finalProdutos - custoCompras - finalRepasses - taxasCartao;
+  const lucroLiquido = recebido - finalProdutos - custoCompras - finalRepasses - custoDespesas - taxasCartao;
   const metade = lucroLiquido / 2;
 
   return {
@@ -130,6 +164,9 @@ export function computeMonthlyClosing(params: {
     custoCompras,
     custoRepasses: finalRepasses,
     taxasCartao,
+    custoDespesas,
+    reembolsoClinica,
+    reembolsoAgro,
     lucroLiquido,
     metadeClinica: metade,
     metadeAgro: metade,

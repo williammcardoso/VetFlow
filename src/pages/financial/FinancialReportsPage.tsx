@@ -26,7 +26,7 @@ import { useCatalog } from "@/hooks/useCatalog";
 import { getSaleItemsBySaleIds, updateSaleItemProvider, type SaleItem } from "@/lib/saleItemsApi";
 import { updateCatalogItem } from "@/lib/catalogApi";
 import { resolveCostProvider } from "@/lib/costProviders";
-import { lineProviderCost } from "@/lib/monthlyClosing";
+import { isSharedExpense, lineProviderCost } from "@/lib/monthlyClosing";
 import { catalogCategoryLabel } from "@/lib/catalogCategories";
 import { computePeriodFinancials, isCancelled, isSale, revenueByCategory, sumByDay } from "@/lib/financialSummary";
 import { summarizeSaleItems } from "@/lib/salePayment";
@@ -256,20 +256,20 @@ const FinancialReportsPage: React.FC = () => {
 
   const despesasPorCategoria = useMemo(() => {
     const map = new Map<string, number>();
-    for (const t of [...fin.purchases, ...fin.otherExpenses]) {
-      const key = t.category === "Estoque" ? "Compras do almoxarifado" : t.category || "Outras";
+    for (const t of [...fin.purchases, ...fin.sharedExpenses, ...fin.otherExpenses]) {
+      const key = t.category === "Estoque" ? "Compras do almoxarifado" : isSharedExpense(t) ? "Despesas (50/50)" : t.category || "Outras";
       map.set(key, (map.get(key) || 0) + t.amount);
     }
     return Array.from(map.entries())
       .map(([name, value]) => ({ name, value }))
       .sort((a, b) => b.value - a.value);
-  }, [fin.purchases, fin.otherExpenses]);
+  }, [fin.purchases, fin.sharedExpenses, fin.otherExpenses]);
   const totalDespesas = despesasPorCategoria.reduce((s, r) => s + r.value, 0);
 
   const cashByDay = useMemo(() => {
     const values = sumByDay(fin.receipts, "entradas");
-    return sumByDay([...fin.purchases, ...fin.otherExpenses], "saidas", values);
-  }, [fin.receipts, fin.purchases, fin.otherExpenses]);
+    return sumByDay([...fin.purchases, ...fin.sharedExpenses, ...fin.otherExpenses], "saidas", values);
+  }, [fin.receipts, fin.purchases, fin.sharedExpenses, fin.otherExpenses]);
 
   const movimentos = useMemo(
     () =>
@@ -333,6 +333,7 @@ const FinancialReportsPage: React.FC = () => {
           liquidoReal={c.lucroLiquido}
           margemLiquida={c.margemPct}
           comprasAlmoxarifado={c.custoCompras}
+          despesas={c.custoDespesas}
           saidas={saidasOperacionais}
           totalEmAberto={fin.openTotal}
           providerFilterLabel={providerFilter !== "all" ? providerFilter : undefined}
@@ -407,10 +408,12 @@ const FinancialReportsPage: React.FC = () => {
           periodLabel={periodLabel}
           className="print:break-inside-avoid"
           footer={
-            <span className="inline-flex items-center gap-1.5">
-              <CONCEPTS.saidas.icon className="h-3.5 w-3.5 text-rose-600" aria-hidden />
-              Saídas operacionais: <span className="font-semibold text-rose-700">{fmt(saidasOperacionais)}</span> (fora do 50/50)
-            </span>
+            saidasOperacionais > 0 ? (
+              <span className="inline-flex items-center gap-1.5">
+                <CONCEPTS.saidas.icon className="h-3.5 w-3.5 text-rose-600" aria-hidden />
+                Saídas operacionais: <span className="font-semibold text-rose-700">{fmt(saidasOperacionais)}</span> (fora do 50/50)
+              </span>
+            ) : undefined
           }
         />
 

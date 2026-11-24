@@ -152,6 +152,7 @@ const FinancialPage: React.FC = () => {
           ["Repasses a prestadores", -c.custoRepasses],
           ...(c.custoProdutos > 0 ? [["Custo de produtos (vendas antigas)", -c.custoProdutos] as [string, number]] : []),
           ["Compras do almoxarifado", -c.custoCompras],
+          ["Despesas (entram no 50/50)", -c.custoDespesas],
           ["Taxas de cartão", -c.taxasCartao],
           ["Lucro líquido", c.lucroLiquido],
           ["Cada parte (50/50)", c.metadeClinica],

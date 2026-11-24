@@ -1,9 +1,11 @@
 import {
   ArrowDownLeft,
   ArrowUpRight,
+  BadgeDollarSign,
   Ban,
   Banknote,
   Boxes,
+  Building,
   CheckCircle2,
   CircleDashed,
   Clock,
@@ -28,6 +30,7 @@ import {
 } from "lucide-react";
 import type { FinancialTransaction } from "@/mockData/financial";
 import type { SaleStatusKey } from "@/lib/salePayment";
+import { SHARED_EXPENSE_CATEGORY } from "@/lib/monthlyClosing";
 
 // Identidade visual do financeiro/vendas: cada conceito tem SEMPRE a mesma
 // cor e o mesmo ícone, em todas as telas (indicadores, listas, relatórios,
@@ -137,6 +140,8 @@ export const CONCEPTS = {
   compras: { label: "Compras do almoxarifado", icon: ShoppingBag, tone: "amber" },
   produtos: { label: "Custo de produtos", icon: Package, tone: "amber" },
   taxas: { label: "Taxas de cartão", icon: CreditCard, tone: "rose" },
+  despesas: { label: "Despesas", icon: Building, tone: "rose" },
+  reembolso: { label: "Reembolso", icon: BadgeDollarSign, tone: "teal" },
   saidas: { label: "Saídas operacionais", icon: ArrowUpRight, tone: "rose" },
   estorno: { label: "Estorno", icon: Undo2, tone: "rose" },
 } satisfies Record<string, Concept>;
@@ -169,9 +174,9 @@ export function movementVisual(t: Pick<FinancialTransaction, "type" | "category"
 } {
   if (t.amount < 0) return { label: "Estorno", icon: Undo2, tone: "rose", sign: "−" };
   if (t.type === "expense") {
-    return t.category === "Estoque"
-      ? { label: "Compra", icon: ShoppingBag, tone: "amber", sign: "−" }
-      : { label: "Saída", icon: ArrowUpRight, tone: "rose", sign: "−" };
+    if (t.category === "Estoque") return { label: "Compra", icon: ShoppingBag, tone: "amber", sign: "−" };
+    if (t.category === SHARED_EXPENSE_CATEGORY) return { label: "Despesa", icon: Building, tone: "rose", sign: "−" };
+    return { label: "Saída", icon: ArrowUpRight, tone: "rose", sign: "−" };
   }
   if (t.category === "Recebimento") return { label: "Recebimento", icon: ArrowDownLeft, tone: "emerald", sign: "+" };
   return { label: "Venda", icon: Receipt, tone: "sky", sign: "" };
