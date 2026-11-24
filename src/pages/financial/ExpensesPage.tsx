@@ -137,6 +137,7 @@ const ExpensesPage: React.FC = () => {
   const [editing, setEditing] = useState<FinancialTransaction | null>(null);
   const [date, setDate] = useState(getTodayLocalISO());
   const [description, setDescription] = useState("");
+  const [notesText, setNotesText] = useState("");
   const [amount, setAmount] = useState(0);
   const [provider, setProvider] = useState("");
   const [pix, setPix] = useState("");
@@ -174,6 +175,7 @@ const ExpensesPage: React.FC = () => {
     setEditing(null);
     setDate(getTodayLocalISO());
     setDescription("");
+    setNotesText("");
     setAmount(0);
     setProvider("");
     setPix("");
@@ -185,6 +187,7 @@ const ExpensesPage: React.FC = () => {
     setEditing(t);
     setDate(t.date);
     setDescription(t.description);
+    setNotesText(t.observations ?? "");
     setAmount(t.amount);
     setProvider(name);
     fillPixFor(name, false);
@@ -194,6 +197,7 @@ const ExpensesPage: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const what = description.trim().replace(/\s+/g, " ");
+    const obs = notesText.trim().replace(/\s+/g, " ");
     const typedProvider = provider.trim().replace(/\s+/g, " ");
     if (!date) return void toast.error("Informe a data da despesa.");
     if (!what) return void toast.error("Escreva o que foi (ex.: Aluguel do centro cirúrgico).");
@@ -211,13 +215,14 @@ const ExpensesPage: React.FC = () => {
       }
       const value = Math.round(amount * 100) / 100;
       if (editing) {
-        const ok = await updateFinancialTransaction(editing.id, { date, description: what, amount: value, responsible: name });
+        const ok = await updateFinancialTransaction(editing.id, { date, description: what, amount: value, responsible: name, observations: obs });
         if (!ok) return void toast.error("Não consegui salvar a alteração. Tente de novo.");
       } else {
         const created = await addFinancialTransaction({
           date,
           time: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
           description: what,
+          observations: obs || undefined,
           type: "expense",
           amount: value,
           category: SHARED_EXPENSE_CATEGORY,
@@ -269,7 +274,14 @@ const ExpensesPage: React.FC = () => {
         lines: monthExpenses
           .filter((t) => expenseProvider(t) === name)
           .sort((a, b) => a.date.localeCompare(b.date))
-          .map((t) => ({ date: t.date, patient: "Despesa", tutor: "sem cliente", service: t.description, quantity: 1, amount: t.amount })),
+          .map((t) => ({
+            date: t.date,
+            patient: "Despesa",
+            tutor: t.observations?.trim() || "sem cliente",
+            service: t.description,
+            quantity: 1,
+            amount: t.amount,
+          })),
       })),
     [monthProviders, monthExpenses]
   );
@@ -402,6 +414,20 @@ const ExpensesPage: React.FC = () => {
             </div>
 
             <div className="space-y-1.5">
+              <Label htmlFor="exp-notes" className="text-xs font-medium text-muted-foreground">
+                Observações <span className="font-normal">(opcional)</span>
+              </Label>
+              <Input
+                id="exp-notes"
+                value={notesText}
+                onChange={(e) => setNotesText(e.target.value)}
+                placeholder="Ex.: cirurgia da Meg, tutora Rute"
+                className="h-10 bg-card"
+                autoComplete="off"
+              />
+            </div>
+
+            <div className="space-y-1.5">
               <Label htmlFor="exp-provider" className="text-xs font-medium text-muted-foreground">
                 Repassar para
               </Label>
@@ -517,6 +543,7 @@ const ExpensesPage: React.FC = () => {
                           <CONCEPTS.repasses.icon className="h-3 w-3 shrink-0" aria-hidden />
                           <span className="truncate">{name}</span>
                         </span>
+                        {t.observations?.trim() && <span className="min-w-0 break-words text-foreground/80">{t.observations}</span>}
                       </p>
                     </div>
                     <span className="shrink-0 text-sm font-bold tabular-nums text-rose-700">− {fmt(t.amount)}</span>

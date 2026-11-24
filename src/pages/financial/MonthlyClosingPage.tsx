@@ -284,7 +284,12 @@ const MonthlyClosingPage: React.FC = () => {
           extras={extras.map((e) => ({ description: e.description, amount: e.amount, beneficiary: e.beneficiary }))}
           expenses={[...monthExpenses]
             .sort((a, b) => a.date.localeCompare(b.date))
-            .map((t) => ({ date: t.date, description: t.description, amount: t.amount, provider: expenseProvider(t) }))}
+            .map((t) => ({
+              date: t.date,
+              description: t.observations?.trim() ? `${t.description} (${t.observations.trim()})` : t.description,
+              amount: t.amount,
+              provider: expenseProvider(t),
+            }))}
           orion={orion.value != null ? { total: orion.value, vendas: closing.bruto, acrescimos: extrasTotal } : undefined}
         />
       ));

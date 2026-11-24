@@ -166,7 +166,8 @@ const FinancialReportsPage: React.FC = () => {
         provider: expenseProvider(t),
         amount: t.amount,
         quantity: 1,
-        clientName: "sem cliente",
+        // Observação da despesa (ex.: "cirurgia da Meg, tutora Rute") no lugar do tutor.
+        clientName: t.observations?.trim() || "sem cliente",
         animalName: "Despesa",
         kind: "despesa",
       });

@@ -202,7 +202,9 @@ export function expensesReportPdf(
               purchase ? `Compra${t.installmentLabel ? ` ${t.installmentLabel.replace("Parcela ", "")}` : ""}` : shared ? "Despesa" : t.category || "Saída",
               `− ${fmt(Math.abs(t.amount))}`,
             ],
-            sub: purchase ? itemsOf(t) || purchase.itemsText : shared ? `Repassar a: ${expenseProvider(t)} · entra no 50/50` : undefined,
+            sub: purchase ? itemsOf(t) || purchase.itemsText : shared
+                ? `Repassar a: ${expenseProvider(t)}${t.observations?.trim() ? ` · ${t.observations.trim()}` : ""} · entra no 50/50`
+                : undefined,
           };
         }),
       },
