@@ -1,7 +1,6 @@
 import {
   ArrowDownLeft,
   ArrowUpRight,
-  BadgeDollarSign,
   Ban,
   Banknote,
   Boxes,
@@ -141,7 +140,6 @@ export const CONCEPTS = {
   produtos: { label: "Custo de produtos", icon: Package, tone: "amber" },
   taxas: { label: "Taxas de cartão", icon: CreditCard, tone: "rose" },
   despesas: { label: "Despesas", icon: Building, tone: "rose" },
-  reembolso: { label: "Reembolso", icon: BadgeDollarSign, tone: "teal" },
   saidas: { label: "Saídas operacionais", icon: ArrowUpRight, tone: "rose" },
   estorno: { label: "Estorno", icon: Undo2, tone: "rose" },
 } satisfies Record<string, Concept>;

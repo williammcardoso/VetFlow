@@ -8,20 +8,25 @@ export const CLOSING_PARTNERS = {
 
 /**
  * Despesa que entra no 50/50 sem ser cobrada do cliente (aluguel de centro
- * cirúrgico, insulfilm da sala...). Fica em financial_transactions como
- * despesa desta categoria; quem pagou vai em `responsible` ("clinic"/"agro")
- * e recebe o valor de volta no fechamento — como um repasse a fornecedor.
+ * cirúrgico, insulfilm da sala...): um repasse a fornecedor tirado do que
+ * entrou. Fica em financial_transactions como despesa desta categoria, com o
+ * fornecedor (para quem repassar) em `responsible`; o PIX dele fica salvo no
+ * mesmo cadastro dos prestadores (lib/providerNotes).
  */
 export const SHARED_EXPENSE_CATEGORY = "Despesa 50/50";
-
-export type ExpensePayer = "clinic" | "agro";
 
 export const isSharedExpense = (t: Pick<FinancialTransaction, "type" | "category">) =>
   t.type === "expense" && t.category === SHARED_EXPENSE_CATEGORY;
 
-/** Quem pagou a despesa (sem informação = clínica, que é quem lança). */
-export const expensePayer = (t: Pick<FinancialTransaction, "responsible">): ExpensePayer =>
-  t.responsible === "agro" ? "agro" : "clinic";
+// Primeira versão (2026-11-24, poucas horas no ar) gravava quem pagou como
+// "clinic"/"agro" — mostra o nome da parte.
+const LEGACY_PAYERS: Record<string, string> = { clinic: CLOSING_PARTNERS.clinic, agro: CLOSING_PARTNERS.agro };
+
+/** Para quem repassar a despesa. */
+export const expenseProvider = (t: Pick<FinancialTransaction, "responsible">): string => {
+  const name = (t.responsible || "").trim();
+  return LEGACY_PAYERS[name] ?? (name || "Fornecedor não informado");
+};
 
 export interface MonthlyClosingBreakdown {
   year: number;
@@ -46,12 +51,8 @@ export interface MonthlyClosingBreakdown {
   custoRepasses: number;
   /** Taxas de operadora (cartão) */
   taxasCartao: number;
-  /** Despesas do mês que entram no 50/50 (Financeiro → Despesas). */
+  /** Despesas do mês (Financeiro → Despesas): repasses a fornecedor sem cobrar do cliente. */
   custoDespesas: number;
-  /** Parte das despesas que a clínica pagou do bolso — volta para ela no fechamento. */
-  reembolsoClinica: number;
-  /** Parte das despesas que a agropecuária pagou — volta para ela no fechamento. */
-  reembolsoAgro: number;
   /** recebido - produtos - compras - repasses - despesas - taxas */
   lucroLiquido: number;
   metadeClinica: number;
@@ -96,9 +97,8 @@ export function lineProviderCost(item: SaleItem): number {
  * (saídas operacionais de outras categorias NÃO entram)
  *
  * Despesas (desde 2026-11-24): gasto que não foi cobrado do cliente (aluguel
- * de centro cirúrgico, material da sala). Sai do lucro antes da divisão — cada
- * parte arca com metade — e quem pagou recebe o valor inteiro de volta
- * (`reembolsoClinica`/`reembolsoAgro`), somado na parte dele.
+ * de centro cirúrgico, material da sala), repassado ao fornecedor como um
+ * repasse de lab. Sai do lucro antes da divisão — cada parte arca com metade.
  *
  * Desde 2026-10-13 a base é o que entrou no caixa, não o faturado: venda
  * paga aos poucos só é dividida conforme o dinheiro entra (cada parcela
@@ -135,10 +135,7 @@ export function computeMonthlyClosing(params: {
   const custoRepasses = items.reduce((s, i) => s + lineProviderCost(i), 0);
   const taxasCartao = activeSales.reduce((s, t) => s + (t.financialFee ?? 0), 0);
   const custoCompras = purchases.reduce((s, t) => s + t.amount, 0);
-  const round2 = (v: number) => Math.round(v * 100) / 100;
-  const reembolsoClinica = round2(expenses.filter((t) => expensePayer(t) === "clinic").reduce((s, t) => s + t.amount, 0));
-  const reembolsoAgro = round2(expenses.filter((t) => expensePayer(t) === "agro").reduce((s, t) => s + t.amount, 0));
-  const custoDespesas = round2(reembolsoClinica + reembolsoAgro);
+  const custoDespesas = Math.round(expenses.reduce((s, t) => s + t.amount, 0) * 100) / 100;
 
   // Fallback: vendas antigas sem itens — usa supplierCost agregado
   const legacySupplier = activeSales.reduce((s, t) => s + (t.supplierCost ?? 0), 0);
@@ -165,8 +162,6 @@ export function computeMonthlyClosing(params: {
     custoRepasses: finalRepasses,
     taxasCartao,
     custoDespesas,
-    reembolsoClinica,
-    reembolsoAgro,
     lucroLiquido,
     metadeClinica: metade,
     metadeAgro: metade,

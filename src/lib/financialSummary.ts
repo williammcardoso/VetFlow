@@ -23,7 +23,7 @@ export interface PeriodFinancials {
   receipts: FinancialTransaction[];
   /** Compras do almoxarifado (despesa "Estoque") — entram no lucro. */
   purchases: FinancialTransaction[];
-  /** Despesas lançadas em Financeiro → Despesas — entram no lucro, com reembolso a quem pagou. */
+  /** Despesas lançadas em Financeiro → Despesas — repasse a fornecedor que entra no lucro. */
   sharedExpenses: FinancialTransaction[];
   /** Demais despesas — mostradas à parte, fora do 50/50. */
   otherExpenses: FinancialTransaction[];

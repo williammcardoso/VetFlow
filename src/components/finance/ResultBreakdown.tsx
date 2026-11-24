@@ -50,7 +50,7 @@ export function ResultBreakdown({
       ? [{ key: "produtos" as const, label: "Custo de produtos", hint: "vendas antigas", value: closing.custoProdutos, ...pick(CONCEPTS.produtos) }]
       : []),
     { key: "compras", label: "Compras do almoxarifado", hint: "insumos", value: closing.custoCompras, ...pick(CONCEPTS.compras) },
-    { key: "despesas", label: "Despesas", hint: "aluguel, sala · volta para quem pagou", value: closing.custoDespesas, ...pick(CONCEPTS.despesas) },
+    { key: "despesas", label: "Despesas", hint: "aluguel, sala · repasse a fornecedor", value: closing.custoDespesas, ...pick(CONCEPTS.despesas) },
     { key: "taxas", label: "Taxas de cartão", hint: "repassadas ao cliente", value: closing.taxasCartao, ...pick(CONCEPTS.taxas) },
   ];
   const clickable = (key: RowKey) => Boolean(onRowClick) && (key === "bruto" || key === "repasses" || key === "compras");

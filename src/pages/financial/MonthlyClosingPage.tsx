@@ -29,7 +29,7 @@ import { getSaleItemsBySaleIds, type SaleItem } from "@/lib/saleItemsApi";
 import {
   CLOSING_PARTNERS,
   computeMonthlyClosing,
-  expensePayer,
+  expenseProvider,
   getMonthBounds,
   isSharedExpense,
   monthLabel,
@@ -159,8 +159,8 @@ const MonthlyClosingPage: React.FC = () => {
     [transactions, from, to]
   );
 
-  // Despesas que entram no 50/50 (Financeiro → Despesas): saem do lucro e
-  // voltam para quem pagou.
+  // Despesas que entram no 50/50 (Financeiro → Despesas): repasses a
+  // fornecedor que saem do lucro antes da divisão.
   const monthExpenses = useMemo(
     () => transactions.filter((t) => isSharedExpense(t) && t.date >= from && t.date <= to),
     [transactions, from, to]
@@ -212,8 +212,6 @@ const MonthlyClosingPage: React.FC = () => {
           ? {}
           : {
               custoDespesas: liveClosing.custoDespesas,
-              reembolsoClinica: liveClosing.reembolsoClinica,
-              reembolsoAgro: liveClosing.reembolsoAgro,
               recebido: Math.round((closedRecord!.recebido + liveClosing.custoDespesas) * 100) / 100,
             }),
       }
@@ -286,7 +284,7 @@ const MonthlyClosingPage: React.FC = () => {
           extras={extras.map((e) => ({ description: e.description, amount: e.amount, beneficiary: e.beneficiary }))}
           expenses={[...monthExpenses]
             .sort((a, b) => a.date.localeCompare(b.date))
-            .map((t) => ({ date: t.date, description: t.description, amount: t.amount, payer: expensePayer(t) }))}
+            .map((t) => ({ date: t.date, description: t.description, amount: t.amount, provider: expenseProvider(t) }))}
           orion={orion.value != null ? { total: orion.value, vendas: closing.bruto, acrescimos: extrasTotal } : undefined}
         />
       ));
@@ -423,7 +421,7 @@ const MonthlyClosingPage: React.FC = () => {
               </Button>
             </Link>
             <Link to={expensesHref}>
-              <Button variant="outline" className="gap-2" title="Gastos que não foram cobrados do cliente — saem do lucro e voltam para quem pagou">
+              <Button variant="outline" className="gap-2" title="Gastos que não foram cobrados do cliente — repasse ao fornecedor, sai do lucro antes da divisão">
                 <Building className="h-4 w-4 text-rose-600" /> Despesas
               </Button>
             </Link>
@@ -492,7 +490,7 @@ const MonthlyClosingPage: React.FC = () => {
                   Recebido − compras (almoxarifado) − repasses − despesas − taxas
                 </div>
                 <div className="text-[11px] text-muted-foreground mt-1">
-                  Só divide o que entrou no caixa · quem pagou uma despesa recebe de volta
+                  Só divide o que entrou no caixa · despesa = repasse a fornecedor
                 </div>
               </div>
             </CardContent>
@@ -561,23 +559,21 @@ const MonthlyClosingPage: React.FC = () => {
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-1">
           {(
             [
-              { key: "clinic", label: CLOSING_PARTNERS.clinic, half: closing.metadeClinica, extra: extraTotals.clinic, refund: closing.reembolsoClinica, tone: "teal", note: "Parte da clínica no lucro líquido do mês." },
-              { key: "agro", label: CLOSING_PARTNERS.agro, half: closing.metadeAgro, extra: extraTotals.agro, refund: closing.reembolsoAgro, tone: "amber", note: "Parte da agropecuária (Agrocentro) no lucro líquido do mês." },
+              { key: "clinic", label: CLOSING_PARTNERS.clinic, half: closing.metadeClinica, extra: extraTotals.clinic, tone: "teal", note: "Parte da clínica no lucro líquido do mês." },
+              { key: "agro", label: CLOSING_PARTNERS.agro, half: closing.metadeAgro, extra: extraTotals.agro, tone: "amber", note: "Parte da agropecuária (Agrocentro) no lucro líquido do mês." },
             ] as const
           ).map((p) => (
             <Card key={p.key} className={p.tone === "teal" ? "rounded-xl border-teal-200 bg-teal-50/30" : "rounded-xl border-amber-200 bg-amber-50/30"}>
               <CardContent className="p-5">
                 <div className={`text-xs font-semibold uppercase tracking-wide ${p.tone === "teal" ? "text-teal-800" : "text-amber-800"}`}>
-                  {p.label} · {p.extra > 0 || p.refund > 0 ? "total a receber" : "50%"}
+                  {p.label} · {p.extra > 0 ? "total a receber" : "50%"}
                 </div>
                 <div className={`text-3xl font-bold mt-2 tabular-nums ${p.tone === "teal" ? "text-teal-800" : "text-amber-800"}`}>
-                  {fmt(p.half + p.extra + p.refund)}
+                  {fmt(p.half + p.extra)}
                 </div>
-                {p.extra > 0 || p.refund > 0 ? (
+                {p.extra > 0 ? (
                   <p className="text-xs text-muted-foreground mt-2 tabular-nums">
-                    50% do lucro {fmt(p.half)}
-                    {p.extra > 0 && <span className="font-semibold text-violet-700"> + acréscimos {fmt(p.extra)}</span>}
-                    {p.refund > 0 && <span className="font-semibold text-teal-700"> + reembolso de despesas {fmt(p.refund)}</span>}
+                    50% do lucro {fmt(p.half)} <span className="font-semibold text-violet-700">+ acréscimos {fmt(p.extra)}</span>
                   </p>
                 ) : (
                   <p className="text-xs text-muted-foreground mt-2">{p.note}</p>

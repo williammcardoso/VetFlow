@@ -26,7 +26,7 @@ import { useCatalog } from "@/hooks/useCatalog";
 import { getSaleItemsBySaleIds, updateSaleItemProvider, type SaleItem } from "@/lib/saleItemsApi";
 import { updateCatalogItem } from "@/lib/catalogApi";
 import { resolveCostProvider } from "@/lib/costProviders";
-import { isSharedExpense, lineProviderCost } from "@/lib/monthlyClosing";
+import { expenseProvider, isSharedExpense, lineProviderCost } from "@/lib/monthlyClosing";
 import { catalogCategoryLabel } from "@/lib/catalogCategories";
 import { computePeriodFinancials, isCancelled, isSale, revenueByCategory, sumByDay } from "@/lib/financialSummary";
 import { summarizeSaleItems } from "@/lib/salePayment";
@@ -49,6 +49,8 @@ type RepasseDetalhe = {
   animalId?: string;
   animalName: string;
   patientCode?: number;
+  /** Despesa (Financeiro → Despesas): repasse a fornecedor sem venda/paciente. */
+  kind?: "despesa";
 };
 
 const fmt = formatCurrencyBRL;
@@ -153,8 +155,24 @@ const FinancialReportsPage: React.FC = () => {
         patientCode: animal?.patientCode,
       });
     }
+    // Despesas também são repasse a fornecedor: entram no mesmo PDF, com o PIX.
+    for (const t of fin.sharedExpenses) {
+      rows.push({
+        id: t.id,
+        date: t.date,
+        time: t.time,
+        saleId: "",
+        serviceName: t.description,
+        provider: expenseProvider(t),
+        amount: t.amount,
+        quantity: 1,
+        clientName: "sem cliente",
+        animalName: "Despesa",
+        kind: "despesa",
+      });
+    }
     return rows.sort((a, b) => `${b.date}T${b.time || "00:00"}`.localeCompare(`${a.date}T${a.time || "00:00"}`));
-  }, [periodSaleItems, fin.sales, clientById]);
+  }, [periodSaleItems, fin.sales, fin.sharedExpenses, clientById]);
 
   const repassesPorPrestador = useMemo(() => {
     const map = new Map<string, number>();
@@ -164,6 +182,15 @@ const FinancialReportsPage: React.FC = () => {
       .sort((a, b) => b.amount - a.amount);
   }, [repassesDetalhados]);
   const totalRepassesItens = repassesPorPrestador.reduce((s, r) => s + r.amount, 0);
+  // Relatório em PDF: a tabela de prestadores fecha com o total de repasses
+  // (labs/especialistas); as despesas têm o cartão próprio nele.
+  const repassesPorPrestadorItens = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const r of repassesDetalhados) if (r.kind !== "despesa") map.set(r.provider, (map.get(r.provider) || 0) + r.amount);
+    return Array.from(map.entries())
+      .map(([provider, amount]) => ({ provider, amount }))
+      .sort((a, b) => b.amount - a.amount);
+  }, [repassesDetalhados]);
 
   // Prestadores para trocar o destino de um serviço: os do período e os do
   // cadastro (ex.: dois laboratórios diferentes).
@@ -337,8 +364,8 @@ const FinancialReportsPage: React.FC = () => {
           saidas={saidasOperacionais}
           totalEmAberto={fin.openTotal}
           providerFilterLabel={providerFilter !== "all" ? providerFilter : undefined}
-          repassesPorPrestador={repassesPorPrestador}
-          repassesDetalhados={filteredRepasses}
+          repassesPorPrestador={repassesPorPrestadorItens}
+          repassesDetalhados={filteredRepasses.filter((r) => r.kind !== "despesa")}
           movimentos={movimentos}
         />
       );
@@ -511,7 +538,7 @@ const FinancialReportsPage: React.FC = () => {
           title="Repasses por prestador"
           icon={CONCEPTS.repasses.icon}
           tone="orange"
-          description="Quanto repassar a cada lab, especialista ou fornecedor"
+          description="Quanto repassar a cada lab, especialista ou fornecedor (inclui as despesas)"
           className="print:break-inside-avoid"
           actions={<span className="text-sm font-bold tabular-nums text-orange-700">{fmt(totalRepassesItens)}</span>}
         >
@@ -566,7 +593,7 @@ const FinancialReportsPage: React.FC = () => {
           ariaLabel="Serviços externos por paciente"
           icon={FlaskConical}
           tone="orange"
-          description="Paciente, serviço e prestador de cada repasse"
+          description="Paciente (ou despesa), serviço e prestador de cada repasse"
           className="scroll-mt-4 print:break-inside-avoid"
           actions={
             providerFilter !== "all" ? (
@@ -585,7 +612,9 @@ const FinancialReportsPage: React.FC = () => {
                   <li key={row.id} className="flex items-center gap-3 px-4 py-2.5">
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm text-foreground">
-                        {row.clientId && row.animalId ? (
+                        {row.kind === "despesa" ? (
+                          <span className="font-semibold text-rose-700">Despesa</span>
+                        ) : row.clientId && row.animalId ? (
                           <Link
                             to={getPatientRecordPath(row.clientId, row.animalId, row.patientCode)}
                             className="font-semibold hover:text-primary hover:underline"
@@ -602,13 +631,19 @@ const FinancialReportsPage: React.FC = () => {
                           {row.serviceName}
                           {row.quantity > 1 && ` × ${row.quantity}`}
                         </span>
-                        <ProviderChangePopover
-                          provider={row.provider}
-                          options={providerOptions}
-                          serviceName={`${row.serviceName} · ${row.animalName}`}
-                          canApplyToCatalog={!!row.catalogItemId && catalogById.has(row.catalogItemId)}
-                          onChange={(provider, applyToCatalog) => changeRowProvider(row, provider, applyToCatalog)}
-                        />
+                        {row.kind === "despesa" ? (
+                          <Link to="/financial/expenses" className="font-medium text-orange-700 hover:underline" title="Trocar em Financeiro → Despesas">
+                            {row.provider}
+                          </Link>
+                        ) : (
+                          <ProviderChangePopover
+                            provider={row.provider}
+                            options={providerOptions}
+                            serviceName={`${row.serviceName} · ${row.animalName}`}
+                            canApplyToCatalog={!!row.catalogItemId && catalogById.has(row.catalogItemId)}
+                            onChange={(provider, applyToCatalog) => changeRowProvider(row, provider, applyToCatalog)}
+                          />
+                        )}
                         <span className="tabular-nums">{formatDateTime(row.date)}</span>
                       </div>
                     </div>

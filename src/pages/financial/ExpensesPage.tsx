@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
-import { BadgeDollarSign, Building, Loader2, Lock, Pencil, Scale, Stethoscope, Trash2, Wheat, X } from "lucide-react";
+import { Building, CheckCircle2, Loader2, Lock, Pencil, Printer, Scale, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -23,50 +23,24 @@ import { PageHeader } from "@/components/saas/PageHeader";
 import { KpiStrip } from "@/components/saas/KpiStrip";
 import { IconChip, Panel } from "@/components/finance/FinanceUI";
 import { CONCEPTS, TONES } from "@/components/finance/financeTheme";
+import { ProviderPayoutDialog } from "@/components/finance/ProviderPayoutDialog";
 import { useFinancialTransactions } from "@/hooks/useFinancialTransactions";
 import { addFinancialTransaction, deleteFinancialTransaction, updateFinancialTransaction } from "@/lib/financialApi";
 import { getMonthlyClosing } from "@/lib/monthlyClosingsApi";
-import {
-  CLOSING_PARTNERS,
-  SHARED_EXPENSE_CATEGORY,
-  expensePayer,
-  getMonthBounds,
-  isSharedExpense,
-  monthLabel,
-  type ExpensePayer,
-} from "@/lib/monthlyClosing";
+import { listProviderNotes, providerNoteId, saveProviderNote } from "@/lib/providerNotes";
+import { SHARED_EXPENSE_CATEGORY, expenseProvider, getMonthBounds, isSharedExpense, monthLabel } from "@/lib/monthlyClosing";
 import type { FinancialTransaction } from "@/mockData/financial";
 import { cn, formatCurrencyBRL, formatDateTime, getTodayLocalISO } from "@/lib/utils";
 
 const fmt = formatCurrencyBRL;
-
-// Quem pagou: cor da parte (clínica verde-azulado, agropecuária âmbar), igual
-// aos cartões da divisão no Fechamento 50/50.
-const PAYERS: Record<ExpensePayer, { label: string; hint: string; icon: typeof Stethoscope; on: string; off: string; badge: string }> = {
-  clinic: {
-    label: `${CLOSING_PARTNERS.clinic} (eu)`,
-    hint: "paguei do meu bolso — volta para mim no fechamento",
-    icon: Stethoscope,
-    on: "border-teal-600 bg-teal-600 text-white",
-    off: "border-teal-200 bg-teal-50 text-teal-900 hover:bg-teal-100",
-    badge: TONES.teal.badge,
-  },
-  agro: {
-    label: CLOSING_PARTNERS.agro,
-    hint: "a agropecuária pagou — volta para ela no fechamento",
-    icon: Wheat,
-    on: "border-amber-600 bg-amber-600 text-white",
-    off: "border-amber-200 bg-amber-50 text-amber-900 hover:bg-amber-100",
-    badge: TONES.amber.badge,
-  },
-};
-
 const sum = (list: FinancialTransaction[]) => Math.round(list.reduce((s, t) => s + t.amount, 0) * 100) / 100;
 
 /**
  * Despesas que entram no Fechamento 50/50 sem cobrar do cliente (aluguel de
- * centro cirúrgico, insulfilm da sala...). Saem do lucro antes da divisão e
- * quem pagou recebe o valor de volta — como um repasse a fornecedor.
+ * centro cirúrgico, insulfilm da sala...): um repasse a fornecedor tirado do
+ * que entrou, descontado antes da divisão. O PIX de cada fornecedor fica
+ * salvo no mesmo cadastro do PDF de repasse dos prestadores — digitou uma vez,
+ * vem preenchido no próximo lançamento.
  */
 const ExpensesPage: React.FC = () => {
   const { transactions, loading, refetch } = useFinancialTransactions();
@@ -81,6 +55,7 @@ const ExpensesPage: React.FC = () => {
     return m && Number(m[2]) >= 1 && Number(m[2]) <= 12 ? Number(m[2]) : now.getMonth() + 1;
   });
   const { from, to } = useMemo(() => getMonthBounds(year, month), [year, month]);
+  const periodLabel = monthLabel(year, month);
 
   // Mês fechado: lista só para leitura (o fechamento travado não muda sozinho).
   const [locked, setLocked] = useState(false);
@@ -92,6 +67,18 @@ const ExpensesPage: React.FC = () => {
     };
   }, [year, month]);
 
+  // PIX salvo de cada fornecedor/prestador (fornecedor → observação).
+  const [notes, setNotes] = useState<Record<string, string>>({});
+  const reloadNotes = () => void listProviderNotes().then(setNotes);
+  useEffect(() => {
+    void listProviderNotes().then(setNotes);
+  }, []);
+  /** Nome já cadastrado que bate com o digitado (sem diferenciar acento/maiúscula). */
+  const savedKey = (name: string) => {
+    const id = providerNoteId(name);
+    return name.trim() ? Object.keys(notes).find((k) => providerNoteId(k) === id) : undefined;
+  };
+
   const allExpenses = useMemo(() => transactions.filter(isSharedExpense), [transactions]);
   const monthExpenses = useMemo(
     () =>
@@ -101,10 +88,27 @@ const ExpensesPage: React.FC = () => {
     [allExpenses, from, to]
   );
   const total = sum(monthExpenses);
-  const byClinic = sum(monthExpenses.filter((t) => expensePayer(t) === "clinic"));
-  const byAgro = sum(monthExpenses.filter((t) => expensePayer(t) === "agro"));
+  const monthProviders = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const t of monthExpenses) map.set(expenseProvider(t), (map.get(expenseProvider(t)) ?? 0) + t.amount);
+    return Array.from(map.entries()).sort((a, b) => b[1] - a[1]);
+  }, [monthExpenses]);
 
-  // Descrições já usadas (mais recentes primeiro) — sugestão no campo.
+  // Sugestões: fornecedores das despesas anteriores + quem já tem PIX salvo.
+  const providerOptions = useMemo(() => {
+    const seen = new Set<string>();
+    const out: string[] = [];
+    const add = (name: string) => {
+      const id = providerNoteId(name);
+      if (name.trim() && !seen.has(id)) {
+        seen.add(id);
+        out.push(name.trim());
+      }
+    };
+    [...allExpenses].sort((a, b) => b.date.localeCompare(a.date)).forEach((t) => add(expenseProvider(t)));
+    Object.keys(notes).forEach(add);
+    return out;
+  }, [allExpenses, notes]);
   const descriptions = useMemo(() => {
     const seen = new Set<string>();
     const out: string[] = [];
@@ -134,34 +138,69 @@ const ExpensesPage: React.FC = () => {
   const [date, setDate] = useState(getTodayLocalISO());
   const [description, setDescription] = useState("");
   const [amount, setAmount] = useState(0);
-  const [payer, setPayer] = useState<ExpensePayer>("clinic");
+  const [provider, setProvider] = useState("");
+  const [pix, setPix] = useState("");
+  /** PIX veio do cadastro (não digitado) — some se trocar de fornecedor. */
+  const [pixFromSaved, setPixFromSaved] = useState(false);
   const [saving, setSaving] = useState(false);
   const [toDelete, setToDelete] = useState<FinancialTransaction | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [payoutOpen, setPayoutOpen] = useState(false);
+
+  const fillPixFor = (name: string, keepTyped: boolean) => {
+    const key = savedKey(name);
+    if (key) {
+      setPix(notes[key]);
+      setPixFromSaved(true);
+    } else if (!keepTyped) {
+      setPix("");
+      setPixFromSaved(false);
+    }
+  };
+
+  const handleProviderChange = (value: string) => {
+    setProvider(value);
+    const key = savedKey(value);
+    if (key) {
+      setPix(notes[key]);
+      setPixFromSaved(true);
+    } else if (pixFromSaved) {
+      setPix("");
+      setPixFromSaved(false);
+    }
+  };
 
   const resetForm = () => {
     setEditing(null);
     setDate(getTodayLocalISO());
     setDescription("");
     setAmount(0);
-    setPayer("clinic");
+    setProvider("");
+    setPix("");
+    setPixFromSaved(false);
   };
 
   const startEdit = (t: FinancialTransaction) => {
+    const name = t.responsible?.trim() ? expenseProvider(t) : "";
     setEditing(t);
     setDate(t.date);
     setDescription(t.description);
     setAmount(t.amount);
-    setPayer(expensePayer(t));
+    setProvider(name);
+    fillPixFor(name, false);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const what = description.trim().replace(/\s+/g, " ");
+    const typedProvider = provider.trim().replace(/\s+/g, " ");
     if (!date) return void toast.error("Informe a data da despesa.");
     if (!what) return void toast.error("Escreva o que foi (ex.: Aluguel do centro cirúrgico).");
     if (!(amount > 0)) return void toast.error("Informe um valor maior que zero.");
+    if (!typedProvider) return void toast.error("Informe para quem repassar (fornecedor, ou seu nome se você pagou).");
+    // Mesmo fornecedor escrito diferente ("centro cirurgico" × "Centro Cirúrgico") vira um só.
+    const name = savedKey(typedProvider) ?? providerOptions.find((o) => providerNoteId(o) === providerNoteId(typedProvider)) ?? typedProvider;
     const y = Number(date.slice(0, 4));
     const m = Number(date.slice(5, 7));
     setSaving(true);
@@ -172,9 +211,8 @@ const ExpensesPage: React.FC = () => {
       }
       const value = Math.round(amount * 100) / 100;
       if (editing) {
-        const ok = await updateFinancialTransaction(editing.id, { date, description: what, amount: value, responsible: payer });
+        const ok = await updateFinancialTransaction(editing.id, { date, description: what, amount: value, responsible: name });
         if (!ok) return void toast.error("Não consegui salvar a alteração. Tente de novo.");
-        toast.success("Despesa atualizada.");
       } else {
         const created = await addFinancialTransaction({
           date,
@@ -183,11 +221,19 @@ const ExpensesPage: React.FC = () => {
           type: "expense",
           amount: value,
           category: SHARED_EXPENSE_CATEGORY,
-          responsible: payer,
+          responsible: name,
         });
         if (!created) return void toast.error("Não consegui lançar a despesa. Tente de novo.");
-        toast.success(`${fmt(value)} lançado — volta para ${CLOSING_PARTNERS[payer]} no fechamento de ${monthLabel(y, m)}.`);
       }
+      // PIX novo ou alterado: fica salvo para o próximo lançamento (e para o PDF de repasse).
+      const pixText = pix.trim();
+      if (pixText && pixText !== (notes[name] ?? "").trim()) {
+        if (await saveProviderNote(name, pixText)) setNotes((prev) => ({ ...prev, [name]: pixText }));
+        else toast.warning("A despesa foi salva, mas o PIX não ficou guardado para a próxima vez.");
+      }
+      toast.success(
+        editing ? "Despesa atualizada." : `${fmt(value)} lançado — repassar a ${name}, desconta no fechamento de ${monthLabel(y, m)}.`
+      );
       resetForm();
       // Lançou em outro mês: mostra a lista desse mês.
       if (y !== year || m !== month) {
@@ -215,11 +261,26 @@ const ExpensesPage: React.FC = () => {
     }
   };
 
+  // PDF de repasse (o mesmo dos prestadores), um bloco por fornecedor com o PIX.
+  const payoutGroups = useMemo(
+    () =>
+      monthProviders.map(([name]) => ({
+        provider: name,
+        lines: monthExpenses
+          .filter((t) => expenseProvider(t) === name)
+          .sort((a, b) => a.date.localeCompare(b.date))
+          .map((t) => ({ date: t.date, patient: "Despesa", tutor: "sem cliente", service: t.description, quantity: 1, amount: t.amount })),
+      })),
+    [monthProviders, monthExpenses]
+  );
+
+  const providerPixSaved = !!savedKey(provider) && pixFromSaved;
+
   return (
     <PageShell className="space-y-4 sm:space-y-5">
       <PageHeader
         title="Despesas"
-        description="Gastos que você não cobrou do cliente (aluguel de centro cirúrgico, material da sala). Saem do lucro antes da divisão e quem pagou recebe de volta."
+        description="Gastos que você não cobrou do cliente (aluguel de centro cirúrgico, material da sala). É um repasse ao fornecedor: sai do que entrou e desconta do lucro antes da divisão."
         icon={Building}
         module="finance"
         breadcrumb={<>Painel &gt; Financeiro &gt; Despesas</>}
@@ -267,26 +328,24 @@ const ExpensesPage: React.FC = () => {
           className="max-sm:order-2 xl:col-span-2"
           items={[
             {
-              label: `Despesas · ${monthLabel(year, month).split(" / ")[0]}`,
+              label: `Despesas · ${periodLabel.split(" / ")[0]}`,
               value: fmt(total),
-              hint: total > 0 ? `${fmt(total / 2)} para cada parte` : "nenhuma despesa no mês",
+              hint: total > 0 ? "desconta do lucro antes da divisão" : "nenhuma despesa no mês",
               concept: CONCEPTS.despesas,
               colorValue: total > 0,
             },
             {
-              label: `Reembolso à ${CLOSING_PARTNERS.clinic}`,
-              value: fmt(byClinic),
-              hint: "soma na sua parte do fechamento",
-              concept: CONCEPTS.reembolso,
-              colorValue: byClinic > 0,
+              label: "A repassar para",
+              value: monthProviders.length === 1 ? "1 fornecedor" : `${monthProviders.length} fornecedores`,
+              hint: monthProviders.length > 0 ? monthProviders.map(([name]) => name).join(", ") : "—",
+              concept: CONCEPTS.repasses,
             },
             {
-              label: `Pago pela ${CLOSING_PARTNERS.agro}`,
-              value: fmt(byAgro),
-              hint: "soma na parte da agropecuária",
-              icon: Wheat,
-              tone: "amber",
-              colorValue: byAgro > 0,
+              label: "Cada parte arca com",
+              value: fmt(total / 2),
+              hint: "metade da clínica, metade da agropecuária",
+              icon: Scale,
+              tone: "slate",
             },
           ]}
         />
@@ -343,29 +402,49 @@ const ExpensesPage: React.FC = () => {
             </div>
 
             <div className="space-y-1.5">
-              <span className="block text-xs font-medium text-muted-foreground">Quem pagou</span>
-              <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-1" role="radiogroup" aria-label="Quem pagou a despesa">
-                {(["clinic", "agro"] as ExpensePayer[]).map((key) => {
-                  const p = PAYERS[key];
-                  const active = payer === key;
-                  return (
-                    <button
-                      key={key}
-                      type="button"
-                      role="radio"
-                      aria-checked={active}
-                      onClick={() => setPayer(key)}
-                      className={cn("flex items-start gap-2.5 rounded-xl border px-3 py-2.5 text-left transition-colors", active ? p.on : p.off)}
-                    >
-                      <p.icon className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
-                      <span className="min-w-0">
-                        <span className="block text-sm font-semibold">{p.label}</span>
-                        <span className={cn("block text-xs", active ? "text-white/85" : "opacity-75")}>{p.hint}</span>
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
+              <Label htmlFor="exp-provider" className="text-xs font-medium text-muted-foreground">
+                Repassar para
+              </Label>
+              <Input
+                id="exp-provider"
+                list="exp-providers"
+                value={provider}
+                onChange={(e) => handleProviderChange(e.target.value)}
+                placeholder="Fornecedor — ou seu nome, se você pagou"
+                className="h-10 bg-card"
+                autoComplete="off"
+              />
+              <datalist id="exp-providers">
+                {providerOptions.map((p) => (
+                  <option key={p} value={p} />
+                ))}
+              </datalist>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="exp-pix" className="text-xs font-medium text-muted-foreground">
+                PIX / dados para pagamento
+              </Label>
+              <Input
+                id="exp-pix"
+                value={pix}
+                onChange={(e) => {
+                  setPix(e.target.value);
+                  setPixFromSaved(false);
+                }}
+                placeholder="Ex.: PIX (CPF) 123.456.789-00 — Nome do titular"
+                className="h-10 bg-card"
+                autoComplete="off"
+              />
+              <p className={cn("flex items-center gap-1 text-[11px]", providerPixSaved ? "text-emerald-700" : "text-muted-foreground")}>
+                {providerPixSaved ? (
+                  <>
+                    <CheckCircle2 className="h-3 w-3" aria-hidden /> PIX salvo de {savedKey(provider)}
+                  </>
+                ) : (
+                  "Fica salvo para o próximo lançamento e sai no PDF de repasse."
+                )}
+              </p>
             </div>
 
             <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-3">
@@ -381,12 +460,27 @@ const ExpensesPage: React.FC = () => {
         </Panel>
 
         <Panel
-          title={`Despesas de ${monthLabel(year, month)}`}
+          title={`Despesas de ${periodLabel}`}
           icon={CONCEPTS.despesas.icon}
           tone="rose"
           description="Entram no Fechamento 50/50 deste mês"
           className="max-sm:order-3"
-          actions={<span className="text-sm font-bold tabular-nums text-rose-700">− {fmt(total)}</span>}
+          actions={
+            <>
+              <span className="text-sm font-bold tabular-nums text-rose-700">− {fmt(total)}</span>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-8 gap-1.5 border-orange-200 text-orange-800 hover:bg-orange-50"
+                onClick={() => setPayoutOpen(true)}
+                disabled={monthExpenses.length === 0}
+                title="PDF para a Agrocentro pagar cada fornecedor, com o PIX"
+              >
+                <Printer className="h-4 w-4" aria-hidden /> PDF do repasse
+              </Button>
+            </>
+          }
         >
           {locked && (
             <p className="flex items-center gap-1.5 border-b border-border/70 bg-muted/40 px-4 py-2 text-xs text-muted-foreground">
@@ -407,17 +501,21 @@ const ExpensesPage: React.FC = () => {
           ) : (
             <ul className="divide-y divide-border/70">
               {monthExpenses.map((t) => {
-                const p = PAYERS[expensePayer(t)];
+                const name = expenseProvider(t);
                 return (
                   <li key={t.id} className={cn("flex items-center gap-3 px-4 py-2.5", editing?.id === t.id && "bg-rose-50/60")}>
                     <IconChip icon={CONCEPTS.despesas.icon} tone="rose" size="sm" />
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-semibold text-foreground">{t.description}</p>
+                      {/* Celular: quebra em linhas (cortado sobrava "Aluguel CC - ..."). */}
+                      <p className="break-words text-sm font-semibold text-foreground sm:truncate">{t.description}</p>
                       <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
                         <span className="tabular-nums">{formatDateTime(t.date)}</span>
-                        <span className={cn("inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-semibold ring-1 ring-inset", p.badge)}>
-                          <BadgeDollarSign className="h-3 w-3" aria-hidden />
-                          volta para {CLOSING_PARTNERS[expensePayer(t)]}
+                        <span
+                          className={cn("inline-flex min-w-0 items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-semibold ring-1 ring-inset", TONES.orange.badge)}
+                          title={savedKey(name) ? `PIX: ${notes[savedKey(name)!]}` : "Sem PIX salvo"}
+                        >
+                          <CONCEPTS.repasses.icon className="h-3 w-3 shrink-0" aria-hidden />
+                          <span className="truncate">{name}</span>
                         </span>
                       </p>
                     </div>
@@ -458,7 +556,7 @@ const ExpensesPage: React.FC = () => {
             <AlertDialogTitle>Excluir esta despesa?</AlertDialogTitle>
             <AlertDialogDescription>
               {toDelete ? `${toDelete.description} — ${fmt(toDelete.amount)} (${formatDateTime(toDelete.date)}). ` : ""}
-              Ela sai do Fechamento 50/50 e o reembolso some junto. Não dá para desfazer.
+              Ela sai do Fechamento 50/50. Não dá para desfazer.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -476,6 +574,16 @@ const ExpensesPage: React.FC = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <ProviderPayoutDialog
+        open={payoutOpen}
+        onOpenChange={(open) => {
+          setPayoutOpen(open);
+          if (!open) reloadNotes();
+        }}
+        groups={payoutGroups}
+        periodLabel={periodLabel}
+      />
     </PageShell>
   );
 };

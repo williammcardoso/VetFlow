@@ -7,9 +7,9 @@ export interface MonthlyClosingRecord extends MonthlyClosingBreakdown {
   closedBy?: string;
   closedAt: string;
   /**
-   * false = fechado sem as colunas de despesa (antes da migration
-   * 20261124120000): a tela completa despesas/reembolsos com os lançamentos
-   * do mês, que ficam travados enquanto o mês está fechado.
+   * false = fechado sem a coluna de despesas (antes da migration
+   * 20261124120000): a tela completa as despesas com os lançamentos do mês,
+   * que ficam travados enquanto o mês está fechado.
    */
   hasExpenseColumns: boolean;
 }
@@ -44,8 +44,6 @@ function rowToRecord(r: Record<string, unknown>): MonthlyClosingRecord {
     custoRepasses,
     taxasCartao,
     custoDespesas,
-    reembolsoClinica: Number(r.reembolso_clinica) || 0,
-    reembolsoAgro: Number(r.reembolso_agro) || 0,
     lucroLiquido,
     metadeClinica: Number(r.metade_clinica) || 0,
     metadeAgro: Number(r.metade_agro) || 0,
@@ -85,12 +83,7 @@ export async function closeMonth(breakdown: MonthlyClosingBreakdown, closedBy?: 
     metade_agro: breakdown.metadeAgro,
     closed_by: closedBy || null,
   };
-  let { error } = await supabase.from(TABLE).insert({
-    ...base,
-    custo_despesas: breakdown.custoDespesas,
-    reembolso_clinica: breakdown.reembolsoClinica,
-    reembolso_agro: breakdown.reembolsoAgro,
-  });
+  let { error } = await supabase.from(TABLE).insert({ ...base, custo_despesas: breakdown.custoDespesas });
   // Sem a migration das despesas: grava o resto (o lucro já vem com elas descontadas).
   if (isMissingColumn(error)) ({ error } = await supabase.from(TABLE).insert(base));
   if (error) {

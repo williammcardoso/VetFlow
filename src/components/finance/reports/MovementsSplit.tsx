@@ -10,7 +10,7 @@ import { cn, formatCurrencyBRL, slugifyFileName } from "@/lib/utils";
 import { expensesReportPdf, receiptsReportPdf, salesReportPdf } from "@/lib/reportPdfData";
 import { ReportPdfButton } from "@/components/finance/reports/ReportPdfButton";
 import type { FinancialTransaction } from "@/mockData/financial";
-import { CLOSING_PARTNERS, expensePayer, isSharedExpense } from "@/lib/monthlyClosing";
+import { expenseProvider, isSharedExpense } from "@/lib/monthlyClosing";
 
 const fmt = formatCurrencyBRL;
 const when = (t: FinancialTransaction) => `${t.date.slice(8, 10)}/${t.date.slice(5, 7)}${t.time ? ` ${t.time}` : ""}`;
@@ -99,9 +99,8 @@ function ExpenseDetail({ t, all }: { t: FinancialTransaction; all: FinancialTran
         <>
           {isSharedExpense(t) ? (
             <p>
-              <span className="text-muted-foreground">Despesa do 50/50 · pago por:</span>{" "}
-              <span className="font-semibold">{CLOSING_PARTNERS[expensePayer(t)]}</span>
-              <span className="text-muted-foreground"> (recebe de volta no fechamento)</span>
+              <span className="text-muted-foreground">Despesa do 50/50 · repassar a:</span>{" "}
+              <span className="font-semibold">{expenseProvider(t)}</span>
             </p>
           ) : (
             <p>
