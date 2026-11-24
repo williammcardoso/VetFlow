@@ -151,7 +151,7 @@ import {
 } from "@/lib/documentsApi";
 import { useClientWithAnimals, useAnimalRefByPatientCode } from "@/hooks/useSupabaseClients";
 import { useQueryClient } from "@tanstack/react-query";
-import { renderPdf, downloadPdf, openPdf } from "@/lib/pdfExport";
+import { renderPdf, downloadPdf, downloadStoredFile, openPdf } from "@/lib/pdfExport";
 import { sendPdfViaWhatsApp as sendPdfViaWhatsAppShared, openWhatsAppChat } from "@/lib/whatsappShare";
 import { useCurrentUserProfile } from "@/hooks/useCurrentUserProfile";
 import { useAuth } from "@/contexts/AuthContext";
@@ -1800,6 +1800,95 @@ const PatientRecordPage = () => {
                                 : exam.nota || "Ver detalhes")
                             : ((exam.customBlocks?.length ? customExamSummary(exam) : exam.result) || exam.nota || "Ver detalhes");
 
+                      // PDF que vai para o tutor (WhatsApp e "Baixar PDF"): o laudo de uma
+                      // página onde existe (hemograma, bioquímico, citologia...), senão o completo.
+                      const buildTutorExamBlob = async (): Promise<Blob> => {
+                        const tutorAddress = `${currentClient.address.street}, ${currentClient.address.number} - ${currentClient.address.city} - ${currentClient.address.state}`;
+                        const displayId = getPatientDisplayId(currentAnimal.id, currentClient.animals);
+                        return exam.type === "Hemograma Completo"
+                          ? await renderPdf(async (K) =>
+                              <K.ExamReportPdfContentHemogramaOnePage
+                                animalName={currentAnimal.name}
+                                animalId={currentAnimal.id}
+                                displayId={displayId}
+                                animalSpecies={currentAnimal.species}
+                                animalBreed={currentAnimal.breed}
+                                tutorName={currentClient.name}
+                                tutorAddress={tutorAddress}
+                                exam={exam}
+                                hemogramReferences={await fetchHemogramReferences()}
+                              />
+                            )
+                          : exam.type === "Bioquímico"
+                            ? await renderPdf((K) =>
+                                <K.ExamReportPdfContentBioquimicoOnePage
+                                  animalName={currentAnimal.name}
+                                  animalId={currentAnimal.id}
+                                  displayId={displayId}
+                                  animalSpecies={currentAnimal.species}
+                                  animalBreed={currentAnimal.breed}
+                                  tutorName={currentClient.name}
+                                  tutorAddress={tutorAddress}
+                                  exam={exam}
+                                />
+                              )
+                            : exam.type === "Citologia"
+                              ? await renderPdf((K) =>
+                                  <K.ExamReportPdfContentCitologiaOnePage
+                                    animalName={currentAnimal.name}
+                                    animalId={currentAnimal.id}
+                                    displayId={displayId}
+                                    animalSpecies={currentAnimal.species}
+                                    animalBreed={currentAnimal.breed}
+                                    animalGender={currentAnimal.gender}
+                                    animalAge={formatAgeLong(currentAnimal.birthday)}
+                                    tutorName={currentClient.name}
+                                    tutorAddress={tutorAddress}
+                                    exam={exam}
+                                  />
+                                )
+                              : exam.type === "Teste Rápido"
+                                ? await renderPdf((K) =>
+                                    <K.ExamReportPdfContentTesteRapidoOnePage
+                                      animalName={currentAnimal.name}
+                                      animalId={currentAnimal.id}
+                                      displayId={displayId}
+                                      animalSpecies={currentAnimal.species}
+                                      animalBreed={currentAnimal.breed}
+                                      animalGender={currentAnimal.gender}
+                                      animalAge={formatAgeLong(currentAnimal.birthday)}
+                                      tutorName={currentClient.name}
+                                      tutorAddress={tutorAddress}
+                                      exam={exam}
+                                    />
+                                  )
+                              : exam.customBlocks?.length
+                                ? await renderPdf((K) =>
+                                    <K.ExamReportPdfContentOutrosOnePage
+                                      animalName={currentAnimal.name}
+                                      animalId={currentAnimal.id}
+                                      displayId={displayId}
+                                      animalSpecies={currentAnimal.species}
+                                      animalBreed={currentAnimal.breed}
+                                      tutorName={currentClient.name}
+                                      tutorAddress={tutorAddress}
+                                      exam={exam}
+                                    />
+                                  )
+                              : await renderPdf(async (K) =>
+                                <K.ExamReportPdfContent
+                                  animalName={currentAnimal.name}
+                                  animalId={currentAnimal.id}
+                                  displayId={displayId}
+                                  animalSpecies={currentAnimal.species}
+                                  tutorName={currentClient.name}
+                                  tutorAddress={tutorAddress}
+                                  exam={exam}
+                                  hemogramReferences={await fetchHemogramReferences()}
+                                />
+                              );
+                      };
+
                       return (
                         <div
                           key={exam.id}
@@ -2030,6 +2119,33 @@ const PatientRecordPage = () => {
                                 </Button>
                               )}
 
+                              {/* Botão: Baixar o laudo — o mesmo PDF que vai pelo WhatsApp */}
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                type="button"
+                                title="Baixar PDF"
+                                aria-label="Baixar PDF"
+                                onClick={async () => {
+                                  const toastId = toast.loading("Gerando o PDF…");
+                                  try {
+                                    const blob = await buildTutorExamBlob();
+                                    await downloadPdf({
+                                      blob,
+                                      fileName: buildPdfFileName("Laudo", examDisplayName(exam), currentAnimal.name, formatDateBRForFileName(exam.date)),
+                                      persistOptions: { folder: "exams" },
+                                    });
+                                    toast.success("PDF baixado.", { id: toastId });
+                                  } catch (err) {
+                                    console.error("[Baixar exame] falhou ao gerar o PDF", err);
+                                    toast.error("Não consegui gerar o PDF deste exame.", { id: toastId });
+                                  }
+                                }}
+                                className="rounded-md hover:bg-muted hover:text-foreground transition-colors duration-200"
+                              >
+                                <FaDownload className="h-4 w-4" />
+                              </Button>
+
                               {/* Botão: Enviar exame por WhatsApp (com link do PDF) */}
                               <Button
                                 variant="ghost"
@@ -2042,90 +2158,7 @@ const PatientRecordPage = () => {
                                     return;
                                   }
                                   try {
-                                    const tutorAddress = `${currentClient.address.street}, ${currentClient.address.number} - ${currentClient.address.city} - ${currentClient.address.state}`;
-                                    const displayId = getPatientDisplayId(currentAnimal.id, currentClient.animals);
-                                    const blob = exam.type === "Hemograma Completo"
-                                      ? await renderPdf(async (K) =>
-                                          <K.ExamReportPdfContentHemogramaOnePage
-                                            animalName={currentAnimal.name}
-                                            animalId={currentAnimal.id}
-                                            displayId={displayId}
-                                            animalSpecies={currentAnimal.species}
-                                            animalBreed={currentAnimal.breed}
-                                            tutorName={currentClient.name}
-                                            tutorAddress={tutorAddress}
-                                            exam={exam}
-                                            hemogramReferences={await fetchHemogramReferences()}
-                                          />
-                                        )
-                                      : exam.type === "Bioquímico"
-                                        ? await renderPdf((K) =>
-                                            <K.ExamReportPdfContentBioquimicoOnePage
-                                              animalName={currentAnimal.name}
-                                              animalId={currentAnimal.id}
-                                              displayId={displayId}
-                                              animalSpecies={currentAnimal.species}
-                                              animalBreed={currentAnimal.breed}
-                                              tutorName={currentClient.name}
-                                              tutorAddress={tutorAddress}
-                                              exam={exam}
-                                            />
-                                          )
-                                        : exam.type === "Citologia"
-                                          ? await renderPdf((K) =>
-                                              <K.ExamReportPdfContentCitologiaOnePage
-                                                animalName={currentAnimal.name}
-                                                animalId={currentAnimal.id}
-                                                displayId={displayId}
-                                                animalSpecies={currentAnimal.species}
-                                                animalBreed={currentAnimal.breed}
-                                                animalGender={currentAnimal.gender}
-                                                animalAge={formatAgeLong(currentAnimal.birthday)}
-                                                tutorName={currentClient.name}
-                                                tutorAddress={tutorAddress}
-                                                exam={exam}
-                                              />
-                                            )
-                                          : exam.type === "Teste Rápido"
-                                            ? await renderPdf((K) =>
-                                                <K.ExamReportPdfContentTesteRapidoOnePage
-                                                  animalName={currentAnimal.name}
-                                                  animalId={currentAnimal.id}
-                                                  displayId={displayId}
-                                                  animalSpecies={currentAnimal.species}
-                                                  animalBreed={currentAnimal.breed}
-                                                  animalGender={currentAnimal.gender}
-                                                  animalAge={formatAgeLong(currentAnimal.birthday)}
-                                                  tutorName={currentClient.name}
-                                                  tutorAddress={tutorAddress}
-                                                  exam={exam}
-                                                />
-                                              )
-                                          : exam.customBlocks?.length
-                                            ? await renderPdf((K) =>
-                                                <K.ExamReportPdfContentOutrosOnePage
-                                                  animalName={currentAnimal.name}
-                                                  animalId={currentAnimal.id}
-                                                  displayId={displayId}
-                                                  animalSpecies={currentAnimal.species}
-                                                  animalBreed={currentAnimal.breed}
-                                                  tutorName={currentClient.name}
-                                                  tutorAddress={tutorAddress}
-                                                  exam={exam}
-                                                />
-                                              )
-                                          : await renderPdf(async (K) =>
-                                            <K.ExamReportPdfContent
-                                              animalName={currentAnimal.name}
-                                              animalId={currentAnimal.id}
-                                              displayId={displayId}
-                                              animalSpecies={currentAnimal.species}
-                                              tutorName={currentClient.name}
-                                              tutorAddress={tutorAddress}
-                                              exam={exam}
-                                              hemogramReferences={await fetchHemogramReferences()}
-                                            />
-                                          );
+                                    const blob = await buildTutorExamBlob();
                                     await sendPdfViaWhatsApp({
                                       blob,
                                       fileName: buildPdfFileName("Laudo", examDisplayName(exam), currentAnimal.name, formatDateBRForFileName(exam.date)),
@@ -2391,6 +2424,7 @@ const PatientRecordPage = () => {
                       };
                       const onDownload = async () => {
                         if (doc.source === "editor" && doc.content) {
+                          const toastId = toast.loading("Gerando o PDF…");
                           try {
                             const blob = examRequestData
                               ? await renderPdf((K) => <K.ExamRequestPdfContent data={examRequestData} />)
@@ -2406,16 +2440,19 @@ const PatientRecordPage = () => {
                               fileName: buildPdfFileName(doc.name, currentAnimal.name, formatDateBRForFileName(doc.date)),
                               persistOptions: { folder: "documents/generated" },
                             });
+                            toast.success("PDF baixado.", { id: toastId });
                           } catch (err) {
                             console.error("[pdf-error] Erro ao baixar PDF do documento", doc.name, err);
-                            toast.error("Erro ao baixar o PDF.");
+                            toast.error("Erro ao baixar o PDF.", { id: toastId });
                           }
                         } else if (doc.fileUrl) {
-                          const a = document.createElement("a");
-                          a.href = doc.fileUrl;
-                          a.download = doc.name;
-                          a.target = "_blank";
-                          a.click();
+                          // Arquivo enviado (foto, PDF do laboratório): baixa direto com o
+                          // nome do documento + pet + data, na extensão do arquivo. Antes
+                          // o `download` era ignorado (link de outro domínio) e abria numa aba.
+                          await downloadStoredFile(
+                            doc.fileUrl,
+                            buildPdfFileName(doc.name, currentAnimal.name, formatDateBRForFileName(doc.date)).replace(/\.pdf$/, "")
+                          );
                         }
                       };
                       // Mesmo PDF do onView/onDownload; pro arquivo avulso (doc.fileUrl)
@@ -2786,6 +2823,7 @@ const PatientRecordPage = () => {
                                     toast.error("Erro: Dados do cliente ou animal não disponíveis.");
                                     return;
                                   }
+                                  const toastId = toast.loading("Gerando o PDF…");
                                   renderPdf((K) =>
                                     K.PrescriptionPdfContent({
                                       animalName: currentAnimal.name,
@@ -2818,7 +2856,10 @@ const PatientRecordPage = () => {
                                     fileName: buildPdfFileName("Receita", currentAnimal.name, rx.date ? formatDateBRForFileName(rx.date) : ""),
                                     persistOptions: { folder: "prescriptions" },
                                   })).then(() => {
-                                    toast.success("PDF baixado.");
+                                    toast.success("PDF baixado.", { id: toastId });
+                                  }).catch((err) => {
+                                    console.error("[Baixar receita] falhou ao gerar o PDF", err);
+                                    toast.error("Não consegui gerar o PDF da receita.", { id: toastId });
                                   });
                                 }}
                                 className="rounded-md hover:bg-muted hover:text-foreground transition-colors duration-200"

@@ -1,5 +1,13 @@
 import { describe, it, expect } from "vitest";
-import { buildPdfFileName, cleanDownloadFileName, formatDateBRForFileName, parseBrNumber, storageFileName, withDownloadName } from "./utils";
+import {
+  buildPdfFileName,
+  cleanDownloadFileName,
+  extensionForMime,
+  formatDateBRForFileName,
+  parseBrNumber,
+  storageFileName,
+  withDownloadName,
+} from "./utils";
 
 describe("parseBrNumber", () => {
   it("parses plain integers", () => {
@@ -70,5 +78,23 @@ describe("nomes de arquivo dos PDFs", () => {
     );
     expect(withDownloadName("https://exemplo.com/a.pdf", "x.pdf")).toBe("https://exemplo.com/a.pdf");
     expect(withDownloadName(`${url}?download=a.pdf`, "b.pdf")).toBe(`${url}?download=a.pdf`);
+  });
+
+  it("arquivo anexado: nome com a extensão do tipo real", () => {
+    expect(cleanDownloadFileName("Raio-X tórax - Thor - 23-11-2026", "jpg")).toBe("Raio-X tórax - Thor - 23-11-2026.jpg");
+    expect(cleanDownloadFileName("Foto.png", "png")).toBe("Foto.png");
+    // só tira a extensão de verdade, não "xpdf" no fim do nome
+    expect(cleanDownloadFileName("Exame xpdf")).toBe("Exame xpdf.pdf");
+    const url = "https://x.supabase.co/storage/v1/object/public/documents/patient_documents/p1/1_abc";
+    expect(withDownloadName(url, "Raio-X - Thor", "jpg")).toBe(`${url}?download=Raio-X%20-%20Thor.jpg`);
+  });
+
+  it("extensionForMime: tipo do arquivo → extensão", () => {
+    expect(extensionForMime("application/pdf")).toBe("pdf");
+    expect(extensionForMime("image/jpeg")).toBe("jpg");
+    expect(extensionForMime("image/png; charset=binary")).toBe("png");
+    expect(extensionForMime("application/vnd.openxmlformats-officedocument.wordprocessingml.document")).toBe("docx");
+    expect(extensionForMime("application/octet-stream")).toBeNull();
+    expect(extensionForMime(null)).toBeNull();
   });
 });

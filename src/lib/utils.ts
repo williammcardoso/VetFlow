@@ -215,10 +215,15 @@ export function buildPdfFileName(...parts: Array<string | undefined | null>): st
   return `${base || "Documento"}.pdf`;
 }
 
-/** Nome pronto pro atributo download/arquivo local: tira só o que o sistema de arquivos recusa. */
-export function cleanDownloadFileName(name: string): string {
-  const base = cleanFileNamePart((name || "").replace(/\.pdf$/i, ""));
-  return `${base || "Documento"}.pdf`;
+/**
+ * Nome pronto pro atributo download/arquivo local: tira só o que o sistema de
+ * arquivos recusa e garante a extensão (PDF por padrão; arquivo anexado ao
+ * prontuário passa a dele: "jpg", "png"...).
+ */
+export function cleanDownloadFileName(name: string, ext = "pdf"): string {
+  const e = ext.replace(/[^a-z0-9]/gi, "").toLowerCase() || "pdf";
+  const base = cleanFileNamePart((name || "").replace(new RegExp(`\\.${e}$`, "i"), ""));
+  return `${base || "Documento"}.${e}`;
 }
 
 /**
@@ -236,7 +241,32 @@ export function storageFileName(name: string): string {
  * acento): o Supabase responde `Content-Disposition: attachment` com
  * `filename*=UTF-8''…` quando a URL leva `?download=`. Outras URLs voltam iguais.
  */
-export function withDownloadName(url: string, fileName: string): string {
+export function withDownloadName(url: string, fileName: string, ext = "pdf"): string {
   if (!/\/storage\/v1\/object\/public\//.test(url) || /[?&]download=/.test(url)) return url;
-  return `${url}${url.includes("?") ? "&" : "?"}download=${encodeURIComponent(cleanDownloadFileName(fileName))}`;
+  return `${url}${url.includes("?") ? "&" : "?"}download=${encodeURIComponent(cleanDownloadFileName(fileName, ext))}`;
+}
+
+// Tipos que aparecem em anexo do prontuário (foto do celular, PDF de
+// laboratório, Word) cujo nome não bate com a extensão do arquivo.
+const EXT_BY_MIME: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/svg+xml": "svg",
+  "text/plain": "txt",
+  "application/msword": "doc",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
+  "application/vnd.ms-excel": "xls",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "xlsx",
+};
+
+/**
+ * Extensão do arquivo pelo tipo (Content-Type): "image/jpeg" → "jpg",
+ * "application/pdf" → "pdf". Tipo desconhecido ou genérico
+ * ("application/octet-stream") → null.
+ */
+export function extensionForMime(mime?: string | null): string | null {
+  const type = (mime || "").split(";")[0].trim().toLowerCase();
+  if (!type) return null;
+  if (EXT_BY_MIME[type]) return EXT_BY_MIME[type];
+  const sub = type.split("/")[1] ?? "";
+  return /^[a-z0-9]{2,5}$/.test(sub) ? sub : null;
 }

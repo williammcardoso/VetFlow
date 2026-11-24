@@ -1,7 +1,7 @@
 import type { ReactElement } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { createShareLink, type ShareLinkPreview } from "@/lib/documentShareLinksApi";
-import { cleanDownloadFileName, storageFileName, withDownloadName } from "@/lib/utils";
+import { cleanDownloadFileName, extensionForMime, storageFileName, withDownloadName } from "@/lib/utils";
 
 const DEFAULT_BUCKET = "documents";
 
@@ -87,12 +87,43 @@ function downloadBlob(blob: Blob, fileName: string) {
  * o arquivo salvo levava o fim da URL (ex.: "1732…_k3j4_A03_Thor_12.pdf").
  */
 export function downloadPdfFromUrl(url: string, fileName: string): void {
+  clickDownloadLink(withDownloadName(url, fileName));
+}
+
+function clickDownloadLink(href: string, fileName?: string) {
   const a = document.createElement("a");
-  a.href = withDownloadName(url, fileName);
+  a.href = href;
+  if (fileName) a.download = fileName;
   a.rel = "noopener";
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
+}
+
+/**
+ * Arquivo anexado ao prontuário (foto, PDF do laboratório...) baixado direto,
+ * com o nome que foi dado a ele e a extensão do tipo real. No Storage ele está
+ * sem extensão ("patient_documents/<pet>/1732…_k3j4"), então o tipo vem de um
+ * HEAD (o Storage libera CORS e manda Content-Type). Link de outro lugar ou
+ * tipo desconhecido: abre numa aba, como antes.
+ */
+export async function downloadStoredFile(url: string, name: string): Promise<void> {
+  if (url.startsWith("data:")) {
+    const ext = extensionForMime(url.slice(5, url.search(/[;,]/))) ?? "pdf";
+    clickDownloadLink(url, cleanDownloadFileName(name, ext));
+    return;
+  }
+  let ext: string | null = null;
+  if (/\/storage\/v1\/object\/public\//.test(url)) {
+    try {
+      const res = await fetch(url, { method: "HEAD" });
+      if (res.ok) ext = extensionForMime(res.headers.get("content-type"));
+    } catch {
+      // sem rede ou sem CORS: abre numa aba abaixo
+    }
+  }
+  if (ext) clickDownloadLink(withDownloadName(url, name, ext));
+  else window.open(url, "_blank", "noopener,noreferrer");
 }
 
 // A biblioteca de PDF (~1,3 MB) é carregada só aqui, na hora de gerar — antes
