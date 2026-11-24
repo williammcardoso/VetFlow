@@ -1,10 +1,9 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
-import { Building, CheckCircle2, Loader2, Lock, Pencil, Printer, Scale, Trash2, X } from "lucide-react";
+import { ArrowRight, Building, CheckCircle2, Copy, Loader2, Lock, Pencil, Printer, Scale, Stethoscope, Trash2, Wheat, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   AlertDialog,
@@ -20,7 +19,7 @@ import CurrencyInput from "@/components/CurrencyInput";
 import DatePickerBR from "@/components/appointments/inputs/DatePickerBR";
 import { PageShell } from "@/components/saas/PageShell";
 import { PageHeader } from "@/components/saas/PageHeader";
-import { KpiStrip } from "@/components/saas/KpiStrip";
+import { Field } from "@/components/forms/FormLayout";
 import { IconChip, Panel } from "@/components/finance/FinanceUI";
 import { CONCEPTS, TONES } from "@/components/finance/financeTheme";
 import { ProviderPayoutDialog } from "@/components/finance/ProviderPayoutDialog";
@@ -288,11 +287,25 @@ const ExpensesPage: React.FC = () => {
 
   const providerPixSaved = !!savedKey(provider) && pixFromSaved;
 
+  const copyPix = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success("PIX copiado.");
+    } catch {
+      // Sem https (acesso pelo IP da rede local) o navegador bloqueia a cópia.
+      toast.error("Não consegui copiar — selecione o texto e copie.");
+    }
+  };
+
+  const monthName = periodLabel.split(" / ")[0];
+  // Colunas da lista no computador: data | despesa | repassar para | valor | ações.
+  const LIST_COLS = "xl:grid-cols-[6.5rem_minmax(0,1.6fr)_minmax(0,1fr)_8.5rem_4.5rem]";
+
   return (
     <PageShell className="space-y-4 sm:space-y-5">
       <PageHeader
         title="Despesas"
-        description="Gastos que você não cobrou do cliente (aluguel de centro cirúrgico, material da sala). É um repasse ao fornecedor: sai do que entrou e desconta do lucro antes da divisão."
+        description="Gastos não cobrados do cliente: repasse ao fornecedor, descontado do lucro antes da divisão 50/50."
         icon={Building}
         module="finance"
         breadcrumb={<>Painel &gt; Financeiro &gt; Despesas</>}
@@ -332,249 +345,338 @@ const ExpensesPage: React.FC = () => {
         }
       />
 
-      {/* Monitor grande: totais em cima, formulário estreito + lista ao lado.
-          Celular: o formulário vem primeiro (é o que se usa na hora da compra). */}
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[26rem_minmax(0,1fr)] xl:items-start">
-        <KpiStrip
-          loading={loading}
-          className="max-sm:order-2 xl:col-span-2"
-          items={[
-            {
-              label: `Despesas · ${periodLabel.split(" / ")[0]}`,
-              value: fmt(total),
-              hint: total > 0 ? "desconta do lucro antes da divisão" : "nenhuma despesa no mês",
-              concept: CONCEPTS.despesas,
-              colorValue: total > 0,
-            },
-            {
-              label: "A repassar para",
-              value: monthProviders.length === 1 ? "1 fornecedor" : `${monthProviders.length} fornecedores`,
-              hint: monthProviders.length > 0 ? monthProviders.map(([name]) => name).join(", ") : "—",
-              concept: CONCEPTS.repasses,
-            },
-            {
-              label: "Cada parte arca com",
-              value: fmt(total / 2),
-              hint: "metade da clínica, metade da agropecuária",
-              icon: Scale,
-              tone: "slate",
-            },
-          ]}
-        />
-
-        <Panel
-          title={editing ? "Editar despesa" : "Lançar despesa"}
-          icon={editing ? Pencil : Building}
-          tone="rose"
-          description={editing ? `Lançada em ${formatDateTime(editing.date)}` : "Vai cobrar do cliente? Use um serviço com repasse."}
-          actions={
-            editing ? (
-              <Button variant="ghost" size="sm" onClick={resetForm} className="h-7 gap-1 text-xs text-muted-foreground">
-                <X className="h-3.5 w-3.5" /> Cancelar
-              </Button>
-            ) : undefined
-          }
-          className={cn("max-sm:order-1", editing && "ring-1 ring-rose-300")}
-        >
-          <form onSubmit={handleSubmit} className="space-y-4 p-4">
-            <div className="flex flex-wrap items-end gap-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="exp-date" className="text-xs font-medium text-muted-foreground">
-                  Data
-                </Label>
-                <DatePickerBR id="exp-date" valueISO={date} onChangeISO={setDate} className="w-[11rem]" />
+      {/* Monitor grande (2xl): lançamento e lista à esquerda, resumo do mês
+          fixo à direita — mesmo desenho de Orçamentos/PDV, sem faixa larga
+          vazia. Notebook (xl, ~1366 com o menu aberto): o resumo desce, senão
+          espremia os campos. Flex e não grade com row-span: a grade abria um
+          vão entre o formulário e a lista quando o resumo ficava mais alto. */}
+      <div className="flex flex-col gap-4 2xl:flex-row 2xl:items-start">
+        <div className="min-w-0 flex-1 space-y-4">
+          <Panel
+            title={editing ? "Editar despesa" : "Lançar despesa"}
+            icon={editing ? Pencil : Building}
+            tone="rose"
+            description={editing ? `Lançada em ${formatDateTime(editing.date)}` : "Vai cobrar do cliente? Use um serviço com repasse."}
+            actions={
+              editing ? (
+                <Button variant="ghost" size="sm" onClick={resetForm} className="h-7 gap-1 text-xs text-muted-foreground">
+                  <X className="h-3.5 w-3.5" /> Cancelar
+                </Button>
+              ) : undefined
+            }
+            className={cn(editing && "ring-1 ring-rose-300")}
+          >
+            <form onSubmit={handleSubmit}>
+              {/* Linhas alinhadas: data | valor | o que foi | observações, e
+                  embaixo repassar para | PIX (cada um ocupando duas colunas).
+                  lg e não sm para pôr lado a lado: o breakpoint ignora o menu
+                  lateral — no tablet com ele aberto os campos espremiam. */}
+              <div className="grid grid-cols-2 gap-x-3 gap-y-4 p-4 sm:gap-x-4 xl:grid-cols-[11rem_9.5rem_minmax(0,1fr)_minmax(0,1fr)]">
+                <Field label="Data" htmlFor="exp-date" className="col-span-1">
+                  <DatePickerBR id="exp-date" valueISO={date} onChangeISO={setDate} className="w-full" />
+                </Field>
+                <Field label="Valor" htmlFor="exp-amount" className="col-span-1">
+                  {/* Máscara de dinheiro: digita só os números (15000 → R$ 150,00). */}
+                  <CurrencyInput id="exp-amount" value={amount} onValueChange={setAmount} className="h-10 w-full text-right font-semibold tabular-nums" />
+                </Field>
+                <Field label="O que foi" htmlFor="exp-description" required className="lg:col-span-1">
+                  <Input
+                    id="exp-description"
+                    list="exp-descriptions"
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    placeholder="Ex.: Aluguel do centro cirúrgico"
+                    className="h-10 bg-card"
+                    autoComplete="off"
+                  />
+                  <datalist id="exp-descriptions">
+                    {descriptions.map((d) => (
+                      <option key={d} value={d} />
+                    ))}
+                  </datalist>
+                </Field>
+                <Field
+                  label={
+                    <>
+                      Observações <span className="font-normal text-muted-foreground">(opcional)</span>
+                    </>
+                  }
+                  htmlFor="exp-notes"
+                  className="lg:col-span-1"
+                >
+                  <Input
+                    id="exp-notes"
+                    value={notesText}
+                    onChange={(e) => setNotesText(e.target.value)}
+                    placeholder="Ex.: cirurgia da Meg, tutora Rute"
+                    className="h-10 bg-card"
+                    autoComplete="off"
+                  />
+                </Field>
+                <Field label="Repassar para" htmlFor="exp-provider" required className="lg:col-span-1 xl:col-span-2">
+                  <Input
+                    id="exp-provider"
+                    list="exp-providers"
+                    value={provider}
+                    onChange={(e) => handleProviderChange(e.target.value)}
+                    placeholder="Fornecedor ou seu nome"
+                    className="h-10 bg-card"
+                    autoComplete="off"
+                  />
+                  <datalist id="exp-providers">
+                    {providerOptions.map((p) => (
+                      <option key={p} value={p} />
+                    ))}
+                  </datalist>
+                </Field>
+                <Field
+                  label="PIX / dados para pagamento"
+                  htmlFor="exp-pix"
+                  className="lg:col-span-1 xl:col-span-2"
+                  hint={
+                    providerPixSaved ? (
+                      <span className="inline-flex items-center gap-1 font-medium text-emerald-700">
+                        <CheckCircle2 className="h-3.5 w-3.5" aria-hidden /> PIX salvo de {savedKey(provider)}
+                      </span>
+                    ) : (
+                      "Fica salvo para o próximo lançamento e sai no PDF de repasse."
+                    )
+                  }
+                >
+                  <Input
+                    id="exp-pix"
+                    value={pix}
+                    onChange={(e) => {
+                      setPix(e.target.value);
+                      setPixFromSaved(false);
+                    }}
+                    placeholder="Ex.: PIX (CPF) 123.456.789-00 — titular"
+                    className={cn("h-10 bg-card", providerPixSaved && "border-emerald-300 bg-emerald-50/40")}
+                    autoComplete="off"
+                  />
+                </Field>
               </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="exp-amount" className="text-xs font-medium text-muted-foreground">
-                  Valor
-                </Label>
-                {/* Máscara de dinheiro: digita só os números (15000 → R$ 150,00). */}
-                <CurrencyInput id="exp-amount" value={amount} onValueChange={setAmount} className="h-10 w-[9.5rem] text-right font-semibold tabular-nums" />
+              <div className="flex flex-wrap items-center justify-end gap-x-4 gap-y-2 border-t border-border/70 bg-muted/30 px-4 py-3">
+                <span className="text-sm text-muted-foreground">
+                  Cada parte arca com <span className="font-bold tabular-nums text-foreground">{fmt(amount / 2)}</span>
+                </span>
+                <Button type="submit" disabled={saving} className="h-10 gap-2 bg-rose-600 px-5 font-semibold text-white shadow-sm hover:bg-rose-700">
+                  {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Building className="h-4 w-4" />}
+                  {saving ? "Salvando..." : editing ? "Salvar alterações" : "Lançar despesa"}
+                </Button>
               </div>
-            </div>
+            </form>
+          </Panel>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="exp-description" className="text-xs font-medium text-muted-foreground">
-                O que foi
-              </Label>
-              <Input
-                id="exp-description"
-                list="exp-descriptions"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Ex.: Aluguel do centro cirúrgico — cirurgia do Thor"
-                className="h-10 bg-card"
-                autoComplete="off"
-              />
-              <datalist id="exp-descriptions">
-                {descriptions.map((d) => (
-                  <option key={d} value={d} />
-                ))}
-              </datalist>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="exp-notes" className="text-xs font-medium text-muted-foreground">
-                Observações <span className="font-normal">(opcional)</span>
-              </Label>
-              <Input
-                id="exp-notes"
-                value={notesText}
-                onChange={(e) => setNotesText(e.target.value)}
-                placeholder="Ex.: cirurgia da Meg, tutora Rute"
-                className="h-10 bg-card"
-                autoComplete="off"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="exp-provider" className="text-xs font-medium text-muted-foreground">
-                Repassar para
-              </Label>
-              <Input
-                id="exp-provider"
-                list="exp-providers"
-                value={provider}
-                onChange={(e) => handleProviderChange(e.target.value)}
-                placeholder="Fornecedor — ou seu nome, se você pagou"
-                className="h-10 bg-card"
-                autoComplete="off"
-              />
-              <datalist id="exp-providers">
-                {providerOptions.map((p) => (
-                  <option key={p} value={p} />
-                ))}
-              </datalist>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="exp-pix" className="text-xs font-medium text-muted-foreground">
-                PIX / dados para pagamento
-              </Label>
-              <Input
-                id="exp-pix"
-                value={pix}
-                onChange={(e) => {
-                  setPix(e.target.value);
-                  setPixFromSaved(false);
-                }}
-                placeholder="Ex.: PIX (CPF) 123.456.789-00 — Nome do titular"
-                className="h-10 bg-card"
-                autoComplete="off"
-              />
-              <p className={cn("flex items-center gap-1 text-[11px]", providerPixSaved ? "text-emerald-700" : "text-muted-foreground")}>
-                {providerPixSaved ? (
-                  <>
-                    <CheckCircle2 className="h-3 w-3" aria-hidden /> PIX salvo de {savedKey(provider)}
-                  </>
-                ) : (
-                  "Fica salvo para o próximo lançamento e sai no PDF de repasse."
-                )}
+          <Panel
+            title={`Despesas de ${periodLabel}`}
+            icon={CONCEPTS.despesas.icon}
+            tone="rose"
+            description={
+              monthExpenses.length > 0
+                ? `${monthExpenses.length === 1 ? "1 lançamento" : `${monthExpenses.length} lançamentos`} · entram no Fechamento 50/50`
+                : "Entram no Fechamento 50/50 deste mês"
+            }
+            actions={<span className="text-base font-bold tabular-nums text-rose-700">− {fmt(total)}</span>}
+          >
+            {locked && (
+              <p className="flex items-center gap-1.5 border-b border-border/70 bg-muted/40 px-4 py-2 text-xs text-muted-foreground">
+                <Lock className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                Mês fechado: para lançar, editar ou excluir despesas deste mês, reabra no{" "}
+                <Link to="/financial/monthly-closing" className="font-semibold text-primary hover:underline">
+                  Fechamento 50/50
+                </Link>
+                .
               </p>
-            </div>
+            )}
+            {loading ? (
+              <p className="flex items-center gap-2 px-4 py-8 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" /> Carregando...
+              </p>
+            ) : monthExpenses.length === 0 ? (
+              <div className="flex flex-col items-center gap-2 px-4 py-8 text-center">
+                <IconChip icon={Building} tone="rose" />
+                <p className="text-sm font-medium text-foreground">Nenhuma despesa em {monthName}.</p>
+                <p className="text-xs text-muted-foreground">Lance acima o que não foi cobrado do cliente.</p>
+              </div>
+            ) : (
+              <>
+                <div
+                  className={cn(
+                    "hidden items-center gap-x-4 border-b border-border/70 bg-muted/30 px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground xl:grid",
+                    LIST_COLS
+                  )}
+                >
+                  <span>Data</span>
+                  <span>Despesa</span>
+                  <span>Repassar para</span>
+                  <span className="text-right">Valor</span>
+                  <span className="sr-only">Ações</span>
+                </div>
+                <ul className="divide-y divide-border/70">
+                  {monthExpenses.map((t) => {
+                    const name = expenseProvider(t);
+                    const key = savedKey(name);
+                    const obs = t.observations?.trim();
+                    const badge = (
+                      <span className={cn("inline-flex min-w-0 max-w-full items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-semibold ring-1 ring-inset", TONES.orange.badge)}>
+                        <CONCEPTS.repasses.icon className="h-3 w-3 shrink-0" aria-hidden />
+                        <span className="truncate">{name}</span>
+                      </span>
+                    );
+                    return (
+                      <li
+                        key={t.id}
+                        className={cn(
+                          "grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 px-4 py-3 transition-colors hover:bg-muted/40 xl:items-center xl:gap-x-4",
+                          LIST_COLS,
+                          editing?.id === t.id && "bg-rose-50/60 hover:bg-rose-50/60"
+                        )}
+                      >
+                        <span className="hidden text-sm tabular-nums text-muted-foreground xl:block">{formatDateTime(t.date)}</span>
+                        <div className="flex min-w-0 items-start gap-3 xl:items-center">
+                          <IconChip icon={CONCEPTS.despesas.icon} tone="rose" size="sm" />
+                          <div className="min-w-0">
+                            {/* Celular: quebra em linhas; computador: uma linha só. */}
+                            <p className="break-words text-sm font-semibold text-foreground xl:truncate">{t.description}</p>
+                            {obs && <p className="break-words text-xs text-muted-foreground xl:truncate">{obs}</p>}
+                            <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground xl:hidden">
+                              <span className="tabular-nums">{formatDateTime(t.date)}</span>
+                              {badge}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="hidden min-w-0 xl:block">
+                          {badge}
+                          <p className={cn("mt-0.5 truncate text-[11px]", key ? "text-emerald-700" : "font-medium text-amber-700")} title={key ? notes[key] : undefined}>
+                            {key ? "PIX salvo" : "sem PIX salvo"}
+                          </p>
+                        </div>
+                        <div className="flex flex-col items-end gap-1 xl:contents">
+                          <span className="text-sm font-bold tabular-nums text-rose-700 xl:text-right">− {fmt(t.amount)}</span>
+                          {!locked ? (
+                            <div className="flex items-center justify-end gap-0.5">
+                              <button
+                                type="button"
+                                onClick={() => startEdit(t)}
+                                className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                                aria-label={`Editar ${t.description}`}
+                                title="Editar"
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setToDelete(t)}
+                                className="rounded-md p-1.5 text-muted-foreground hover:bg-rose-50 hover:text-rose-700"
+                                aria-label={`Excluir ${t.description}`}
+                                title="Excluir"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            </div>
+                          ) : (
+                            <span className="hidden xl:block" />
+                          )}
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </>
+            )}
+          </Panel>
+        </div>
 
-            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-3">
-              <span className="text-xs text-muted-foreground">
-                Cada parte arca com <span className="font-semibold tabular-nums text-foreground">{fmt(amount / 2)}</span>
-              </span>
-              <Button type="submit" disabled={saving} className="h-10 gap-2 bg-rose-600 px-5 text-white hover:bg-rose-700">
-                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Building className="h-4 w-4" />}
-                {saving ? "Salvando..." : editing ? "Salvar alterações" : "Lançar despesa"}
-              </Button>
-            </div>
-          </form>
-        </Panel>
+        <aside className="min-w-0 2xl:sticky 2xl:top-4 2xl:w-[22rem] 2xl:shrink-0">
+          <Panel title={`Resumo de ${monthName}`} icon={Scale} tone="emerald" description="O que entra no Fechamento 50/50">
+            {/* Embaixo da lista (tablet/notebook): duas colunas — totais | a repassar. */}
+            <div className="space-y-4 p-4 lg:grid lg:grid-cols-2 lg:gap-4 lg:space-y-0 2xl:block 2xl:space-y-4">
+              <div className="space-y-4">
+                <div className={cn("rounded-xl border px-3 py-3", TONES.rose.card)}>
+                  <p className={cn("text-[11px] font-semibold uppercase tracking-wide", TONES.rose.label)}>Despesas do mês</p>
+                  <p className="mt-1 text-3xl font-bold tabular-nums tracking-tight text-rose-700">{fmt(total)}</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">desconta do lucro antes da divisão</p>
+                </div>
 
-        <Panel
-          title={`Despesas de ${periodLabel}`}
-          icon={CONCEPTS.despesas.icon}
-          tone="rose"
-          description="Entram no Fechamento 50/50 deste mês"
-          className="max-sm:order-3"
-          actions={
-            <>
-              <span className="text-sm font-bold tabular-nums text-rose-700">− {fmt(total)}</span>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="h-8 gap-1.5 border-orange-200 text-orange-800 hover:bg-orange-50"
-                onClick={() => setPayoutOpen(true)}
-                disabled={monthExpenses.length === 0}
-                title="PDF para a Agrocentro pagar cada fornecedor, com o PIX"
-              >
-                <Printer className="h-4 w-4" aria-hidden /> PDF do repasse
-              </Button>
-            </>
-          }
-        >
-          {locked && (
-            <p className="flex items-center gap-1.5 border-b border-border/70 bg-muted/40 px-4 py-2 text-xs text-muted-foreground">
-              <Lock className="h-3.5 w-3.5 shrink-0" aria-hidden />
-              Mês fechado: para lançar, editar ou excluir despesas deste mês, reabra no{" "}
-              <Link to="/financial/monthly-closing" className="font-semibold text-primary hover:underline">
-                Fechamento 50/50
-              </Link>
-              .
-            </p>
-          )}
-          {loading ? (
-            <p className="flex items-center gap-2 px-4 py-8 text-sm text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" /> Carregando...
-            </p>
-          ) : monthExpenses.length === 0 ? (
-            <p className="px-4 py-10 text-center text-sm text-muted-foreground">Nenhuma despesa lançada neste mês.</p>
-          ) : (
-            <ul className="divide-y divide-border/70">
-              {monthExpenses.map((t) => {
-                const name = expenseProvider(t);
-                return (
-                  <li key={t.id} className={cn("flex items-center gap-3 px-4 py-2.5", editing?.id === t.id && "bg-rose-50/60")}>
-                    <IconChip icon={CONCEPTS.despesas.icon} tone="rose" size="sm" />
-                    <div className="min-w-0 flex-1">
-                      {/* Celular: quebra em linhas (cortado sobrava "Aluguel CC - ..."). */}
-                      <p className="break-words text-sm font-semibold text-foreground sm:truncate">{t.description}</p>
-                      <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
-                        <span className="tabular-nums">{formatDateTime(t.date)}</span>
-                        <span
-                          className={cn("inline-flex min-w-0 items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-semibold ring-1 ring-inset", TONES.orange.badge)}
-                          title={savedKey(name) ? `PIX: ${notes[savedKey(name)!]}` : "Sem PIX salvo"}
-                        >
-                          <CONCEPTS.repasses.icon className="h-3 w-3 shrink-0" aria-hidden />
-                          <span className="truncate">{name}</span>
-                        </span>
-                        {t.observations?.trim() && <span className="min-w-0 break-words text-foreground/80">{t.observations}</span>}
-                      </p>
-                    </div>
-                    <span className="shrink-0 text-sm font-bold tabular-nums text-rose-700">− {fmt(t.amount)}</span>
-                    {!locked && (
-                      <div className="flex shrink-0 items-center gap-0.5">
-                        <button
-                          type="button"
-                          onClick={() => startEdit(t)}
-                          className="rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
-                          aria-label={`Editar ${t.description}`}
-                          title="Editar"
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setToDelete(t)}
-                          className="rounded p-1.5 text-muted-foreground hover:bg-rose-50 hover:text-rose-700"
-                          aria-label={`Excluir ${t.description}`}
-                          title="Excluir"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
+                <div>
+                  <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Cada parte arca com</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {(
+                      [
+                        { label: "Clínica", icon: Stethoscope, tone: "teal" },
+                        { label: "Agropecuária", icon: Wheat, tone: "amber" },
+                      ] as const
+                    ).map((p) => (
+                      <div key={p.label} className={cn("rounded-xl border px-3 py-2", TONES[p.tone].card)}>
+                        <p className={cn("flex items-center gap-1 text-[11px] font-semibold", TONES[p.tone].label)}>
+                          <p.icon className="h-3.5 w-3.5" aria-hidden /> {p.label}
+                        </p>
+                        <p className={cn("mt-0.5 text-lg font-bold tabular-nums", TONES[p.tone].text)}>{fmt(total / 2)}</p>
                       </div>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </Panel>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <p className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    <CONCEPTS.repasses.icon className="h-3.5 w-3.5 text-orange-600" aria-hidden /> A repassar
+                  </p>
+                  {monthProviders.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">Nada a repassar neste mês.</p>
+                  ) : (
+                    <ul className="space-y-2">
+                      {monthProviders.map(([name, value]) => {
+                        const key = savedKey(name);
+                        const pixText = key ? notes[key] : "";
+                        return (
+                          <li key={name} className={cn("rounded-xl border px-3 py-2", TONES.orange.card)}>
+                            <div className="flex items-baseline justify-between gap-2">
+                              <span className="min-w-0 truncate text-sm font-semibold text-foreground">{name}</span>
+                              <span className="shrink-0 text-sm font-bold tabular-nums text-orange-700">{fmt(value)}</span>
+                            </div>
+                            {pixText ? (
+                              <button
+                                type="button"
+                                onClick={() => void copyPix(pixText)}
+                                className="mt-1 flex w-full min-w-0 items-center gap-1.5 rounded text-left text-xs text-muted-foreground hover:text-foreground"
+                                title="Copiar PIX"
+                              >
+                                <Copy className="h-3 w-3 shrink-0" aria-hidden />
+                                <span className="truncate">{pixText}</span>
+                              </button>
+                            ) : (
+                              <p className="mt-1 text-xs font-medium text-amber-700">Sem PIX salvo — edite a despesa e preencha.</p>
+                            )}
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </div>
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-10 w-full gap-2 border-orange-200 font-semibold text-orange-800 hover:bg-orange-50"
+                  onClick={() => setPayoutOpen(true)}
+                  disabled={monthExpenses.length === 0}
+                  title="PDF para a Agrocentro pagar cada fornecedor, com o PIX"
+                >
+                  <Printer className="h-4 w-4" aria-hidden /> PDF do repasse
+                </Button>
+                <Link
+                  to="/financial/monthly-closing"
+                  className="flex items-center justify-center gap-1 text-xs font-semibold text-primary hover:underline"
+                >
+                  Ver no Fechamento 50/50 <ArrowRight className="h-3.5 w-3.5" aria-hidden />
+                </Link>
+              </div>
+            </div>
+          </Panel>
+        </aside>
       </div>
 
       <AlertDialog open={toDelete !== null} onOpenChange={(open) => !open && !deleting && setToDelete(null)}>
