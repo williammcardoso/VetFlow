@@ -25,6 +25,7 @@ export interface FinancialTransaction {
   cancelledAt?: string; // data/hora ISO do cancelamento
   purchaseGroupId?: string; // agrupa as parcelas de uma mesma compra de estoque
   installmentLabel?: string; // ex.: "Parcela 2/5"
+  payoutPaidAt?: string; // despesa: fornecedor já pago (data) — vazio = a pagar no fechamento
 }
 
 export interface OverallFinancialSummary {

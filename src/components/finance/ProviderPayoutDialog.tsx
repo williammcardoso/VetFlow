@@ -11,6 +11,7 @@ import { listProviderNotes, saveProviderNote } from "@/lib/providerNotes";
 import { renderPdf, openPdf } from "@/lib/pdfExport";
 import type { ProviderPayoutGroup } from "@/components/ProviderPayoutPdfContent";
 import { formatCurrencyBRL, slugifyFileName } from "@/lib/utils";
+import { summarizePayout } from "@/lib/payoutPaid";
 
 // Gera o PDF de repasse (um prestador ou todos) para a Agrocentro agendar o
 // pagamento. A observação de cada prestador (ex.: chave PIX) sai no PDF e,
@@ -53,7 +54,7 @@ export function ProviderPayoutDialog({
   }, [open]);
 
   const single = groups.length === 1;
-  const total = groups.reduce((s, g) => s + g.lines.reduce((t, l) => t + l.amount, 0), 0);
+  const all = summarizePayout(groups.flatMap((g) => g.lines));
 
   const generate = async () => {
     if (generating) return;
@@ -89,7 +90,8 @@ export function ProviderPayoutDialog({
             <div className="min-w-0">
               <DialogTitle>{single ? `Repasse — ${groups[0].provider}` : `Repasses — ${groups.length} prestadores`}</DialogTitle>
               <DialogDescription>
-                {periodLabel} · {formatCurrencyBRL(total)} · PDF para a Agrocentro agendar o pagamento.
+                {periodLabel} · {all.paid > 0 ? `a pagar ${formatCurrencyBRL(all.toPay)} (${formatCurrencyBRL(all.paid)} já pago)` : formatCurrencyBRL(all.total)} · PDF
+                para a Agrocentro agendar o pagamento.
               </DialogDescription>
             </div>
           </div>
@@ -102,7 +104,7 @@ export function ProviderPayoutDialog({
             </p>
           ) : (
             groups.map((g) => {
-              const subtotal = g.lines.reduce((s, l) => s + l.amount, 0);
+              const sub = summarizePayout(g.lines);
               const id = `payout-note-${g.provider}`;
               return (
                 <div key={g.provider} className="min-w-0 space-y-1.5">
@@ -110,7 +112,9 @@ export function ProviderPayoutDialog({
                     <span className="min-w-0 truncate">
                       Observação{single ? "" : <> — <span className="font-semibold text-orange-700">{g.provider}</span></>}
                     </span>
-                    <span className="shrink-0 text-xs font-semibold tabular-nums text-orange-700">{formatCurrencyBRL(subtotal)}</span>
+                    <span className="shrink-0 text-xs font-semibold tabular-nums text-orange-700">
+                      {sub.paid > 0 ? (sub.toPay > 0 ? `a pagar ${formatCurrencyBRL(sub.toPay)}` : "tudo pago") : formatCurrencyBRL(sub.total)}
+                    </span>
                   </Label>
                   <Textarea
                     id={id}

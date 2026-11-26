@@ -1,6 +1,7 @@
 /* PDF de repasse a prestadores (Financeiro › Relatórios › Serviços externos):
    vai para a Agrocentro agendar o pagamento. Um prestador ou todos (cada um
-   com subtotal), com a observação de cada um (ex.: chave PIX). */
+   com subtotal), com a observação de cada um (ex.: chave PIX). Item já pago
+   antes do fechamento sai marcado "PAGO" e fora do "a pagar". */
 import React from "react";
 import { Document, Page, Text, View, StyleSheet, Font } from "@react-pdf/renderer";
 import { mockCompanySettings } from "@/mockData/settings";
@@ -15,6 +16,7 @@ Font.register({
 
 const TEAL = "#0F766E";
 const ORANGE = "#C2410C";
+const GREEN = "#047857";
 const GRAY = "#6B7280";
 const LINE = "#E5E7EB";
 
@@ -61,6 +63,10 @@ const styles = StyleSheet.create({
   cellMain: { fontSize: 8.6, color: "#111827" },
   cellSub: { fontSize: 7.4, color: GRAY },
   value: { fontSize: 8.8, fontWeight: 700, textAlign: "right" },
+  valuePaid: { color: GRAY },
+  paidTag: { fontSize: 7, fontWeight: 700, color: GREEN, textAlign: "right", marginTop: 1 },
+  paidSummary: { flexDirection: "row", justifyContent: "flex-end", gap: 10, fontSize: 8, color: GRAY, marginTop: 3 },
+  paidSummaryValue: { fontWeight: 700, color: "#111827" },
   grand: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -83,6 +89,8 @@ export interface ProviderPayoutLine {
   amount: number;
   /** Quando o repasse junta prestadores (ex.: Unopato + Laboratório externo). */
   provider?: string;
+  /** Já pago antes do fechamento (data ISO) — sai do "a pagar". */
+  paidAt?: string;
 }
 
 export interface ProviderPayoutGroup {
@@ -92,6 +100,13 @@ export interface ProviderPayoutGroup {
 }
 
 const brl = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+const cents = (v: number) => Math.round(v * 100);
+/** Total, já pago e a pagar (em centavos para não somar 0,1 + 0,2 errado). */
+const sums = (lines: ProviderPayoutLine[]) => {
+  const total = lines.reduce((s, l) => s + cents(l.amount), 0);
+  const paid = lines.reduce((s, l) => s + (l.paidAt ? cents(l.amount) : 0), 0);
+  return { total: total / 100, paid: paid / 100, toPay: (total - paid) / 100 };
+};
 const dateBR = (iso: string) => {
   const [y, m, d] = iso.slice(0, 10).split("-");
   return y && m && d ? `${d}/${m}/${y}` : iso;
@@ -100,7 +115,7 @@ const dateBR = (iso: string) => {
 export function ProviderPayoutPdfContent({ groups, periodLabel }: { groups: ProviderPayoutGroup[]; periodLabel: string }) {
   const company = mockCompanySettings;
   const single = groups.length === 1;
-  const total = groups.reduce((s, g) => s + g.lines.reduce((t, l) => t + l.amount, 0), 0);
+  const all = sums(groups.flatMap((g) => g.lines));
   const count = groups.reduce((s, g) => s + g.lines.length, 0);
   const today = new Date().toLocaleDateString("pt-BR");
   const title = single ? `REPASSE — ${groups[0].provider.toUpperCase()}` : "REPASSES A PRESTADORES";
@@ -125,12 +140,14 @@ export function ProviderPayoutPdfContent({ groups, periodLabel }: { groups: Prov
         </Text>
 
         {groups.map((g) => {
-          const subtotal = g.lines.reduce((s, l) => s + l.amount, 0);
+          const sub = sums(g.lines);
           return (
             <View key={g.provider} style={styles.provider}>
               <View style={styles.providerHead} wrap={false}>
                 <Text style={styles.providerName}>{g.provider}</Text>
-                <Text style={styles.providerTotal}>{brl(subtotal)}</Text>
+                <Text style={[styles.providerTotal, sub.toPay === 0 && sub.paid > 0 ? { color: GREEN } : {}]}>
+                  {sub.toPay === 0 && sub.paid > 0 ? "PAGO" : brl(sub.toPay)}
+                </Text>
               </View>
               {g.note ? (
                 <View style={styles.note} wrap={false}>
@@ -158,16 +175,44 @@ export function ProviderPayoutPdfContent({ groups, periodLabel }: { groups: Prov
                     </Text>
                     {l.provider ? <Text style={styles.cellSub}>{l.provider}</Text> : null}
                   </View>
-                  <Text style={[styles.value, styles.cValue]}>{brl(l.amount)}</Text>
+                  <View style={styles.cValue}>
+                    <Text style={[styles.value, l.paidAt ? styles.valuePaid : {}]}>{brl(l.amount)}</Text>
+                    {l.paidAt ? <Text style={styles.paidTag}>PAGO em {dateBR(l.paidAt)}</Text> : null}
+                  </View>
                 </View>
               ))}
+              {sub.paid > 0 ? (
+                <View style={styles.paidSummary} wrap={false}>
+                  <Text>
+                    Total <Text style={styles.paidSummaryValue}>{brl(sub.total)}</Text>
+                  </Text>
+                  <Text>
+                    Já pago <Text style={[styles.paidSummaryValue, { color: GREEN }]}>{brl(sub.paid)}</Text>
+                  </Text>
+                  <Text>
+                    A pagar <Text style={[styles.paidSummaryValue, { color: ORANGE }]}>{brl(sub.toPay)}</Text>
+                  </Text>
+                </View>
+              ) : null}
             </View>
           );
         })}
 
+        {all.paid > 0 ? (
+          <View style={[styles.paidSummary, { marginTop: 6 }]} wrap={false}>
+            <Text>
+              Total dos serviços <Text style={styles.paidSummaryValue}>{brl(all.total)}</Text>
+            </Text>
+            <Text>
+              Já pago antes do fechamento <Text style={[styles.paidSummaryValue, { color: GREEN }]}>− {brl(all.paid)}</Text>
+            </Text>
+          </View>
+        ) : null}
         <View style={styles.grand} wrap={false}>
-          <Text style={styles.grandLabel}>{single ? "Total a repassar" : "Total a repassar (todos os prestadores)"}</Text>
-          <Text style={styles.grandValue}>{brl(total)}</Text>
+          <Text style={styles.grandLabel}>
+            {all.paid > 0 ? (single ? "Total a pagar" : "Total a pagar (todos os prestadores)") : single ? "Total a repassar" : "Total a repassar (todos os prestadores)"}
+          </Text>
+          <Text style={styles.grandValue}>{brl(all.toPay)}</Text>
         </View>
 
         <View style={styles.footer} fixed>

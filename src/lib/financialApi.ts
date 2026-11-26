@@ -30,6 +30,7 @@ function rowToTransaction(r: Record<string, unknown>): FinancialTransaction {
     cancelledAt: r.cancelled_at as string | undefined,
     purchaseGroupId: r.purchase_group_id as string | undefined,
     installmentLabel: r.installment_label as string | undefined,
+    payoutPaidAt: (r.repasse_pago_em as string | null) || undefined,
   };
 }
 

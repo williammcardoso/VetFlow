@@ -13,6 +13,8 @@ import { IconChip, Panel, PaymentMethodBadge } from "@/components/finance/Financ
 import { ResultBreakdown } from "@/components/finance/ResultBreakdown";
 import { ProviderPayoutDialog } from "@/components/finance/ProviderPayoutDialog";
 import { ProviderChangePopover } from "@/components/finance/ProviderChangePopover";
+import { PayoutPaidToggle } from "@/components/finance/PayoutPaidToggle";
+import { PAYOUT_PAID_MIGRATION, setExpensePayoutPaid, setSaleItemPayoutPaid, summarizePayout } from "@/lib/payoutPaid";
 import { DailySalesPanel, SalesByItemPanel } from "@/components/finance/reports/SalesBreakdownPanels";
 import { MovementsSplit, type MovementPeople } from "@/components/finance/reports/MovementsSplit";
 import SaleDetailModal from "@/components/SaleDetailModal";
@@ -51,6 +53,8 @@ type RepasseDetalhe = {
   patientCode?: number;
   /** Despesa (Financeiro → Despesas): repasse a fornecedor sem venda/paciente. */
   kind?: "despesa";
+  /** Já pago antes do fechamento (data) — sai do "a pagar" do PDF de repasse. */
+  paidAt?: string;
 };
 
 const fmt = formatCurrencyBRL;
@@ -66,7 +70,7 @@ const CASH_SERIES = [
 ];
 
 const FinancialReportsPage: React.FC = () => {
-  const { transactions, loading } = useFinancialTransactions();
+  const { transactions, loading, refetch: refetchTransactions } = useFinancialTransactions();
   const { data: clients = [] } = useClientsList();
   const { items: catalog, refetch: refetchCatalog } = useCatalog();
   // Vindo do Fechamento 50/50 ("Ver detalhamento do mês"): já abre naquele mês.
@@ -153,6 +157,7 @@ const FinancialReportsPage: React.FC = () => {
         animalId: sale.relatedAnimalId,
         animalName: animal?.name || (sale.relatedAnimalId ? "Paciente" : "Sem paciente"),
         patientCode: animal?.patientCode,
+        paidAt: item.payoutPaidAt,
       });
     }
     // Despesas também são repasse a fornecedor: entram no mesmo PDF, com o PIX.
@@ -170,6 +175,7 @@ const FinancialReportsPage: React.FC = () => {
         clientName: t.observations?.trim() || "sem cliente",
         animalName: "Despesa",
         kind: "despesa",
+        paidAt: t.payoutPaidAt,
       });
     }
     return rows.sort((a, b) => `${b.date}T${b.time || "00:00"}`.localeCompare(`${a.date}T${a.time || "00:00"}`));
@@ -183,6 +189,31 @@ const FinancialReportsPage: React.FC = () => {
       .sort((a, b) => b.amount - a.amount);
   }, [repassesDetalhados]);
   const totalRepassesItens = repassesPorPrestador.reduce((s, r) => s + r.amount, 0);
+  // Pago antes do fechamento, por prestador (o 50/50 não muda; só o "a pagar").
+  const paidByProvider = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const r of repassesDetalhados) if (r.paidAt) map.set(r.provider, (map.get(r.provider) || 0) + r.amount);
+    return map;
+  }, [repassesDetalhados]);
+
+  const [payingId, setPayingId] = useState<string | null>(null);
+  const togglePaid = async (row: RepasseDetalhe) => {
+    const next = row.paidAt ? null : getTodayLocalISO();
+    setPayingId(row.id);
+    try {
+      const result = row.kind === "despesa" ? await setExpensePayoutPaid(row.id, next) : await setSaleItemPayoutPaid(row.id, next);
+      if (result === "missing-column") return void toast.error(`Falta rodar no Supabase o SQL ${PAYOUT_PAID_MIGRATION}.`);
+      if (result === "error") return void toast.error("Não consegui salvar. Tente de novo.");
+      if (row.kind === "despesa") await refetchTransactions();
+      else setPeriodSaleItems((prev) => prev.map((i) => (i.id === row.id ? { ...i, payoutPaidAt: next ?? undefined } : i)));
+      const label = `${row.serviceName}${row.kind === "despesa" ? "" : ` (${row.animalName})`}`;
+      toast.success(next ? `${label}: pago — sai do "a pagar" do repasse.` : `${label}: voltou para "a pagar".`, {
+        action: { label: "Desfazer", onClick: () => void togglePaid({ ...row, paidAt: next ?? undefined }) },
+      });
+    } finally {
+      setPayingId(null);
+    }
+  };
   // Relatório em PDF: a tabela de prestadores fecha com o total de repasses
   // (labs/especialistas); as despesas têm o cartão próprio nele.
   const repassesPorPrestadorItens = useMemo(() => {
@@ -322,7 +353,7 @@ const FinancialReportsPage: React.FC = () => {
           provider: ordered.join(" + "),
           lines: [...filteredRepasses]
             .sort(byDate)
-            .map((r) => ({ date: r.date, patient: r.animalName, tutor: r.clientName, service: r.serviceName, quantity: r.quantity, amount: r.amount, provider: r.provider })),
+            .map((r) => ({ date: r.date, patient: r.animalName, tutor: r.clientName, service: r.serviceName, quantity: r.quantity, amount: r.amount, provider: r.provider, paidAt: r.paidAt })),
         },
       ];
     }
@@ -333,7 +364,7 @@ const FinancialReportsPage: React.FC = () => {
         lines: [...filteredRepasses]
           .filter((r) => r.provider === provider)
           .sort((a, b) => `${a.date}T${a.time || "00:00"}`.localeCompare(`${b.date}T${b.time || "00:00"}`))
-          .map((r) => ({ date: r.date, patient: r.animalName, tutor: r.clientName, service: r.serviceName, quantity: r.quantity, amount: r.amount })),
+          .map((r) => ({ date: r.date, patient: r.animalName, tutor: r.clientName, service: r.serviceName, quantity: r.quantity, amount: r.amount, paidAt: r.paidAt })),
       }))
       .filter((g) => g.lines.length > 0);
   }, [selectedProviders, repassesPorPrestador, filteredRepasses]);
@@ -556,7 +587,9 @@ const FinancialReportsPage: React.FC = () => {
                     key: r.provider,
                     label: r.provider,
                     value: r.amount,
-                    hint: pct(r.amount, totalRepassesItens),
+                    hint: paidByProvider.get(r.provider)
+                      ? `${pct(r.amount, totalRepassesItens)} · pago ${fmt(paidByProvider.get(r.provider)!)}`
+                      : pct(r.amount, totalRepassesItens),
                     icon: CONCEPTS.repasses.icon,
                   }))}
                   onSelect={goToProviderDetail}
@@ -648,12 +681,27 @@ const FinancialReportsPage: React.FC = () => {
                         <span className="tabular-nums">{formatDateTime(row.date)}</span>
                       </div>
                     </div>
-                    <span className="shrink-0 text-sm font-bold tabular-nums text-orange-700">{fmt(row.amount)}</span>
+                    {/* Valor + situação: pago antes do fechamento sai do "a pagar" do PDF. */}
+                    <div className="flex shrink-0 flex-col items-end gap-1">
+                      <span className={cn("text-sm font-bold tabular-nums", row.paidAt ? "text-muted-foreground" : "text-orange-700")}>{fmt(row.amount)}</span>
+                      <PayoutPaidToggle paidAt={row.paidAt} busy={payingId === row.id} onToggle={() => void togglePaid(row)} className="print:hidden" />
+                    </div>
                   </li>
                 ))}
               </ul>
               <div className="flex items-center justify-between gap-3 border-t border-border/70 bg-orange-50/40 px-4 py-2 text-sm">
-                <span className="text-muted-foreground">{plural(filteredRepasses.length, "item", "itens")}</span>
+                <span className="text-muted-foreground">
+                  {plural(filteredRepasses.length, "item", "itens")}
+                  {(() => {
+                    const { paid, toPay } = summarizePayout(filteredRepasses);
+                    return paid > 0 ? (
+                      <>
+                        {" "}· pago <span className="font-semibold tabular-nums text-emerald-700">{fmt(paid)}</span> · a pagar{" "}
+                        <span className="font-semibold tabular-nums text-amber-700">{fmt(toPay)}</span>
+                      </>
+                    ) : null;
+                  })()}
+                </span>
                 <div className="flex items-center gap-2">
                   <span className="font-bold tabular-nums text-orange-700">{fmt(filteredRepasses.reduce((s, r) => s + r.amount, 0))}</span>
                   <Button

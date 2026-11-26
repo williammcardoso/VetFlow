@@ -23,6 +23,8 @@ import { Field } from "@/components/forms/FormLayout";
 import { IconChip, Panel } from "@/components/finance/FinanceUI";
 import { CONCEPTS, TONES } from "@/components/finance/financeTheme";
 import { ProviderPayoutDialog } from "@/components/finance/ProviderPayoutDialog";
+import { PayoutPaidToggle } from "@/components/finance/PayoutPaidToggle";
+import { PAYOUT_PAID_MIGRATION, setExpensePayoutPaid, summarizePayout } from "@/lib/payoutPaid";
 import { useFinancialTransactions } from "@/hooks/useFinancialTransactions";
 import { addFinancialTransaction, deleteFinancialTransaction, updateFinancialTransaction } from "@/lib/financialApi";
 import { getMonthlyClosing } from "@/lib/monthlyClosingsApi";
@@ -88,10 +90,32 @@ const ExpensesPage: React.FC = () => {
   );
   const total = sum(monthExpenses);
   const monthProviders = useMemo(() => {
-    const map = new Map<string, number>();
-    for (const t of monthExpenses) map.set(expenseProvider(t), (map.get(expenseProvider(t)) ?? 0) + t.amount);
-    return Array.from(map.entries()).sort((a, b) => b[1] - a[1]);
+    const map = new Map<string, FinancialTransaction[]>();
+    for (const t of monthExpenses) map.set(expenseProvider(t), [...(map.get(expenseProvider(t)) ?? []), t]);
+    return Array.from(map.entries())
+      .map(([name, list]) => [name, summarizePayout(list.map((t) => ({ amount: t.amount, paidAt: t.payoutPaidAt })))] as const)
+      .sort((a, b) => b[1].total - a[1].total);
   }, [monthExpenses]);
+  const monthPaid = summarizePayout(monthExpenses.map((t) => ({ amount: t.amount, paidAt: t.payoutPaidAt })));
+
+  // Pago antes do fechamento (ex.: o fornecedor quis receber na hora): só
+  // controle — o 50/50 não muda; sai do "a pagar" do PDF de repasse.
+  const [payingId, setPayingId] = useState<string | null>(null);
+  const togglePaid = async (t: FinancialTransaction, wasPaid = !!t.payoutPaidAt) => {
+    const next = wasPaid ? null : getTodayLocalISO();
+    setPayingId(t.id);
+    try {
+      const result = await setExpensePayoutPaid(t.id, next);
+      if (result === "missing-column") return void toast.error(`Falta rodar no Supabase o SQL ${PAYOUT_PAID_MIGRATION}.`);
+      if (result === "error") return void toast.error("Não consegui salvar. Tente de novo.");
+      await refetch();
+      toast.success(next ? `${t.description}: pago — sai do "a pagar" do repasse.` : `${t.description}: voltou para "a pagar".`, {
+        action: { label: "Desfazer", onClick: () => void togglePaid(t, !!next) },
+      });
+    } finally {
+      setPayingId(null);
+    }
+  };
 
   // Sugestões: fornecedores das despesas anteriores + quem já tem PIX salvo.
   const providerOptions = useMemo(() => {
@@ -280,6 +304,7 @@ const ExpensesPage: React.FC = () => {
             service: t.description,
             quantity: 1,
             amount: t.amount,
+            paidAt: t.payoutPaidAt,
           })),
       })),
     [monthProviders, monthExpenses]
@@ -298,8 +323,8 @@ const ExpensesPage: React.FC = () => {
   };
 
   const monthName = periodLabel.split(" / ")[0];
-  // Colunas da lista no computador: data | despesa | repassar para | valor | ações.
-  const LIST_COLS = "xl:grid-cols-[6.5rem_minmax(0,1.6fr)_minmax(0,1fr)_8.5rem_4.5rem]";
+  // Colunas da lista no computador: data | despesa | repassar para | situação | valor | ações.
+  const LIST_COLS = "xl:grid-cols-[6.5rem_minmax(0,1.6fr)_minmax(0,1fr)_6.5rem_8.5rem_4.5rem]";
 
   return (
     <PageShell className="space-y-4 sm:space-y-5">
@@ -510,6 +535,7 @@ const ExpensesPage: React.FC = () => {
                   <span>Data</span>
                   <span>Despesa</span>
                   <span>Repassar para</span>
+                  <span>Situação</span>
                   <span className="text-right">Valor</span>
                   <span className="sr-only">Ações</span>
                 </div>
@@ -543,6 +569,7 @@ const ExpensesPage: React.FC = () => {
                             <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground xl:hidden">
                               <span className="tabular-nums">{formatDateTime(t.date)}</span>
                               {badge}
+                              <PayoutPaidToggle paidAt={t.payoutPaidAt} busy={payingId === t.id} onToggle={() => void togglePaid(t)} />
                             </p>
                           </div>
                         </div>
@@ -552,8 +579,13 @@ const ExpensesPage: React.FC = () => {
                             {key ? "PIX salvo" : "sem PIX salvo"}
                           </p>
                         </div>
+                        <div className="hidden xl:block">
+                          <PayoutPaidToggle paidAt={t.payoutPaidAt} busy={payingId === t.id} onToggle={() => void togglePaid(t)} />
+                        </div>
                         <div className="flex flex-col items-end gap-1 xl:contents">
-                          <span className="text-sm font-bold tabular-nums text-rose-700 xl:text-right">− {fmt(t.amount)}</span>
+                          <span className={cn("text-sm font-bold tabular-nums xl:text-right", t.payoutPaidAt ? "text-muted-foreground" : "text-rose-700")}>
+                            − {fmt(t.amount)}
+                          </span>
                           {!locked ? (
                             <div className="flex items-center justify-end gap-0.5">
                               <button
@@ -623,20 +655,37 @@ const ExpensesPage: React.FC = () => {
                 <div>
                   <p className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                     <CONCEPTS.repasses.icon className="h-3.5 w-3.5 text-orange-600" aria-hidden /> A repassar
+                    {monthPaid.paid > 0 && (
+                      <span className="ml-auto normal-case tracking-normal">
+                        a pagar <span className="font-bold tabular-nums text-orange-700">{fmt(monthPaid.toPay)}</span>
+                      </span>
+                    )}
                   </p>
                   {monthProviders.length === 0 ? (
                     <p className="text-sm text-muted-foreground">Nada a repassar neste mês.</p>
                   ) : (
                     <ul className="space-y-2">
-                      {monthProviders.map(([name, value]) => {
+                      {monthProviders.map(([name, sums]) => {
                         const key = savedKey(name);
                         const pixText = key ? notes[key] : "";
+                        const allPaid = sums.toPay === 0 && sums.paid > 0;
                         return (
-                          <li key={name} className={cn("rounded-xl border px-3 py-2", TONES.orange.card)}>
+                          <li key={name} className={cn("rounded-xl border px-3 py-2", allPaid ? TONES.emerald.card : TONES.orange.card)}>
                             <div className="flex items-baseline justify-between gap-2">
                               <span className="min-w-0 truncate text-sm font-semibold text-foreground">{name}</span>
-                              <span className="shrink-0 text-sm font-bold tabular-nums text-orange-700">{fmt(value)}</span>
+                              {allPaid ? (
+                                <span className="inline-flex shrink-0 items-center gap-1 text-sm font-bold tabular-nums text-emerald-700">
+                                  <CheckCircle2 className="h-3.5 w-3.5" aria-hidden /> {fmt(sums.total)} pago
+                                </span>
+                              ) : (
+                                <span className="shrink-0 text-sm font-bold tabular-nums text-orange-700">{fmt(sums.toPay)}</span>
+                              )}
                             </div>
+                            {sums.paid > 0 && !allPaid && (
+                              <p className="text-[11px] text-muted-foreground">
+                                a pagar · <span className="font-semibold text-emerald-700">{fmt(sums.paid)} já pago</span>
+                              </p>
+                            )}
                             {pixText ? (
                               <button
                                 type="button"

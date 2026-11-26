@@ -15,6 +15,8 @@ export interface SaleItem {
   providerCost?: number;
   costProvider?: string;
   subtotal: number;
+  /** Repasse ao prestador já pago (data) — vazio = a pagar no fechamento. */
+  payoutPaidAt?: string;
 }
 
 export interface SaleItemConsumption {
@@ -56,6 +58,7 @@ function rowToSaleItem(r: Record<string, unknown>): SaleItem {
     providerCost,
     costProvider: (r.cost_provider as string | undefined) || undefined,
     subtotal: Number(r.subtotal),
+    payoutPaidAt: (r.repasse_pago_em as string | null) || undefined,
   };
 }
 
