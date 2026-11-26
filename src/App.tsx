@@ -64,6 +64,7 @@ const FinancialPaymentMethodsPage = lazyPage(() => import("./pages/financial/Pay
 const FinancialReportsPage = lazyPage(() => import("./pages/financial/FinancialReportsPage"));
 const MonthlyClosingPage = lazyPage(() => import("./pages/financial/MonthlyClosingPage"));
 const ExpensesPage = lazyPage(() => import("./pages/financial/ExpensesPage"));
+const ProfitForecastPage = lazyPage(() => import("./pages/financial/ProfitForecastPage"));
 const SalesItemsReportPage = lazyPage(() => import("./pages/financial/SalesItemsReportPage"));
 const ProductsServicesPage = lazyPage(() => import("./pages/stock/ProductsServicesPage"));
 const PurchasesPage = lazyPage(() => import("./pages/stock/PurchasesPage"));
@@ -365,6 +366,7 @@ const App = () => {
                     <Route path="/financial/reports" element={<FinancialReportsPage />} />
                     <Route path="/financial/monthly-closing" element={<MonthlyClosingPage />} />
                     <Route path="/financial/expenses" element={<ExpensesPage />} />
+                    <Route path="/financial/forecast" element={<ProfitForecastPage />} />
                     <Route path="/financial/sales-items" element={<SalesItemsReportPage />} />
                     <Route path="/financial/accounts-receivable" element={<Navigate to="/financial" replace />} />
                     <Route path="/financial/receipts" element={<Navigate to="/financial" replace />} />

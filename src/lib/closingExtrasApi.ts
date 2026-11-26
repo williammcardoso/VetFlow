@@ -48,6 +48,13 @@ export async function listClosingExtras(year: number, month: number): Promise<{ 
   return { items: (data || []).map((r) => rowToExtra(r as Record<string, unknown>)), available: true };
 }
 
+/** Acréscimos de todos os meses (Previsão de lucro). Sem a tabela, lista vazia. */
+export async function listAllClosingExtras(): Promise<ClosingExtra[]> {
+  const { data, error } = await supabase.from(TABLE).select("*").order("year").order("month");
+  if (error) return [];
+  return (data || []).map((r) => rowToExtra(r as Record<string, unknown>));
+}
+
 export async function addClosingExtra(entry: Omit<ClosingExtra, "id" | "createdAt">): Promise<ClosingExtra> {
   const { data, error } = await supabase
     .from(TABLE)

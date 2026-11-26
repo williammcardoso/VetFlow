@@ -46,6 +46,7 @@ import {
   LayoutTemplate,
   Clock,
   ExternalLink,
+  TrendingUp,
 } from "lucide-react";
 
 interface NavItem {
@@ -85,6 +86,7 @@ const navItemsBase: NavItem[] = [
       { title: "Visão geral", href: "/financial", icon: Wallet },
       { title: "Relatórios", href: "/financial/reports", icon: FileText },
       { title: "Fechamento 50/50", href: "/financial/monthly-closing", icon: Scale },
+      { title: "Previsão de lucro", href: "/financial/forecast", icon: TrendingUp },
       { title: "Despesas", href: "/financial/expenses", icon: Building },
       { title: "Vendas item a item", href: "/financial/sales-items", icon: ListOrdered },
       { title: "Compras do almoxarifado", href: "/stock/purchases", icon: ShoppingCart },

@@ -68,6 +68,16 @@ export async function getMonthlyClosing(year: number, month: number): Promise<Mo
   return data ? rowToRecord(data) : null;
 }
 
+/** Todos os meses fechados (Previsão de lucro usa o lucro gravado de cada um). */
+export async function listMonthlyClosings(): Promise<MonthlyClosingRecord[]> {
+  const { data, error } = await supabase.from(TABLE).select("*").order("year").order("month");
+  if (error) {
+    console.error("[listMonthlyClosings] error", error);
+    return [];
+  }
+  return (data || []).map((r) => rowToRecord(r as Record<string, unknown>));
+}
+
 export async function closeMonth(breakdown: MonthlyClosingBreakdown, closedBy?: string): Promise<boolean> {
   const base = {
     year: breakdown.year,
